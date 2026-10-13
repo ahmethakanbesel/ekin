@@ -1,9 +1,9 @@
 # Dokploy "Compose" deployment. Use the Compose type, not Application:
 # Application runs on Swarm, which drops cpuset and cpu_shares.
 #
-# The API has no authentication yet (PLAN.md milestone 2). Until it does,
-# keep it off the public internet: no domain in Dokploy, reach it over an
-# SSH tunnel or Tailscale.
+# Give the serve service a domain with HTTPS in Dokploy and set
+# KURGU_PUBLIC_URL to it. Create the first account once deployed:
+#   docker compose exec serve /kurgu user create --email you@example.com --name You
 
 x-kurgu: &kurgu
   image: kurgu:${KURGU_VERSION:-latest}

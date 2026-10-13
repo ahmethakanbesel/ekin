@@ -39,6 +39,8 @@ func TestLoadRejectsBadValues(t *testing.T) {
 		{"tiny tick", map[string]string{"KURGU_SCHEDULER_TICK": "10ms"}, "KURGU_SCHEDULER_TICK"},
 		{"bad log format", map[string]string{"KURGU_LOG_FORMAT": "xml"}, "KURGU_LOG_FORMAT"},
 		{"bad concurrency", map[string]string{"KURGU_QUEUE_CONCURRENCY": "gpu=1"}, "KURGU_QUEUE_CONCURRENCY"},
+		{"relative public url", map[string]string{"KURGU_PUBLIC_URL": "kurgu.example.com"}, "KURGU_PUBLIC_URL"},
+		{"public url with path", map[string]string{"KURGU_PUBLIC_URL": "https://example.com/kurgu"}, "KURGU_PUBLIC_URL"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -47,6 +49,24 @@ func TestLoadRejectsBadValues(t *testing.T) {
 				t.Fatalf("err = %v, want mention of %s", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestPublicURL(t *testing.T) {
+	tests := []struct {
+		env  map[string]string
+		want string
+	}{
+		{nil, "http://127.0.0.1:8080"},
+		{map[string]string{"KURGU_HTTP_ADDR": ":9000"}, "http://localhost:9000"},
+		{map[string]string{"KURGU_HTTP_ADDR": "0.0.0.0:8080"}, "http://localhost:8080"},
+		{map[string]string{"KURGU_PUBLIC_URL": "https://kurgu.example.com/"}, "https://kurgu.example.com"},
+	}
+	for _, tt := range tests {
+		cfg, err := load(env(tt.env))
+		if err != nil || cfg.PublicURL != tt.want {
+			t.Errorf("env %v: public url = %q, %v; want %q", tt.env, cfg.PublicURL, err, tt.want)
+		}
 	}
 }
 

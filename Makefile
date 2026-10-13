@@ -22,9 +22,10 @@ build: web
 run:
 	@$(LOAD_ENV) go run $(LDFLAGS) ./cmd/kurgu all
 
-# API + worker with the Vite dev server proxying /api to it.
+# API + worker with the Vite dev server proxying /api to it. Invitation
+# links point at Vite.
 dev:
-	@$(LOAD_ENV) go run ./cmd/kurgu all & cd web && bun run dev; kill %1
+	@$(LOAD_ENV) KURGU_PUBLIC_URL=$${KURGU_PUBLIC_URL:-http://localhost:5173} go run ./cmd/kurgu all & cd web && bun run dev; kill %1
 
 test:
 	go test -race ./...

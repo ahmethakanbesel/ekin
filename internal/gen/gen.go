@@ -24,6 +24,10 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+const (
+	SessionScopes = "session.Scopes"
+)
+
 // Defines values for DeliverableKind.
 const (
 	Article DeliverableKind = "article"
@@ -105,6 +109,27 @@ func (e PipelineStatus) Valid() bool {
 	}
 }
 
+// Defines values for Role.
+const (
+	Editor Role = "editor"
+	Owner  Role = "owner"
+	Viewer Role = "viewer"
+)
+
+// Valid indicates whether the value is a known member of the Role enum.
+func (e Role) Valid() bool {
+	switch e {
+	case Editor:
+		return true
+	case Owner:
+		return true
+	case Viewer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SourceKind.
 const (
 	Knowledge SourceKind = "knowledge"
@@ -177,6 +202,29 @@ type Error struct {
 	Message string `json:"message"`
 }
 
+// Invitation defines model for Invitation.
+type Invitation struct {
+	CreatedAt time.Time          `json:"createdAt"`
+	Email     string             `json:"email"`
+	ExpiresAt time.Time          `json:"expiresAt"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// Role owner: everything, including settings and members. editor: pipelines, runs and review. viewer: read only.
+	Role Role `json:"role"`
+}
+
+// InvitationPreview defines model for InvitationPreview.
+type InvitationPreview struct {
+	// AccountExists When true, accepting takes that account's password; otherwise a name and a new password.
+	AccountExists bool      `json:"accountExists"`
+	Email         string    `json:"email"`
+	ExpiresAt     time.Time `json:"expiresAt"`
+
+	// Role owner: everything, including settings and members. editor: pipelines, runs and review. viewer: read only.
+	Role          Role   `json:"role"`
+	WorkspaceName string `json:"workspaceName"`
+}
+
 // Job defines model for Job.
 type Job struct {
 	Attempt     int                `json:"attempt"`
@@ -207,6 +255,23 @@ type KnowledgeRef struct {
 
 // Language defines model for Language.
 type Language string
+
+// LoginInput defines model for LoginInput.
+type LoginInput struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// Member defines model for Member.
+type Member struct {
+	Email    string    `json:"email"`
+	JoinedAt time.Time `json:"joinedAt"`
+	Name     string    `json:"name"`
+
+	// Role owner: everything, including settings and members. editor: pipelines, runs and review. viewer: read only.
+	Role   Role               `json:"role"`
+	UserId openapi_types.UUID `json:"userId"`
+}
 
 // Outputs A video, an article, or both. With both, `lead` says which is produced first; the other is derived from it.
 type Outputs struct {
@@ -242,6 +307,9 @@ type PipelineDefinition struct {
 	Source   Source    `json:"source"`
 }
 
+// Role owner: everything, including settings and members. editor: pipelines, runs and review. viewer: read only.
+type Role string
+
 // Schedule defines model for Schedule.
 type Schedule struct {
 	// Batch Items produced per run.
@@ -265,6 +333,14 @@ type Source struct {
 // SourceKind defines model for Source.Kind.
 type SourceKind string
 
+// User defines model for User.
+type User struct {
+	CreatedAt time.Time          `json:"createdAt"`
+	Email     string             `json:"email"`
+	Id        openapi_types.UUID `json:"id"`
+	Name      string             `json:"name"`
+}
+
 // VideoSpec defines model for VideoSpec.
 type VideoSpec struct {
 	DurationSeconds int                  `json:"durationSeconds"`
@@ -283,8 +359,11 @@ type Workspace struct {
 	CreatedAt time.Time          `json:"createdAt"`
 	Id        openapi_types.UUID `json:"id"`
 	Name      string             `json:"name"`
-	Timezone  string             `json:"timezone"`
-	UpdatedAt time.Time          `json:"updatedAt"`
+
+	// Role owner: everything, including settings and members. editor: pipelines, runs and review. viewer: read only.
+	Role      Role      `json:"role"`
+	Timezone  string    `json:"timezone"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // WorkspaceInput defines model for WorkspaceInput.
@@ -301,16 +380,50 @@ type WorkspacePatch struct {
 	Timezone *string `json:"timezone,omitempty"`
 }
 
+// InvitationToken defines model for InvitationToken.
+type InvitationToken = string
+
 // PipelineId defines model for PipelineId.
 type PipelineId = openapi_types.UUID
 
 // WorkspaceId defines model for WorkspaceId.
 type WorkspaceId = openapi_types.UUID
 
+// AcceptInvitationJSONBody defines parameters for AcceptInvitation.
+type AcceptInvitationJSONBody struct {
+	Name     *string `json:"name,omitempty"`
+	Password string  `json:"password"`
+}
+
+// UpdateMeJSONBody defines parameters for UpdateMe.
+type UpdateMeJSONBody struct {
+	Name string `json:"name"`
+}
+
+// ChangePasswordJSONBody defines parameters for ChangePassword.
+type ChangePasswordJSONBody struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+// CreateInvitationJSONBody defines parameters for CreateInvitation.
+type CreateInvitationJSONBody struct {
+	Email string `json:"email"`
+
+	// Role owner: everything, including settings and members. editor: pipelines, runs and review. viewer: read only.
+	Role Role `json:"role"`
+}
+
 // ListJobsParams defines parameters for ListJobs.
 type ListJobsParams struct {
 	Status *[]JobStatus `form:"status,omitempty" json:"status,omitempty"`
 	Limit  *int         `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ChangeMemberRoleJSONBody defines parameters for ChangeMemberRole.
+type ChangeMemberRoleJSONBody struct {
+	// Role owner: everything, including settings and members. editor: pipelines, runs and review. viewer: read only.
+	Role Role `json:"role"`
 }
 
 // RedefinePipelineJSONBody defines parameters for RedefinePipeline.
@@ -324,11 +437,29 @@ type RunPipelineJSONBody struct {
 	Count int `json:"count"`
 }
 
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = LoginInput
+
+// AcceptInvitationJSONRequestBody defines body for AcceptInvitation for application/json ContentType.
+type AcceptInvitationJSONRequestBody AcceptInvitationJSONBody
+
+// UpdateMeJSONRequestBody defines body for UpdateMe for application/json ContentType.
+type UpdateMeJSONRequestBody UpdateMeJSONBody
+
+// ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
+type ChangePasswordJSONRequestBody ChangePasswordJSONBody
+
 // CreateWorkspaceJSONRequestBody defines body for CreateWorkspace for application/json ContentType.
 type CreateWorkspaceJSONRequestBody = WorkspaceInput
 
 // UpdateWorkspaceJSONRequestBody defines body for UpdateWorkspace for application/json ContentType.
 type UpdateWorkspaceJSONRequestBody = WorkspacePatch
+
+// CreateInvitationJSONRequestBody defines body for CreateInvitation for application/json ContentType.
+type CreateInvitationJSONRequestBody CreateInvitationJSONBody
+
+// ChangeMemberRoleJSONRequestBody defines body for ChangeMemberRole for application/json ContentType.
+type ChangeMemberRoleJSONRequestBody ChangeMemberRoleJSONBody
 
 // CreatePipelineJSONRequestBody defines body for CreatePipeline for application/json ContentType.
 type CreatePipelineJSONRequestBody = PipelineDefinition
@@ -342,6 +473,27 @@ type RunPipelineJSONRequestBody RunPipelineJSONBody
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
+	// (POST /auth/login)
+	Login(w http.ResponseWriter, r *http.Request)
+
+	// (POST /auth/logout)
+	Logout(w http.ResponseWriter, r *http.Request)
+
+	// (GET /invitations/{token})
+	GetInvitation(w http.ResponseWriter, r *http.Request, token InvitationToken)
+
+	// (POST /invitations/{token}/accept)
+	AcceptInvitation(w http.ResponseWriter, r *http.Request, token InvitationToken)
+
+	// (GET /me)
+	GetMe(w http.ResponseWriter, r *http.Request)
+
+	// (PATCH /me)
+	UpdateMe(w http.ResponseWriter, r *http.Request)
+
+	// (POST /me/password)
+	ChangePassword(w http.ResponseWriter, r *http.Request)
+
 	// (GET /workspaces)
 	ListWorkspaces(w http.ResponseWriter, r *http.Request)
 
@@ -354,6 +506,15 @@ type ServerInterface interface {
 	// (PATCH /workspaces/{workspaceId})
 	UpdateWorkspace(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
 
+	// (GET /workspaces/{workspaceId}/invitations)
+	ListInvitations(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
+
+	// (POST /workspaces/{workspaceId}/invitations)
+	CreateInvitation(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
+
+	// (DELETE /workspaces/{workspaceId}/invitations/{invitationId})
+	RevokeInvitation(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, invitationId openapi_types.UUID)
+
 	// (GET /workspaces/{workspaceId}/jobs)
 	ListJobs(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params ListJobsParams)
 
@@ -362,6 +523,15 @@ type ServerInterface interface {
 
 	// (POST /workspaces/{workspaceId}/jobs/{jobId}/cancel)
 	CancelJob(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, jobId openapi_types.UUID)
+
+	// (GET /workspaces/{workspaceId}/members)
+	ListMembers(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
+
+	// (DELETE /workspaces/{workspaceId}/members/{userId})
+	RemoveMember(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, userId openapi_types.UUID)
+
+	// (PATCH /workspaces/{workspaceId}/members/{userId})
+	ChangeMemberRole(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, userId openapi_types.UUID)
 
 	// (GET /workspaces/{workspaceId}/pipelines)
 	ListPipelines(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
@@ -397,8 +567,158 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
+// Login operation middleware
+func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Login(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Logout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetInvitation operation middleware
+func (siw *ServerInterfaceWrapper) GetInvitation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "token" -------------
+	var token InvitationToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", r.PathValue("token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetInvitation(w, r, token)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AcceptInvitation operation middleware
+func (siw *ServerInterfaceWrapper) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "token" -------------
+	var token InvitationToken
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", r.PathValue("token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AcceptInvitation(w, r, token)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetMe operation middleware
+func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateMe operation middleware
+func (siw *ServerInterfaceWrapper) UpdateMe(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ChangePassword operation middleware
+func (siw *ServerInterfaceWrapper) ChangePassword(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChangePassword(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListWorkspaces operation middleware
 func (siw *ServerInterfaceWrapper) ListWorkspaces(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListWorkspaces(w, r)
@@ -413,6 +733,12 @@ func (siw *ServerInterfaceWrapper) ListWorkspaces(w http.ResponseWriter, r *http
 
 // CreateWorkspace operation middleware
 func (siw *ServerInterfaceWrapper) CreateWorkspace(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateWorkspace(w, r)
@@ -439,6 +765,12 @@ func (siw *ServerInterfaceWrapper) GetWorkspace(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetWorkspace(w, r, workspaceId)
 	}))
@@ -464,8 +796,116 @@ func (siw *ServerInterfaceWrapper) UpdateWorkspace(w http.ResponseWriter, r *htt
 		return
 	}
 
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateWorkspace(w, r, workspaceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListInvitations operation middleware
+func (siw *ServerInterfaceWrapper) ListInvitations(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListInvitations(w, r, workspaceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateInvitation operation middleware
+func (siw *ServerInterfaceWrapper) CreateInvitation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateInvitation(w, r, workspaceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeInvitation operation middleware
+func (siw *ServerInterfaceWrapper) RevokeInvitation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "invitationId" -------------
+	var invitationId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "invitationId", r.PathValue("invitationId"), &invitationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "invitationId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeInvitation(w, r, workspaceId, invitationId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -488,6 +928,12 @@ func (siw *ServerInterfaceWrapper) ListJobs(w http.ResponseWriter, r *http.Reque
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
 		return
 	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ListJobsParams
@@ -542,6 +988,12 @@ func (siw *ServerInterfaceWrapper) GetJob(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetJob(w, r, workspaceId, jobId)
 	}))
@@ -576,8 +1028,125 @@ func (siw *ServerInterfaceWrapper) CancelJob(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CancelJob(w, r, workspaceId, jobId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListMembers operation middleware
+func (siw *ServerInterfaceWrapper) ListMembers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListMembers(w, r, workspaceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveMember operation middleware
+func (siw *ServerInterfaceWrapper) RemoveMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userId" -------------
+	var userId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", r.PathValue("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveMember(w, r, workspaceId, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ChangeMemberRole operation middleware
+func (siw *ServerInterfaceWrapper) ChangeMemberRole(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "userId" -------------
+	var userId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", r.PathValue("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChangeMemberRole(w, r, workspaceId, userId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -600,6 +1169,12 @@ func (siw *ServerInterfaceWrapper) ListPipelines(w http.ResponseWriter, r *http.
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
 		return
 	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListPipelines(w, r, workspaceId)
@@ -625,6 +1200,12 @@ func (siw *ServerInterfaceWrapper) CreatePipeline(w http.ResponseWriter, r *http
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
 		return
 	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreatePipeline(w, r, workspaceId)
@@ -660,6 +1241,12 @@ func (siw *ServerInterfaceWrapper) DeletePipeline(w http.ResponseWriter, r *http
 		return
 	}
 
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeletePipeline(w, r, workspaceId, pipelineId)
 	}))
@@ -693,6 +1280,12 @@ func (siw *ServerInterfaceWrapper) GetPipeline(w http.ResponseWriter, r *http.Re
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pipelineId", Err: err})
 		return
 	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetPipeline(w, r, workspaceId, pipelineId)
@@ -728,6 +1321,12 @@ func (siw *ServerInterfaceWrapper) RedefinePipeline(w http.ResponseWriter, r *ht
 		return
 	}
 
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RedefinePipeline(w, r, workspaceId, pipelineId)
 	}))
@@ -761,6 +1360,12 @@ func (siw *ServerInterfaceWrapper) PausePipeline(w http.ResponseWriter, r *http.
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pipelineId", Err: err})
 		return
 	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PausePipeline(w, r, workspaceId, pipelineId)
@@ -796,6 +1401,12 @@ func (siw *ServerInterfaceWrapper) ResumePipeline(w http.ResponseWriter, r *http
 		return
 	}
 
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ResumePipeline(w, r, workspaceId, pipelineId)
 	}))
@@ -829,6 +1440,12 @@ func (siw *ServerInterfaceWrapper) RunPipeline(w http.ResponseWriter, r *http.Re
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pipelineId", Err: err})
 		return
 	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RunPipeline(w, r, workspaceId, pipelineId)
@@ -961,13 +1578,26 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	m.HandleFunc("POST "+options.BaseURL+"/auth/login", wrapper.Login)
+	m.HandleFunc("POST "+options.BaseURL+"/auth/logout", wrapper.Logout)
+	m.HandleFunc("GET "+options.BaseURL+"/invitations/{token}", wrapper.GetInvitation)
+	m.HandleFunc("POST "+options.BaseURL+"/invitations/{token}/accept", wrapper.AcceptInvitation)
+	m.HandleFunc("GET "+options.BaseURL+"/me", wrapper.GetMe)
+	m.HandleFunc("PATCH "+options.BaseURL+"/me", wrapper.UpdateMe)
+	m.HandleFunc("POST "+options.BaseURL+"/me/password", wrapper.ChangePassword)
 	m.HandleFunc("GET "+options.BaseURL+"/workspaces", wrapper.ListWorkspaces)
 	m.HandleFunc("POST "+options.BaseURL+"/workspaces", wrapper.CreateWorkspace)
 	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}", wrapper.GetWorkspace)
 	m.HandleFunc("PATCH "+options.BaseURL+"/workspaces/{workspaceId}", wrapper.UpdateWorkspace)
+	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/invitations", wrapper.ListInvitations)
+	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/invitations", wrapper.CreateInvitation)
+	m.HandleFunc("DELETE "+options.BaseURL+"/workspaces/{workspaceId}/invitations/{invitationId}", wrapper.RevokeInvitation)
 	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/jobs", wrapper.ListJobs)
 	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/jobs/{jobId}", wrapper.GetJob)
 	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/jobs/{jobId}/cancel", wrapper.CancelJob)
+	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/members", wrapper.ListMembers)
+	m.HandleFunc("DELETE "+options.BaseURL+"/workspaces/{workspaceId}/members/{userId}", wrapper.RemoveMember)
+	m.HandleFunc("PATCH "+options.BaseURL+"/workspaces/{workspaceId}/members/{userId}", wrapper.ChangeMemberRole)
 	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/pipelines", wrapper.ListPipelines)
 	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/pipelines", wrapper.CreatePipeline)
 	m.HandleFunc("DELETE "+options.BaseURL+"/workspaces/{workspaceId}/pipelines/{pipelineId}", wrapper.DeletePipeline)
@@ -981,6 +1611,231 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 }
 
 type ErrorJSONResponse Error
+
+type LoginRequestObject struct {
+	Body *LoginJSONRequestBody
+}
+
+type LoginResponseObject interface {
+	VisitLoginResponse(w http.ResponseWriter) error
+}
+
+type Login200ResponseHeaders struct {
+	SetCookie string
+}
+
+type Login200JSONResponse struct {
+	Body    User
+	Headers Login200ResponseHeaders
+}
+
+func (response Login200JSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type LogindefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response LogindefaultJSONResponse) VisitLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type LogoutRequestObject struct {
+}
+
+type LogoutResponseObject interface {
+	VisitLogoutResponse(w http.ResponseWriter) error
+}
+
+type Logout204ResponseHeaders struct {
+	SetCookie string
+}
+
+type Logout204Response struct {
+	Headers Logout204ResponseHeaders
+}
+
+func (response Logout204Response) VisitLogoutResponse(w http.ResponseWriter) error {
+	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
+	w.WriteHeader(204)
+	return nil
+}
+
+type LogoutdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response LogoutdefaultJSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetInvitationRequestObject struct {
+	Token InvitationToken `json:"token"`
+}
+
+type GetInvitationResponseObject interface {
+	VisitGetInvitationResponse(w http.ResponseWriter) error
+}
+
+type GetInvitation200JSONResponse InvitationPreview
+
+func (response GetInvitation200JSONResponse) VisitGetInvitationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetInvitationdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetInvitationdefaultJSONResponse) VisitGetInvitationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type AcceptInvitationRequestObject struct {
+	Token InvitationToken `json:"token"`
+	Body  *AcceptInvitationJSONRequestBody
+}
+
+type AcceptInvitationResponseObject interface {
+	VisitAcceptInvitationResponse(w http.ResponseWriter) error
+}
+
+type AcceptInvitation200ResponseHeaders struct {
+	SetCookie string
+}
+
+type AcceptInvitation200JSONResponse struct {
+	Body struct {
+		User        User               `json:"user"`
+		WorkspaceId openapi_types.UUID `json:"workspaceId"`
+	}
+	Headers AcceptInvitation200ResponseHeaders
+}
+
+func (response AcceptInvitation200JSONResponse) VisitAcceptInvitationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type AcceptInvitationdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response AcceptInvitationdefaultJSONResponse) VisitAcceptInvitationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetMeRequestObject struct {
+}
+
+type GetMeResponseObject interface {
+	VisitGetMeResponse(w http.ResponseWriter) error
+}
+
+type GetMe200JSONResponse User
+
+func (response GetMe200JSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetMedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetMedefaultJSONResponse) VisitGetMeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type UpdateMeRequestObject struct {
+	Body *UpdateMeJSONRequestBody
+}
+
+type UpdateMeResponseObject interface {
+	VisitUpdateMeResponse(w http.ResponseWriter) error
+}
+
+type UpdateMe200JSONResponse User
+
+func (response UpdateMe200JSONResponse) VisitUpdateMeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateMedefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UpdateMedefaultJSONResponse) VisitUpdateMeResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ChangePasswordRequestObject struct {
+	Body *ChangePasswordJSONRequestBody
+}
+
+type ChangePasswordResponseObject interface {
+	VisitChangePasswordResponse(w http.ResponseWriter) error
+}
+
+type ChangePassword204Response struct {
+}
+
+func (response ChangePassword204Response) VisitChangePasswordResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ChangePassworddefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ChangePassworddefaultJSONResponse) VisitChangePasswordResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
 
 type ListWorkspacesRequestObject struct {
 }
@@ -1100,6 +1955,101 @@ func (response UpdateWorkspacedefaultJSONResponse) VisitUpdateWorkspaceResponse(
 	return json.NewEncoder(w).Encode(response.Body)
 }
 
+type ListInvitationsRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+}
+
+type ListInvitationsResponseObject interface {
+	VisitListInvitationsResponse(w http.ResponseWriter) error
+}
+
+type ListInvitations200JSONResponse struct {
+	Invitations []Invitation `json:"invitations"`
+}
+
+func (response ListInvitations200JSONResponse) VisitListInvitationsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListInvitationsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListInvitationsdefaultJSONResponse) VisitListInvitationsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CreateInvitationRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	Body        *CreateInvitationJSONRequestBody
+}
+
+type CreateInvitationResponseObject interface {
+	VisitCreateInvitationResponse(w http.ResponseWriter) error
+}
+
+type CreateInvitation201JSONResponse struct {
+	Invitation Invitation `json:"invitation"`
+
+	// Url Link to the accept page; carries the secret token.
+	Url string `json:"url"`
+}
+
+func (response CreateInvitation201JSONResponse) VisitCreateInvitationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateInvitationdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response CreateInvitationdefaultJSONResponse) VisitCreateInvitationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type RevokeInvitationRequestObject struct {
+	WorkspaceId  WorkspaceId        `json:"workspaceId"`
+	InvitationId openapi_types.UUID `json:"invitationId"`
+}
+
+type RevokeInvitationResponseObject interface {
+	VisitRevokeInvitationResponse(w http.ResponseWriter) error
+}
+
+type RevokeInvitation204Response struct {
+}
+
+func (response RevokeInvitation204Response) VisitRevokeInvitationResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RevokeInvitationdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RevokeInvitationdefaultJSONResponse) VisitRevokeInvitationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
 type ListJobsRequestObject struct {
 	WorkspaceId WorkspaceId `json:"workspaceId"`
 	Params      ListJobsParams
@@ -1186,6 +2136,97 @@ type CancelJobdefaultJSONResponse struct {
 }
 
 func (response CancelJobdefaultJSONResponse) VisitCancelJobResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ListMembersRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+}
+
+type ListMembersResponseObject interface {
+	VisitListMembersResponse(w http.ResponseWriter) error
+}
+
+type ListMembers200JSONResponse struct {
+	Members []Member `json:"members"`
+}
+
+func (response ListMembers200JSONResponse) VisitListMembersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListMembersdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListMembersdefaultJSONResponse) VisitListMembersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type RemoveMemberRequestObject struct {
+	WorkspaceId WorkspaceId        `json:"workspaceId"`
+	UserId      openapi_types.UUID `json:"userId"`
+}
+
+type RemoveMemberResponseObject interface {
+	VisitRemoveMemberResponse(w http.ResponseWriter) error
+}
+
+type RemoveMember204Response struct {
+}
+
+func (response RemoveMember204Response) VisitRemoveMemberResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RemoveMemberdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RemoveMemberdefaultJSONResponse) VisitRemoveMemberResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ChangeMemberRoleRequestObject struct {
+	WorkspaceId WorkspaceId        `json:"workspaceId"`
+	UserId      openapi_types.UUID `json:"userId"`
+	Body        *ChangeMemberRoleJSONRequestBody
+}
+
+type ChangeMemberRoleResponseObject interface {
+	VisitChangeMemberRoleResponse(w http.ResponseWriter) error
+}
+
+type ChangeMemberRole200JSONResponse Member
+
+func (response ChangeMemberRole200JSONResponse) VisitChangeMemberRoleResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ChangeMemberRoledefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ChangeMemberRoledefaultJSONResponse) VisitChangeMemberRoleResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(response.StatusCode)
 
@@ -1437,6 +2478,27 @@ func (response RunPipelinedefaultJSONResponse) VisitRunPipelineResponse(w http.R
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 
+	// (POST /auth/login)
+	Login(ctx context.Context, request LoginRequestObject) (LoginResponseObject, error)
+
+	// (POST /auth/logout)
+	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
+
+	// (GET /invitations/{token})
+	GetInvitation(ctx context.Context, request GetInvitationRequestObject) (GetInvitationResponseObject, error)
+
+	// (POST /invitations/{token}/accept)
+	AcceptInvitation(ctx context.Context, request AcceptInvitationRequestObject) (AcceptInvitationResponseObject, error)
+
+	// (GET /me)
+	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+
+	// (PATCH /me)
+	UpdateMe(ctx context.Context, request UpdateMeRequestObject) (UpdateMeResponseObject, error)
+
+	// (POST /me/password)
+	ChangePassword(ctx context.Context, request ChangePasswordRequestObject) (ChangePasswordResponseObject, error)
+
 	// (GET /workspaces)
 	ListWorkspaces(ctx context.Context, request ListWorkspacesRequestObject) (ListWorkspacesResponseObject, error)
 
@@ -1449,6 +2511,15 @@ type StrictServerInterface interface {
 	// (PATCH /workspaces/{workspaceId})
 	UpdateWorkspace(ctx context.Context, request UpdateWorkspaceRequestObject) (UpdateWorkspaceResponseObject, error)
 
+	// (GET /workspaces/{workspaceId}/invitations)
+	ListInvitations(ctx context.Context, request ListInvitationsRequestObject) (ListInvitationsResponseObject, error)
+
+	// (POST /workspaces/{workspaceId}/invitations)
+	CreateInvitation(ctx context.Context, request CreateInvitationRequestObject) (CreateInvitationResponseObject, error)
+
+	// (DELETE /workspaces/{workspaceId}/invitations/{invitationId})
+	RevokeInvitation(ctx context.Context, request RevokeInvitationRequestObject) (RevokeInvitationResponseObject, error)
+
 	// (GET /workspaces/{workspaceId}/jobs)
 	ListJobs(ctx context.Context, request ListJobsRequestObject) (ListJobsResponseObject, error)
 
@@ -1457,6 +2528,15 @@ type StrictServerInterface interface {
 
 	// (POST /workspaces/{workspaceId}/jobs/{jobId}/cancel)
 	CancelJob(ctx context.Context, request CancelJobRequestObject) (CancelJobResponseObject, error)
+
+	// (GET /workspaces/{workspaceId}/members)
+	ListMembers(ctx context.Context, request ListMembersRequestObject) (ListMembersResponseObject, error)
+
+	// (DELETE /workspaces/{workspaceId}/members/{userId})
+	RemoveMember(ctx context.Context, request RemoveMemberRequestObject) (RemoveMemberResponseObject, error)
+
+	// (PATCH /workspaces/{workspaceId}/members/{userId})
+	ChangeMemberRole(ctx context.Context, request ChangeMemberRoleRequestObject) (ChangeMemberRoleResponseObject, error)
 
 	// (GET /workspaces/{workspaceId}/pipelines)
 	ListPipelines(ctx context.Context, request ListPipelinesRequestObject) (ListPipelinesResponseObject, error)
@@ -1510,6 +2590,206 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// Login operation middleware
+func (sh *strictHandler) Login(w http.ResponseWriter, r *http.Request) {
+	var request LoginRequestObject
+
+	var body LoginJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Login(ctx, request.(LoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Login")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LoginResponseObject); ok {
+		if err := validResponse.VisitLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Logout operation middleware
+func (sh *strictHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	var request LogoutRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Logout(ctx, request.(LogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Logout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LogoutResponseObject); ok {
+		if err := validResponse.VisitLogoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetInvitation operation middleware
+func (sh *strictHandler) GetInvitation(w http.ResponseWriter, r *http.Request, token InvitationToken) {
+	var request GetInvitationRequestObject
+
+	request.Token = token
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetInvitation(ctx, request.(GetInvitationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetInvitation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetInvitationResponseObject); ok {
+		if err := validResponse.VisitGetInvitationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AcceptInvitation operation middleware
+func (sh *strictHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request, token InvitationToken) {
+	var request AcceptInvitationRequestObject
+
+	request.Token = token
+
+	var body AcceptInvitationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AcceptInvitation(ctx, request.(AcceptInvitationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AcceptInvitation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AcceptInvitationResponseObject); ok {
+		if err := validResponse.VisitAcceptInvitationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetMe operation middleware
+func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
+	var request GetMeRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetMe(ctx, request.(GetMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetMe")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetMeResponseObject); ok {
+		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateMe operation middleware
+func (sh *strictHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
+	var request UpdateMeRequestObject
+
+	var body UpdateMeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateMe(ctx, request.(UpdateMeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateMe")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateMeResponseObject); ok {
+		if err := validResponse.VisitUpdateMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ChangePassword operation middleware
+func (sh *strictHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	var request ChangePasswordRequestObject
+
+	var body ChangePasswordJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ChangePassword(ctx, request.(ChangePasswordRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ChangePassword")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ChangePasswordResponseObject); ok {
+		if err := validResponse.VisitChangePasswordResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // ListWorkspaces operation middleware
@@ -1626,6 +2906,92 @@ func (sh *strictHandler) UpdateWorkspace(w http.ResponseWriter, r *http.Request,
 	}
 }
 
+// ListInvitations operation middleware
+func (sh *strictHandler) ListInvitations(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId) {
+	var request ListInvitationsRequestObject
+
+	request.WorkspaceId = workspaceId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListInvitations(ctx, request.(ListInvitationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListInvitations")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListInvitationsResponseObject); ok {
+		if err := validResponse.VisitListInvitationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateInvitation operation middleware
+func (sh *strictHandler) CreateInvitation(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId) {
+	var request CreateInvitationRequestObject
+
+	request.WorkspaceId = workspaceId
+
+	var body CreateInvitationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateInvitation(ctx, request.(CreateInvitationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateInvitation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateInvitationResponseObject); ok {
+		if err := validResponse.VisitCreateInvitationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevokeInvitation operation middleware
+func (sh *strictHandler) RevokeInvitation(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, invitationId openapi_types.UUID) {
+	var request RevokeInvitationRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.InvitationId = invitationId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokeInvitation(ctx, request.(RevokeInvitationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokeInvitation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RevokeInvitationResponseObject); ok {
+		if err := validResponse.VisitRevokeInvitationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListJobs operation middleware
 func (sh *strictHandler) ListJobs(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params ListJobsParams) {
 	var request ListJobsRequestObject
@@ -1700,6 +3066,93 @@ func (sh *strictHandler) CancelJob(w http.ResponseWriter, r *http.Request, works
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CancelJobResponseObject); ok {
 		if err := validResponse.VisitCancelJobResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListMembers operation middleware
+func (sh *strictHandler) ListMembers(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId) {
+	var request ListMembersRequestObject
+
+	request.WorkspaceId = workspaceId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListMembers(ctx, request.(ListMembersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListMembers")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListMembersResponseObject); ok {
+		if err := validResponse.VisitListMembersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RemoveMember operation middleware
+func (sh *strictHandler) RemoveMember(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, userId openapi_types.UUID) {
+	var request RemoveMemberRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.UserId = userId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RemoveMember(ctx, request.(RemoveMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemoveMember")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RemoveMemberResponseObject); ok {
+		if err := validResponse.VisitRemoveMemberResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ChangeMemberRole operation middleware
+func (sh *strictHandler) ChangeMemberRole(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, userId openapi_types.UUID) {
+	var request ChangeMemberRoleRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.UserId = userId
+
+	var body ChangeMemberRoleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ChangeMemberRole(ctx, request.(ChangeMemberRoleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ChangeMemberRole")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ChangeMemberRoleResponseObject); ok {
+		if err := validResponse.VisitChangeMemberRoleResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -1945,43 +3398,66 @@ func (sh *strictHandler) RunPipeline(w http.ResponseWriter, r *http.Request, wor
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/8xaXXMTO9L+Kyq9b9XZrRK2Ayy1a242C+ypAAXZhAMXLFXIM22PYEYapJYdn5T/+5ak",
-	"+Z6J7WAn4c7jkdTdT3c/3ZLmmkYqy5UEiYZOr2nONc8AQfunc5FDKiScxe5JSDqlOceEMip5Bu6pHsCo",
-	"hh9WaIjpFLUFRk2UQMbdzLnSGUc6pdYKNxLXuZttUAu5oJsNo5+U/m5yHt0satUYcYisjZtsciUNeBtf",
-	"aa20+xEpiSDR/eR5noqIo1By/M0o6f6rJfy/hjmd0v8b19CNw1szDqt5KTGYSIvcLUKn9FQScO8YWQlM",
-	"CCcG+SwFEqkYyFyrjGAChOe5H0WQXympsvXIo1Os7oSfahRRCpc5RN5fWuWgUQRbUHNpUq+3fxYImdml",
-	"8lsuF5YvgG4qsLjWfO2eV0rHfoGMX4nMZnT6bDKZMJoJGR6fuKdilpAIC9A0QFz653OxCGtr96Wapmbf",
-	"IEIn7SWkYgna4fJGSB8IIJ2Uz3QpYlCUUR7Mb0wvHctqT7ZBcQh7cLrjMzDG2d1/1zHAr1CPH1L9tZr1",
-	"JXNEyHJsCKggYjTSwBHiU2wFbcwRHqHIgA4YOBdSmOR2c0S8R1Iw+r3Au/ci5QYrYPsQ8qvTYKQZtvKH",
-	"BTuMvrbydI6g9zfFIEe7M5xfq9llGLhh1ObxbUFetZloN3U1I8UPaTNVQKBAuDKCVcHRBrGBSzNEmpbc",
-	"EH6XFTplznjJcVhSOm0ZNTaKAGL/75yL1P+IuIwgdb+HsuqNVKsU4gVcOMy7IR6ryGYg8Wy/MHNEd17k",
-	"XJsf32cCyUxhQnK+AEPmjgQTIKtEpUBKMSPa4J4TNhBwqMr1t43ruK1hxRC6FUM2wEXnIJCDkL23mNuQ",
-	"EZ0iQDyPMcIlKZiMEaW93SPyyRUG95ORrynw+CsxfG3IKhFRQoQhuVaxjSAmc6ENPvfwKExAu5cxaLF0",
-	"71wpETj6r6SsS0cFd+5IoGaFcQQAPN41pUvcG1YQ9o55H92gIGgzgHvZfgxw+u3JMwZHn8ER27Uqxb6s",
-	"Z+xPpI4vL6y8jWYSrm47xfSSnUcolm5szq25IZV/gg2XoE0BWTVBSHz2lA4l37G5s5TeoM2GG29DkAM+",
-	"7QVV2kjzfRum0Jz6/ugtyAUmdHryeDIApKo5YdvaJXUUTV9sd+frZTnOzVFWR7tnhFFdB3hbWA1DrXS1",
-	"8BC0lw0924DOOEZJnwXPXFdas1kOmmgrR6ESBsp+PNnF85EOLmwv/W+xhEdzAWlM3AACV7kG42LI0Ww5",
-	"VmlibJQQbsg/Yy7S9Wgo9F1K/KnkQK06O313SsrXnoYbcoQhsOSpdcFIhBztjHtvSUMcK3AbxLrybxtp",
-	"IQ1qG1WNf1vfi0KaL6q5VlmOJDjUMLJKQAMRSHiExkHi7DFrg5AVY58T5VfiKVlYEbtuwa/0vewMysVC",
-	"0WmkwuPJZDLZ0m2W5BXkuCapXHKQvzTM99/WtPqW3tam44OiOWvBOIR/XbD6nZDVfmtzCZGSnU3Tk2et",
-	"TdPJZCiiS7asYTGJ0g6VVMnFICBKC5DISzqrNktOq4inlNFEafGnkugfzA/L9RC0HTQKTdrrs56FQwBV",
-	"+/ij1Ow9a25JwltT+PBqOFSvCs5sJO/+Nak+85C5xT5gA7Xl75MDiMqtxwiMFiPyyjpJ4zODXM5supuk",
-	"unZutee85P3D7elr1RHr/hJyrvrGuzR95Ftlcnp+Rv7y4v27j6/efTh7/+5ylMV/HZEPCZDfFXFrR0gM",
-	"6CVowmXsGfDDOodLvxqJUpcFhGsIG5QFSNCe3otzG2HIXKQwIq+WoNck5+j7dQ0pd00ZQeWXHPNcjJcn",
-	"ZMYNkD8u3ga6RIGudtI3Vi+s07TR90zpZHQymvhUz0HyXNApfeL/Yv54zOM6rpom/7gAH0sOeZ+urhej",
-	"b4XBT/WwzhnY48nkVidgbb+2xe9FzjVN7GLmxuJfBp3fdnrwQDVpVHT+3KZ4k04VEtXhHaPIF6YrfcNo",
-	"rswAti98xtcmBQPA4L9UvD7ayWKHLTZtoFBb2PS8enJ86UOgBwDio4K9Yc24Hl83NgabG6P8d8C2Gw6I",
-	"8Z9Gw9HKnQVg43j+8/Bq9ZBx81B988UzRuDlNmp/+Cp1b/EbqsNe8XtPHgsA3F/8jr+p2Xaqfu0G9NwN",
-	"V3nqD7PDnYe/JPlhQa/rW5Jqn1zDshcht05Nu7cABte+RLkmiW7Y9aDkVGQCW4Kr9vdvkx3bORecRyxI",
-	"Jbz7Wr6zCPkF9yk/rdz/zRA3kREJKzAYju0ODbKgyoFUsDM4x9ff1GwH0zrg7jBjvV+GEf6mZr8CjGzw",
-	"ntIDd9AN5f7uGYej++7F7a9ix40Nk9f6YeLnRXnZcaQI2uqr8np8O9mfV6OOyoIt4XtRYXXevosP66V/",
-	"hhSr2YyoND4aMzaUOrxT2tLoVyjdTZ80dPtwv71+HQZ31uo3fbVfBo2v629NNmGznwJC30kv/f8tJ7Vw",
-	"eto/KQhT4uMG4E1l82bNJvfiQZeNpaa/TMqxncMbnyL5BA0HZt1z7jx1MeRPW+qLohH5WhyofCUivCye",
-	"/e+IpyloooHHzwn3zZomBpWGuBrHpVmBNuTp5B/kEnkKH8OLcITT9vEFeNHH4InOCfOBN5i3ucvrEH59",
-	"EddQYpj7729Pty3Kj7SlO5Cnxv4y9vD27Ja5MVi8zp0qD00+XokH94oGY7NfxC0XXpeH9kvQIg7flEi4",
-	"QqKtLMmyvIj+zYRXc+Ea/Ad3opXmoVzYuWhArtEQTjIuLU89dFKtGFklHGEJuoUiUa66cLRm1C8dVh69",
-	"akTKhkl7X673vn50C/wc2T++6+3cf/w3bkeNxQ2j4S4oBJTVKZ3S4u7GR0Ex67r3ZbLxIdX5NLr1p980",
-	"br5s/hcAAP//EnlKNnctAAA=",
+	"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",
+	"AA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

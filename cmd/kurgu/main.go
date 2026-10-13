@@ -4,6 +4,7 @@
 //	kurgu worker           job runner
 //	kurgu all              serve and worker in one process (laptop mode)
 //	kurgu migrate up|down|status
+//	kurgu user create|reset-password
 //	kurgu version
 package main
 
@@ -34,6 +35,8 @@ commands:
   worker                run the job worker
   all                   run serve and worker in one process
   migrate up|down|status
+  user create|reset-password
+                        manage accounts (see kurgu user)
   version
 `
 
@@ -72,6 +75,8 @@ func run(args []string) error {
 	defer func() { _ = a.Close() }()
 
 	switch args[0] {
+	case "user":
+		return user(ctx, a, args[1:])
 	case "serve":
 		return a.Serve(ctx)
 	case "worker":

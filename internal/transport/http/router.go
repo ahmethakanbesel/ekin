@@ -1,24 +1,30 @@
 // Package httptransport assembles the HTTP server: the generated strict
-// API under /api/v1, health checks, and the embedded web UI.
+// API under /api/v1 behind session auth and cross-origin protection,
+// health checks, and the embedded web UI.
 package httptransport
 
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 	"time"
 
 	"kurgu/internal/apperror"
 	"kurgu/internal/gen"
+	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
+	identityhandler "kurgu/internal/transport/http/identity/v1"
 	jobhandler "kurgu/internal/transport/http/job/v1"
 	pipelinehandler "kurgu/internal/transport/http/pipeline/v1"
+	"kurgu/internal/transport/http/principal"
 	workspacehandler "kurgu/internal/transport/http/workspace/v1"
 )
 
@@ -27,9 +33,14 @@ const maxBodyBytes = 1 << 20
 
 // Deps is what the router needs.
 type Deps struct {
+	Identity   *identitysvc.Service
 	Workspaces *workspacesvc.Service
 	Pipelines  *pipelinesvc.Service
 	Jobs       *jobsvc.Service
+	// PublicURL is where browsers reach Kurgu, e.g. https://kurgu.example.com.
+	// It prefixes invitation links, is trusted for cross-origin writes, and
+	// an https scheme marks the session cookie Secure.
+	PublicURL string
 	// UI is the built web app; nil serves a "not built" hint.
 	UI  fs.FS
 	Log *slog.Logger
@@ -37,6 +48,7 @@ type Deps struct {
 
 // Aliases give each embedded handler its own field name.
 type (
+	identities = identityhandler.Handler
 	workspaces = workspacehandler.Handler
 	pipelines  = pipelinehandler.Handler
 	jobs       = jobhandler.Handler
@@ -44,6 +56,7 @@ type (
 
 // server stitches the per-context handlers into one StrictServerInterface.
 type server struct {
+	*identities
 	*workspaces
 	*pipelines
 	*jobs
@@ -51,17 +64,32 @@ type server struct {
 
 var _ gen.StrictServerInterface = server{}
 
-// NewRouter returns the root handler.
-func NewRouter(d Deps) http.Handler {
+// NewRouter returns the root handler. It fails when PublicURL is not an
+// absolute http(s) URL.
+func NewRouter(d Deps) (http.Handler, error) {
+	public, err := url.Parse(d.PublicURL)
+	if err != nil || (public.Scheme != "http" && public.Scheme != "https") || public.Host == "" {
+		return nil, fmt.Errorf("public URL %q must be an absolute http(s) URL", d.PublicURL)
+	}
+	csrf := http.NewCrossOriginProtection()
+	if err := csrf.AddTrustedOrigin(public.Scheme + "://" + public.Host); err != nil {
+		return nil, fmt.Errorf("trust public origin: %w", err)
+	}
+	cookies := principal.Cookies{Secure: public.Scheme == "https"}
+
 	mux := http.NewServeMux()
 	writeErr := func(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, d.Log, err)
 	}
+	csrf.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeErr(w, r, apperror.New(apperror.Forbidden, "cross-origin request refused"))
+	}))
 	strict := gen.NewStrictHandlerWithOptions(server{
+		identities: identityhandler.New(d.Identity, cookies, public.String()),
 		workspaces: workspacehandler.New(d.Workspaces),
 		pipelines:  pipelinehandler.New(d.Pipelines),
 		jobs:       jobhandler.New(d.Jobs),
-	}, nil, gen.StrictHTTPServerOptions{
+	}, []gen.StrictMiddlewareFunc{authenticate(d.Identity)}, gen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			writeErr(w, r, apperror.Wrap(apperror.BadRequest, err, "malformed request"))
 		},
@@ -82,7 +110,22 @@ func NewRouter(d Deps) http.Handler {
 		writeErr(w, r, apperror.New(apperror.NotFound, "no such endpoint"))
 	}))
 	mux.Handle("/", readOnly(spa(d.UI)))
-	return recoverer(d.Log, logRequests(d.Log, limitBody(mux)))
+	return recoverer(d.Log, securityHeaders(logRequests(d.Log, csrf.Handler(limitBody(mux))))), nil
+}
+
+// securityHeaders sets headers every response should carry. no-referrer
+// keeps invitation tokens in /invite/... URLs from leaking onward.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "no-referrer")
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			h.Set("Cache-Control", "no-store")
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // writeError renders err as {"code","message"} with the status its code
@@ -173,9 +216,15 @@ func logRequests(log *slog.Logger, next http.Handler) http.Handler {
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		start := time.Now()
 		next.ServeHTTP(rec, r)
+		// The mux records the matched pattern on r. Logging it instead of
+		// the path keeps tokens (/invitations/{token}) out of the logs.
+		route := r.Pattern
+		if route == "" {
+			route = "unmatched"
+		}
 		log.InfoContext(r.Context(), "request",
 			slog.String("method", r.Method),
-			slog.String("path", r.URL.Path),
+			slog.String("route", route),
 			slog.Int("status", rec.status),
 			slog.Duration("took", time.Since(start)))
 	})

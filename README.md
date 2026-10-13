@@ -6,6 +6,7 @@ the product and `CONVENTIONS.md` before writing code.
 ## Run on a laptop
 
 ```sh
+kurgu user create --email you@example.com --name You   # first account; prompts for a password
 make run          # API, web UI, scheduler and worker in one process on :8080
 make test         # go test -race ./...
 make lint         # golangci-lint, including the layer-boundary rules
@@ -24,6 +25,19 @@ its default.
 | `kurgu worker` | Job runner, throttled by `KURGU_QUEUE_CONCURRENCY`, `KURGU_HEAVY_EXCLUSIVE`, `KURGU_HEAVY_COOLDOWN` |
 | `kurgu all` | Both, for a single machine |
 | `kurgu migrate up\|down\|status` | Schema migrations (also applied at start unless `KURGU_MIGRATE_ON_START=false`) |
+| `kurgu user create\|reset-password` | Accounts; the password comes from `KURGU_PASSWORD`, a prompt or stdin |
 
-The API has no authentication yet (milestone 2). It listens on 127.0.0.1 by
-default; do not expose it.
+## Accounts
+
+There is no sign-up page. The first account comes from `kurgu user create`; it
+also becomes the owner of any workspace created before accounts existed.
+Everyone else is invited from a workspace's Members page: the owner copies the
+link (valid 7 days) and sends it. Roles are per workspace: **owner** (settings
+and members), **editor** (pipelines, runs, review), **viewer** (read only).
+
+Sessions are HttpOnly cookies (30 days idle, 90 days at most).
+`KURGU_PUBLIC_URL` must be the address people open in the browser
+(`https://...` in production): it prefixes invitation links, is the trusted
+origin for writes, and an https URL marks the cookie Secure.
+`kurgu user reset-password` recovers a locked-out account and signs it out
+everywhere.

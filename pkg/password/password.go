@@ -80,6 +80,6 @@ func (h *Hasher) Verify(encoded, plain string) (bool, error) {
 	if err != nil || len(want) == 0 || len(want) > 64 {
 		return false, ErrMalformed
 	}
-	got := argon2.IDKey([]byte(plain), salt, p.Time, p.Memory, p.Threads, uint32(len(want)))
+	got := argon2.IDKey([]byte(plain), salt, p.Time, p.Memory, p.Threads, uint32(len(want))) //nolint:gosec // len(want) <= 64, checked above
 	return subtle.ConstantTimeCompare(got, want) == 1, nil
 }

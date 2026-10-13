@@ -98,3 +98,19 @@ pinned `go run module@version`.
 - Service: inmemory repositories + fixed clock.
 - HTTP: `httptest` through the real router.
 - A backend bug fix ships with a test that fails without the fix.
+
+## 10. Access control
+
+- The spec is the source of truth for who may call what: an operation is public only when
+  it says `security: []`; everything else needs the `kurgu_session` cookie.
+- The router's strict middleware (`internal/transport/http/access.go`) authenticates, and
+  for `/workspaces/{workspaceId}/...` checks the caller's membership against the
+  operation's `identity.Action` (view / edit / manage). A workspace operation missing
+  from that table is refused, and `TestAccessRulesCoverSpec` fails.
+- Non-members get `WorkspaceNotFound`, not `Forbidden`, so workspace ids do not leak.
+- Rules that depend on more than the role (last owner, leaving vs removing) live on the
+  domain (`Membership.ChangeRole`, `Membership.CheckRemoval`).
+- Handlers read the caller from `principal.From(ctx)` / `principal.Member(ctx)`; services
+  take the actor's user id explicitly and never read the context.
+- Secrets (session and invitation tokens) are stored as SHA-256 hashes; request logs
+  record the route pattern, never the path.

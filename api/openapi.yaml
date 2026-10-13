@@ -9,19 +9,161 @@ info:
 servers:
   - url: /api/v1
 
+# Every operation needs a session cookie unless it says `security: []`.
+security:
+  - session: []
+
 tags:
+  - name: auth
   - name: workspaces
+  - name: members
   - name: pipelines
   - name: jobs
 
 paths:
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      security: []
+      description: >
+        Starts a session. A wrong email and a wrong password answer the same
+        401; repeated failures for one email answer 429 for a while.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginInput" }
+      responses:
+        "200":
+          description: Signed in; the session cookie is set.
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/SetSession" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      responses:
+        "204":
+          description: Signed out; the session cookie is cleared.
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/SetSession" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      responses:
+        "200":
+          description: The signed-in user.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateMe
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 80 }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /me/password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      description: Changes the password and signs out every other session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 10, maxLength: 128 }
+      responses:
+        "204":
+          description: Changed.
+        default: { $ref: "#/components/responses/Error" }
+
+  /invitations/{token}:
+    parameters:
+      - $ref: "#/components/parameters/InvitationToken"
+    get:
+      operationId: getInvitation
+      tags: [members]
+      security: []
+      responses:
+        "200":
+          description: What accepting the invitation would do.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/InvitationPreview" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /invitations/{token}/accept:
+    parameters:
+      - $ref: "#/components/parameters/InvitationToken"
+    post:
+      operationId: acceptInvitation
+      tags: [members]
+      security: []
+      description: >
+        Joins the workspace and signs in. When the invited email already has
+        an account, `password` is that account's password; otherwise `name`
+        and `password` create the account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                name: { type: string, maxLength: 80 }
+                password: { type: string, maxLength: 128 }
+      responses:
+        "200":
+          description: Joined; the session cookie is set.
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/SetSession" }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user, workspaceId]
+                properties:
+                  user: { $ref: "#/components/schemas/User" }
+                  workspaceId: { type: string, format: uuid }
+        default: { $ref: "#/components/responses/Error" }
+
   /workspaces:
     get:
       operationId: listWorkspaces
       tags: [workspaces]
       responses:
         "200":
-          description: Every workspace.
+          description: The workspaces the caller is a member of.
           content:
             application/json:
               schema:
@@ -40,6 +182,7 @@ paths:
         content:
           application/json:
             schema: { $ref: "#/components/schemas/WorkspaceInput" }
+      description: Creates a workspace with the caller as its owner.
       responses:
         "201":
           description: Created.
@@ -75,6 +218,130 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Workspace" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/members:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listMembers
+      tags: [members]
+      responses:
+        "200":
+          description: Members, owners first, then by join date.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [members]
+                properties:
+                  members:
+                    type: array
+                    items: { $ref: "#/components/schemas/Member" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/members/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      operationId: changeMemberRole
+      tags: [members]
+      description: Owners only. The last owner cannot be demoted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role: { $ref: "#/components/schemas/Role" }
+      responses:
+        "200":
+          description: Changed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Member" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: removeMember
+      tags: [members]
+      description: >
+        Owners remove anyone; any member may remove themselves (leave). The
+        last owner cannot leave.
+      responses:
+        "204":
+          description: Removed.
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/invitations:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listInvitations
+      tags: [members]
+      responses:
+        "200":
+          description: Pending invitations, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invitations]
+                properties:
+                  invitations:
+                    type: array
+                    items: { $ref: "#/components/schemas/Invitation" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createInvitation
+      tags: [members]
+      description: >
+        Invites an email address. Inviting an address that already has a
+        pending invitation replaces it. The link is only returned here;
+        until SMTP lands, the owner sends it themselves.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, role]
+              properties:
+                email: { type: string, maxLength: 254 }
+                role: { $ref: "#/components/schemas/Role" }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invitation, url]
+                properties:
+                  invitation: { $ref: "#/components/schemas/Invitation" }
+                  url:
+                    type: string
+                    description: Link to the accept page; carries the secret token.
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/invitations/{invitationId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - name: invitationId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      operationId: revokeInvitation
+      tags: [members]
+      responses:
+        "204":
+          description: Revoked.
         default: { $ref: "#/components/responses/Error" }
 
   /workspaces/{workspaceId}/pipelines:
@@ -282,7 +549,23 @@ paths:
         default: { $ref: "#/components/responses/Error" }
 
 components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: kurgu_session
+
+  headers:
+    SetSession:
+      description: Sets or clears the HttpOnly `kurgu_session` cookie.
+      schema: { type: string }
+
   parameters:
+    InvitationToken:
+      name: token
+      in: path
+      required: true
+      schema: { type: string, maxLength: 128 }
     WorkspaceId:
       name: workspaceId
       in: path
@@ -309,6 +592,61 @@ components:
         code: { type: string }
         message: { type: string }
 
+    Role:
+      type: string
+      enum: [owner, editor, viewer]
+      description: >
+        owner: everything, including settings and members. editor: pipelines,
+        runs and review. viewer: read only.
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, maxLength: 254 }
+        password: { type: string, maxLength: 128 }
+
+    User:
+      type: object
+      required: [id, email, name, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        name: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    Member:
+      type: object
+      required: [userId, email, name, role, joinedAt]
+      properties:
+        userId: { type: string, format: uuid }
+        email: { type: string }
+        name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        joinedAt: { type: string, format: date-time }
+
+    Invitation:
+      type: object
+      required: [id, email, role, createdAt, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+
+    InvitationPreview:
+      type: object
+      required: [workspaceName, email, role, expiresAt, accountExists]
+      properties:
+        workspaceName: { type: string }
+        email: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        expiresAt: { type: string, format: date-time }
+        accountExists:
+          type: boolean
+          description: When true, accepting takes that account's password; otherwise a name and a new password.
+
     WorkspaceInput:
       type: object
       required: [name, timezone]
@@ -326,11 +664,14 @@ components:
 
     Workspace:
       type: object
-      required: [id, name, timezone, createdAt, updatedAt]
+      required: [id, name, timezone, role, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
         timezone: { type: string }
+        role:
+          $ref: "#/components/schemas/Role"
+          description: The caller's role in this workspace.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 

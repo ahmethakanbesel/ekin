@@ -2,64 +2,159 @@ package httptransport_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
+	"net/http/cookiejar"
 	"net/http/httptest"
+	"slices"
+	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
+	"unicode"
 
 	"kurgu/internal/db/dbtest"
+	identitydomain "kurgu/internal/domain/identity/v1"
 	"kurgu/internal/gen"
+	identityrepo "kurgu/internal/repository/identity/v1"
 	jobrepo "kurgu/internal/repository/job/v1"
 	pipelinerepo "kurgu/internal/repository/pipeline/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
+	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	httptransport "kurgu/internal/transport/http"
+	"kurgu/pkg/password"
 )
 
-func newServer(t *testing.T) *httptest.Server {
-	t.Helper()
-	_, tx := dbtest.Open(t)
-	workspaces := workspacerepo.NewSQLite(tx)
-	jobs := jobsvc.NewService(jobrepo.NewSQLite(tx), tx)
-	srv := httptest.NewServer(httptransport.NewRouter(httptransport.Deps{
-		Workspaces: workspacesvc.NewService(workspaces),
-		Pipelines:  pipelinesvc.NewService(pipelinerepo.NewSQLite(tx), workspaces, jobs, tx),
-		Jobs:       jobs,
-		UI:         fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Kurgu</title>")}},
-		Log:        slog.New(slog.DiscardHandler),
-	}))
-	t.Cleanup(srv.Close)
-	return srv
+const publicURL = "https://kurgu.example.com"
+
+type server struct {
+	*httptest.Server
+	identity *identitysvc.Service
+	logs     *syncBuffer
 }
 
-func call(t *testing.T, srv *httptest.Server, method, path string, body any, wantStatus int, out any) {
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func newServer(t *testing.T) *server {
 	t.Helper()
+	_, tx := dbtest.Open(t)
+	identities := identityrepo.NewSQLite(tx)
+	workspaces := workspacerepo.NewSQLite(tx)
+	jobs := jobsvc.NewService(jobrepo.NewSQLite(tx), tx)
+	identity := identitysvc.NewService(identities, workspaces, tx, password.New(password.Params{Memory: 64, Time: 1, Threads: 1}))
+	logs := &syncBuffer{}
+	router, err := httptransport.NewRouter(httptransport.Deps{
+		Identity:   identity,
+		Workspaces: workspacesvc.NewService(workspaces, identities, tx),
+		Pipelines:  pipelinesvc.NewService(pipelinerepo.NewSQLite(tx), workspaces, jobs, tx),
+		Jobs:       jobs,
+		PublicURL:  publicURL,
+		UI:         fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Kurgu</title>")}},
+		Log:        slog.New(slog.NewJSONHandler(logs, nil)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(router)
+	t.Cleanup(srv.Close)
+	return &server{Server: srv, identity: identity, logs: logs}
+}
+
+// client is a browser: it keeps cookies.
+type client struct {
+	t   *testing.T
+	srv *server
+	h   *http.Client
+}
+
+func (s *server) client(t *testing.T) *client {
+	jar, _ := cookiejar.New(nil)
+	return &client{t: t, srv: s, h: &http.Client{Jar: jar}}
+}
+
+// signedIn creates an account and returns a client signed in to it.
+func (s *server) signedIn(t *testing.T, email string) *client {
+	t.Helper()
+	e, _ := identitydomain.ParseEmail(email)
+	p, _ := identitydomain.ParsePassword("password-" + email)
+	if _, err := s.identity.CreateUser(context.Background(), e, "User "+email, p); err != nil {
+		t.Fatal(err)
+	}
+	c := s.client(t)
+	c.call("POST", "/api/v1/auth/login", map[string]any{"email": email, "password": "password-" + email}, 200, nil)
+	return c
+}
+
+func (c *client) do(method, path string, body any, header http.Header) *http.Response {
+	c.t.Helper()
 	var r io.Reader
 	if body != nil {
 		b, _ := json.Marshal(body)
 		r = bytes.NewReader(b)
 	}
-	req, _ := http.NewRequest(method, srv.URL+path, r)
+	req, _ := http.NewRequest(method, c.srv.URL+path, r)
 	req.Header.Set("Content-Type", "application/json")
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
+	for k, v := range header {
+		req.Header[k] = v
 	}
+	res, err := c.h.Do(req)
+	if err != nil {
+		c.t.Fatal(err)
+	}
+	return res
+}
+
+func (c *client) call(method, path string, body any, wantStatus int, out any) {
+	c.t.Helper()
+	res := c.do(method, path, body, nil)
 	defer func() { _ = res.Body.Close() }()
 	raw, _ := io.ReadAll(res.Body)
 	if res.StatusCode != wantStatus {
-		t.Fatalf("%s %s = %d %s, want %d", method, path, res.StatusCode, raw, wantStatus)
+		c.t.Fatalf("%s %s = %d %s, want %d", method, path, res.StatusCode, raw, wantStatus)
 	}
 	if out != nil {
 		if err := json.Unmarshal(raw, out); err != nil {
-			t.Fatalf("decode %s: %v", raw, err)
+			c.t.Fatalf("decode %s: %v", raw, err)
 		}
 	}
+}
+
+// fail calls and checks the error code.
+func (c *client) fail(method, path string, body any, wantStatus int, wantCode string) {
+	c.t.Helper()
+	var e gen.Error
+	c.call(method, path, body, wantStatus, &e)
+	if e.Code != wantCode {
+		c.t.Fatalf("%s %s code = %s (%s), want %s", method, path, e.Code, e.Message, wantCode)
+	}
+}
+
+func (c *client) workspace(name string) gen.Workspace {
+	c.t.Helper()
+	var ws gen.Workspace
+	c.call("POST", "/api/v1/workspaces", map[string]any{"name": name, "timezone": "Europe/Istanbul"}, 201, &ws)
+	return ws
 }
 
 func shortsDefinition() map[string]any {
@@ -75,14 +170,15 @@ func shortsDefinition() map[string]any {
 }
 
 func TestPipelineLifecycle(t *testing.T) {
-	srv := newServer(t)
-
-	var ws gen.Workspace
-	call(t, srv, "POST", "/api/v1/workspaces", map[string]any{"name": "acme", "timezone": "Europe/Istanbul"}, 201, &ws)
+	c := newServer(t).signedIn(t, "owner@example.com")
+	ws := c.workspace("acme")
+	if ws.Role != gen.Owner {
+		t.Fatalf("creator role = %s", ws.Role)
+	}
 	base := "/api/v1/workspaces/" + ws.Id.String() + "/pipelines"
 
 	var p gen.Pipeline
-	call(t, srv, "POST", base, shortsDefinition(), 201, &p)
+	c.call("POST", base, shortsDefinition(), 201, &p)
 	if p.Status != "active" || p.NextRunAt == nil || p.Definition.Outputs.Lead == nil || *p.Definition.Outputs.Lead != "video" {
 		t.Fatalf("created pipeline = %+v", p)
 	}
@@ -91,7 +187,7 @@ func TestPipelineLifecycle(t *testing.T) {
 	}
 
 	var list struct{ Pipelines []gen.Pipeline }
-	call(t, srv, "GET", base, nil, 200, &list)
+	c.call("GET", base, nil, 200, &list)
 	if len(list.Pipelines) != 1 {
 		t.Fatalf("list = %d", len(list.Pipelines))
 	}
@@ -99,52 +195,51 @@ func TestPipelineLifecycle(t *testing.T) {
 	def := shortsDefinition()
 	def["name"] = "Renamed"
 	var updated gen.Pipeline
-	call(t, srv, "PUT", base+"/"+p.Id.String(), map[string]any{"version": p.Version, "definition": def}, 200, &updated)
+	c.call("PUT", base+"/"+p.Id.String(), map[string]any{"version": p.Version, "definition": def}, 200, &updated)
 	if updated.Definition.Name != "Renamed" || updated.Version != p.Version+1 {
 		t.Fatalf("updated = %+v", updated)
 	}
 	var stale gen.Error
-	call(t, srv, "PUT", base+"/"+p.Id.String(), map[string]any{"version": p.Version, "definition": def}, 409, &stale)
+	c.call("PUT", base+"/"+p.Id.String(), map[string]any{"version": p.Version, "definition": def}, 409, &stale)
 	if stale.Code != "StaleVersion" {
 		t.Fatalf("stale code = %s", stale.Code)
 	}
 
 	var paused gen.Pipeline
-	call(t, srv, "POST", base+"/"+p.Id.String()+"/pause", nil, 200, &paused)
+	c.call("POST", base+"/"+p.Id.String()+"/pause", nil, 200, &paused)
 	if paused.Status != "paused" || paused.NextRunAt != nil {
 		t.Fatalf("paused = %+v", paused)
 	}
 	var again gen.Error
-	call(t, srv, "POST", base+"/"+p.Id.String()+"/pause", nil, 409, &again)
+	c.call("POST", base+"/"+p.Id.String()+"/pause", nil, 409, &again)
 
 	var job gen.Job
-	call(t, srv, "POST", base+"/"+p.Id.String()+"/runs", map[string]any{"count": 2}, 202, &job)
+	c.call("POST", base+"/"+p.Id.String()+"/runs", map[string]any{"count": 2}, 202, &job)
 	if job.Kind != pipelinesvc.KindRun || job.Status != "queued" {
 		t.Fatalf("job = %+v", job)
 	}
 	var jobs struct{ Jobs []gen.Job }
-	call(t, srv, "GET", "/api/v1/workspaces/"+ws.Id.String()+"/jobs?status=queued", nil, 200, &jobs)
+	c.call("GET", "/api/v1/workspaces/"+ws.Id.String()+"/jobs?status=queued", nil, 200, &jobs)
 	if len(jobs.Jobs) != 1 || jobs.Jobs[0].Id != job.Id {
 		t.Fatalf("jobs = %+v", jobs)
 	}
 	var cancelled gen.Job
-	call(t, srv, "POST", "/api/v1/workspaces/"+ws.Id.String()+"/jobs/"+job.Id.String()+"/cancel", nil, 200, &cancelled)
+	c.call("POST", "/api/v1/workspaces/"+ws.Id.String()+"/jobs/"+job.Id.String()+"/cancel", nil, 200, &cancelled)
 	if cancelled.Status != "cancelled" {
 		t.Fatalf("cancelled = %+v", cancelled)
 	}
 
-	call(t, srv, "DELETE", base+"/"+p.Id.String(), nil, 204, nil)
+	c.call("DELETE", base+"/"+p.Id.String(), nil, 204, nil)
 	var missing gen.Error
-	call(t, srv, "GET", base+"/"+p.Id.String(), nil, 404, &missing)
+	c.call("GET", base+"/"+p.Id.String(), nil, 404, &missing)
 	if missing.Code != "PipelineNotFound" {
 		t.Fatalf("missing code = %s", missing.Code)
 	}
 }
 
 func TestValidationErrors(t *testing.T) {
-	srv := newServer(t)
-	var ws gen.Workspace
-	call(t, srv, "POST", "/api/v1/workspaces", map[string]any{"name": "acme", "timezone": "Europe/Istanbul"}, 201, &ws)
+	c := newServer(t).signedIn(t, "owner@example.com")
+	ws := c.workspace("acme")
 	base := "/api/v1/workspaces/" + ws.Id.String() + "/pipelines"
 
 	tests := []struct {
@@ -176,7 +271,7 @@ func TestValidationErrors(t *testing.T) {
 			d := shortsDefinition()
 			tt.mutate(d)
 			var e gen.Error
-			call(t, srv, "POST", base, d, 400, &e)
+			c.call("POST", base, d, 400, &e)
 			if e.Code != "ValidationFailed" || e.Message == "" {
 				t.Fatalf("error = %+v", e)
 			}
@@ -184,19 +279,16 @@ func TestValidationErrors(t *testing.T) {
 	}
 
 	var bad gen.Error
-	call(t, srv, "POST", base, "not an object", 400, &bad)
+	c.call("POST", base, "not an object", 400, &bad)
 	if bad.Code != "BadRequest" {
 		t.Fatalf("malformed body code = %s", bad.Code)
 	}
-	var noWs gen.Error
-	call(t, srv, "POST", "/api/v1/workspaces/00000000-0000-7000-8000-000000000000/pipelines", shortsDefinition(), 404, &noWs)
-	if noWs.Code != "WorkspaceNotFound" {
-		t.Fatalf("unknown workspace code = %s", noWs.Code)
-	}
+	c.fail("POST", "/api/v1/workspaces/00000000-0000-7000-8000-000000000000/pipelines", shortsDefinition(), 404, "WorkspaceNotFound")
 }
 
 func TestSPAFallbackAndUnknownAPI(t *testing.T) {
 	srv := newServer(t)
+	c := srv.client(t)
 	res, err := http.Get(srv.URL + "/pipelines/some-client-route")
 	if err != nil {
 		t.Fatal(err)
@@ -207,8 +299,219 @@ func TestSPAFallbackAndUnknownAPI(t *testing.T) {
 		t.Fatalf("spa fallback = %d %s", res.StatusCode, body)
 	}
 	var e gen.Error
-	call(t, srv, "GET", "/api/v1/nope", nil, 404, &e)
+	c.call("GET", "/api/v1/nope", nil, 404, &e)
 	if e.Code != "NotFound" {
 		t.Fatalf("unknown api code = %s", e.Code)
+	}
+}
+
+func TestSessionLifecycle(t *testing.T) {
+	srv := newServer(t)
+	anon := srv.client(t)
+	anon.fail("GET", "/api/v1/me", nil, 401, "Unauthenticated")
+	anon.fail("GET", "/api/v1/workspaces", nil, 401, "Unauthenticated")
+	anon.fail("POST", "/api/v1/auth/logout", nil, 401, "Unauthenticated")
+
+	c := srv.signedIn(t, "ada@example.com")
+	anon.fail("POST", "/api/v1/auth/login", map[string]any{"email": "ada@example.com", "password": "nope"}, 401, "Unauthenticated")
+
+	res := c.do("POST", "/api/v1/auth/login", map[string]any{"email": "ADA@example.com", "password": "password-ada@example.com"}, nil)
+	_ = res.Body.Close()
+	cookie := res.Header.Get("Set-Cookie")
+	for _, want := range []string{"kurgu_session=", "HttpOnly", "Secure", "SameSite=Lax", "Path=/"} {
+		if !strings.Contains(cookie, want) {
+			t.Fatalf("cookie %q lacks %s", cookie, want)
+		}
+	}
+	if res.Header.Get("Cache-Control") != "no-store" || res.Header.Get("Referrer-Policy") != "no-referrer" {
+		t.Fatalf("security headers = %v", res.Header)
+	}
+
+	var me gen.User
+	c.call("GET", "/api/v1/me", nil, 200, &me)
+	if me.Email != "ada@example.com" {
+		t.Fatalf("me = %+v", me)
+	}
+	c.call("PATCH", "/api/v1/me", map[string]any{"name": "Ada Lovelace"}, 200, &me)
+	if me.Name != "Ada Lovelace" {
+		t.Fatalf("renamed = %+v", me)
+	}
+	c.fail("POST", "/api/v1/me/password", map[string]any{"currentPassword": "wrong", "newPassword": "a-new-password"}, 400, "ValidationFailed")
+	c.call("POST", "/api/v1/me/password", map[string]any{"currentPassword": "password-ada@example.com", "newPassword": "a-new-password"}, 204, nil)
+	c.call("GET", "/api/v1/me", nil, 200, nil)
+
+	res = c.do("POST", "/api/v1/auth/logout", nil, nil)
+	_ = res.Body.Close()
+	if res.StatusCode != 204 || !strings.Contains(res.Header.Get("Set-Cookie"), "Max-Age=0") {
+		t.Fatalf("logout = %d %q", res.StatusCode, res.Header.Get("Set-Cookie"))
+	}
+	c.fail("GET", "/api/v1/me", nil, 401, "Unauthenticated")
+}
+
+func TestRolesAndInvitations(t *testing.T) {
+	srv := newServer(t)
+	owner := srv.signedIn(t, "owner@example.com")
+	ws := owner.workspace("acme")
+	base := "/api/v1/workspaces/" + ws.Id.String()
+
+	invite := func(email, role string) string {
+		t.Helper()
+		var created gen.CreateInvitation201JSONResponse
+		owner.call("POST", base+"/invitations", map[string]any{"email": email, "role": role}, 201, &created)
+		if !strings.HasPrefix(created.Url, publicURL+"/invite/") || created.Invitation.Email != email {
+			t.Fatalf("invitation = %+v", created)
+		}
+		return strings.TrimPrefix(created.Url, publicURL+"/invite/")
+	}
+	join := func(token, name string) *client {
+		t.Helper()
+		c := srv.client(t)
+		var preview gen.InvitationPreview
+		c.call("GET", "/api/v1/invitations/"+token, nil, 200, &preview)
+		if preview.WorkspaceName != "acme" || preview.AccountExists {
+			t.Fatalf("preview = %+v", preview)
+		}
+		var accepted struct {
+			WorkspaceID string `json:"workspaceId"`
+			User        gen.User
+		}
+		c.call("POST", "/api/v1/invitations/"+token+"/accept", map[string]any{"name": name, "password": "a-good-password"}, 200, &accepted)
+		if accepted.WorkspaceID != ws.Id.String() || accepted.User.Name != name {
+			t.Fatalf("accepted = %+v", accepted)
+		}
+		return c
+	}
+
+	viewerToken := invite("viewer@example.com", "viewer")
+	var pending struct{ Invitations []gen.Invitation }
+	owner.call("GET", base+"/invitations", nil, 200, &pending)
+	if len(pending.Invitations) != 1 {
+		t.Fatalf("pending = %+v", pending)
+	}
+	viewer := join(viewerToken, "Vera")
+	editor := join(invite("editor@example.com", "editor"), "Ed")
+	srv.client(t).fail("GET", "/api/v1/invitations/"+viewerToken, nil, 404, "InvitationNotFound")
+
+	var mine struct{ Workspaces []gen.Workspace }
+	viewer.call("GET", "/api/v1/workspaces", nil, 200, &mine)
+	if len(mine.Workspaces) != 1 || mine.Workspaces[0].Role != gen.Viewer {
+		t.Fatalf("viewer workspaces = %+v", mine)
+	}
+
+	// viewer: read only
+	viewer.call("GET", base+"/pipelines", nil, 200, nil)
+	viewer.call("GET", base+"/jobs", nil, 200, nil)
+	viewer.call("GET", base+"/members", nil, 200, nil)
+	viewer.fail("POST", base+"/pipelines", shortsDefinition(), 403, "Forbidden")
+	viewer.fail("PATCH", base, map[string]any{"name": "mine now"}, 403, "Forbidden")
+	viewer.fail("GET", base+"/invitations", nil, 403, "Forbidden")
+
+	// editor: content, not settings or members
+	var p gen.Pipeline
+	editor.call("POST", base+"/pipelines", shortsDefinition(), 201, &p)
+	editor.call("POST", base+"/pipelines/"+p.Id.String()+"/runs", map[string]any{"count": 1}, 202, nil)
+	editor.fail("PATCH", base, map[string]any{"name": "x"}, 403, "Forbidden")
+	editor.fail("POST", base+"/invitations", map[string]any{"email": "x@example.com", "role": "owner"}, 403, "Forbidden")
+
+	// strangers cannot tell the workspace exists
+	stranger := srv.signedIn(t, "stranger@example.com")
+	stranger.fail("GET", base, nil, 404, "WorkspaceNotFound")
+	stranger.fail("GET", base+"/pipelines/"+p.Id.String(), nil, 404, "WorkspaceNotFound")
+
+	// members
+	var members struct{ Members []gen.Member }
+	owner.call("GET", base+"/members", nil, 200, &members)
+	if len(members.Members) != 3 || members.Members[0].Role != gen.Owner {
+		t.Fatalf("members = %+v", members)
+	}
+	var vera gen.Member
+	for _, m := range members.Members {
+		if m.Name == "Vera" {
+			vera = m
+		}
+	}
+	var ownerID string
+	for _, m := range members.Members {
+		if m.Role == gen.Owner {
+			ownerID = m.UserId.String()
+		}
+	}
+	owner.fail("PATCH", base+"/members/"+ownerID, map[string]any{"role": "editor"}, 409, "LastOwner")
+	owner.fail("DELETE", base+"/members/"+ownerID, nil, 409, "LastOwner")
+	editor.fail("DELETE", base+"/members/"+vera.UserId.String(), nil, 403, "Forbidden")
+	var changed gen.Member
+	owner.call("PATCH", base+"/members/"+vera.UserId.String(), map[string]any{"role": "editor"}, 200, &changed)
+	if changed.Role != gen.Editor {
+		t.Fatalf("changed = %+v", changed)
+	}
+	viewer.call("POST", base+"/pipelines/"+p.Id.String()+"/pause", nil, 200, nil)
+	viewer.call("DELETE", base+"/members/"+vera.UserId.String(), nil, 204, nil) // leave
+	viewer.fail("GET", base, nil, 404, "WorkspaceNotFound")
+
+	// The token is never logged: the route pattern is.
+	if strings.Contains(srv.logs.String(), viewerToken) || !strings.Contains(srv.logs.String(), "/invitations/{token}") {
+		t.Fatalf("token handling in logs:\n%s", srv.logs.String())
+	}
+}
+
+func TestCrossOriginWritesRefused(t *testing.T) {
+	srv := newServer(t)
+	c := srv.signedIn(t, "ada@example.com")
+	tests := []struct {
+		name   string
+		header http.Header
+		want   int
+	}{
+		{"cross-site fetch", http.Header{"Sec-Fetch-Site": {"cross-site"}}, 403},
+		{"foreign origin", http.Header{"Origin": {"https://evil.example"}}, 403},
+		{"same origin", http.Header{"Sec-Fetch-Site": {"same-origin"}}, 201},
+		{"public url origin", http.Header{"Origin": {publicURL}}, 201},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := c.do("POST", "/api/v1/workspaces", map[string]any{"name": "x", "timezone": "UTC"}, tt.header)
+			_ = res.Body.Close()
+			if res.StatusCode != tt.want {
+				t.Fatalf("status = %d, want %d", res.StatusCode, tt.want)
+			}
+		})
+	}
+}
+
+// Every operation in the spec is either public by design or guarded, and
+// every workspace operation has an access rule.
+func TestAccessRulesCoverSpec(t *testing.T) {
+	spec, err := gen.GetSwagger()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var public, unruled []string
+	seen := map[string]bool{}
+	for path, item := range spec.Paths.Map() {
+		for _, op := range item.Operations() {
+			name := string(unicode.ToUpper(rune(op.OperationID[0]))) + op.OperationID[1:]
+			if op.Security != nil && len(*op.Security) == 0 {
+				public = append(public, name)
+				continue
+			}
+			if strings.Contains(path, "{workspaceId}") {
+				seen[name] = true
+				if _, ok := httptransport.WorkspaceActions[name]; !ok {
+					unruled = append(unruled, name)
+				}
+			}
+		}
+	}
+	slices.Sort(public)
+	if want := []string{"AcceptInvitation", "GetInvitation", "Login"}; !slices.Equal(public, want) {
+		t.Fatalf("public operations = %v, want %v", public, want)
+	}
+	if len(unruled) > 0 {
+		t.Fatalf("workspace operations without an access rule: %v", unruled)
+	}
+	for name := range httptransport.WorkspaceActions {
+		if !seen[name] {
+			t.Errorf("access rule for unknown operation %s", name)
+		}
 	}
 }

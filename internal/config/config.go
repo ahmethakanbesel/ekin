@@ -5,6 +5,8 @@ package config
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -16,7 +18,10 @@ import (
 
 // Config is the process configuration.
 type Config struct {
-	HTTPAddr       string
+	HTTPAddr string
+	// PublicURL is the origin browsers use (invitation links, cookie
+	// Secure flag, trusted origin). Defaults to http://<HTTPAddr>.
+	PublicURL      string
 	DataDir        string
 	DBPath         string
 	MigrateOnStart bool
@@ -79,8 +84,10 @@ func load(getenv func(string) string) (Config, error) {
 	}
 
 	dataDir := str("KURGU_DATA_DIR", "data")
+	httpAddr := str("KURGU_HTTP_ADDR", "127.0.0.1:8080")
 	cfg := Config{
-		HTTPAddr:       str("KURGU_HTTP_ADDR", "127.0.0.1:8080"),
+		HTTPAddr:       httpAddr,
+		PublicURL:      strings.TrimRight(str("KURGU_PUBLIC_URL", defaultPublicURL(httpAddr)), "/"),
 		DataDir:        dataDir,
 		DBPath:         str("KURGU_DB_PATH", filepath.Join(dataDir, "kurgu.db")),
 		MigrateOnStart: boolean("KURGU_MIGRATE_ON_START", true),
@@ -105,6 +112,9 @@ func load(getenv func(string) string) (Config, error) {
 	}
 	if cfg.Worker.Lease < 3*time.Second {
 		errs = append(errs, "KURGU_JOB_LEASE: must be at least 3s")
+	}
+	if u, err := url.Parse(cfg.PublicURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || (u.Path != "" && u.Path != "/") {
+		errs = append(errs, "KURGU_PUBLIC_URL: must be an http(s) origin such as https://kurgu.example.com")
 	}
 	if cfg.LogFormat != "text" && cfg.LogFormat != "json" {
 		errs = append(errs, "KURGU_LOG_FORMAT: must be text or json")
@@ -142,6 +152,19 @@ func ParseConcurrency(raw string) (map[jobdomain.Queue]int, error) {
 		out[q] = n
 	}
 	return out, nil
+}
+
+// defaultPublicURL derives http://host:port from the listen address,
+// using localhost for wildcard hosts.
+func defaultPublicURL(addr string) string {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return "http://localhost:8080"
+	}
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "localhost"
+	}
+	return "http://" + net.JoinHostPort(host, port)
 }
 
 func defaultOwner() string {

@@ -89,7 +89,8 @@ Container ceiling on the VPS: `cpuset: "1"`, `cpu_shares: 64`, `cpus: 0.5`,
 
 | Context | Aggregates |
 |---|---|
-| identity | User, Workspace (timezone), Membership (role) |
+| identity | User, Session, Membership (role), Invitation |
+| workspace | Workspace (timezone) |
 | pipeline | Pipeline (language, outputs, source, schedule, status) |
 | knowledge | Document, Page, Ref (document + page ranges), Coverage |
 | ideation | Idea (fingerprint), Opportunity |
