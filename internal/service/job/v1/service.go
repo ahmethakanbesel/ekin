@@ -142,7 +142,7 @@ func (s *Service) Get(ctx context.Context, workspaceID, jobID uuid.UUID) (*jobdo
 }
 
 // List returns a workspace's jobs, newest first.
-func (s *Service) List(ctx context.Context, workspaceID uuid.UUID, f jobrepo.Filter) ([]*jobdomain.Job, error) {
+func (s *Service) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*jobdomain.Job, error) {
 	return s.repo.List(ctx, workspaceID, f)
 }
 
@@ -158,3 +158,6 @@ func (s *Service) mutate(ctx context.Context, jobID uuid.UUID, fn func(j *jobdom
 		return s.repo.Save(ctx, j)
 	})
 }
+
+// Filter narrows List.
+type Filter = jobrepo.Filter

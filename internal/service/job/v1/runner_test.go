@@ -3,7 +3,6 @@ package job_test
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -67,7 +66,7 @@ func status(s jobdomain.Status) func(*jobdomain.Job) bool {
 	return func(j *jobdomain.Job) bool { return j.Status() == s }
 }
 
-func quietLog() *slog.Logger { return slog.New(slog.NewTextHandler(io.Discard, nil)) }
+func quietLog() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 func startRunner(t *testing.T, f fixture, throttle jobsvc.Throttle, lease time.Duration, register func(r *jobsvc.Runner)) context.CancelFunc {
 	t.Helper()

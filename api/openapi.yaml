@@ -1,0 +1,465 @@
+openapi: 3.1.0
+info:
+  title: Kurgu API
+  description: >
+    Spec-first API (CONVENTIONS.md). The Go strict server and the TypeScript
+    client are both generated from this file. Every path is relative to the
+    /api/v1 base URL.
+  version: 0.1.0
+servers:
+  - url: /api/v1
+
+tags:
+  - name: workspaces
+  - name: pipelines
+  - name: jobs
+
+paths:
+  /workspaces:
+    get:
+      operationId: listWorkspaces
+      tags: [workspaces]
+      responses:
+        "200":
+          description: Every workspace.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [workspaces]
+                properties:
+                  workspaces:
+                    type: array
+                    items: { $ref: "#/components/schemas/Workspace" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createWorkspace
+      tags: [workspaces]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkspaceInput" }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Workspace" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: getWorkspace
+      tags: [workspaces]
+      responses:
+        "200":
+          description: The workspace.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Workspace" }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateWorkspace
+      tags: [workspaces]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkspacePatch" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Workspace" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/pipelines:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listPipelines
+      tags: [pipelines]
+      responses:
+        "200":
+          description: The workspace's pipelines, oldest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pipelines]
+                properties:
+                  pipelines:
+                    type: array
+                    items: { $ref: "#/components/schemas/Pipeline" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createPipeline
+      tags: [pipelines]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PipelineDefinition" }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Pipeline" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/pipelines/{pipelineId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/PipelineId"
+    get:
+      operationId: getPipeline
+      tags: [pipelines]
+      responses:
+        "200":
+          description: The pipeline.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Pipeline" }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      operationId: redefinePipeline
+      tags: [pipelines]
+      description: >
+        Replaces the definition. `version` is the version the caller read; a
+        newer stored version answers 409 StaleVersion.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version, definition]
+              properties:
+                version: { type: integer, format: int64 }
+                definition: { $ref: "#/components/schemas/PipelineDefinition" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Pipeline" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deletePipeline
+      tags: [pipelines]
+      responses:
+        "204":
+          description: Deleted.
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/pipelines/{pipelineId}/pause:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/PipelineId"
+    post:
+      operationId: pausePipeline
+      tags: [pipelines]
+      responses:
+        "200":
+          description: Paused.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Pipeline" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/pipelines/{pipelineId}/resume:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/PipelineId"
+    post:
+      operationId: resumePipeline
+      tags: [pipelines]
+      responses:
+        "200":
+          description: Resumed; the next run is the schedule's next firing.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Pipeline" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/pipelines/{pipelineId}/runs:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/PipelineId"
+    post:
+      operationId: runPipeline
+      tags: [pipelines]
+      description: Starts a manual run now, whatever the schedule or status.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [count]
+              properties:
+                count: { type: integer, minimum: 1, maximum: 20 }
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/jobs:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: "#/components/schemas/JobStatus" }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 500 }
+      responses:
+        "200":
+          description: The workspace's jobs, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobs]
+                properties:
+                  jobs:
+                    type: array
+                    items: { $ref: "#/components/schemas/Job" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/jobs/{jobId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - name: jobId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getJob
+      tags: [jobs]
+      responses:
+        "200":
+          description: The job.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/jobs/{jobId}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - name: jobId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: cancelJob
+      tags: [jobs]
+      responses:
+        "200":
+          description: Cancelled.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        default: { $ref: "#/components/responses/Error" }
+
+components:
+  parameters:
+    WorkspaceId:
+      name: workspaceId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PipelineId:
+      name: pipelineId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  responses:
+    Error:
+      description: An error, with a stable code from the apperror taxonomy.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+
+    WorkspaceInput:
+      type: object
+      required: [name, timezone]
+      properties:
+        name: { type: string, maxLength: 80 }
+        timezone:
+          type: string
+          description: IANA timezone name, e.g. Europe/Istanbul.
+
+    WorkspacePatch:
+      type: object
+      properties:
+        name: { type: string, maxLength: 80 }
+        timezone: { type: string }
+
+    Workspace:
+      type: object
+      required: [id, name, timezone, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        timezone: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Language:
+      type: string
+      enum: [tr, en]
+
+    DeliverableKind:
+      type: string
+      enum: [video, article]
+
+    VideoSpec:
+      type: object
+      required: [format, orientation, durationSeconds]
+      properties:
+        format:
+          type: string
+          enum: [short, long]
+        orientation:
+          type: string
+          enum: [vertical, horizontal, square]
+        durationSeconds: { type: integer, minimum: 10, maximum: 3600 }
+
+    ArticleSpec:
+      type: object
+      required: [words, translations]
+      properties:
+        words: { type: integer, minimum: 300, maximum: 6000 }
+        translations:
+          type: array
+          items: { $ref: "#/components/schemas/Language" }
+
+    Outputs:
+      type: object
+      description: >
+        A video, an article, or both. With both, `lead` says which is
+        produced first; the other is derived from it.
+      properties:
+        video: { $ref: "#/components/schemas/VideoSpec" }
+        article: { $ref: "#/components/schemas/ArticleSpec" }
+        lead: { $ref: "#/components/schemas/DeliverableKind" }
+
+    KnowledgeRef:
+      type: object
+      required: [documentId]
+      properties:
+        documentId: { type: string, format: uuid }
+        fromPage:
+          type: integer
+          minimum: 1
+          description: Omit both pages for the whole document.
+        toPage: { type: integer, minimum: 1 }
+
+    Source:
+      type: object
+      required: [kind, instructions]
+      properties:
+        kind:
+          type: string
+          enum: [prompt, knowledge]
+        instructions:
+          type: string
+          maxLength: 20000
+          description: >
+            Required for prompt sources, where it acts as the system prompt;
+            optional guidance for knowledge sources.
+        refs:
+          type: array
+          items: { $ref: "#/components/schemas/KnowledgeRef" }
+
+    Schedule:
+      type: object
+      required: [cron, timezone, batch]
+      properties:
+        cron:
+          type: string
+          description: Five-field cron expression or descriptor such as @daily.
+        timezone:
+          type: string
+          description: IANA timezone the expression is evaluated in.
+        batch:
+          type: integer
+          minimum: 1
+          maximum: 20
+          description: Items produced per run.
+
+    PipelineDefinition:
+      type: object
+      required: [name, language, outputs, source]
+      properties:
+        name: { type: string, maxLength: 120 }
+        language: { $ref: "#/components/schemas/Language" }
+        outputs: { $ref: "#/components/schemas/Outputs" }
+        source: { $ref: "#/components/schemas/Source" }
+        schedule: { $ref: "#/components/schemas/Schedule" }
+
+    Pipeline:
+      type: object
+      required: [id, workspaceId, version, status, definition, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        workspaceId: { type: string, format: uuid }
+        version: { type: integer, format: int64 }
+        status:
+          type: string
+          enum: [active, paused]
+        definition: { $ref: "#/components/schemas/PipelineDefinition" }
+        nextRunAt: { type: string, format: date-time }
+        lastRunAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    JobStatus:
+      type: string
+      enum: [queued, running, succeeded, failed, cancelled]
+
+    Job:
+      type: object
+      required: [id, workspaceId, queue, kind, status, attempt, maxAttempts, runAfter, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        workspaceId: { type: string, format: uuid }
+        queue: { type: string }
+        kind: { type: string }
+        status: { $ref: "#/components/schemas/JobStatus" }
+        attempt: { type: integer }
+        maxAttempts: { type: integer }
+        runAfter: { type: string, format: date-time }
+        lastError: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }

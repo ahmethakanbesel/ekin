@@ -14,10 +14,10 @@ import (
 type SourceKind string
 
 const (
-	// SourcePrompt: ideas come from the pipeline's own instructions,
+	// SourcePrompt means ideas come from the pipeline's own instructions,
 	// which act like a system prompt.
 	SourcePrompt SourceKind = "prompt"
-	// SourceKnowledge: ideas and material come from referenced
+	// SourceKnowledge means ideas and material come from referenced
 	// knowledge-base pages; instructions are optional guidance.
 	SourceKnowledge SourceKind = "knowledge"
 )

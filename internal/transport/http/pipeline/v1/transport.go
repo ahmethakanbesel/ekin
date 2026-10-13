@@ -1,0 +1,177 @@
+package handler
+
+import (
+	"time"
+
+	"kurgu/internal/apperror"
+	pipelinedomain "kurgu/internal/domain/pipeline/v1"
+	workspacedomain "kurgu/internal/domain/workspace/v1"
+	"kurgu/internal/gen"
+)
+
+// parseDefinition turns the wire definition into domain values once; the
+// service never sees the raw strings.
+func parseDefinition(in gen.PipelineDefinition) (pipelinedomain.Definition, error) {
+	language, err := pipelinedomain.ParseLanguage(string(in.Language))
+	if err != nil {
+		return pipelinedomain.Definition{}, err
+	}
+	outputs, err := parseOutputs(in.Outputs)
+	if err != nil {
+		return pipelinedomain.Definition{}, err
+	}
+	source, err := parseSource(in.Source)
+	if err != nil {
+		return pipelinedomain.Definition{}, err
+	}
+	def := pipelinedomain.Definition{Name: in.Name, Language: language, Outputs: outputs, Source: source}
+	if in.Schedule != nil {
+		loc, err := workspacedomain.ParseTimezone(in.Schedule.Timezone)
+		if err != nil {
+			return pipelinedomain.Definition{}, err
+		}
+		s, err := pipelinedomain.ParseSchedule(in.Schedule.Cron, loc, in.Schedule.Batch)
+		if err != nil {
+			return pipelinedomain.Definition{}, err
+		}
+		def.Schedule = &s
+	}
+	return def, nil
+}
+
+func parseOutputs(in gen.Outputs) (pipelinedomain.Outputs, error) {
+	var video *pipelinedomain.VideoSpec
+	if in.Video != nil {
+		v, err := pipelinedomain.NewVideoSpec(
+			pipelinedomain.Format(in.Video.Format),
+			pipelinedomain.Orientation(in.Video.Orientation),
+			time.Duration(in.Video.DurationSeconds)*time.Second)
+		if err != nil {
+			return pipelinedomain.Outputs{}, err
+		}
+		video = &v
+	}
+	var article *pipelinedomain.ArticleSpec
+	if in.Article != nil {
+		langs := make([]pipelinedomain.Language, 0, len(in.Article.Translations))
+		for _, raw := range in.Article.Translations {
+			l, err := pipelinedomain.ParseLanguage(string(raw))
+			if err != nil {
+				return pipelinedomain.Outputs{}, err
+			}
+			langs = append(langs, l)
+		}
+		a, err := pipelinedomain.NewArticleSpec(in.Article.Words, langs)
+		if err != nil {
+			return pipelinedomain.Outputs{}, err
+		}
+		article = &a
+	}
+	var lead pipelinedomain.Kind
+	if in.Lead != nil {
+		k, err := pipelinedomain.ParseKind(string(*in.Lead))
+		if err != nil {
+			return pipelinedomain.Outputs{}, err
+		}
+		lead = k
+	}
+	return pipelinedomain.NewOutputs(video, article, lead)
+}
+
+func parseSource(in gen.Source) (pipelinedomain.Source, error) {
+	switch pipelinedomain.SourceKind(in.Kind) {
+	case pipelinedomain.SourcePrompt:
+		if in.Refs != nil && len(*in.Refs) > 0 {
+			return pipelinedomain.Source{}, apperror.New(apperror.ValidationFailed, "a prompt source takes no document references")
+		}
+		return pipelinedomain.NewPromptSource(in.Instructions)
+	case pipelinedomain.SourceKnowledge:
+		var refs []pipelinedomain.KnowledgeRef
+		if in.Refs != nil {
+			for _, r := range *in.Refs {
+				pages, err := pipelinedomain.NewPageRange(deref(r.FromPage), deref(r.ToPage))
+				if err != nil {
+					return pipelinedomain.Source{}, err
+				}
+				ref, err := pipelinedomain.NewKnowledgeRef(r.DocumentId, pages)
+				if err != nil {
+					return pipelinedomain.Source{}, err
+				}
+				refs = append(refs, ref)
+			}
+		}
+		return pipelinedomain.NewKnowledgeSource(in.Instructions, refs)
+	}
+	return pipelinedomain.Source{}, apperror.New(apperror.ValidationFailed, "source kind must be prompt or knowledge")
+}
+
+func toWire(p *pipelinedomain.Pipeline) gen.Pipeline {
+	out := gen.Pipeline{
+		Id:          p.ID(),
+		WorkspaceId: p.WorkspaceID(),
+		Version:     p.Version(),
+		Status:      gen.PipelineStatus(p.Status()),
+		Definition:  definitionToWire(p),
+		NextRunAt:   optTime(p.NextRunAt()),
+		LastRunAt:   optTime(p.LastRunAt()),
+		CreatedAt:   p.CreatedAt(),
+		UpdatedAt:   p.UpdatedAt(),
+	}
+	return out
+}
+
+func definitionToWire(p *pipelinedomain.Pipeline) gen.PipelineDefinition {
+	def := gen.PipelineDefinition{
+		Name:     p.Name(),
+		Language: gen.Language(p.Language()),
+	}
+	outputs := p.Outputs()
+	lead := gen.DeliverableKind(outputs.Lead())
+	def.Outputs.Lead = &lead
+	if v, ok := outputs.Video(); ok {
+		def.Outputs.Video = &gen.VideoSpec{
+			Format:          gen.VideoSpecFormat(v.Format()),
+			Orientation:     gen.VideoSpecOrientation(v.Orientation()),
+			DurationSeconds: int(v.Duration() / time.Second),
+		}
+	}
+	if a, ok := outputs.Article(); ok {
+		tr := make([]gen.Language, 0, len(a.Translations()))
+		for _, l := range a.Translations() {
+			tr = append(tr, gen.Language(l))
+		}
+		def.Outputs.Article = &gen.ArticleSpec{Words: a.Words(), Translations: tr}
+	}
+	source := p.Source()
+	def.Source = gen.Source{Kind: gen.SourceKind(source.Kind()), Instructions: source.Instructions()}
+	if refs := source.Refs(); len(refs) > 0 {
+		wire := make([]gen.KnowledgeRef, 0, len(refs))
+		for _, r := range refs {
+			ref := gen.KnowledgeRef{DocumentId: r.DocumentID()}
+			if !r.Pages().IsWholeDocument() {
+				from, to := r.Pages().From(), r.Pages().To()
+				ref.FromPage, ref.ToPage = &from, &to
+			}
+			wire = append(wire, ref)
+		}
+		def.Source.Refs = &wire
+	}
+	if s, ok := p.Schedule(); ok {
+		def.Schedule = &gen.Schedule{Cron: s.Expr(), Timezone: s.Location().String(), Batch: s.Batch()}
+	}
+	return def
+}
+
+func optTime(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t
+}
+
+func deref(p *int) int {
+	if p == nil {
+		return 0
+	}
+	return *p
+}
