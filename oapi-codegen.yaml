@@ -5,3 +5,7 @@ generate:
   strict-server: true
   embedded-spec: true
 output: internal/gen/gen.go
+compatibility:
+  # Enum constants are always prefixed with their type (gen.RoleOwner), so
+  # adding an enum with an overlapping value never renames existing ones.
+  always-prefix-enum-values: true

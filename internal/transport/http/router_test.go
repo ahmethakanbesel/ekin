@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"mime/multipart"
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"slices"
@@ -14,17 +15,23 @@ import (
 	"sync"
 	"testing"
 	"testing/fstest"
+	"time"
 	"unicode"
 
+	"kurgu/internal/adapter/extract"
+	"kurgu/internal/blob"
 	"kurgu/internal/db/dbtest"
 	identitydomain "kurgu/internal/domain/identity/v1"
+	jobdomain "kurgu/internal/domain/job/v1"
 	"kurgu/internal/gen"
 	identityrepo "kurgu/internal/repository/identity/v1"
+	knowledgerepo "kurgu/internal/repository/knowledge/v1"
 	jobrepo "kurgu/internal/repository/job/v1"
 	pipelinerepo "kurgu/internal/repository/pipeline/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
 	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
+	knowledgesvc "kurgu/internal/service/knowledge/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	httptransport "kurgu/internal/transport/http"
@@ -35,8 +42,10 @@ const publicURL = "https://kurgu.example.com"
 
 type server struct {
 	*httptest.Server
-	identity *identitysvc.Service
-	logs     *syncBuffer
+	identity  *identitysvc.Service
+	knowledge *knowledgesvc.Service
+	jobs      *jobsvc.Service
+	logs      *syncBuffer
 }
 
 type syncBuffer struct {
@@ -64,11 +73,16 @@ func newServer(t *testing.T) *server {
 	jobs := jobsvc.NewService(jobrepo.NewSQLite(tx), tx)
 	identity := identitysvc.NewService(identities, workspaces, tx, password.New(password.Params{Memory: 64, Time: 1, Threads: 1}))
 	logs := &syncBuffer{}
+	blobs, _ := blob.NewFS(t.TempDir())
+	knowledge := knowledgesvc.NewService(knowledgerepo.NewSQLite(tx), blobs, jobs, extract.New(), tx)
+	pipelines := pipelinesvc.NewService(pipelinerepo.NewSQLite(tx), workspaces, jobs, tx).WithDocuments(knowledge)
+	knowledge.WithUsage(pipelines)
 	router, err := httptransport.NewRouter(httptransport.Deps{
 		Identity:   identity,
 		Workspaces: workspacesvc.NewService(workspaces, identities, tx),
-		Pipelines:  pipelinesvc.NewService(pipelinerepo.NewSQLite(tx), workspaces, jobs, tx),
+		Pipelines:  pipelines,
 		Jobs:       jobs,
+		Knowledge:  knowledge,
 		PublicURL:  publicURL,
 		UI:         fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Kurgu</title>")}},
 		Log:        slog.New(slog.NewJSONHandler(logs, nil)),
@@ -78,7 +92,7 @@ func newServer(t *testing.T) *server {
 	}
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)
-	return &server{Server: srv, identity: identity, logs: logs}
+	return &server{Server: srv, identity: identity, knowledge: knowledge, jobs: jobs, logs: logs}
 }
 
 // client is a browser: it keeps cookies.
@@ -172,7 +186,7 @@ func shortsDefinition() map[string]any {
 func TestPipelineLifecycle(t *testing.T) {
 	c := newServer(t).signedIn(t, "owner@example.com")
 	ws := c.workspace("acme")
-	if ws.Role != gen.Owner {
+	if ws.Role != gen.RoleOwner {
 		t.Fatalf("creator role = %s", ws.Role)
 	}
 	base := "/api/v1/workspaces/" + ws.Id.String() + "/pipelines"
@@ -394,7 +408,7 @@ func TestRolesAndInvitations(t *testing.T) {
 
 	var mine struct{ Workspaces []gen.Workspace }
 	viewer.call("GET", "/api/v1/workspaces", nil, 200, &mine)
-	if len(mine.Workspaces) != 1 || mine.Workspaces[0].Role != gen.Viewer {
+	if len(mine.Workspaces) != 1 || mine.Workspaces[0].Role != gen.RoleViewer {
 		t.Fatalf("viewer workspaces = %+v", mine)
 	}
 
@@ -421,7 +435,7 @@ func TestRolesAndInvitations(t *testing.T) {
 	// members
 	var members struct{ Members []gen.Member }
 	owner.call("GET", base+"/members", nil, 200, &members)
-	if len(members.Members) != 3 || members.Members[0].Role != gen.Owner {
+	if len(members.Members) != 3 || members.Members[0].Role != gen.RoleOwner {
 		t.Fatalf("members = %+v", members)
 	}
 	var vera gen.Member
@@ -432,7 +446,7 @@ func TestRolesAndInvitations(t *testing.T) {
 	}
 	var ownerID string
 	for _, m := range members.Members {
-		if m.Role == gen.Owner {
+		if m.Role == gen.RoleOwner {
 			ownerID = m.UserId.String()
 		}
 	}
@@ -441,7 +455,7 @@ func TestRolesAndInvitations(t *testing.T) {
 	editor.fail("DELETE", base+"/members/"+vera.UserId.String(), nil, 403, "Forbidden")
 	var changed gen.Member
 	owner.call("PATCH", base+"/members/"+vera.UserId.String(), map[string]any{"role": "editor"}, 200, &changed)
-	if changed.Role != gen.Editor {
+	if changed.Role != gen.RoleEditor {
 		t.Fatalf("changed = %+v", changed)
 	}
 	viewer.call("POST", base+"/pipelines/"+p.Id.String()+"/pause", nil, 200, nil)
@@ -513,5 +527,83 @@ func TestAccessRulesCoverSpec(t *testing.T) {
 		if !seen[name] {
 			t.Errorf("access rule for unknown operation %s", name)
 		}
+	}
+}
+
+func (c *client) upload(path, filename, title string, content []byte) *http.Response {
+	c.t.Helper()
+	var body bytes.Buffer
+	w := multipart.NewWriter(&body)
+	if title != "" {
+		_ = w.WriteField("title", title)
+	}
+	fw, _ := w.CreateFormFile("file", filename)
+	_, _ = fw.Write(content)
+	_ = w.Close()
+	req, _ := http.NewRequest("POST", c.srv.URL+path, &body)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	res, err := c.h.Do(req)
+	if err != nil {
+		c.t.Fatal(err)
+	}
+	return res
+}
+
+func TestKnowledgeBase(t *testing.T) {
+	srv := newServer(t)
+	owner := srv.signedIn(t, "owner@example.com")
+	ws := owner.workspace("acme")
+	base := "/api/v1/workspaces/" + ws.Id.String()
+
+	res := owner.upload(base+"/documents", "notes.md", "Kaygı notları", []byte("# Kaygı\n\nİlk sayfa."))
+	var doc gen.Document
+	_ = json.NewDecoder(res.Body).Decode(&doc)
+	_ = res.Body.Close()
+	if res.StatusCode != 202 || doc.Status != gen.DocumentStatusPending || doc.Title != "Kaygı notları" || doc.Format != gen.DocumentFormatMd {
+		t.Fatalf("upload = %d %+v", res.StatusCode, doc)
+	}
+	docPath := base + "/documents/" + doc.Id.String()
+
+	// A pipeline cannot reference it before extraction.
+	def := shortsDefinition()
+	def["source"] = map[string]any{"kind": "knowledge", "instructions": "", "refs": []map[string]any{{"documentId": doc.Id.String()}}}
+	owner.fail("POST", base+"/pipelines", def, 400, "ValidationFailed")
+
+	j, err := srv.jobs.Claim(context.Background(), []jobdomain.Queue{jobdomain.QueueExtract}, []string{knowledgesvc.KindExtract}, "t", time.Minute)
+	if err != nil || j == nil {
+		t.Fatalf("claim = %v", err)
+	}
+	if err := srv.knowledge.Extract(context.Background(), doc.Id); err != nil {
+		t.Fatal(err)
+	}
+	owner.call("GET", docPath, nil, 200, &doc)
+	if doc.Status != gen.DocumentStatusReady || doc.PageCount != 1 || doc.Tokens == 0 {
+		t.Fatalf("extracted = %+v", doc)
+	}
+	var pages struct{ Pages []gen.DocumentPage }
+	owner.call("GET", docPath+"/pages?from=1&to=1", nil, 200, &pages)
+	if len(pages.Pages) != 1 || pages.Pages[0].Text != "# Kaygı\n\nİlk sayfa." {
+		t.Fatalf("pages = %+v", pages)
+	}
+	res = owner.do("GET", docPath+"/file", nil, nil)
+	raw, _ := io.ReadAll(res.Body)
+	_ = res.Body.Close()
+	if res.StatusCode != 200 || string(raw) != "# Kaygı\n\nİlk sayfa." {
+		t.Fatalf("file = %d %q", res.StatusCode, raw)
+	}
+
+	def["source"] = map[string]any{"kind": "knowledge", "instructions": "", "refs": []map[string]any{{"documentId": doc.Id.String(), "fromPage": 1, "toPage": 2}}}
+	owner.fail("POST", base+"/pipelines", def, 400, "ValidationFailed")
+	def["source"] = map[string]any{"kind": "knowledge", "instructions": "", "refs": []map[string]any{{"documentId": doc.Id.String(), "fromPage": 1, "toPage": 1}}}
+	var p gen.Pipeline
+	owner.call("POST", base+"/pipelines", def, 201, &p)
+	owner.fail("DELETE", docPath, nil, 409, "Conflict")
+	owner.call("DELETE", base+"/pipelines/"+p.Id.String(), nil, 204, nil)
+	owner.call("DELETE", docPath, nil, 204, nil)
+
+	res = owner.upload(base+"/documents", "slides.pptx", "", []byte("x"))
+	_ = res.Body.Close()
+	if res.StatusCode != 400 {
+		t.Fatalf("pptx upload = %d", res.StatusCode)
 	}
 }

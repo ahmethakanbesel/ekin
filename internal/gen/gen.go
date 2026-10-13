@@ -12,6 +12,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"path"
@@ -30,16 +32,61 @@ const (
 
 // Defines values for DeliverableKind.
 const (
-	Article DeliverableKind = "article"
-	Video   DeliverableKind = "video"
+	DeliverableKindArticle DeliverableKind = "article"
+	DeliverableKindVideo   DeliverableKind = "video"
 )
 
 // Valid indicates whether the value is a known member of the DeliverableKind enum.
 func (e DeliverableKind) Valid() bool {
 	switch e {
-	case Article:
+	case DeliverableKindArticle:
 		return true
-	case Video:
+	case DeliverableKindVideo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DocumentFormat.
+const (
+	DocumentFormatEpub DocumentFormat = "epub"
+	DocumentFormatMd   DocumentFormat = "md"
+	DocumentFormatPdf  DocumentFormat = "pdf"
+	DocumentFormatTxt  DocumentFormat = "txt"
+)
+
+// Valid indicates whether the value is a known member of the DocumentFormat enum.
+func (e DocumentFormat) Valid() bool {
+	switch e {
+	case DocumentFormatEpub:
+		return true
+	case DocumentFormatMd:
+		return true
+	case DocumentFormatPdf:
+		return true
+	case DocumentFormatTxt:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DocumentStatus.
+const (
+	DocumentStatusFailed  DocumentStatus = "failed"
+	DocumentStatusPending DocumentStatus = "pending"
+	DocumentStatusReady   DocumentStatus = "ready"
+)
+
+// Valid indicates whether the value is a known member of the DocumentStatus enum.
+func (e DocumentStatus) Valid() bool {
+	switch e {
+	case DocumentStatusFailed:
+		return true
+	case DocumentStatusPending:
+		return true
+	case DocumentStatusReady:
 		return true
 	default:
 		return false
@@ -48,25 +95,25 @@ func (e DeliverableKind) Valid() bool {
 
 // Defines values for JobStatus.
 const (
-	Cancelled JobStatus = "cancelled"
-	Failed    JobStatus = "failed"
-	Queued    JobStatus = "queued"
-	Running   JobStatus = "running"
-	Succeeded JobStatus = "succeeded"
+	JobStatusCancelled JobStatus = "cancelled"
+	JobStatusFailed    JobStatus = "failed"
+	JobStatusQueued    JobStatus = "queued"
+	JobStatusRunning   JobStatus = "running"
+	JobStatusSucceeded JobStatus = "succeeded"
 )
 
 // Valid indicates whether the value is a known member of the JobStatus enum.
 func (e JobStatus) Valid() bool {
 	switch e {
-	case Cancelled:
+	case JobStatusCancelled:
 		return true
-	case Failed:
+	case JobStatusFailed:
 		return true
-	case Queued:
+	case JobStatusQueued:
 		return true
-	case Running:
+	case JobStatusRunning:
 		return true
-	case Succeeded:
+	case JobStatusSucceeded:
 		return true
 	default:
 		return false
@@ -75,16 +122,16 @@ func (e JobStatus) Valid() bool {
 
 // Defines values for Language.
 const (
-	En Language = "en"
-	Tr Language = "tr"
+	LanguageEn Language = "en"
+	LanguageTr Language = "tr"
 )
 
 // Valid indicates whether the value is a known member of the Language enum.
 func (e Language) Valid() bool {
 	switch e {
-	case En:
+	case LanguageEn:
 		return true
-	case Tr:
+	case LanguageTr:
 		return true
 	default:
 		return false
@@ -93,16 +140,16 @@ func (e Language) Valid() bool {
 
 // Defines values for PipelineStatus.
 const (
-	Active PipelineStatus = "active"
-	Paused PipelineStatus = "paused"
+	PipelineStatusActive PipelineStatus = "active"
+	PipelineStatusPaused PipelineStatus = "paused"
 )
 
 // Valid indicates whether the value is a known member of the PipelineStatus enum.
 func (e PipelineStatus) Valid() bool {
 	switch e {
-	case Active:
+	case PipelineStatusActive:
 		return true
-	case Paused:
+	case PipelineStatusPaused:
 		return true
 	default:
 		return false
@@ -111,19 +158,19 @@ func (e PipelineStatus) Valid() bool {
 
 // Defines values for Role.
 const (
-	Editor Role = "editor"
-	Owner  Role = "owner"
-	Viewer Role = "viewer"
+	RoleEditor Role = "editor"
+	RoleOwner  Role = "owner"
+	RoleViewer Role = "viewer"
 )
 
 // Valid indicates whether the value is a known member of the Role enum.
 func (e Role) Valid() bool {
 	switch e {
-	case Editor:
+	case RoleEditor:
 		return true
-	case Owner:
+	case RoleOwner:
 		return true
-	case Viewer:
+	case RoleViewer:
 		return true
 	default:
 		return false
@@ -132,16 +179,16 @@ func (e Role) Valid() bool {
 
 // Defines values for SourceKind.
 const (
-	Knowledge SourceKind = "knowledge"
-	Prompt    SourceKind = "prompt"
+	SourceKindKnowledge SourceKind = "knowledge"
+	SourceKindPrompt    SourceKind = "prompt"
 )
 
 // Valid indicates whether the value is a known member of the SourceKind enum.
 func (e SourceKind) Valid() bool {
 	switch e {
-	case Knowledge:
+	case SourceKindKnowledge:
 		return true
-	case Prompt:
+	case SourceKindPrompt:
 		return true
 	default:
 		return false
@@ -150,16 +197,16 @@ func (e SourceKind) Valid() bool {
 
 // Defines values for VideoSpecFormat.
 const (
-	Long  VideoSpecFormat = "long"
-	Short VideoSpecFormat = "short"
+	VideoSpecFormatLong  VideoSpecFormat = "long"
+	VideoSpecFormatShort VideoSpecFormat = "short"
 )
 
 // Valid indicates whether the value is a known member of the VideoSpecFormat enum.
 func (e VideoSpecFormat) Valid() bool {
 	switch e {
-	case Long:
+	case VideoSpecFormatLong:
 		return true
-	case Short:
+	case VideoSpecFormatShort:
 		return true
 	default:
 		return false
@@ -168,19 +215,19 @@ func (e VideoSpecFormat) Valid() bool {
 
 // Defines values for VideoSpecOrientation.
 const (
-	Horizontal VideoSpecOrientation = "horizontal"
-	Square     VideoSpecOrientation = "square"
-	Vertical   VideoSpecOrientation = "vertical"
+	VideoSpecOrientationHorizontal VideoSpecOrientation = "horizontal"
+	VideoSpecOrientationSquare     VideoSpecOrientation = "square"
+	VideoSpecOrientationVertical   VideoSpecOrientation = "vertical"
 )
 
 // Valid indicates whether the value is a known member of the VideoSpecOrientation enum.
 func (e VideoSpecOrientation) Valid() bool {
 	switch e {
-	case Horizontal:
+	case VideoSpecOrientationHorizontal:
 		return true
-	case Square:
+	case VideoSpecOrientationSquare:
 		return true
-	case Vertical:
+	case VideoSpecOrientationVertical:
 		return true
 	default:
 		return false
@@ -195,6 +242,39 @@ type ArticleSpec struct {
 
 // DeliverableKind defines model for DeliverableKind.
 type DeliverableKind string
+
+// Document defines model for Document.
+type Document struct {
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Failure Why extraction failed.
+	Failure   *string            `json:"failure,omitempty"`
+	Filename  string             `json:"filename"`
+	Format    DocumentFormat     `json:"format"`
+	Id        openapi_types.UUID `json:"id"`
+	PageCount int                `json:"pageCount"`
+	Size      int64              `json:"size"`
+	Status    DocumentStatus     `json:"status"`
+	Title     string             `json:"title"`
+
+	// Tokens Estimated tokens of all pages (about ±20%).
+	Tokens    int       `json:"tokens"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// DocumentFormat defines model for Document.Format.
+type DocumentFormat string
+
+// DocumentStatus defines model for Document.Status.
+type DocumentStatus string
+
+// DocumentPage defines model for DocumentPage.
+type DocumentPage struct {
+	Number int    `json:"number"`
+	Text   string `json:"text"`
+	Tokens int    `json:"tokens"`
+	Words  int    `json:"words"`
+}
 
 // Error defines model for Error.
 type Error struct {
@@ -380,6 +460,9 @@ type WorkspacePatch struct {
 	Timezone *string `json:"timezone,omitempty"`
 }
 
+// DocumentId defines model for DocumentId.
+type DocumentId = openapi_types.UUID
+
 // InvitationToken defines model for InvitationToken.
 type InvitationToken = string
 
@@ -404,6 +487,25 @@ type UpdateMeJSONBody struct {
 type ChangePasswordJSONBody struct {
 	CurrentPassword string `json:"currentPassword"`
 	NewPassword     string `json:"newPassword"`
+}
+
+// UploadDocumentMultipartBody defines parameters for UploadDocument.
+type UploadDocumentMultipartBody struct {
+	File  openapi_types.File `json:"file"`
+	Title *string            `json:"title,omitempty"`
+}
+
+// UpdateDocumentJSONBody defines parameters for UpdateDocument.
+type UpdateDocumentJSONBody struct {
+	Title string `json:"title"`
+}
+
+// ListDocumentPagesParams defines parameters for ListDocumentPages.
+type ListDocumentPagesParams struct {
+	From *int `form:"from,omitempty" json:"from,omitempty"`
+
+	// To Inclusive; omit for the end. At most 200 pages per call.
+	To *int `form:"to,omitempty" json:"to,omitempty"`
 }
 
 // CreateInvitationJSONBody defines parameters for CreateInvitation.
@@ -455,6 +557,12 @@ type CreateWorkspaceJSONRequestBody = WorkspaceInput
 // UpdateWorkspaceJSONRequestBody defines body for UpdateWorkspace for application/json ContentType.
 type UpdateWorkspaceJSONRequestBody = WorkspacePatch
 
+// UploadDocumentMultipartRequestBody defines body for UploadDocument for multipart/form-data ContentType.
+type UploadDocumentMultipartRequestBody UploadDocumentMultipartBody
+
+// UpdateDocumentJSONRequestBody defines body for UpdateDocument for application/json ContentType.
+type UpdateDocumentJSONRequestBody UpdateDocumentJSONBody
+
 // CreateInvitationJSONRequestBody defines body for CreateInvitation for application/json ContentType.
 type CreateInvitationJSONRequestBody CreateInvitationJSONBody
 
@@ -505,6 +613,30 @@ type ServerInterface interface {
 
 	// (PATCH /workspaces/{workspaceId})
 	UpdateWorkspace(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
+
+	// (GET /workspaces/{workspaceId}/documents)
+	ListDocuments(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
+
+	// (POST /workspaces/{workspaceId}/documents)
+	UploadDocument(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
+
+	// (DELETE /workspaces/{workspaceId}/documents/{documentId})
+	DeleteDocument(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, documentId DocumentId)
+
+	// (GET /workspaces/{workspaceId}/documents/{documentId})
+	GetDocument(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, documentId DocumentId)
+
+	// (PATCH /workspaces/{workspaceId}/documents/{documentId})
+	UpdateDocument(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, documentId DocumentId)
+
+	// (GET /workspaces/{workspaceId}/documents/{documentId}/file)
+	GetDocumentFile(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, documentId DocumentId)
+
+	// (GET /workspaces/{workspaceId}/documents/{documentId}/pages)
+	ListDocumentPages(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, documentId DocumentId, params ListDocumentPagesParams)
+
+	// (POST /workspaces/{workspaceId}/documents/{documentId}/retry)
+	RetryDocument(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, documentId DocumentId)
 
 	// (GET /workspaces/{workspaceId}/invitations)
 	ListInvitations(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
@@ -804,6 +936,327 @@ func (siw *ServerInterfaceWrapper) UpdateWorkspace(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateWorkspace(w, r, workspaceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListDocuments operation middleware
+func (siw *ServerInterfaceWrapper) ListDocuments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDocuments(w, r, workspaceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UploadDocument operation middleware
+func (siw *ServerInterfaceWrapper) UploadDocument(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UploadDocument(w, r, workspaceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteDocument operation middleware
+func (siw *ServerInterfaceWrapper) DeleteDocument(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "documentId" -------------
+	var documentId DocumentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "documentId", r.PathValue("documentId"), &documentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "documentId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteDocument(w, r, workspaceId, documentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDocument operation middleware
+func (siw *ServerInterfaceWrapper) GetDocument(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "documentId" -------------
+	var documentId DocumentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "documentId", r.PathValue("documentId"), &documentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "documentId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDocument(w, r, workspaceId, documentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateDocument operation middleware
+func (siw *ServerInterfaceWrapper) UpdateDocument(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "documentId" -------------
+	var documentId DocumentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "documentId", r.PathValue("documentId"), &documentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "documentId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateDocument(w, r, workspaceId, documentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDocumentFile operation middleware
+func (siw *ServerInterfaceWrapper) GetDocumentFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "documentId" -------------
+	var documentId DocumentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "documentId", r.PathValue("documentId"), &documentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "documentId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDocumentFile(w, r, workspaceId, documentId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListDocumentPages operation middleware
+func (siw *ServerInterfaceWrapper) ListDocumentPages(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "documentId" -------------
+	var documentId DocumentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "documentId", r.PathValue("documentId"), &documentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "documentId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListDocumentPagesParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListDocumentPages(w, r, workspaceId, documentId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RetryDocument operation middleware
+func (siw *ServerInterfaceWrapper) RetryDocument(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "documentId" -------------
+	var documentId DocumentId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "documentId", r.PathValue("documentId"), &documentId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "documentId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RetryDocument(w, r, workspaceId, documentId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1589,6 +2042,14 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("POST "+options.BaseURL+"/workspaces", wrapper.CreateWorkspace)
 	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}", wrapper.GetWorkspace)
 	m.HandleFunc("PATCH "+options.BaseURL+"/workspaces/{workspaceId}", wrapper.UpdateWorkspace)
+	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/documents", wrapper.ListDocuments)
+	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/documents", wrapper.UploadDocument)
+	m.HandleFunc("DELETE "+options.BaseURL+"/workspaces/{workspaceId}/documents/{documentId}", wrapper.DeleteDocument)
+	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/documents/{documentId}", wrapper.GetDocument)
+	m.HandleFunc("PATCH "+options.BaseURL+"/workspaces/{workspaceId}/documents/{documentId}", wrapper.UpdateDocument)
+	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/documents/{documentId}/file", wrapper.GetDocumentFile)
+	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/documents/{documentId}/pages", wrapper.ListDocumentPages)
+	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/documents/{documentId}/retry", wrapper.RetryDocument)
 	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/invitations", wrapper.ListInvitations)
 	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/invitations", wrapper.CreateInvitation)
 	m.HandleFunc("DELETE "+options.BaseURL+"/workspaces/{workspaceId}/invitations/{invitationId}", wrapper.RevokeInvitation)
@@ -1949,6 +2410,298 @@ type UpdateWorkspacedefaultJSONResponse struct {
 }
 
 func (response UpdateWorkspacedefaultJSONResponse) VisitUpdateWorkspaceResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ListDocumentsRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+}
+
+type ListDocumentsResponseObject interface {
+	VisitListDocumentsResponse(w http.ResponseWriter) error
+}
+
+type ListDocuments200JSONResponse struct {
+	Documents []Document `json:"documents"`
+}
+
+func (response ListDocuments200JSONResponse) VisitListDocumentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListDocumentsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListDocumentsdefaultJSONResponse) VisitListDocumentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type UploadDocumentRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	Body        *multipart.Reader
+}
+
+type UploadDocumentResponseObject interface {
+	VisitUploadDocumentResponse(w http.ResponseWriter) error
+}
+
+type UploadDocument202JSONResponse Document
+
+func (response UploadDocument202JSONResponse) VisitUploadDocumentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UploadDocumentdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UploadDocumentdefaultJSONResponse) VisitUploadDocumentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type DeleteDocumentRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	DocumentId  DocumentId  `json:"documentId"`
+}
+
+type DeleteDocumentResponseObject interface {
+	VisitDeleteDocumentResponse(w http.ResponseWriter) error
+}
+
+type DeleteDocument204Response struct {
+}
+
+func (response DeleteDocument204Response) VisitDeleteDocumentResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteDocumentdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DeleteDocumentdefaultJSONResponse) VisitDeleteDocumentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetDocumentRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	DocumentId  DocumentId  `json:"documentId"`
+}
+
+type GetDocumentResponseObject interface {
+	VisitGetDocumentResponse(w http.ResponseWriter) error
+}
+
+type GetDocument200JSONResponse Document
+
+func (response GetDocument200JSONResponse) VisitGetDocumentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetDocumentdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetDocumentdefaultJSONResponse) VisitGetDocumentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type UpdateDocumentRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	DocumentId  DocumentId  `json:"documentId"`
+	Body        *UpdateDocumentJSONRequestBody
+}
+
+type UpdateDocumentResponseObject interface {
+	VisitUpdateDocumentResponse(w http.ResponseWriter) error
+}
+
+type UpdateDocument200JSONResponse Document
+
+func (response UpdateDocument200JSONResponse) VisitUpdateDocumentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateDocumentdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UpdateDocumentdefaultJSONResponse) VisitUpdateDocumentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetDocumentFileRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	DocumentId  DocumentId  `json:"documentId"`
+}
+
+type GetDocumentFileResponseObject interface {
+	VisitGetDocumentFileResponse(w http.ResponseWriter) error
+}
+
+type GetDocumentFile200ApplicationepubZipResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response GetDocumentFile200ApplicationepubZipResponse) VisitGetDocumentFileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/epub+zip")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetDocumentFile200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response GetDocumentFile200ApplicationoctetStreamResponse) VisitGetDocumentFileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetDocumentFile200ApplicationpdfResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response GetDocumentFile200ApplicationpdfResponse) VisitGetDocumentFileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/pdf")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetDocumentFiledefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetDocumentFiledefaultJSONResponse) VisitGetDocumentFileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ListDocumentPagesRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	DocumentId  DocumentId  `json:"documentId"`
+	Params      ListDocumentPagesParams
+}
+
+type ListDocumentPagesResponseObject interface {
+	VisitListDocumentPagesResponse(w http.ResponseWriter) error
+}
+
+type ListDocumentPages200JSONResponse struct {
+	Pages []DocumentPage `json:"pages"`
+}
+
+func (response ListDocumentPages200JSONResponse) VisitListDocumentPagesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListDocumentPagesdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListDocumentPagesdefaultJSONResponse) VisitListDocumentPagesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type RetryDocumentRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	DocumentId  DocumentId  `json:"documentId"`
+}
+
+type RetryDocumentResponseObject interface {
+	VisitRetryDocumentResponse(w http.ResponseWriter) error
+}
+
+type RetryDocument202JSONResponse Document
+
+func (response RetryDocument202JSONResponse) VisitRetryDocumentResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RetryDocumentdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RetryDocumentdefaultJSONResponse) VisitRetryDocumentResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(response.StatusCode)
 
@@ -2511,6 +3264,30 @@ type StrictServerInterface interface {
 	// (PATCH /workspaces/{workspaceId})
 	UpdateWorkspace(ctx context.Context, request UpdateWorkspaceRequestObject) (UpdateWorkspaceResponseObject, error)
 
+	// (GET /workspaces/{workspaceId}/documents)
+	ListDocuments(ctx context.Context, request ListDocumentsRequestObject) (ListDocumentsResponseObject, error)
+
+	// (POST /workspaces/{workspaceId}/documents)
+	UploadDocument(ctx context.Context, request UploadDocumentRequestObject) (UploadDocumentResponseObject, error)
+
+	// (DELETE /workspaces/{workspaceId}/documents/{documentId})
+	DeleteDocument(ctx context.Context, request DeleteDocumentRequestObject) (DeleteDocumentResponseObject, error)
+
+	// (GET /workspaces/{workspaceId}/documents/{documentId})
+	GetDocument(ctx context.Context, request GetDocumentRequestObject) (GetDocumentResponseObject, error)
+
+	// (PATCH /workspaces/{workspaceId}/documents/{documentId})
+	UpdateDocument(ctx context.Context, request UpdateDocumentRequestObject) (UpdateDocumentResponseObject, error)
+
+	// (GET /workspaces/{workspaceId}/documents/{documentId}/file)
+	GetDocumentFile(ctx context.Context, request GetDocumentFileRequestObject) (GetDocumentFileResponseObject, error)
+
+	// (GET /workspaces/{workspaceId}/documents/{documentId}/pages)
+	ListDocumentPages(ctx context.Context, request ListDocumentPagesRequestObject) (ListDocumentPagesResponseObject, error)
+
+	// (POST /workspaces/{workspaceId}/documents/{documentId}/retry)
+	RetryDocument(ctx context.Context, request RetryDocumentRequestObject) (RetryDocumentResponseObject, error)
+
 	// (GET /workspaces/{workspaceId}/invitations)
 	ListInvitations(ctx context.Context, request ListInvitationsRequestObject) (ListInvitationsResponseObject, error)
 
@@ -2899,6 +3676,235 @@ func (sh *strictHandler) UpdateWorkspace(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UpdateWorkspaceResponseObject); ok {
 		if err := validResponse.VisitUpdateWorkspaceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListDocuments operation middleware
+func (sh *strictHandler) ListDocuments(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId) {
+	var request ListDocumentsRequestObject
+
+	request.WorkspaceId = workspaceId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListDocuments(ctx, request.(ListDocumentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListDocuments")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListDocumentsResponseObject); ok {
+		if err := validResponse.VisitListDocumentsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UploadDocument operation middleware
+func (sh *strictHandler) UploadDocument(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId) {
+	var request UploadDocumentRequestObject
+
+	request.WorkspaceId = workspaceId
+
+	if reader, err := r.MultipartReader(); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode multipart body: %w", err))
+		return
+	} else {
+		request.Body = reader
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UploadDocument(ctx, request.(UploadDocumentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UploadDocument")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UploadDocumentResponseObject); ok {
+		if err := validResponse.VisitUploadDocumentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteDocument operation middleware
+func (sh *strictHandler) DeleteDocument(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, documentId DocumentId) {
+	var request DeleteDocumentRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.DocumentId = documentId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteDocument(ctx, request.(DeleteDocumentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteDocument")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteDocumentResponseObject); ok {
+		if err := validResponse.VisitDeleteDocumentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDocument operation middleware
+func (sh *strictHandler) GetDocument(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, documentId DocumentId) {
+	var request GetDocumentRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.DocumentId = documentId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDocument(ctx, request.(GetDocumentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDocument")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDocumentResponseObject); ok {
+		if err := validResponse.VisitGetDocumentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateDocument operation middleware
+func (sh *strictHandler) UpdateDocument(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, documentId DocumentId) {
+	var request UpdateDocumentRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.DocumentId = documentId
+
+	var body UpdateDocumentJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateDocument(ctx, request.(UpdateDocumentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateDocument")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateDocumentResponseObject); ok {
+		if err := validResponse.VisitUpdateDocumentResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetDocumentFile operation middleware
+func (sh *strictHandler) GetDocumentFile(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, documentId DocumentId) {
+	var request GetDocumentFileRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.DocumentId = documentId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetDocumentFile(ctx, request.(GetDocumentFileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetDocumentFile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetDocumentFileResponseObject); ok {
+		if err := validResponse.VisitGetDocumentFileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListDocumentPages operation middleware
+func (sh *strictHandler) ListDocumentPages(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, documentId DocumentId, params ListDocumentPagesParams) {
+	var request ListDocumentPagesRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.DocumentId = documentId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListDocumentPages(ctx, request.(ListDocumentPagesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListDocumentPages")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListDocumentPagesResponseObject); ok {
+		if err := validResponse.VisitListDocumentPagesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RetryDocument operation middleware
+func (sh *strictHandler) RetryDocument(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, documentId DocumentId) {
+	var request RetryDocumentRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.DocumentId = documentId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RetryDocument(ctx, request.(RetryDocumentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RetryDocument")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RetryDocumentResponseObject); ok {
+		if err := validResponse.VisitRetryDocumentResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -3398,66 +4404,78 @@ func (sh *strictHandler) RunPipeline(w http.ResponseWriter, r *http.Request, wor
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"AA==",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

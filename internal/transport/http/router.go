@@ -16,20 +16,27 @@ import (
 	"time"
 
 	"kurgu/internal/apperror"
+	knowledgedomain "kurgu/internal/domain/knowledge/v1"
 	"kurgu/internal/gen"
 	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
+	knowledgesvc "kurgu/internal/service/knowledge/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	identityhandler "kurgu/internal/transport/http/identity/v1"
 	jobhandler "kurgu/internal/transport/http/job/v1"
+	knowledgehandler "kurgu/internal/transport/http/knowledge/v1"
 	pipelinehandler "kurgu/internal/transport/http/pipeline/v1"
 	"kurgu/internal/transport/http/principal"
 	workspacehandler "kurgu/internal/transport/http/workspace/v1"
 )
 
-// maxBodyBytes caps a request body. Uploads will get their own route.
-const maxBodyBytes = 1 << 20
+// maxBodyBytes caps a request body; maxUploadBytes caps document uploads
+// (the file limit plus multipart overhead).
+const (
+	maxBodyBytes   = 1 << 20
+	maxUploadBytes = knowledgedomain.MaxFileBytes + 1<<20
+)
 
 // Deps is what the router needs.
 type Deps struct {
@@ -37,6 +44,7 @@ type Deps struct {
 	Workspaces *workspacesvc.Service
 	Pipelines  *pipelinesvc.Service
 	Jobs       *jobsvc.Service
+	Knowledge  *knowledgesvc.Service
 	// PublicURL is where browsers reach Kurgu, e.g. https://kurgu.example.com.
 	// It prefixes invitation links, is trusted for cross-origin writes, and
 	// an https scheme marks the session cookie Secure.
@@ -52,6 +60,7 @@ type (
 	workspaces = workspacehandler.Handler
 	pipelines  = pipelinehandler.Handler
 	jobs       = jobhandler.Handler
+	documents  = knowledgehandler.Handler
 )
 
 // server stitches the per-context handlers into one StrictServerInterface.
@@ -60,6 +69,7 @@ type server struct {
 	*workspaces
 	*pipelines
 	*jobs
+	*documents
 }
 
 var _ gen.StrictServerInterface = server{}
@@ -89,6 +99,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		workspaces: workspacehandler.New(d.Workspaces),
 		pipelines:  pipelinehandler.New(d.Pipelines),
 		jobs:       jobhandler.New(d.Jobs),
+		documents:  knowledgehandler.New(d.Knowledge),
 	}, []gen.StrictMiddlewareFunc{authenticate(d.Identity)}, gen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			writeErr(w, r, apperror.Wrap(apperror.BadRequest, err, "malformed request"))
@@ -192,7 +203,11 @@ func readOnly(next http.Handler) http.Handler {
 
 func limitBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+		limit := int64(maxBodyBytes)
+		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/api/v1/workspaces/") && strings.HasSuffix(r.URL.Path, "/documents") {
+			limit = maxUploadBytes
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		next.ServeHTTP(w, r)
 	})
 }

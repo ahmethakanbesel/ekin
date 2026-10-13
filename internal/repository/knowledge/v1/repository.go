@@ -1,0 +1,28 @@
+// Package knowledge persists documents and their extracted pages.
+package knowledge
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+
+	knowledgedomain "kurgu/internal/domain/knowledge/v1"
+)
+
+// Repository persists Document aggregates and their pages.
+type Repository interface {
+	Create(ctx context.Context, d *knowledgedomain.Document) error
+	Update(ctx context.Context, d *knowledgedomain.Document) error
+	// Get returns DocumentNotFound when the document is not in the
+	// workspace.
+	Get(ctx context.Context, workspaceID, id uuid.UUID) (*knowledgedomain.Document, error)
+	// GetByID ignores the workspace, for job handlers.
+	GetByID(ctx context.Context, id uuid.UUID) (*knowledgedomain.Document, error)
+	// List returns the workspace's documents, newest first.
+	List(ctx context.Context, workspaceID uuid.UUID) ([]*knowledgedomain.Document, error)
+	Delete(ctx context.Context, workspaceID, id uuid.UUID) error
+	// ReplacePages swaps the document's pages for pages.
+	ReplacePages(ctx context.Context, documentID uuid.UUID, pages []knowledgedomain.Page) error
+	// Pages returns pages from..to inclusive (1-based); to 0 means to the end.
+	Pages(ctx context.Context, documentID uuid.UUID, from, to int) ([]knowledgedomain.Page, error)
+}

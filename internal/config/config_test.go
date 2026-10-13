@@ -39,6 +39,8 @@ func TestLoadRejectsBadValues(t *testing.T) {
 		{"tiny tick", map[string]string{"KURGU_SCHEDULER_TICK": "10ms"}, "KURGU_SCHEDULER_TICK"},
 		{"bad log format", map[string]string{"KURGU_LOG_FORMAT": "xml"}, "KURGU_LOG_FORMAT"},
 		{"bad concurrency", map[string]string{"KURGU_QUEUE_CONCURRENCY": "gpu=1"}, "KURGU_QUEUE_CONCURRENCY"},
+		{"unknown blob driver", map[string]string{"KURGU_BLOB_DRIVER": "gcs"}, "KURGU_BLOB_DRIVER"},
+		{"s3 without bucket", map[string]string{"KURGU_BLOB_DRIVER": "s3", "KURGU_S3_ENDPOINT": "https://x"}, "KURGU_S3_BUCKET"},
 		{"relative public url", map[string]string{"KURGU_PUBLIC_URL": "kurgu.example.com"}, "KURGU_PUBLIC_URL"},
 		{"public url with path", map[string]string{"KURGU_PUBLIC_URL": "https://example.com/kurgu"}, "KURGU_PUBLIC_URL"},
 	}

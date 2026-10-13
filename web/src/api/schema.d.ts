@@ -219,6 +219,104 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspaceId}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listDocuments"];
+        put?: never;
+        /** @description Uploads a PDF, TXT, MD or EPUB file (at most 100 MB). Pages are extracted in the background; poll the document until its status is ready or failed. */
+        post: operations["uploadDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/documents/{documentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getDocument"];
+        put?: never;
+        post?: never;
+        /** @description Refused with 409 while a pipeline references the document. */
+        delete: operations["deleteDocument"];
+        options?: never;
+        head?: never;
+        patch: operations["updateDocument"];
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/documents/{documentId}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Queues a failed document for extraction again. */
+        post: operations["retryDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/documents/{documentId}/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listDocumentPages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/documents/{documentId}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        /** @description The original upload (PDFs display inline in the browser's viewer). */
+        get: operations["getDocumentFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/pipelines": {
         parameters: {
             query?: never;
@@ -424,6 +522,33 @@ export interface components {
             /** @description When true, accepting takes that account's password; otherwise a name and a new password. */
             accountExists: boolean;
         };
+        Document: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            filename: string;
+            /** @enum {string} */
+            format: "pdf" | "txt" | "md" | "epub";
+            /** Format: int64 */
+            size: number;
+            /** @enum {string} */
+            status: "pending" | "ready" | "failed";
+            pageCount: number;
+            /** @description Estimated tokens of all pages (about ±20%). */
+            tokens: number;
+            /** @description Why extraction failed. */
+            failure?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        DocumentPage: {
+            number: number;
+            text: string;
+            words: number;
+            tokens: number;
+        };
         WorkspaceInput: {
             name: string;
             /** @description IANA timezone name, e.g. Europe/Istanbul. */
@@ -549,6 +674,7 @@ export interface components {
         };
     };
     parameters: {
+        DocumentId: string;
         InvitationToken: string;
         WorkspaceId: string;
         PipelineId: string;
@@ -992,6 +1118,219 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The knowledge base, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        documents: components["schemas"]["Document"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    uploadDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    title?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Stored; extraction queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The document. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted with its file. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Renamed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    retryDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listDocumentPages: {
+        parameters: {
+            query?: {
+                from?: number;
+                /** @description Inclusive; omit for the end. At most 200 pages per call. */
+                to?: number;
+            };
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Extracted pages with token estimates. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        pages: components["schemas"]["DocumentPage"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getDocumentFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                    "application/epub+zip": string;
+                    /** @description TXT and MD originals; the pages endpoint has their text. */
+                    "application/octet-stream": string;
+                };
             };
             default: components["responses"]["Error"];
         };

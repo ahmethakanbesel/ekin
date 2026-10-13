@@ -29,6 +29,15 @@ var workspaceActions = map[string]identitydomain.Action{
 	"CreateInvitation": identitydomain.ActionManage,
 	"RevokeInvitation": identitydomain.ActionManage,
 
+	"ListDocuments":     identitydomain.ActionView,
+	"GetDocument":       identitydomain.ActionView,
+	"ListDocumentPages": identitydomain.ActionView,
+	"GetDocumentFile":   identitydomain.ActionView,
+	"UploadDocument":    identitydomain.ActionEdit,
+	"UpdateDocument":    identitydomain.ActionEdit,
+	"DeleteDocument":    identitydomain.ActionEdit,
+	"RetryDocument":     identitydomain.ActionEdit,
+
 	"ListPipelines":    identitydomain.ActionView,
 	"GetPipeline":      identitydomain.ActionView,
 	"CreatePipeline":   identitydomain.ActionEdit,

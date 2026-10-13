@@ -29,6 +29,25 @@ type Config struct {
 	LogFormat      string // text | json
 	LogLevel       string // debug | info | warn | error
 	Worker         Worker
+	Blob           Blob
+	Tools          Tools
+}
+
+// Blob selects the blob store.
+type Blob struct {
+	Driver string // fs | s3
+	Dir    string // fs root
+	S3     S3
+}
+
+// S3 configures the s3 blob driver.
+type S3 struct {
+	Endpoint, Region, Bucket, Prefix, AccessKey, SecretKey string
+}
+
+// Tools are external binaries the worker runs.
+type Tools struct {
+	PDFToText string
 }
 
 // Worker configures the job runner (PLAN.md §4).
@@ -102,6 +121,28 @@ func load(getenv func(string) string) (Config, error) {
 			Lease:          duration("KURGU_JOB_LEASE", 2*time.Minute),
 		},
 	}
+	cfg.Blob = Blob{
+		Driver: str("KURGU_BLOB_DRIVER", "fs"),
+		Dir:    str("KURGU_BLOB_DIR", filepath.Join(dataDir, "blobs")),
+		S3: S3{
+			Endpoint:  str("KURGU_S3_ENDPOINT", ""),
+			Region:    str("KURGU_S3_REGION", "auto"),
+			Bucket:    str("KURGU_S3_BUCKET", ""),
+			Prefix:    str("KURGU_S3_PREFIX", ""),
+			AccessKey: str("KURGU_S3_ACCESS_KEY_ID", ""),
+			SecretKey: str("KURGU_S3_SECRET_ACCESS_KEY", ""),
+		},
+	}
+	switch cfg.Blob.Driver {
+	case "fs":
+	case "s3":
+		if cfg.Blob.S3.Endpoint == "" || cfg.Blob.S3.Bucket == "" || cfg.Blob.S3.AccessKey == "" || cfg.Blob.S3.SecretKey == "" {
+			errs = append(errs, "KURGU_BLOB_DRIVER=s3 needs KURGU_S3_ENDPOINT, KURGU_S3_BUCKET, KURGU_S3_ACCESS_KEY_ID and KURGU_S3_SECRET_ACCESS_KEY")
+		}
+	default:
+		errs = append(errs, "KURGU_BLOB_DRIVER: must be fs or s3")
+	}
+	cfg.Tools = Tools{PDFToText: str("KURGU_PDFTOTEXT", "pdftotext")}
 	concurrency, err := ParseConcurrency(str("KURGU_QUEUE_CONCURRENCY", DefaultConcurrency))
 	if err != nil {
 		errs = append(errs, "KURGU_QUEUE_CONCURRENCY: "+err.Error())

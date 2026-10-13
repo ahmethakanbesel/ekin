@@ -39,11 +39,17 @@ type RunPayload struct {
 	Count       int       `json:"count"`
 }
 
+// DocumentChecker verifies knowledge references (the knowledge service).
+type DocumentChecker interface {
+	CheckRange(ctx context.Context, workspaceID, documentID uuid.UUID, from, to int) error
+}
+
 // Service runs pipeline use cases.
 type Service struct {
 	repo       pipelinerepo.Repository
 	workspaces workspacerepo.Repository
 	jobs       Enqueuer
+	documents  DocumentChecker
 	tx         db.TxManager
 	now        func() time.Time
 }
@@ -51,6 +57,13 @@ type Service struct {
 // NewService returns a Service.
 func NewService(repo pipelinerepo.Repository, workspaces workspacerepo.Repository, jobs Enqueuer, tx db.TxManager) *Service {
 	return &Service{repo: repo, workspaces: workspaces, jobs: jobs, tx: tx, now: time.Now}
+}
+
+// WithDocuments makes Create and Redefine check knowledge references
+// against the knowledge base.
+func (s *Service) WithDocuments(d DocumentChecker) *Service {
+	s.documents = d
+	return s
 }
 
 // WithClock replaces the clock, for tests.
@@ -62,6 +75,9 @@ func (s *Service) WithClock(now func() time.Time) *Service {
 // Create creates a pipeline in workspaceID.
 func (s *Service) Create(ctx context.Context, workspaceID uuid.UUID, def pipelinedomain.Definition) (*pipelinedomain.Pipeline, error) {
 	if _, err := s.workspaces.Get(ctx, workspaceID); err != nil {
+		return nil, err
+	}
+	if err := s.checkRefs(ctx, workspaceID, def.Source); err != nil {
 		return nil, err
 	}
 	p, err := pipelinedomain.New(id.New(), workspaceID, def, s.now())
@@ -88,6 +104,9 @@ func (s *Service) List(ctx context.Context, workspaceID uuid.UUID) ([]*pipelined
 // caller read; a newer stored version fails with StaleVersion instead of
 // overwriting someone else's edit.
 func (s *Service) Redefine(ctx context.Context, workspaceID, pipelineID uuid.UUID, version int64, def pipelinedomain.Definition) (*pipelinedomain.Pipeline, error) {
+	if err := s.checkRefs(ctx, workspaceID, def.Source); err != nil {
+		return nil, err
+	}
 	return s.change(ctx, workspaceID, pipelineID, version, func(p *pipelinedomain.Pipeline, now time.Time) error {
 		return p.Redefine(def, now)
 	})
@@ -105,6 +124,37 @@ func (s *Service) Resume(ctx context.Context, workspaceID, pipelineID uuid.UUID)
 	return s.change(ctx, workspaceID, pipelineID, 0, func(p *pipelinedomain.Pipeline, now time.Time) error {
 		return p.Resume(now)
 	})
+}
+
+func (s *Service) checkRefs(ctx context.Context, workspaceID uuid.UUID, src pipelinedomain.Source) error {
+	if s.documents == nil {
+		return nil
+	}
+	for _, ref := range src.Refs() {
+		if err := s.documents.CheckRange(ctx, workspaceID, ref.DocumentID(), ref.Pages().From(), ref.Pages().To()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// PipelinesUsing names the workspace's pipelines that reference a
+// document.
+func (s *Service) PipelinesUsing(ctx context.Context, workspaceID, documentID uuid.UUID) ([]string, error) {
+	all, err := s.repo.List(ctx, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, p := range all {
+		for _, ref := range p.Source().Refs() {
+			if ref.DocumentID() == documentID {
+				names = append(names, p.Name())
+				break
+			}
+		}
+	}
+	return names, nil
 }
 
 // Delete removes a pipeline.

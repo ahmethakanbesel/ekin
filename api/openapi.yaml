@@ -17,6 +17,7 @@ tags:
   - name: auth
   - name: workspaces
   - name: members
+  - name: knowledge
   - name: pipelines
   - name: jobs
 
@@ -344,6 +345,158 @@ paths:
           description: Revoked.
         default: { $ref: "#/components/responses/Error" }
 
+  /workspaces/{workspaceId}/documents:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listDocuments
+      tags: [knowledge]
+      responses:
+        "200":
+          description: The knowledge base, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [documents]
+                properties:
+                  documents:
+                    type: array
+                    items: { $ref: "#/components/schemas/Document" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: uploadDocument
+      tags: [knowledge]
+      description: >
+        Uploads a PDF, TXT, MD or EPUB file (at most 100 MB). Pages are
+        extracted in the background; poll the document until its status is
+        ready or failed.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+                title: { type: string, maxLength: 200 }
+      responses:
+        "202":
+          description: Stored; extraction queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/documents/{documentId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/DocumentId"
+    get:
+      operationId: getDocument
+      tags: [knowledge]
+      responses:
+        "200":
+          description: The document.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateDocument
+      tags: [knowledge]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string, maxLength: 200 }
+      responses:
+        "200":
+          description: Renamed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteDocument
+      tags: [knowledge]
+      description: Refused with 409 while a pipeline references the document.
+      responses:
+        "204":
+          description: Deleted with its file.
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/documents/{documentId}/retry:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/DocumentId"
+    post:
+      operationId: retryDocument
+      tags: [knowledge]
+      description: Queues a failed document for extraction again.
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/documents/{documentId}/pages:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/DocumentId"
+    get:
+      operationId: listDocumentPages
+      tags: [knowledge]
+      parameters:
+        - name: from
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: to
+          in: query
+          description: Inclusive; omit for the end. At most 200 pages per call.
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Extracted pages with token estimates.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pages]
+                properties:
+                  pages:
+                    type: array
+                    items: { $ref: "#/components/schemas/DocumentPage" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/documents/{documentId}/file:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/DocumentId"
+    get:
+      operationId: getDocumentFile
+      tags: [knowledge]
+      description: The original upload (PDFs display inline in the browser's viewer).
+      responses:
+        "200":
+          description: The file.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            application/epub+zip:
+              schema: { type: string, format: binary }
+            application/octet-stream:
+              description: TXT and MD originals; the pages endpoint has their text.
+              schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Error" }
+
   /workspaces/{workspaceId}/pipelines:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"
@@ -561,6 +714,11 @@ components:
       schema: { type: string }
 
   parameters:
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     InvitationToken:
       name: token
       in: path
@@ -646,6 +804,39 @@ components:
         accountExists:
           type: boolean
           description: When true, accepting takes that account's password; otherwise a name and a new password.
+
+    Document:
+      type: object
+      required: [id, title, filename, format, size, status, pageCount, tokens, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        filename: { type: string }
+        format:
+          type: string
+          enum: [pdf, txt, md, epub]
+        size: { type: integer, format: int64 }
+        status:
+          type: string
+          enum: [pending, ready, failed]
+        pageCount: { type: integer }
+        tokens:
+          type: integer
+          description: Estimated tokens of all pages (about ±20%).
+        failure:
+          type: string
+          description: Why extraction failed.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    DocumentPage:
+      type: object
+      required: [number, text, words, tokens]
+      properties:
+        number: { type: integer }
+        text: { type: string }
+        words: { type: integer }
+        tokens: { type: integer }
 
     WorkspaceInput:
       type: object

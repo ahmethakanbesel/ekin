@@ -10,17 +10,22 @@ import (
 	"os"
 	"time"
 
+	"kurgu/internal/adapter/extract"
+	"kurgu/internal/blob"
 	"kurgu/internal/config"
 	"kurgu/internal/db"
 	identityrepo "kurgu/internal/repository/identity/v1"
 	jobrepo "kurgu/internal/repository/job/v1"
+	knowledgerepo "kurgu/internal/repository/knowledge/v1"
 	pipelinerepo "kurgu/internal/repository/pipeline/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
 	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
+	knowledgesvc "kurgu/internal/service/knowledge/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	httptransport "kurgu/internal/transport/http"
+	knowledgeworker "kurgu/internal/transport/job/knowledge/v1"
 	"kurgu/internal/transport/schedule"
 	"kurgu/pkg/password"
 	"kurgu/web"
@@ -38,6 +43,7 @@ type App struct {
 	workspaces *workspacesvc.Service
 	pipelines  *pipelinesvc.Service
 	jobs       *jobsvc.Service
+	knowledge  *knowledgesvc.Service
 }
 
 // New opens the database (migrating it when configured) and wires the
@@ -53,19 +59,38 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 			return nil, err
 		}
 	}
+	blobs, err := openBlobs(cfg.Blob)
+	if err != nil {
+		_ = d.Close()
+		return nil, err
+	}
 	tx := db.NewTxManager(d)
 	identities := identityrepo.NewSQLite(tx)
 	workspaces := workspacerepo.NewSQLite(tx)
 	jobs := jobsvc.NewService(jobrepo.NewSQLite(tx), tx)
+	knowledge := knowledgesvc.NewService(knowledgerepo.NewSQLite(tx), blobs, jobs, &extract.Extractor{PDFToText: cfg.Tools.PDFToText}, tx)
+	pipelines := pipelinesvc.NewService(pipelinerepo.NewSQLite(tx), workspaces, jobs, tx).WithDocuments(knowledge)
+	knowledge.WithUsage(pipelines)
 	return &App{
 		cfg:        cfg,
 		log:        log,
 		db:         d,
 		identity:   identitysvc.NewService(identities, workspaces, tx, password.New(password.Default)),
 		workspaces: workspacesvc.NewService(workspaces, identities, tx),
-		pipelines:  pipelinesvc.NewService(pipelinerepo.NewSQLite(tx), workspaces, jobs, tx),
+		pipelines:  pipelines,
 		jobs:       jobs,
+		knowledge:  knowledge,
 	}, nil
+}
+
+func openBlobs(c config.Blob) (blob.Store, error) {
+	if c.Driver == "s3" {
+		return blob.NewS3(blob.S3Config{
+			Endpoint: c.S3.Endpoint, Region: c.S3.Region, Bucket: c.S3.Bucket, Prefix: c.S3.Prefix,
+			AccessKey: c.S3.AccessKey, SecretKey: c.S3.SecretKey,
+		})
+	}
+	return blob.NewFS(c.Dir)
 }
 
 // Close releases the database.
@@ -84,6 +109,7 @@ func (a *App) Serve(ctx context.Context) error {
 		Workspaces: a.workspaces,
 		Pipelines:  a.pipelines,
 		Jobs:       a.jobs,
+		Knowledge:  a.knowledge,
 		PublicURL:  a.cfg.PublicURL,
 		UI:         web.Dist(),
 		Log:        a.log,
@@ -152,8 +178,7 @@ func (a *App) Work(ctx context.Context) error {
 		},
 		Lease: w.Lease,
 	}, a.log.With(slog.String("component", "worker")))
-	// Job handlers register here as their contexts land (pipeline.run,
-	// story.*, render.*). Until then the runner leaves jobs queued.
+	knowledgeworker.Register(runner, a.knowledge)
 	a.log.InfoContext(ctx, "worker started", slog.String("owner", w.Owner), slog.Any("concurrency", w.Concurrency))
 	return runner.Run(ctx)
 }
