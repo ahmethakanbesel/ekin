@@ -20,10 +20,23 @@ const (
 	Conflict            Code = "Conflict"
 	InternalError       Code = "InternalError"
 	ProviderUnavailable Code = "ProviderUnavailable"
+	// TooManyAttempts is a rate limit on guessing (logins, invitation
+	// passwords).
+	TooManyAttempts Code = "TooManyAttempts"
 
-	WorkspaceNotFound Code = "WorkspaceNotFound"
-	PipelineNotFound  Code = "PipelineNotFound"
-	JobNotFound       Code = "JobNotFound"
+	WorkspaceNotFound  Code = "WorkspaceNotFound"
+	PipelineNotFound   Code = "PipelineNotFound"
+	JobNotFound        Code = "JobNotFound"
+	UserNotFound       Code = "UserNotFound"
+	MemberNotFound     Code = "MemberNotFound"
+	InvitationNotFound Code = "InvitationNotFound"
+
+	// EmailTaken is a second account for one email address.
+	EmailTaken Code = "EmailTaken"
+	// AlreadyMember is inviting or adding someone already in the workspace.
+	AlreadyMember Code = "AlreadyMember"
+	// LastOwner is demoting or removing the workspace's only owner.
+	LastOwner Code = "LastOwner"
 
 	// InvalidTransition is a state-machine move the aggregate's current
 	// state does not allow (pausing a paused pipeline, completing a job
@@ -43,10 +56,18 @@ var statusByCode = map[Code]int{
 	Conflict:            http.StatusConflict,
 	InternalError:       http.StatusInternalServerError,
 	ProviderUnavailable: http.StatusBadGateway,
+	TooManyAttempts:     http.StatusTooManyRequests,
 
-	WorkspaceNotFound: http.StatusNotFound,
-	PipelineNotFound:  http.StatusNotFound,
-	JobNotFound:       http.StatusNotFound,
+	WorkspaceNotFound:  http.StatusNotFound,
+	PipelineNotFound:   http.StatusNotFound,
+	JobNotFound:        http.StatusNotFound,
+	UserNotFound:       http.StatusNotFound,
+	MemberNotFound:     http.StatusNotFound,
+	InvitationNotFound: http.StatusNotFound,
+
+	EmailTaken:    http.StatusConflict,
+	AlreadyMember: http.StatusConflict,
+	LastOwner:     http.StatusConflict,
 
 	InvalidTransition: http.StatusConflict,
 	StaleVersion:      http.StatusConflict,
