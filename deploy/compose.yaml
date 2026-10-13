@@ -1,0 +1,74 @@
+# Dokploy "Compose" deployment. Use the Compose type, not Application:
+# Application runs on Swarm, which drops cpuset and cpu_shares.
+#
+# The API has no authentication yet (PLAN.md milestone 2). Until it does,
+# keep it off the public internet: no domain in Dokploy, reach it over an
+# SSH tunnel or Tailscale.
+
+x-kurgu: &kurgu
+  image: kurgu:${KURGU_VERSION:-latest}
+  build:
+    context: ..
+    dockerfile: Dockerfile
+  restart: unless-stopped
+  volumes:
+    - kurgu-data:/data
+  env_file: .env
+
+services:
+  # Restores the database from the replica when the volume is empty
+  # (fresh VPS, lost volume), then exits.
+  restore:
+    image: litestream/litestream:0.3.13
+    command: ["restore", "-if-db-not-exists", "-if-replica-exists", "/data/kurgu.db"]
+    volumes:
+      - kurgu-data:/data
+      - ./litestream.yml:/etc/litestream.yml:ro
+    env_file: .env
+    restart: "no"
+
+  serve:
+    <<: *kurgu
+    command: ["serve"]
+    depends_on:
+      restore:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:8080:8080"
+    mem_limit: 256m
+    cpu_shares: 512
+
+  worker:
+    <<: *kurgu
+    command: ["worker"]
+    depends_on:
+      serve:
+        condition: service_started
+    environment:
+      KURGU_MIGRATE_ON_START: "false"
+    # PLAN.md §4: keep core 0 for the other sites, yield under contention,
+    # never take more than half a core, and never push neighbours into swap.
+    cpuset: "1"
+    cpu_shares: 64
+    cpus: 0.5
+    mem_limit: 1536m
+    memswap_limit: 1536m
+    blkio_config:
+      weight: 100
+
+  litestream:
+    image: litestream/litestream:0.3.13
+    command: ["replicate"]
+    depends_on:
+      serve:
+        condition: service_started
+    volumes:
+      - kurgu-data:/data
+      - ./litestream.yml:/etc/litestream.yml:ro
+    env_file: .env
+    restart: unless-stopped
+    mem_limit: 128m
+    cpu_shares: 128
+
+volumes:
+  kurgu-data:

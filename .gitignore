@@ -8,3 +8,6 @@ coverage.out
 web/node_modules/
 web/dist/*
 !web/dist/.gitkeep
+
+# Deployment secrets
+deploy/.env

@@ -1,0 +1,13 @@
+# Continuous SQLite replication to S3-compatible storage (R2, Hetzner, MinIO).
+# Litestream expands ${VAR} from its environment.
+dbs:
+  - path: /data/kurgu.db
+    replicas:
+      - type: s3
+        bucket: ${LITESTREAM_BUCKET}
+        path: kurgu
+        endpoint: ${LITESTREAM_ENDPOINT}
+        region: ${LITESTREAM_REGION}
+        access-key-id: ${LITESTREAM_ACCESS_KEY_ID}
+        secret-access-key: ${LITESTREAM_SECRET_ACCESS_KEY}
+        retention: 168h
