@@ -1,0 +1,206 @@
+package job
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
+	"kurgu/internal/apperror"
+	"kurgu/internal/db"
+	jobdomain "kurgu/internal/domain/job/v1"
+	"kurgu/pkg/timeutil"
+)
+
+// SQLite is the production Repository.
+type SQLite struct {
+	q db.QuerierSource
+}
+
+var _ Repository = (*SQLite)(nil)
+
+// NewSQLite returns a Repository over q.
+func NewSQLite(q db.QuerierSource) *SQLite {
+	return &SQLite{q: q}
+}
+
+const jobColumns = `id, workspace_id, queue, kind, payload, unique_key, status,
+	attempt, max_attempts, run_after, lease_owner, lease_until, last_error,
+	created_at, updated_at, finished_at`
+
+func (r *SQLite) Enqueue(ctx context.Context, j *jobdomain.Job) (bool, error) {
+	s := j.Snapshot()
+	res, err := r.q.W(ctx).ExecContext(ctx, `INSERT INTO jobs (`+jobColumns+`)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (unique_key) WHERE unique_key IS NOT NULL DO NOTHING`,
+		s.ID.String(), s.WorkspaceID.String(), s.Queue, s.Kind, string(s.Payload), nullString(s.UniqueKey), s.Status,
+		s.Attempt, s.MaxAttempts, timeutil.ToMillis(s.RunAfter), nullString(s.LeaseOwner), nullMillis(s.LeaseUntil), s.LastError,
+		timeutil.ToMillis(s.CreatedAt), timeutil.ToMillis(s.UpdatedAt), nullMillis(s.FinishedAt))
+	if err != nil {
+		return false, fmt.Errorf("insert job: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("insert job: %w", err)
+	}
+	return n == 1, nil
+}
+
+func (r *SQLite) Save(ctx context.Context, j *jobdomain.Job) error {
+	s := j.Snapshot()
+	res, err := r.q.W(ctx).ExecContext(ctx, `UPDATE jobs SET
+			status = ?, attempt = ?, run_after = ?, lease_owner = ?, lease_until = ?,
+			last_error = ?, updated_at = ?, finished_at = ?
+		WHERE id = ?`,
+		s.Status, s.Attempt, timeutil.ToMillis(s.RunAfter), nullString(s.LeaseOwner), nullMillis(s.LeaseUntil),
+		s.LastError, timeutil.ToMillis(s.UpdatedAt), nullMillis(s.FinishedAt), s.ID.String())
+	if err != nil {
+		return fmt.Errorf("update job: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return apperror.New(apperror.JobNotFound, "job not found")
+	}
+	return nil
+}
+
+func (r *SQLite) Get(ctx context.Context, workspaceID, id uuid.UUID) (*jobdomain.Job, error) {
+	return r.one(ctx, `SELECT `+jobColumns+` FROM jobs WHERE id = ? AND workspace_id = ?`, id.String(), workspaceID.String())
+}
+
+func (r *SQLite) GetByID(ctx context.Context, id uuid.UUID) (*jobdomain.Job, error) {
+	return r.one(ctx, `SELECT `+jobColumns+` FROM jobs WHERE id = ?`, id.String())
+}
+
+func (r *SQLite) one(ctx context.Context, query string, args ...any) (*jobdomain.Job, error) {
+	j, err := scanJob(r.q.R(ctx).QueryRowContext(ctx, query, args...))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, apperror.New(apperror.JobNotFound, "job not found")
+	}
+	return j, err
+}
+
+func (r *SQLite) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*jobdomain.Job, error) {
+	query := `SELECT ` + jobColumns + ` FROM jobs WHERE workspace_id = ?`
+	args := []any{workspaceID.String()}
+	if len(f.Statuses) > 0 {
+		query += ` AND status IN (` + placeholders(len(f.Statuses)) + `)`
+		for _, s := range f.Statuses {
+			args = append(args, string(s))
+		}
+	}
+	limit := f.Limit
+	if limit <= 0 {
+		limit = DefaultListLimit
+	}
+	query += ` ORDER BY created_at DESC, id DESC LIMIT ?`
+	args = append(args, limit)
+	return r.many(ctx, query, args...)
+}
+
+func (r *SQLite) NextClaimable(ctx context.Context, queues []jobdomain.Queue, kinds []string, now time.Time) (*jobdomain.Job, error) {
+	if len(queues) == 0 || len(kinds) == 0 {
+		return nil, nil
+	}
+	ms := timeutil.ToMillis(now)
+	args := make([]any, 0, len(queues)+len(kinds)+3)
+	for _, q := range queues {
+		args = append(args, string(q))
+	}
+	for _, k := range kinds {
+		args = append(args, k)
+	}
+	args = append(args, ms, ms, 1)
+	// Mirrors jobdomain.Job.Claimable; the caller still asks the aggregate
+	// before starting it.
+	jobs, err := r.many(ctx, `SELECT `+jobColumns+` FROM jobs
+		WHERE queue IN (`+placeholders(len(queues))+`)
+		  AND kind IN (`+placeholders(len(kinds))+`)
+		  AND ((status = 'queued' AND run_after <= ?)
+		    OR (status = 'running' AND lease_until < ? AND attempt < max_attempts))
+		ORDER BY run_after, created_at, id
+		LIMIT ?`, args...)
+	if err != nil || len(jobs) == 0 {
+		return nil, err
+	}
+	return jobs[0], nil
+}
+
+func (r *SQLite) ListAbandoned(ctx context.Context, now time.Time, limit int) ([]*jobdomain.Job, error) {
+	return r.many(ctx, `SELECT `+jobColumns+` FROM jobs
+		WHERE status = 'running' AND lease_until < ? AND attempt >= max_attempts
+		ORDER BY lease_until, id LIMIT ?`, timeutil.ToMillis(now), limit)
+}
+
+func (r *SQLite) many(ctx context.Context, query string, args ...any) ([]*jobdomain.Job, error) {
+	rows, err := r.q.R(ctx).QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query jobs: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []*jobdomain.Job
+	for rows.Next() {
+		j, err := scanJob(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, j)
+	}
+	return out, rows.Err()
+}
+
+type scanner interface {
+	Scan(dest ...any) error
+}
+
+func scanJob(s scanner) (*jobdomain.Job, error) {
+	var (
+		id, workspaceID, payload       string
+		uniqueKey, leaseOwner          sql.NullString
+		runAfter, createdAt, updatedAt int64
+		leaseUntil, finishedAt         sql.NullInt64
+		snap                           jobdomain.Snapshot
+	)
+	err := s.Scan(&id, &workspaceID, &snap.Queue, &snap.Kind, &payload, &uniqueKey, &snap.Status,
+		&snap.Attempt, &snap.MaxAttempts, &runAfter, &leaseOwner, &leaseUntil, &snap.LastError,
+		&createdAt, &updatedAt, &finishedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("scan job: %w", err)
+	}
+	if snap.ID, err = uuid.Parse(id); err != nil {
+		return nil, fmt.Errorf("parse job id: %w", err)
+	}
+	if snap.WorkspaceID, err = uuid.Parse(workspaceID); err != nil {
+		return nil, fmt.Errorf("parse workspace id: %w", err)
+	}
+	snap.Payload = []byte(payload)
+	snap.UniqueKey = uniqueKey.String
+	snap.LeaseOwner = leaseOwner.String
+	snap.RunAfter = timeutil.FromMillis(runAfter)
+	snap.LeaseUntil = timeutil.FromMillis(leaseUntil.Int64)
+	snap.CreatedAt = timeutil.FromMillis(createdAt)
+	snap.UpdatedAt = timeutil.FromMillis(updatedAt)
+	snap.FinishedAt = timeutil.FromMillis(finishedAt.Int64)
+	return jobdomain.Rehydrate(snap)
+}
+
+func placeholders(n int) string {
+	return strings.TrimSuffix(strings.Repeat("?,", n), ",")
+}
+
+func nullString(s string) sql.NullString {
+	return sql.NullString{String: s, Valid: s != ""}
+}
+
+func nullMillis(t time.Time) sql.NullInt64 {
+	if t.IsZero() {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: timeutil.ToMillis(t), Valid: true}
+}
