@@ -204,3 +204,35 @@ func sourceFromSnapshot(s SourceSnapshot) (Source, error) {
 	}
 	return Source{}, apperror.New(apperror.ValidationFailed, "source kind must be prompt or knowledge")
 }
+
+// SnapshotVideo returns v's persisted form.
+func SnapshotVideo(v VideoSpec) VideoSnapshot {
+	return VideoSnapshot{Format: string(v.format), Orientation: string(v.orientation), DurationSeconds: int(v.duration / time.Second)}
+}
+
+// VideoFromSnapshot parses a persisted VideoSpec.
+func VideoFromSnapshot(s VideoSnapshot) (VideoSpec, error) {
+	return NewVideoSpec(Format(s.Format), Orientation(s.Orientation), time.Duration(s.DurationSeconds)*time.Second)
+}
+
+// SnapshotArticle returns a's persisted form.
+func SnapshotArticle(a ArticleSpec) ArticleSnapshot {
+	langs := make([]string, 0, len(a.translations))
+	for _, l := range a.translations {
+		langs = append(langs, string(l))
+	}
+	return ArticleSnapshot{Words: a.words, Translations: langs}
+}
+
+// ArticleFromSnapshot parses a persisted ArticleSpec.
+func ArticleFromSnapshot(s ArticleSnapshot) (ArticleSpec, error) {
+	langs := make([]Language, 0, len(s.Translations))
+	for _, raw := range s.Translations {
+		l, err := ParseLanguage(raw)
+		if err != nil {
+			return ArticleSpec{}, err
+		}
+		langs = append(langs, l)
+	}
+	return NewArticleSpec(s.Words, langs)
+}
