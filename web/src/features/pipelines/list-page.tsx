@@ -44,7 +44,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { useWorkspace } from "@/features/workspaces/context"
+import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { formatDateTime, formatRelative, useNow } from "@/lib/time"
@@ -60,12 +60,13 @@ import { outputLines } from "./summary"
 
 export function PipelinesPage() {
   const workspace = useWorkspace()
+  const canEdit = useCan("edit")
   const list = useQuery(pipelinesQuery(workspace.id))
   const now = useNow()
   const [running, setRunning] = useState<Pipeline | null>(null)
   const [deleting, setDeleting] = useState<Pipeline | null>(null)
 
-  const newButton = (
+  const newButton = canEdit ? (
     <Button
       render={<Link to="/w/$workspaceId/pipelines/new" params={{ workspaceId: workspace.id }} />}
       nativeButton={false}
@@ -73,7 +74,7 @@ export function PipelinesPage() {
       <PlusIcon data-icon="inline-start" />
       {m.pipelines.new}
     </Button>
-  )
+  ) : null
 
   let body
   if (list.isPending) body = <TableSkeleton />
@@ -111,6 +112,7 @@ export function PipelinesPage() {
                 pipeline={p}
                 timezone={workspace.timezone}
                 now={now}
+                canEdit={canEdit}
                 onRun={() => setRunning(p)}
                 onDelete={() => setDeleting(p)}
               />
@@ -138,12 +140,14 @@ function PipelineRow({
   pipeline: p,
   timezone,
   now,
+  canEdit,
   onRun,
   onDelete,
 }: {
   pipeline: Pipeline
   timezone: string
   now: number
+  canEdit: boolean
   onRun: () => void
   onDelete: () => void
 }) {
@@ -246,34 +250,36 @@ function PipelineRow({
         )}
       </TableCell>
       <TableCell className="pr-4 align-top">
-        <div className="flex items-center justify-end gap-1">
-          <Button variant="outline" size="sm" onClick={onRun}>
-            <PlayIcon data-icon="inline-start" />
-            {m.pipelines.runNow}
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="ghost" size="icon-sm" aria-label={m.common.actions} />}
-            >
-              <MoreHorizontalIcon />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem onClick={edit}>
-                <PencilIcon />
-                {m.common.edit}
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled={toggling} onClick={() => void togglePause()}>
-                {p.status === "active" ? <PauseIcon /> : <RotateCwIcon />}
-                {p.status === "active" ? m.pipelines.pause : m.pipelines.resume}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={onDelete}>
-                <Trash2Icon />
-                {m.common.delete}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        {canEdit ? (
+          <div className="flex items-center justify-end gap-1">
+            <Button variant="outline" size="sm" onClick={onRun}>
+              <PlayIcon data-icon="inline-start" />
+              {m.pipelines.runNow}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={<Button variant="ghost" size="icon-sm" aria-label={m.common.actions} />}
+              >
+                <MoreHorizontalIcon />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem onClick={edit}>
+                  <PencilIcon />
+                  {m.common.edit}
+                </DropdownMenuItem>
+                <DropdownMenuItem disabled={toggling} onClick={() => void togglePause()}>
+                  {p.status === "active" ? <PauseIcon /> : <RotateCwIcon />}
+                  {p.status === "active" ? m.pipelines.pause : m.pipelines.resume}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                  <Trash2Icon />
+                  {m.common.delete}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ) : null}
       </TableCell>
     </TableRow>
   )

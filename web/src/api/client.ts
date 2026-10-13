@@ -19,6 +19,11 @@ export type PipelineDefinition = Schemas["PipelineDefinition"]
 export type Language = Schemas["Language"]
 export type Job = Schemas["Job"]
 export type JobStatus = Schemas["JobStatus"]
+export type User = Schemas["User"]
+export type Role = Schemas["Role"]
+export type Member = Schemas["Member"]
+export type Invitation = Schemas["Invitation"]
+export type InvitationPreview = Schemas["InvitationPreview"]
 
 /** A failed API call: the server's `{code, message}` plus the HTTP status. */
 export class ApiError extends Error {

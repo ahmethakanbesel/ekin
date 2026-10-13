@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { AlertCircleIcon } from "lucide-react"
+import { AlertCircleIcon, LockIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -128,5 +128,15 @@ export function Banner({
       </div>
       {action}
     </div>
+  )
+}
+
+/** Says why the controls on a page are missing or disabled for this role. */
+export function ReadOnlyNote({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <p className={cn("mb-4 flex items-center gap-2 text-sm text-muted-foreground", className)}>
+      <LockIcon className="size-4 shrink-0" />
+      {children}
+    </p>
   )
 }

@@ -5,10 +5,10 @@ import { ArrowLeftIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { ApiError, isApiError, type Pipeline, type PipelineDefinition } from "@/api/client"
-import { Banner, EmptyState, ErrorState, PageHeader } from "@/components/page"
+import { Banner, EmptyState, ErrorState, PageHeader, ReadOnlyNote } from "@/components/page"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { useWorkspace } from "@/features/workspaces/context"
+import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { pipelineQuery, useCreatePipeline, useRedefinePipeline } from "@/queries/pipelines"
@@ -42,6 +42,7 @@ function ServerError({ error }: { error: unknown }) {
 
 export function NewPipelinePage() {
   const workspace = useWorkspace()
+  const canEdit = useCan("edit")
   const create = useCreatePipeline(workspace.id)
   const navigate = useNavigate()
   const [error, setError] = useState<unknown>(null)
@@ -57,6 +58,15 @@ export function NewPipelinePage() {
       setError(err)
       toast.error(errorMessage(err))
     }
+  }
+
+  if (!canEdit) {
+    return (
+      <div className="max-w-5xl">
+        <BackLink workspaceId={workspace.id} />
+        <EmptyState title={m.pipelineForm.createForbidden} />
+      </div>
+    )
   }
 
   return (
@@ -115,6 +125,7 @@ function EditPipeline({
   reload: () => Promise<Pipeline | undefined>
 }) {
   const workspace = useWorkspace()
+  const canEdit = useCan("edit")
   const navigate = useNavigate()
   // The version (and values) the user started from. PUT sends this
   // version; a newer stored one answers 409 StaleVersion.
@@ -172,7 +183,11 @@ function EditPipeline({
   return (
     <div className="max-w-5xl">
       <BackLink workspaceId={workspace.id} />
-      <PageHeader title={m.pipelineForm.editTitle} description={base.definition.name} />
+      <PageHeader
+        title={canEdit ? m.pipelineForm.editTitle : m.pipelineForm.viewTitle}
+        description={base.definition.name}
+      />
+      {canEdit ? null : <ReadOnlyNote>{m.pipelineForm.readOnlyHint}</ReadOnlyNote>}
       <PipelineForm
         // A reload replaces the form's values with the stored version.
         key={base.version}
@@ -180,6 +195,7 @@ function EditPipeline({
         initialValues={initialValues}
         submitLabel={m.pipelineForm.submitSave}
         banner={banner}
+        readOnly={!canEdit}
         onSubmit={submit}
       />
     </div>

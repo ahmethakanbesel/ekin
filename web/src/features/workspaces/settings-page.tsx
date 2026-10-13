@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form"
 import { toast } from "sonner"
 
-import { Banner, PageHeader } from "@/components/page"
+import { Banner, PageHeader, ReadOnlyNote } from "@/components/page"
 import { TimezoneCombobox } from "@/components/timezone-combobox"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,7 +11,7 @@ import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { formatDateTime, useNow } from "@/lib/time"
 import { useUpdateWorkspace } from "@/queries/workspaces"
-import { useWorkspace } from "./context"
+import { useCan, useWorkspace } from "./context"
 import { workspaceNameError } from "./validation"
 
 export function WorkspaceSettingsPage() {
@@ -22,6 +22,7 @@ export function WorkspaceSettingsPage() {
 
 function SettingsForm() {
   const workspace = useWorkspace()
+  const canManage = useCan("manage")
   const update = useUpdateWorkspace(workspace.id)
   const now = useNow()
   const form = useForm({
@@ -42,6 +43,7 @@ function SettingsForm() {
   return (
     <div className="max-w-2xl">
       <PageHeader title={m.workspace.settingsTitle} description={m.workspace.settingsDescription} />
+      {canManage ? null : <ReadOnlyNote>{m.workspace.readOnlyHint}</ReadOnlyNote>}
       <Card>
         <CardContent>
           <form
@@ -65,6 +67,7 @@ function SettingsForm() {
                       <Input
                         id="ws-settings-name"
                         autoComplete="off"
+                        disabled={!canManage}
                         value={field.state.value}
                         onChange={(e) => field.handleChange(e.target.value)}
                         onBlur={field.handleBlur}
@@ -85,6 +88,7 @@ function SettingsForm() {
                       id="ws-settings-tz"
                       value={field.state.value}
                       onChange={field.handleChange}
+                      disabled={!canManage}
                       className="max-w-sm"
                     />
                     <FieldDescription>
@@ -95,15 +99,17 @@ function SettingsForm() {
               </form.Field>
             </FieldGroup>
             {update.error ? <Banner title={errorMessage(update.error)} /> : null}
-            <div className="flex justify-end">
-              <form.Subscribe selector={(s) => [s.isSubmitting, s.isDirty] as const}>
-                {([submitting, dirty]) => (
-                  <Button type="submit" disabled={submitting || !dirty}>
-                    {submitting ? m.common.saving : m.common.save}
-                  </Button>
-                )}
-              </form.Subscribe>
-            </div>
+            {canManage ? (
+              <div className="flex justify-end">
+                <form.Subscribe selector={(s) => [s.isSubmitting, s.isDirty] as const}>
+                  {([submitting, dirty]) => (
+                    <Button type="submit" disabled={submitting || !dirty}>
+                      {submitting ? m.common.saving : m.common.save}
+                    </Button>
+                  )}
+                </form.Subscribe>
+              </div>
+            ) : null}
           </form>
         </CardContent>
       </Card>

@@ -7,18 +7,27 @@ import {
   createRoute,
   createRouter,
   redirect,
+  useRouter,
+  type ErrorComponentProps,
+  type ParsedLocation,
 } from "@tanstack/react-router"
 
-import { EmptyState } from "@/components/page"
+import { EmptyState, ErrorState } from "@/components/page"
 import { Button } from "@/components/ui/button"
+import { AccountPage } from "@/features/auth/account-page"
+import { InvitePage } from "@/features/auth/invite-page"
+import { LoginPage } from "@/features/auth/login-page"
+import { safeNext, validateLoginSearch } from "@/features/auth/search"
 import { JobsPage } from "@/features/jobs/jobs-page"
 import { validateJobsSearch } from "@/features/jobs/search"
+import { MembersPage } from "@/features/members/members-page"
 import { PipelinesPage } from "@/features/pipelines/list-page"
 import { EditPipelinePage, NewPipelinePage } from "@/features/pipelines/pipeline-pages"
 import { HomePage } from "@/features/workspaces/home-page"
 import { WorkspaceSettingsPage } from "@/features/workspaces/settings-page"
 import { WorkspaceLayout } from "@/features/workspaces/workspace-layout"
 import { m } from "@/i18n"
+import { currentUser } from "@/queries/auth"
 
 export type RouterContext = { queryClient: QueryClient }
 
@@ -38,20 +47,70 @@ function NotFound() {
   )
 }
 
+/** A route guard that failed for a reason other than being signed out. */
+function RouteError({ error }: ErrorComponentProps) {
+  const router = useRouter()
+  return (
+    <main className="mx-auto max-w-xl p-8">
+      <ErrorState error={error} onRetry={() => void router.invalidate()} />
+    </main>
+  )
+}
+
 const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: Outlet,
   notFoundComponent: NotFound,
+  errorComponent: RouteError,
+})
+
+/** beforeLoad for every page that needs a session: no user, sign in first. */
+async function requireUser({
+  context,
+  location,
+}: {
+  context: RouterContext
+  location: ParsedLocation
+}) {
+  const me = await currentUser(context.queryClient)
+  if (!me) throw redirect({ to: "/login", search: { next: location.href } })
+}
+
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/login",
+  validateSearch: validateLoginSearch,
+  // Asks the server rather than the cache: a signed-in visitor moves on.
+  beforeLoad: async ({ context, search }) => {
+    const me = await currentUser(context.queryClient, true)
+    if (me) throw redirect({ href: safeNext(search.next), replace: true })
+  },
+  component: LoginPage,
+})
+
+const inviteRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/invite/$token",
+  component: InvitePage,
 })
 
 const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
+  beforeLoad: requireUser,
   component: HomePage,
+})
+
+const accountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/account",
+  beforeLoad: requireUser,
+  component: AccountPage,
 })
 
 const workspaceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/w/$workspaceId",
+  beforeLoad: requireUser,
   component: WorkspaceLayout,
 })
 
@@ -88,6 +147,12 @@ const jobsRoute = createRoute({
   component: JobsPage,
 })
 
+const membersRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: "/members",
+  component: MembersPage,
+})
+
 const settingsRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "/settings",
@@ -95,13 +160,17 @@ const settingsRoute = createRoute({
 })
 
 const routeTree = rootRoute.addChildren([
+  loginRoute,
+  inviteRoute,
   homeRoute,
+  accountRoute,
   workspaceRoute.addChildren([
     workspaceIndexRoute,
     pipelinesRoute,
     newPipelineRoute,
     editPipelineRoute,
     jobsRoute,
+    membersRoute,
     settingsRoute,
   ]),
 ])

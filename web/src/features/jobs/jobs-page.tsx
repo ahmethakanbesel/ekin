@@ -27,7 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useWorkspace } from "@/features/workspaces/context"
+import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { formatDateTime, formatRelative, useNow } from "@/lib/time"
@@ -46,6 +46,7 @@ const statusTone: Record<JobStatus, string> = {
 
 export function JobsPage() {
   const workspace = useWorkspace()
+  const canEdit = useCan("edit")
   const search = useSearch({ from: "/w/$workspaceId/jobs" })
   const navigate = useNavigate({ from: "/w/$workspaceId/jobs" })
   const status = parseStatusFilter(search.status)
@@ -101,6 +102,7 @@ export function JobsPage() {
                   job={job}
                   timezone={workspace.timezone}
                   now={now}
+                  canCancel={canEdit}
                   onCancel={() => setCancelling(job)}
                 />
               ))}
@@ -158,14 +160,16 @@ function JobRow({
   job,
   timezone,
   now,
+  canCancel,
   onCancel,
 }: {
   job: Job
   timezone: string
   now: number
+  canCancel: boolean
   onCancel: () => void
 }) {
-  const cancellable = job.status === "queued" || job.status === "running"
+  const cancellable = canCancel && (job.status === "queued" || job.status === "running")
   return (
     <TableRow>
       <TableCell className="pl-4 align-top">

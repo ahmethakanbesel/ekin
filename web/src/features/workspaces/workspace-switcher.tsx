@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate, useRouterState } from "@tanstack/react-router"
-import { ChevronsUpDownIcon, PlusIcon } from "lucide-react"
+import { ChevronsUpDownIcon, LayoutGridIcon, PlusIcon } from "lucide-react"
 
 import type { Workspace } from "@/api/client"
 import {
@@ -19,12 +19,17 @@ import { m } from "@/i18n"
 import { workspacesQuery } from "@/queries/workspaces"
 import { CreateWorkspaceDialog } from "./create-workspace-dialog"
 
-type Section = "pipelines" | "jobs" | "settings"
+const sectionRoutes = {
+  pipelines: "/w/$workspaceId/pipelines",
+  jobs: "/w/$workspaceId/jobs",
+  members: "/w/$workspaceId/members",
+  settings: "/w/$workspaceId/settings",
+} as const
 
 /** The section of the current workspace URL, kept when switching. */
-function currentSection(pathname: string): Section {
+function currentSection(pathname: string): keyof typeof sectionRoutes {
   const part = pathname.split("/")[3]
-  return part === "jobs" || part === "settings" ? part : "pipelines"
+  return part === "jobs" || part === "members" || part === "settings" ? part : "pipelines"
 }
 
 export function WorkspaceSwitcher({ current }: { current: Workspace }) {
@@ -35,14 +40,7 @@ export function WorkspaceSwitcher({ current }: { current: Workspace }) {
 
   const go = (workspaceId: string) => {
     if (workspaceId === current.id) return
-    const section = currentSection(pathname)
-    const to =
-      section === "jobs"
-        ? "/w/$workspaceId/jobs"
-        : section === "settings"
-          ? "/w/$workspaceId/settings"
-          : "/w/$workspaceId/pipelines"
-    void navigate({ to, params: { workspaceId } })
+    void navigate({ to: sectionRoutes[currentSection(pathname)], params: { workspaceId } })
   }
 
   return (
@@ -57,7 +55,9 @@ export function WorkspaceSwitcher({ current }: { current: Workspace }) {
           </span>
           <span className="grid min-w-0 flex-1 leading-tight">
             <span className="truncate text-sm font-medium">{current.name}</span>
-            <span className="truncate text-xs text-muted-foreground">{current.timezone}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {m.roles[current.role]} · {current.timezone}
+            </span>
           </span>
           <ChevronsUpDownIcon className="size-4 shrink-0 text-muted-foreground" />
         </DropdownMenuTrigger>
@@ -76,6 +76,10 @@ export function WorkspaceSwitcher({ current }: { current: Workspace }) {
           <DropdownMenuItem onClick={() => setCreating(true)}>
             <PlusIcon />
             {m.nav.newWorkspace}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => void navigate({ to: "/" })}>
+            <LayoutGridIcon />
+            {m.nav.allWorkspaces}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

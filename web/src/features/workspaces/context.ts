@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react"
 
-import type { Workspace } from "@/api/client"
+import type { Role, Workspace } from "@/api/client"
 
 export const WorkspaceContext = createContext<Workspace | null>(null)
 
@@ -11,20 +11,21 @@ export function useWorkspace(): Workspace {
   return ws
 }
 
-const LAST_WORKSPACE = "kurgu.lastWorkspace"
+/**
+ * What a role allows beyond reading. edit: pipelines, runs and job
+ * cancellation. manage: also workspace settings, members and invitations.
+ * The server enforces the same rules; this only decides what to offer.
+ */
+export type Permission = "edit" | "manage"
 
-export function rememberWorkspace(id: string) {
-  try {
-    localStorage.setItem(LAST_WORKSPACE, id)
-  } catch {
-    // Storage may be unavailable (private mode); remembering is a nicety.
-  }
+const rank: Record<Role, number> = { viewer: 0, editor: 1, owner: 2 }
+const needed: Record<Permission, number> = { edit: 1, manage: 2 }
+
+export function can(role: Role, permission: Permission): boolean {
+  return rank[role] >= needed[permission]
 }
 
-export function lastWorkspace(): string | null {
-  try {
-    return localStorage.getItem(LAST_WORKSPACE)
-  } catch {
-    return null
-  }
+/** Whether the caller may do `permission` in the current workspace. */
+export function useCan(permission: Permission): boolean {
+  return can(useWorkspace().role, permission)
 }

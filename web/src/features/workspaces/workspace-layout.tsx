@@ -1,30 +1,28 @@
-import { useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link, Outlet, useParams } from "@tanstack/react-router"
-import { ListChecksIcon, SettingsIcon, WorkflowIcon } from "lucide-react"
+import { ListChecksIcon, SettingsIcon, UsersIcon, WorkflowIcon } from "lucide-react"
 
 import { isApiError } from "@/api/client"
+import { Brand } from "@/components/brand"
 import { EmptyState, ErrorState } from "@/components/page"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { UserMenu } from "@/features/auth/user-menu"
 import { m } from "@/i18n"
 import { workspaceQuery } from "@/queries/workspaces"
-import { WorkspaceContext, rememberWorkspace } from "./context"
+import { WorkspaceContext } from "./context"
 import { WorkspaceSwitcher } from "./workspace-switcher"
 
 const navItems = [
   { to: "/w/$workspaceId/pipelines", label: m.nav.pipelines, icon: WorkflowIcon },
   { to: "/w/$workspaceId/jobs", label: m.nav.jobs, icon: ListChecksIcon },
+  { to: "/w/$workspaceId/members", label: m.nav.members, icon: UsersIcon },
   { to: "/w/$workspaceId/settings", label: m.nav.settings, icon: SettingsIcon },
 ] as const
 
 export function WorkspaceLayout() {
   const { workspaceId } = useParams({ from: "/w/$workspaceId" })
   const ws = useQuery(workspaceQuery(workspaceId))
-
-  useEffect(() => {
-    if (ws.data) rememberWorkspace(ws.data.id)
-  }, [ws.data])
 
   if (ws.isPending) {
     return (
@@ -40,6 +38,7 @@ export function WorkspaceLayout() {
   }
 
   if (ws.isError) {
+    // A workspace you are not a member of answers 404, like a missing one.
     const missing = isApiError(ws.error) && (ws.error.status === 404 || ws.error.status === 400)
     return (
       <main className="mx-auto max-w-xl p-8">
@@ -79,14 +78,18 @@ export function WorkspaceLayout() {
           <Brand />
           <WorkspaceSwitcher current={workspace} />
           <nav className="grid gap-0.5">{nav}</nav>
+          <div className="mt-auto">
+            <UserMenu />
+          </div>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex flex-col gap-2 border-b bg-sidebar p-3 md:hidden">
             <div className="flex items-center gap-2">
               <Brand />
-              <div className="ml-auto w-56">
+              <div className="ml-auto max-w-56 min-w-0 flex-1">
                 <WorkspaceSwitcher current={workspace} />
               </div>
+              <UserMenu compact />
             </div>
             <nav className="flex gap-1 overflow-x-auto">{nav}</nav>
           </header>
@@ -96,14 +99,5 @@ export function WorkspaceLayout() {
         </div>
       </div>
     </WorkspaceContext.Provider>
-  )
-}
-
-function Brand() {
-  return (
-    <Link to="/" className="flex items-center gap-2 px-2.5 py-1 outline-none">
-      <span className="font-heading text-lg font-semibold tracking-tight">{m.app.name}</span>
-      <span className="hidden text-xs text-muted-foreground lg:inline">{m.app.tagline}</span>
-    </Link>
   )
 }

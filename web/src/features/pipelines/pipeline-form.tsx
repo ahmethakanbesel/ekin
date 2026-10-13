@@ -52,6 +52,8 @@ type Props = {
   submitLabel: string
   /** Shown above the actions: the server's rejection, if any. */
   banner?: ReactNode
+  /** Shows the values with every control disabled and no submit. */
+  readOnly?: boolean
   onSubmit: (definition: PipelineDefinition) => Promise<void>
 }
 
@@ -62,7 +64,14 @@ const SOURCE_KINDS: SourceKind[] = ["prompt", "knowledge"]
 const languageItems = LANGUAGES.map((l) => ({ value: l, label: m.values.language[l] }))
 const formatItems = FORMATS.map((f) => ({ value: f, label: m.values.format[f] }))
 
-export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, onSubmit }: Props) {
+export function PipelineForm({
+  workspaceId,
+  initialValues,
+  submitLabel,
+  banner,
+  readOnly = false,
+  onSubmit,
+}: Props) {
   const form = useForm({
     defaultValues: initialValues,
     validators: {
@@ -76,6 +85,7 @@ export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, 
       },
     },
     onSubmit: async ({ value }) => {
+      if (readOnly) return
       await onSubmit(toDefinition(value))
     },
   })
@@ -106,7 +116,7 @@ export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, 
       }}
     >
       {/* Basics */}
-      <Section title={m.pipelineForm.sections.basics}>
+      <Section title={m.pipelineForm.sections.basics} disabled={readOnly}>
         <FieldGroup className="gap-5 md:grid md:grid-cols-[1fr_12rem]">
           <form.Field name="name">
             {(field) => (
@@ -139,6 +149,7 @@ export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, 
               <Row label={m.pipelineForm.language} htmlFor="pl-language">
                 <Select
                   items={languageItems}
+                  disabled={readOnly}
                   value={field.state.value}
                   onValueChange={(v) => v && field.handleChange(v as Language)}
                 >
@@ -160,7 +171,11 @@ export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, 
       </Section>
 
       {/* Outputs */}
-      <Section title={m.pipelineForm.sections.outputs} description={m.pipelineForm.outputsHint}>
+      <Section
+        title={m.pipelineForm.sections.outputs}
+        description={m.pipelineForm.outputsHint}
+        disabled={readOnly}
+      >
         <div className="grid gap-4 lg:grid-cols-2">
           <OutputPanel
             icon={<VideoIcon />}
@@ -172,6 +187,7 @@ export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, 
                 {(field) => (
                   <Switch
                     id="pl-video"
+                    disabled={readOnly}
                     checked={field.state.value}
                     onCheckedChange={(v) => field.handleChange(v)}
                     aria-label={m.pipelineForm.video}
@@ -201,6 +217,7 @@ export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, 
                   <Row label={m.pipelineForm.format} htmlFor="pl-format">
                     <Select
                       items={formatItems}
+                      disabled={readOnly}
                       value={field.state.value}
                       onValueChange={(v) => v && field.handleChange(v as VideoFormat)}
                     >
@@ -222,6 +239,7 @@ export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, 
                 {(field) => (
                   <Row label={m.pipelineForm.orientation} error={shown(field.state.meta)}>
                     <RadioGroup
+                      disabled={readOnly}
                       value={field.state.value}
                       onValueChange={(v) => field.handleChange(v as Orientation)}
                       className="flex flex-wrap gap-x-5 gap-y-2"
@@ -283,6 +301,7 @@ export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, 
                 {(field) => (
                   <Switch
                     id="pl-article"
+                    disabled={readOnly}
                     checked={field.state.value}
                     onCheckedChange={(v) => field.handleChange(v)}
                     aria-label={m.pipelineForm.article}
@@ -328,6 +347,7 @@ export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, 
                             <Field key={l} orientation="horizontal" className="w-auto">
                               <Checkbox
                                 id={`pl-tr-${l}`}
+                                disabled={readOnly}
                                 checked={field.state.value.includes(l)}
                                 onCheckedChange={(checked) =>
                                   field.handleChange(
@@ -366,6 +386,7 @@ export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, 
                 error={shown(field.state.meta)}
               >
                 <RadioGroup
+                  disabled={readOnly}
                   value={field.state.value}
                   onValueChange={(v) => field.handleChange(v as Lead)}
                   className="gap-2"
@@ -386,11 +407,12 @@ export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, 
       </Section>
 
       {/* Source */}
-      <Section title={m.pipelineForm.sections.source}>
+      <Section title={m.pipelineForm.sections.source} disabled={readOnly}>
         <FieldGroup className="gap-5">
           <form.Field name="source.kind">
             {(field) => (
               <RadioGroup
+                disabled={readOnly}
                 value={field.state.value}
                 onValueChange={(v) => field.handleChange(v as SourceKind)}
                 className="grid gap-3 sm:grid-cols-2"
@@ -556,11 +578,16 @@ export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, 
       </Section>
 
       {/* Schedule */}
-      <Section title={m.pipelineForm.sections.schedule} description={m.pipelineForm.scheduleHint}>
+      <Section
+        title={m.pipelineForm.sections.schedule}
+        description={m.pipelineForm.scheduleHint}
+        disabled={readOnly}
+      >
         <FieldGroup className="gap-5">
           <form.Field name="scheduled">
             {(field) => (
               <RadioGroup
+                disabled={readOnly}
                 value={field.state.value ? "scheduled" : "manual"}
                 onValueChange={(v) => field.handleChange(v === "scheduled")}
                 className="flex flex-wrap gap-x-6 gap-y-2"
@@ -619,6 +646,7 @@ export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, 
                   <Row label={m.pipelineForm.timezone} htmlFor="pl-tz" error={shown(field.state.meta)}>
                     <TimezoneCombobox
                       id="pl-tz"
+                      disabled={readOnly}
                       value={field.state.value}
                       onChange={field.handleChange}
                       onBlur={field.handleBlur}
@@ -660,15 +688,17 @@ export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, 
           render={<Link to="/w/$workspaceId/pipelines" params={{ workspaceId }} />}
           nativeButton={false}
         >
-          {m.common.cancel}
+          {readOnly ? m.common.back : m.common.cancel}
         </Button>
-        <form.Subscribe selector={(s) => s.isSubmitting}>
-          {(submitting) => (
-            <Button type="submit" disabled={submitting}>
-              {submitting ? m.common.saving : submitLabel}
-            </Button>
-          )}
-        </form.Subscribe>
+        {readOnly ? null : (
+          <form.Subscribe selector={(s) => s.isSubmitting}>
+            {(submitting) => (
+              <Button type="submit" disabled={submitting}>
+                {submitting ? m.common.saving : submitLabel}
+              </Button>
+            )}
+          </form.Subscribe>
+        )}
       </div>
     </form>
   )
@@ -677,10 +707,13 @@ export function PipelineForm({ workspaceId, initialValues, submitLabel, banner, 
 function Section({
   title,
   description,
+  disabled = false,
   children,
 }: {
   title: string
   description?: string
+  /** Disables the native inputs and buttons inside (Base UI controls take their own prop). */
+  disabled?: boolean
   children: ReactNode
 }) {
   return (
@@ -689,7 +722,11 @@ function Section({
         <CardTitle className="font-heading text-base font-medium">{title}</CardTitle>
         {description ? <CardDescription>{description}</CardDescription> : null}
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent>
+        <fieldset disabled={disabled} className="contents">
+          {children}
+        </fieldset>
+      </CardContent>
     </Card>
   )
 }
