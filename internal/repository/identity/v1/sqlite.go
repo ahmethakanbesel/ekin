@@ -33,13 +33,13 @@ type scanner interface {
 
 // --- users
 
-const userColumns = `id, email, name, password_hash, created_at, updated_at`
+const userColumns = `id, email, name, password_hash, is_admin, email_notifications, created_at, updated_at`
 
 func (r *SQLite) CreateUser(ctx context.Context, u *identitydomain.User) error {
 	s := u.Snapshot()
 	_, err := r.q.W(ctx).ExecContext(ctx,
-		`INSERT INTO users (`+userColumns+`) VALUES (?, ?, ?, ?, ?, ?)`,
-		s.ID.String(), s.Email, s.Name, s.PasswordHash, timeutil.ToMillis(s.CreatedAt), timeutil.ToMillis(s.UpdatedAt))
+		`INSERT INTO users (`+userColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		s.ID.String(), s.Email, s.Name, s.PasswordHash, s.Admin, s.EmailNotify, timeutil.ToMillis(s.CreatedAt), timeutil.ToMillis(s.UpdatedAt))
 	if db.IsUniqueViolation(err) {
 		return apperror.New(apperror.EmailTaken, "an account with this email already exists")
 	}
@@ -52,8 +52,8 @@ func (r *SQLite) CreateUser(ctx context.Context, u *identitydomain.User) error {
 func (r *SQLite) UpdateUser(ctx context.Context, u *identitydomain.User) error {
 	s := u.Snapshot()
 	res, err := r.q.W(ctx).ExecContext(ctx,
-		`UPDATE users SET email = ?, name = ?, password_hash = ?, updated_at = ? WHERE id = ?`,
-		s.Email, s.Name, s.PasswordHash, timeutil.ToMillis(s.UpdatedAt), s.ID.String())
+		`UPDATE users SET email = ?, name = ?, password_hash = ?, is_admin = ?, email_notifications = ?, updated_at = ? WHERE id = ?`,
+		s.Email, s.Name, s.PasswordHash, s.Admin, s.EmailNotify, timeutil.ToMillis(s.UpdatedAt), s.ID.String())
 	if db.IsUniqueViolation(err) {
 		return apperror.New(apperror.EmailTaken, "an account with this email already exists")
 	}
@@ -97,7 +97,7 @@ func scanUser(s scanner) (*identitydomain.User, error) {
 		snap               identitydomain.UserSnapshot
 		createdAt, updated int64
 	)
-	if err := s.Scan(&rawID, &snap.Email, &snap.Name, &snap.PasswordHash, &createdAt, &updated); err != nil {
+	if err := s.Scan(&rawID, &snap.Email, &snap.Name, &snap.PasswordHash, &snap.Admin, &snap.EmailNotify, &createdAt, &updated); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, err
 		}
@@ -243,7 +243,7 @@ func (r *SQLite) DeleteMembership(ctx context.Context, workspaceID, userID uuid.
 
 func (r *SQLite) ListMembers(ctx context.Context, workspaceID uuid.UUID) ([]Member, error) {
 	rows, err := r.q.R(ctx).QueryContext(ctx,
-		`SELECT `+membershipColumns+`, u.id, u.email, u.name, u.password_hash, u.created_at, u.updated_at
+		`SELECT `+membershipColumns+`, u.id, u.email, u.name, u.password_hash, u.is_admin, u.email_notifications, u.created_at, u.updated_at
 		   FROM memberships m JOIN users u ON u.id = m.user_id
 		  WHERE m.workspace_id = ?
 		  ORDER BY m.role <> 'owner', m.created_at, u.email`, workspaceID.String())
@@ -259,7 +259,7 @@ func (r *SQLite) ListMembers(ctx context.Context, workspaceID uuid.UUID) ([]Memb
 			rawWS, rawUser, rawU string
 			mc, mu, uc, uu       int64
 		)
-		if err := rows.Scan(&rawWS, &rawUser, &ms.Role, &mc, &mu, &rawU, &us.Email, &us.Name, &us.PasswordHash, &uc, &uu); err != nil {
+		if err := rows.Scan(&rawWS, &rawUser, &ms.Role, &mc, &mu, &rawU, &us.Email, &us.Name, &us.PasswordHash, &us.Admin, &us.EmailNotify, &uc, &uu); err != nil {
 			return nil, fmt.Errorf("scan member: %w", err)
 		}
 		var errs [3]error

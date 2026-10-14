@@ -13,19 +13,50 @@ import (
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	storydomain "kurgu/internal/domain/story/v1"
 	"kurgu/internal/gen"
+	notifysvc "kurgu/internal/service/notify/v1"
 	productionsvc "kurgu/internal/service/production/v1"
 	jobhandler "kurgu/internal/transport/http/job/v1"
 	pipelinehandler "kurgu/internal/transport/http/pipeline/v1"
 	"kurgu/internal/transport/http/principal"
 )
 
+// Feed lists a workspace's notifications (the notify service).
+type Feed interface {
+	Feed(ctx context.Context, workspaceID uuid.UUID, limit int) ([]notifysvc.Notification, error)
+}
+
 // Handler serves stories.
 type Handler struct {
-	svc *productionsvc.Service
+	svc  *productionsvc.Service
+	feed Feed
 }
 
 // New returns a Handler.
-func New(svc *productionsvc.Service) *Handler { return &Handler{svc: svc} }
+func New(svc *productionsvc.Service, feed Feed) *Handler { return &Handler{svc: svc, feed: feed} }
+
+func (h *Handler) ListNotifications(ctx context.Context, req gen.ListNotificationsRequestObject) (gen.ListNotificationsResponseObject, error) {
+	limit := 50
+	if req.Params.Limit != nil {
+		limit = *req.Params.Limit
+	}
+	out := gen.ListNotifications200JSONResponse{Notifications: []gen.Notification{}}
+	if h.feed == nil {
+		return out, nil
+	}
+	items, err := h.feed.Feed(ctx, req.WorkspaceId, limit)
+	if err != nil {
+		return nil, err
+	}
+	for _, n := range items {
+		w := gen.Notification{Id: n.ID, Kind: gen.NotificationKind(n.Kind), Title: n.Title, Detail: n.Detail, CreatedAt: n.CreatedAt}
+		if n.StoryID != uuid.Nil {
+			sid := n.StoryID
+			w.StoryId = &sid
+		}
+		out.Notifications = append(out.Notifications, w)
+	}
+	return out, nil
+}
 
 func (h *Handler) ListStories(ctx context.Context, req gen.ListStoriesRequestObject) (gen.ListStoriesResponseObject, error) {
 	f := productionsvc.Filter{}

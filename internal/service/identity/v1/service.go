@@ -83,10 +83,45 @@ func (s *Service) CreateUser(ctx context.Context, email identitydomain.Email, na
 	if err != nil {
 		return nil, err
 	}
+	n, err := s.repo.CountUsers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if n == 0 {
+		u.MakeAdmin(s.now()) // the first account runs the instance
+	}
 	if err := s.repo.CreateUser(ctx, u); err != nil {
 		return nil, err
 	}
 	return u, nil
+}
+
+// Preferences is a partial account update; nil fields are unchanged.
+type Preferences struct {
+	Name               *string
+	EmailNotifications *bool
+}
+
+// UpdatePreferences changes the user's name and notification choice.
+func (s *Service) UpdatePreferences(ctx context.Context, userID uuid.UUID, p Preferences) (*identitydomain.User, error) {
+	var out *identitydomain.User
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		u, err := s.repo.GetUser(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if p.Name != nil {
+			if err := u.Rename(*p.Name, s.now()); err != nil {
+				return err
+			}
+		}
+		if p.EmailNotifications != nil {
+			u.SetEmailNotifications(*p.EmailNotifications, s.now())
+		}
+		out = u
+		return s.repo.UpdateUser(ctx, u)
+	})
+	return out, err
 }
 
 // ResetPassword sets a password without the old one and signs the user

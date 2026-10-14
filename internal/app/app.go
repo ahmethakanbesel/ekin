@@ -12,23 +12,31 @@ import (
 
 	"kurgu/internal/adapter/claude"
 	"kurgu/internal/adapter/extract"
+	"kurgu/internal/adapter/openrouter"
 	"kurgu/internal/adapter/render"
+	"kurgu/internal/adapter/smtp"
 	"kurgu/internal/blob"
 	"kurgu/internal/config"
 	"kurgu/internal/db"
+	settingsdomain "kurgu/internal/domain/settings/v1"
 	identityrepo "kurgu/internal/repository/identity/v1"
 	jobrepo "kurgu/internal/repository/job/v1"
 	knowledgerepo "kurgu/internal/repository/knowledge/v1"
+	notifyrepo "kurgu/internal/repository/notify/v1"
 	pipelinerepo "kurgu/internal/repository/pipeline/v1"
+	settingsrepo "kurgu/internal/repository/settings/v1"
 	storyrepo "kurgu/internal/repository/story/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
 	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
+	notifysvc "kurgu/internal/service/notify/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	productionsvc "kurgu/internal/service/production/v1"
+	settingssvc "kurgu/internal/service/settings/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	httptransport "kurgu/internal/transport/http"
+	systemhandler "kurgu/internal/transport/http/system/v1"
 	knowledgeworker "kurgu/internal/transport/job/knowledge/v1"
 	productionworker "kurgu/internal/transport/job/production/v1"
 	"kurgu/internal/transport/schedule"
@@ -50,6 +58,9 @@ type App struct {
 	jobs       *jobsvc.Service
 	knowledge  *knowledgesvc.Service
 	production *productionsvc.Service
+	settings   *settingssvc.Service
+	notify     *notifysvc.Service
+	version    string
 }
 
 // New opens the database (migrating it when configured) and wires the
@@ -77,9 +88,20 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	knowledge := knowledgesvc.NewService(knowledgerepo.NewSQLite(tx), blobs, jobs, &extract.Extractor{PDFToText: cfg.Tools.PDFToText}, tx)
 	pipelines := pipelinesvc.NewService(pipelinerepo.NewSQLite(tx), workspaces, jobs, tx).WithDocuments(knowledge)
 	knowledge.WithUsage(pipelines)
-	production, err := newProduction(cfg, log, productionsvc.Deps{
+	identity := identitysvc.NewService(identities, workspaces, tx, password.New(password.Default))
+	workspaceSvc := workspacesvc.NewService(workspaces, identities, tx)
+	settings := settingssvc.NewService(settingsrepo.NewSQLite(tx), defaultProfile(cfg), log.With(slog.String("component", "settings")))
+	mailer := smtp.New(smtp.Config{
+		Host: cfg.Notify.SMTPHost, Port: cfg.Notify.SMTPPort, Username: cfg.Notify.SMTPUser,
+		Password: cfg.Notify.SMTPPassword, From: cfg.Notify.SMTPFrom, TLS: cfg.Notify.SMTPTLS,
+	})
+	notify := notifysvc.NewService(notifyrepo.NewSQLite(tx), directory{identity, workspaceSvc}, mailer, cfg.PublicURL,
+		log.With(slog.String("component", "notify")))
+	production, err := newProduction(cfg, settings, productionsvc.Deps{
 		Stories: storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs,
-		Log: log.With(slog.String("component", "production")),
+		Notifier: notify,
+		Dedupe:   openrouter.Dedupe{Client: &openrouter.Client{APIKey: cfg.Notify.OpenRouterKey, Model: cfg.Notify.DecisionModel}},
+		Log:      log.With(slog.String("component", "production")),
 	})
 	if err != nil {
 		_ = d.Close()
@@ -89,16 +111,35 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		cfg:        cfg,
 		log:        log,
 		db:         d,
-		identity:   identitysvc.NewService(identities, workspaces, tx, password.New(password.Default)),
-		workspaces: workspacesvc.NewService(workspaces, identities, tx),
+		identity:   identity,
+		workspaces: workspaceSvc,
 		pipelines:  pipelines,
 		jobs:       jobs,
 		knowledge:  knowledge,
 		production: production,
+		settings:   settings,
+		notify:     notify,
 	}, nil
 }
 
-func newProduction(cfg config.Config, log *slog.Logger, deps productionsvc.Deps) (*productionsvc.Service, error) {
+// WithVersion records the build version for the system endpoint.
+func (a *App) WithVersion(v string) *App {
+	a.version = v
+	return a
+}
+
+// defaultProfile is the host profile built from KURGU_* variables; it
+// applies until an admin saves the profile in the UI.
+func defaultProfile(cfg config.Config) settingsdomain.Profile {
+	return settingsdomain.Profile{
+		Name: cfg.Worker.Profile, Concurrency: cfg.Worker.Concurrency, HeavyExclusive: cfg.Worker.HeavyExclusive,
+		Cooldown: cfg.Worker.Cooldown, Paused: cfg.Worker.Paused,
+		RenderDuty: cfg.Production.Duty, RenderChunks: cfg.Production.Chunks,
+		PreviewScale: cfg.Production.PreviewScale, FinalScale: cfg.Production.FinalScale,
+	}
+}
+
+func newProduction(cfg config.Config, settings *settingssvc.Service, deps productionsvc.Deps) (*productionsvc.Service, error) {
 	p := cfg.Production
 	bin, err := os.Executable()
 	if err != nil {
@@ -117,10 +158,14 @@ func newProduction(cfg config.Config, log *slog.Logger, deps productionsvc.Deps)
 	if err := os.MkdirAll(p.WorkDir, 0o750); err != nil {
 		return nil, err
 	}
-	_ = log
+	profile := cfg.Worker.Profile
 	return productionsvc.NewService(productionsvc.Config{
 		WorkRoot: p.WorkDir, KurguBin: bin, ToolEnv: toolEnv, AgentTimeout: p.AgentTimeout,
 		PreviewScale: p.PreviewScale, FinalScale: p.FinalScale,
+		Render: func(ctx context.Context) productionsvc.RenderSettings {
+			hp := settings.Cached(ctx, profile)
+			return productionsvc.RenderSettings{Duty: hp.RenderDuty, Chunks: hp.RenderChunks, PreviewScale: hp.PreviewScale, FinalScale: hp.FinalScale}
+		},
 	}, deps), nil
 }
 
@@ -152,6 +197,9 @@ func (a *App) Serve(ctx context.Context) error {
 		Jobs:       a.jobs,
 		Knowledge:  a.knowledge,
 		Production: a.production,
+		Feed:       a.notify,
+		Inviter:    inviter{a.notify, a.workspaces},
+		System:     systemhandler.New(a.settings, a.cfg.Worker.Profile, a.version, a.checks),
 		PublicURL:  a.cfg.PublicURL,
 		UI:         web.Dist(),
 		Log:        a.log,
@@ -169,6 +217,7 @@ func (a *App) Serve(ctx context.Context) error {
 	}
 	go schedule.Run(ctx, a.pipelines, a.cfg.SchedulerTick, a.log.With(slog.String("component", "scheduler")))
 	go a.sweep(ctx)
+	go a.flushNotifications(ctx)
 
 	errc := make(chan error, 1)
 	go func() {
@@ -211,18 +260,13 @@ func (a *App) sweep(ctx context.Context) {
 func (a *App) Work(ctx context.Context) error {
 	w := a.cfg.Worker
 	runner := jobsvc.NewRunner(a.jobs, jobsvc.RunnerConfig{
-		Owner: w.Owner,
-		Throttle: jobsvc.Throttle{
-			Concurrency:    w.Concurrency,
-			HeavyExclusive: w.HeavyExclusive,
-			Cooldown:       w.Cooldown,
-			Paused:         w.Paused,
-		},
-		Lease: w.Lease,
+		Owner:          w.Owner,
+		ThrottleSource: a.settings.ThrottleSource(w.Profile),
+		Lease:          w.Lease,
 	}, a.log.With(slog.String("component", "worker")))
 	knowledgeworker.Register(runner, a.knowledge)
 	productionworker.Register(runner, a.production)
-	a.log.InfoContext(ctx, "worker started", slog.String("owner", w.Owner), slog.Any("concurrency", w.Concurrency))
+	a.log.InfoContext(ctx, "worker started", slog.String("owner", w.Owner), slog.String("profile", w.Profile))
 	return runner.Run(ctx)
 }
 

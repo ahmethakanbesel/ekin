@@ -85,7 +85,7 @@ type fakeRenderer struct{}
 func (fakeRenderer) Probe(context.Context, string, string) (render.Meta, []string, error) {
 	return render.Meta{Width: 1080, Height: 1920, FPS: 30, Duration: 21}, nil, nil
 }
-func (fakeRenderer) Video(_ context.Context, _, _ string, _ float64, out string) (render.Meta, error) {
+func (fakeRenderer) Video(_ context.Context, _, _ string, _ render.VideoOptions, out string) (render.Meta, error) {
 	return render.Meta{Width: 1080, Height: 1920, FPS: 30, Duration: 21}, os.WriteFile(out, []byte("video"), 0o600)
 }
 func (fakeRenderer) Music(context.Context, string, float64, string) (float64, error) { return 0.5, nil }

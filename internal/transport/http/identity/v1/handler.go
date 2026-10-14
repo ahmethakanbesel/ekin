@@ -6,22 +6,32 @@ import (
 	"context"
 	"strings"
 
+	"github.com/google/uuid"
+
 	identitydomain "kurgu/internal/domain/identity/v1"
 	"kurgu/internal/gen"
 	identitysvc "kurgu/internal/service/identity/v1"
 	"kurgu/internal/transport/http/principal"
 )
 
+// Inviter emails invitation links (the notify service), when mail is
+// configured.
+type Inviter interface {
+	InviteEmail(ctx context.Context, workspaceID uuid.UUID, to, inviter, link string) (bool, error)
+}
+
 // Handler serves identity operations.
 type Handler struct {
 	svc       *identitysvc.Service
 	cookies   principal.Cookies
 	publicURL string
+	inviter   Inviter
 }
 
-// New returns a Handler. publicURL prefixes invitation links.
-func New(svc *identitysvc.Service, cookies principal.Cookies, publicURL string) *Handler {
-	return &Handler{svc: svc, cookies: cookies, publicURL: strings.TrimRight(publicURL, "/")}
+// New returns a Handler. publicURL prefixes invitation links; inviter
+// may be nil.
+func New(svc *identitysvc.Service, cookies principal.Cookies, publicURL string, inviter Inviter) *Handler {
+	return &Handler{svc: svc, cookies: cookies, publicURL: strings.TrimRight(publicURL, "/"), inviter: inviter}
 }
 
 func (h *Handler) Login(ctx context.Context, req gen.LoginRequestObject) (gen.LoginResponseObject, error) {
@@ -63,7 +73,9 @@ func (h *Handler) UpdateMe(ctx context.Context, req gen.UpdateMeRequestObject) (
 	if err != nil {
 		return nil, err
 	}
-	u, err := h.svc.Rename(ctx, p.User.ID(), req.Body.Name)
+	u, err := h.svc.UpdatePreferences(ctx, p.User.ID(), identitysvc.Preferences{
+		Name: req.Body.Name, EmailNotifications: req.Body.EmailNotifications,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -185,10 +197,15 @@ func (h *Handler) CreateInvitation(ctx context.Context, req gen.CreateInvitation
 	if err != nil {
 		return nil, err
 	}
-	return gen.CreateInvitation201JSONResponse{
-		Invitation: invitationToWire(inv),
-		Url:        h.publicURL + "/invite/" + token,
-	}, nil
+	link := h.publicURL + "/invite/" + token
+	resp := gen.CreateInvitation201JSONResponse{Invitation: invitationToWire(inv), Url: link}
+	if h.inviter != nil {
+		// The link is still returned when the email fails; the owner can
+		// send it themselves.
+		emailed, _ := h.inviter.InviteEmail(ctx, req.WorkspaceId, string(email), p.User.Name(), link)
+		resp.Emailed = &emailed
+	}
+	return resp, nil
 }
 
 func (h *Handler) RevokeInvitation(ctx context.Context, req gen.RevokeInvitationRequestObject) (gen.RevokeInvitationResponseObject, error) {
@@ -199,7 +216,10 @@ func (h *Handler) RevokeInvitation(ctx context.Context, req gen.RevokeInvitation
 }
 
 func userToWire(u *identitydomain.User) gen.User {
-	return gen.User{Id: u.ID(), Email: string(u.Email()), Name: u.Name(), CreatedAt: u.CreatedAt()}
+	return gen.User{
+		Id: u.ID(), Email: string(u.Email()), Name: u.Name(), CreatedAt: u.CreatedAt(),
+		IsAdmin: u.IsAdmin(), EmailNotifications: u.EmailNotifications(),
+	}
 }
 
 func memberToWire(m identitysvc.Member) gen.Member {

@@ -32,13 +32,20 @@ type Throttle struct {
 	Paused bool
 }
 
+// MaxSlotsPerQueue bounds per-queue concurrency, so throttle changes at
+// runtime can raise it without restarting the worker.
+const MaxSlotsPerQueue = 8
+
 // RunnerConfig configures a Runner.
 type RunnerConfig struct {
-	Owner     string // unique per worker process, e.g. host:pid
-	Throttle  Throttle
-	Lease     time.Duration // default 2m
-	Poll      time.Duration // idle wait between claims; default 2s
-	SweepEach time.Duration // abandoned-job sweep period; default Lease
+	Owner    string // unique per worker process, e.g. host:pid
+	Throttle Throttle
+	// ThrottleSource, when set, is asked before every claim and overrides
+	// Throttle, so settings edited in the UI apply without a restart.
+	ThrottleSource func(ctx context.Context) Throttle
+	Lease          time.Duration // default 2m
+	Poll           time.Duration // idle wait between claims; default 2s
+	SweepEach      time.Duration // abandoned-job sweep period; default Lease
 }
 
 // Runner claims and executes jobs.
@@ -78,16 +85,17 @@ func (r *Runner) Register(kind string, h Handler) {
 
 // Run blocks until ctx is done.
 func (r *Runner) Run(ctx context.Context) error {
-	if r.cfg.Throttle.Paused {
-		r.log.InfoContext(ctx, "worker paused; not claiming jobs")
-		<-ctx.Done()
-		return nil
-	}
 	kinds := slices.Sorted(maps.Keys(r.handlers))
+	slots := func(q jobdomain.Queue) int {
+		if r.cfg.ThrottleSource != nil {
+			return MaxSlotsPerQueue
+		}
+		return min(r.cfg.Throttle.Concurrency[q], MaxSlotsPerQueue)
+	}
 	var wg sync.WaitGroup
 	for _, q := range jobdomain.Queues {
-		for range r.cfg.Throttle.Concurrency[q] {
-			wg.Go(func() { r.loop(ctx, q, kinds) })
+		for slot := range slots(q) {
+			wg.Go(func() { r.loop(ctx, q, slot, kinds) })
 		}
 	}
 	wg.Go(func() { r.sweep(ctx) })
@@ -95,9 +103,21 @@ func (r *Runner) Run(ctx context.Context) error {
 	return nil
 }
 
-func (r *Runner) loop(ctx context.Context, q jobdomain.Queue, kinds []string) {
-	exclusive := q.Heavy() && r.cfg.Throttle.HeavyExclusive
+func (r *Runner) throttle(ctx context.Context) Throttle {
+	if r.cfg.ThrottleSource != nil {
+		return r.cfg.ThrottleSource(ctx)
+	}
+	return r.cfg.Throttle
+}
+
+func (r *Runner) loop(ctx context.Context, q jobdomain.Queue, slot int, kinds []string) {
 	for ctx.Err() == nil {
+		t := r.throttle(ctx)
+		if t.Paused || slot >= t.Concurrency[q] {
+			sleep(ctx, r.cfg.Poll)
+			continue
+		}
+		exclusive := q.Heavy() && t.HeavyExclusive
 		if exclusive {
 			select {
 			case r.heavy <- struct{}{}:
@@ -108,7 +128,7 @@ func (r *Runner) loop(ctx context.Context, q jobdomain.Queue, kinds []string) {
 		ran := r.claimAndRun(ctx, q, kinds)
 		if exclusive {
 			if ran {
-				sleep(ctx, r.cfg.Throttle.Cooldown)
+				sleep(ctx, t.Cooldown)
 			}
 			<-r.heavy
 		}

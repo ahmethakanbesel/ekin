@@ -56,7 +56,7 @@ func TestRenderPipeline(t *testing.T) {
 	}
 
 	silent := filepath.Join(out, "silent.mp4")
-	if _, err := r.Video(ctx, dir, "composition.html", 0.25, silent); err != nil {
+	if _, err := r.Video(ctx, dir, "composition.html", render.VideoOptions{Scale: 0.25}, silent); err != nil {
 		t.Fatal(err)
 	}
 	if d := probeDuration(t, silent); d < 1.9 || d > 2.1 {

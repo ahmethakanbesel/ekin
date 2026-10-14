@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"kurgu/internal/adapter/render"
 	"kurgu/internal/apperror"
 	jobdomain "kurgu/internal/domain/job/v1"
 	storydomain "kurgu/internal/domain/story/v1"
@@ -109,13 +110,17 @@ func (s *Service) renderVideo(ctx context.Context, st *storydomain.Story, d *sto
 		return nil, err
 	}
 	defer func() { _ = os.RemoveAll(tmp) }()
-	scale := s.cfg.PreviewScale
+	rs := RenderSettings{PreviewScale: s.cfg.PreviewScale, FinalScale: s.cfg.FinalScale}
+	if s.cfg.Render != nil {
+		rs = s.cfg.Render(ctx)
+	}
+	opts := render.VideoOptions{Scale: rs.PreviewScale, Duty: rs.Duty, Chunks: rs.Chunks}
 	name := storydomain.ArtifactPreview
 	if final {
-		scale, name = s.cfg.FinalScale, storydomain.ArtifactFinal
+		opts.Scale, name = rs.FinalScale, storydomain.ArtifactFinal
 	}
 	silent := filepath.Join(tmp, "silent.mp4")
-	meta, err := s.renderer.Video(ctx, dir, "composition.html", scale, silent)
+	meta, err := s.renderer.Video(ctx, dir, "composition.html", opts, silent)
 	if err != nil {
 		return nil, err
 	}

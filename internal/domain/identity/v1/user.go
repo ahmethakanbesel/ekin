@@ -78,6 +78,8 @@ type User struct {
 	email        Email
 	name         string
 	passwordHash string
+	admin        bool // runs the instance: host profiles, settings
+	emailNotify  bool // gets review digests by email
 	createdAt    time.Time
 	updatedAt    time.Time
 }
@@ -90,7 +92,7 @@ func NewUser(id uuid.UUID, email Email, name, passwordHash string, now time.Time
 	if email == "" {
 		return nil, apperror.New(apperror.ValidationFailed, "email is required")
 	}
-	u := &User{id: id, email: email, createdAt: timeutil.Normalize(now)}
+	u := &User{id: id, email: email, emailNotify: true, createdAt: timeutil.Normalize(now)}
 	if err := u.Rename(name, now); err != nil {
 		return nil, err
 	}
@@ -125,12 +127,26 @@ func (u *User) SetPasswordHash(hash string, now time.Time) error {
 	return nil
 }
 
-func (u *User) ID() uuid.UUID        { return u.id }
-func (u *User) Email() Email         { return u.email }
-func (u *User) Name() string         { return u.name }
-func (u *User) PasswordHash() string { return u.passwordHash }
-func (u *User) CreatedAt() time.Time { return u.createdAt }
-func (u *User) UpdatedAt() time.Time { return u.updatedAt }
+// MakeAdmin grants instance administration.
+func (u *User) MakeAdmin(now time.Time) {
+	u.admin = true
+	u.updatedAt = timeutil.Normalize(now)
+}
+
+// SetEmailNotifications turns review digests by email on or off.
+func (u *User) SetEmailNotifications(on bool, now time.Time) {
+	u.emailNotify = on
+	u.updatedAt = timeutil.Normalize(now)
+}
+
+func (u *User) IsAdmin() bool            { return u.admin }
+func (u *User) EmailNotifications() bool { return u.emailNotify }
+func (u *User) ID() uuid.UUID            { return u.id }
+func (u *User) Email() Email             { return u.email }
+func (u *User) Name() string             { return u.name }
+func (u *User) PasswordHash() string     { return u.passwordHash }
+func (u *User) CreatedAt() time.Time     { return u.createdAt }
+func (u *User) UpdatedAt() time.Time     { return u.updatedAt }
 
 // UserSnapshot is the persisted form of a User.
 type UserSnapshot struct {
@@ -138,6 +154,8 @@ type UserSnapshot struct {
 	Email        string
 	Name         string
 	PasswordHash string
+	Admin        bool
+	EmailNotify  bool
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
@@ -149,6 +167,8 @@ func (u *User) Snapshot() UserSnapshot {
 		Email:        string(u.email),
 		Name:         u.name,
 		PasswordHash: u.passwordHash,
+		Admin:        u.admin,
+		EmailNotify:  u.emailNotify,
 		CreatedAt:    u.createdAt,
 		UpdatedAt:    u.updatedAt,
 	}
@@ -164,6 +184,7 @@ func RehydrateUser(s UserSnapshot) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
+	u.admin, u.emailNotify = s.Admin, s.EmailNotify
 	u.updatedAt = timeutil.Normalize(s.UpdatedAt)
 	return u, nil
 }

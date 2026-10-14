@@ -19,6 +19,7 @@ tags:
   - name: members
   - name: knowledge
   - name: stories
+  - name: system
   - name: pipelines
   - name: jobs
 
@@ -77,9 +78,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name]
               properties:
                 name: { type: string, maxLength: 80 }
+                emailNotifications:
+                  type: boolean
+                  description: Review digests by email.
       responses:
         "200":
           description: Updated.
@@ -329,6 +332,9 @@ paths:
                   url:
                     type: string
                     description: Link to the accept page; carries the secret token.
+                  emailed:
+                    type: boolean
+                    description: Whether the link was also emailed (SMTP configured).
         default: { $ref: "#/components/responses/Error" }
 
   /workspaces/{workspaceId}/invitations/{invitationId}:
@@ -496,6 +502,88 @@ paths:
             application/octet-stream:
               description: TXT and MD originals; the pages endpoint has their text.
               schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Error" }
+
+  /system:
+    get:
+      operationId: getSystem
+      tags: [system]
+      description: What this instance can do — tools found, integrations configured.
+      responses:
+        "200":
+          description: Status.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SystemStatus" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /system/profiles:
+    get:
+      operationId: listProfiles
+      tags: [system]
+      description: Host profiles (throttling). Admins only.
+      responses:
+        "200":
+          description: Profiles.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [profiles, current]
+                properties:
+                  profiles:
+                    type: array
+                    items: { $ref: "#/components/schemas/HostProfile" }
+                  current:
+                    type: string
+                    description: The profile this server's worker uses.
+        default: { $ref: "#/components/responses/Error" }
+
+  /system/profiles/{name}:
+    parameters:
+      - name: name
+        in: path
+        required: true
+        schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,31}$" }
+    put:
+      operationId: saveProfile
+      tags: [system]
+      description: Saves a host profile; workers using it pick it up within 10 seconds. Admins only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HostProfile" }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HostProfile" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/notifications:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listNotifications
+      tags: [stories]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200 }
+      responses:
+        "200":
+          description: Latest notifications, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [notifications]
+                properties:
+                  notifications:
+                    type: array
+                    items: { $ref: "#/components/schemas/Notification" }
         default: { $ref: "#/components/responses/Error" }
 
   /workspaces/{workspaceId}/stories:
@@ -968,11 +1056,15 @@ components:
 
     User:
       type: object
-      required: [id, email, name, createdAt]
+      required: [id, email, name, isAdmin, emailNotifications, createdAt]
       properties:
         id: { type: string, format: uuid }
         email: { type: string }
         name: { type: string }
+        isAdmin:
+          type: boolean
+          description: Runs the instance (host profiles, system settings). The first account.
+        emailNotifications: { type: boolean }
         createdAt: { type: string, format: date-time }
 
     Member:
@@ -1160,6 +1252,59 @@ components:
         refs:
           type: array
           items: { $ref: "#/components/schemas/KnowledgeRef" }
+
+    SystemCheck:
+      type: object
+      required: [name, ok, detail]
+      properties:
+        name: { type: string }
+        ok: { type: boolean }
+        detail: { type: string }
+
+    SystemStatus:
+      type: object
+      required: [version, checks]
+      properties:
+        version: { type: string }
+        checks:
+          type: array
+          items: { $ref: "#/components/schemas/SystemCheck" }
+
+    HostProfile:
+      type: object
+      required: [name, concurrency, heavyExclusive, cooldownSeconds, paused, renderDuty, renderChunks, previewScale, finalScale]
+      properties:
+        name: { type: string }
+        concurrency:
+          type: object
+          description: Jobs per queue (control, agent, tts, render, extract, io); 0 or missing = not served.
+          additionalProperties: { type: integer, minimum: 0, maximum: 8 }
+        heavyExclusive:
+          type: boolean
+          description: Only one heavy job (agent, tts, render) at a time.
+        cooldownSeconds: { type: integer, minimum: 0, maximum: 3600 }
+        paused: { type: boolean }
+        renderDuty:
+          type: number
+          minimum: 0.05
+          maximum: 1
+          description: Share of time spent rendering; 0.25 renders four times slower to spare the CPU.
+        renderChunks: { type: integer, minimum: 1, maximum: 16 }
+        previewScale: { type: number, minimum: 0.25, maximum: 1 }
+        finalScale: { type: number, minimum: 0.25, maximum: 2 }
+
+    Notification:
+      type: object
+      required: [id, kind, title, detail, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind:
+          type: string
+          enum: [review, failed, published, run]
+        title: { type: string }
+        detail: { type: string }
+        storyId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
 
     WorkspaceInput:
       type: object

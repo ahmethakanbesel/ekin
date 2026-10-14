@@ -317,6 +317,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What this instance can do — tools found, integrations configured. */
+        get: operations["getSystem"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/profiles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Host profiles (throttling). Admins only. */
+        get: operations["listProfiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/system/profiles/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Saves a host profile; workers using it pick it up within 10 seconds. Admins only. */
+        put: operations["saveProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listNotifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/stories": {
         parameters: {
             query?: never;
@@ -656,6 +727,9 @@ export interface components {
             id: string;
             email: string;
             name: string;
+            /** @description Runs the instance (host profiles, system settings). The first account. */
+            isAdmin: boolean;
+            emailNotifications: boolean;
             /** Format: date-time */
             createdAt: string;
         };
@@ -801,6 +875,43 @@ export interface components {
             /** @description Tone, visual style, audience notes. */
             style?: string;
             refs?: components["schemas"]["KnowledgeRef"][];
+        };
+        SystemCheck: {
+            name: string;
+            ok: boolean;
+            detail: string;
+        };
+        SystemStatus: {
+            version: string;
+            checks: components["schemas"]["SystemCheck"][];
+        };
+        HostProfile: {
+            name: string;
+            /** @description Jobs per queue (control, agent, tts, render, extract, io); 0 or missing = not served. */
+            concurrency: {
+                [key: string]: number;
+            };
+            /** @description Only one heavy job (agent, tts, render) at a time. */
+            heavyExclusive: boolean;
+            cooldownSeconds: number;
+            paused: boolean;
+            /** @description Share of time spent rendering; 0.25 renders four times slower to spare the CPU. */
+            renderDuty: number;
+            renderChunks: number;
+            previewScale: number;
+            finalScale: number;
+        };
+        Notification: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "review" | "failed" | "published" | "run";
+            title: string;
+            detail: string;
+            /** Format: uuid */
+            storyId?: string;
+            /** Format: date-time */
+            createdAt: string;
         };
         WorkspaceInput: {
             name: string;
@@ -1020,7 +1131,9 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    name: string;
+                    name?: string;
+                    /** @description Review digests by email. */
+                    emailNotifications?: boolean;
                 };
             };
         };
@@ -1349,6 +1462,8 @@ export interface operations {
                         invitation: components["schemas"]["Invitation"];
                         /** @description Link to the accept page; carries the secret token. */
                         url: string;
+                        /** @description Whether the link was also emailed (SMTP configured). */
+                        emailed?: boolean;
                     };
                 };
             };
@@ -1585,6 +1700,106 @@ export interface operations {
                     "application/epub+zip": string;
                     /** @description TXT and MD originals; the pages endpoint has their text. */
                     "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSystem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listProfiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Profiles. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        profiles: components["schemas"]["HostProfile"][];
+                        /** @description The profile this server's worker uses. */
+                        current: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    saveProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostProfile"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostProfile"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listNotifications: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Latest notifications, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        notifications: components["schemas"]["Notification"][];
+                    };
                 };
             };
             default: components["responses"]["Error"];

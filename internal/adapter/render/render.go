@@ -330,8 +330,31 @@ func (r *Renderer) Snapshot(ctx context.Context, dir, pagePath string, times []f
 	return paths, s.problems.List(), nil
 }
 
-// Video renders the composition at scale into a silent MP4 at out.
-func (r *Renderer) Video(ctx context.Context, dir, pagePath string, scale float64, out string) (Meta, error) {
+// VideoOptions tune one render. Zero values fall back to the
+// Renderer's fields.
+type VideoOptions struct {
+	Scale  float64 // 0.5 renders 540×960 from a 1080×1920 composition
+	Duty   float64
+	Chunks int
+}
+
+// Video renders the composition into a silent MP4 at out.
+func (r *Renderer) Video(ctx context.Context, dir, pagePath string, opts VideoOptions, out string) (Meta, error) {
+	tuned := *r
+	if opts.Duty > 0 {
+		tuned.Duty = opts.Duty
+	}
+	if opts.Chunks > 0 {
+		tuned.Chunks = opts.Chunks
+	}
+	scale := opts.Scale
+	if scale <= 0 {
+		scale = 1
+	}
+	return tuned.video(ctx, dir, pagePath, scale, out)
+}
+
+func (r *Renderer) video(ctx context.Context, dir, pagePath string, scale float64, out string) (Meta, error) {
 	s, err := r.open(ctx, dir)
 	if err != nil {
 		return Meta{}, err

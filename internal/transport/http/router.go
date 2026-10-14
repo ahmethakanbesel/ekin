@@ -30,6 +30,7 @@ import (
 	pipelinehandler "kurgu/internal/transport/http/pipeline/v1"
 	"kurgu/internal/transport/http/principal"
 	storyhandler "kurgu/internal/transport/http/story/v1"
+	systemhandler "kurgu/internal/transport/http/system/v1"
 	workspacehandler "kurgu/internal/transport/http/workspace/v1"
 )
 
@@ -48,6 +49,9 @@ type Deps struct {
 	Jobs       *jobsvc.Service
 	Knowledge  *knowledgesvc.Service
 	Production *productionsvc.Service
+	Feed       storyhandler.Feed
+	Inviter    identityhandler.Inviter
+	System     *systemhandler.Handler
 	// PublicURL is where browsers reach Kurgu, e.g. https://kurgu.example.com.
 	// It prefixes invitation links, is trusted for cross-origin writes, and
 	// an https scheme marks the session cookie Secure.
@@ -65,6 +69,7 @@ type (
 	jobs       = jobhandler.Handler
 	documents  = knowledgehandler.Handler
 	stories    = storyhandler.Handler
+	system     = systemhandler.Handler
 )
 
 // server stitches the per-context handlers into one StrictServerInterface.
@@ -75,6 +80,7 @@ type server struct {
 	*jobs
 	*documents
 	*stories
+	*system
 }
 
 var _ gen.StrictServerInterface = server{}
@@ -100,12 +106,13 @@ func NewRouter(d Deps) (http.Handler, error) {
 		writeErr(w, r, apperror.New(apperror.Forbidden, "cross-origin request refused"))
 	}))
 	strict := gen.NewStrictHandlerWithOptions(server{
-		identities: identityhandler.New(d.Identity, cookies, public.String()),
+		identities: identityhandler.New(d.Identity, cookies, public.String(), d.Inviter),
 		workspaces: workspacehandler.New(d.Workspaces),
 		pipelines:  pipelinehandler.New(d.Pipelines),
 		jobs:       jobhandler.New(d.Jobs),
 		documents:  knowledgehandler.New(d.Knowledge),
-		stories:    storyhandler.New(d.Production),
+		stories:    storyhandler.New(d.Production, d.Feed),
+		system:     d.System,
 	}, []gen.StrictMiddlewareFunc{authenticate(d.Identity)}, gen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			writeErr(w, r, apperror.Wrap(apperror.BadRequest, err, "malformed request"))

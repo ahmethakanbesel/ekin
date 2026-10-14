@@ -258,3 +258,28 @@ func TestClaimIsExclusive(t *testing.T) {
 		t.Fatalf("job claimed %d times", n)
 	}
 }
+
+func TestRunnerFollowsThrottleSource(t *testing.T) {
+	f := newFixture(t)
+	j := f.enqueue(t, jobdomain.QueueIO, "ok")
+	var paused atomic.Bool
+	paused.Store(true)
+	r := jobsvc.NewRunner(f.svc, jobsvc.RunnerConfig{
+		Owner: "dyn", Poll: 5 * time.Millisecond, Lease: time.Minute,
+		ThrottleSource: func(context.Context) jobsvc.Throttle {
+			return jobsvc.Throttle{Concurrency: map[jobdomain.Queue]int{jobdomain.QueueIO: 1}, Paused: paused.Load()}
+		},
+	}, quietLog())
+	r.Register("ok", func(context.Context, *jobdomain.Job) error { return nil })
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = r.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+
+	time.Sleep(50 * time.Millisecond)
+	if got, _ := f.svc.Get(context.Background(), f.ws, j.ID()); got.Status() != jobdomain.StatusQueued {
+		t.Fatalf("ran while paused: %s", got.Status())
+	}
+	paused.Store(false)
+	f.waitFor(t, j, status(jobdomain.StatusSucceeded))
+}

@@ -80,6 +80,7 @@ func run(args []string) error {
 		return err
 	}
 	defer func() { _ = a.Close() }()
+	a.WithVersion(version + " (" + commit + ")")
 
 	switch args[0] {
 	case "user":

@@ -32,6 +32,15 @@ type Config struct {
 	Blob           Blob
 	Tools          Tools
 	Production     Production
+	Notify         Notify
+}
+
+// Notify configures email and decisions.
+type Notify struct {
+	SMTPHost, SMTPUser, SMTPPassword, SMTPFrom, SMTPTLS string
+	SMTPPort                                            int
+	Every                                               time.Duration
+	OpenRouterKey, DecisionModel                        string
 }
 
 // Production configures the authoring agent, speech and rendering.
@@ -75,6 +84,7 @@ type Tools struct {
 // Worker configures the job runner (PLAN.md §4).
 type Worker struct {
 	Owner          string
+	Profile        string // host profile name (runtime throttle settings)
 	Concurrency    map[jobdomain.Queue]int
 	HeavyExclusive bool
 	Cooldown       time.Duration
@@ -137,6 +147,7 @@ func load(getenv func(string) string) (Config, error) {
 		LogLevel:       str("KURGU_LOG_LEVEL", "info"),
 		Worker: Worker{
 			Owner:          str("KURGU_WORKER_OWNER", defaultOwner()),
+			Profile:        str("KURGU_WORKER_PROFILE", "default"),
 			HeavyExclusive: boolean("KURGU_HEAVY_EXCLUSIVE", true),
 			Cooldown:       duration("KURGU_HEAVY_COOLDOWN", 30*time.Second),
 			Paused:         boolean("KURGU_WORKER_PAUSED", false),
@@ -196,6 +207,16 @@ func load(getenv func(string) string) (Config, error) {
 		PreviewScale: number("KURGU_RENDER_PREVIEW_SCALE", 0.5, 0.25, 1),
 		FinalScale:   number("KURGU_RENDER_FINAL_SCALE", 1, 0.25, 2),
 		GPU:          boolean("KURGU_RENDER_GPU", false),
+	}
+	cfg.Notify = Notify{
+		SMTPHost: str("KURGU_SMTP_HOST", ""), SMTPUser: str("KURGU_SMTP_USERNAME", ""),
+		SMTPPassword: str("KURGU_SMTP_PASSWORD", ""), SMTPFrom: str("KURGU_SMTP_FROM", ""),
+		SMTPTLS: str("KURGU_SMTP_TLS", "starttls"), SMTPPort: int(number("KURGU_SMTP_PORT", 0, 0, 65535)),
+		Every:         duration("KURGU_NOTIFY_EVERY", 10*time.Minute),
+		OpenRouterKey: str("KURGU_OPENROUTER_API_KEY", ""), DecisionModel: str("KURGU_DECISION_MODEL", "typesafe/jev-1.13"),
+	}
+	if t := cfg.Notify.SMTPTLS; t != "starttls" && t != "tls" && t != "none" {
+		errs = append(errs, "KURGU_SMTP_TLS: must be starttls, tls or none")
 	}
 	if e := cfg.Production.Encoder; e != "libx264" && e != "h264_videotoolbox" {
 		errs = append(errs, "KURGU_RENDER_ENCODER: must be libx264 or h264_videotoolbox")

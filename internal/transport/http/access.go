@@ -38,6 +38,7 @@ var workspaceActions = map[string]identitydomain.Action{
 	"DeleteDocument":    identitydomain.ActionEdit,
 	"RetryDocument":     identitydomain.ActionEdit,
 
+	"ListNotifications":  identitydomain.ActionView,
 	"ListStories":        identitydomain.ActionView,
 	"GetStory":           identitydomain.ActionView,
 	"ListRevisions":      identitydomain.ActionView,

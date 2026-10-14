@@ -52,7 +52,7 @@ type Agent interface {
 // Renderer renders compositions (internal/adapter/render).
 type Renderer interface {
 	Probe(ctx context.Context, dir, pagePath string) (render.Meta, []string, error)
-	Video(ctx context.Context, dir, pagePath string, scale float64, out string) (render.Meta, error)
+	Video(ctx context.Context, dir, pagePath string, opts render.VideoOptions, out string) (render.Meta, error)
 	Music(ctx context.Context, dir string, duration float64, out string) (float64, error)
 	Mix(ctx context.Context, video, narration, music string, duration float64, out string) error
 	Poster(ctx context.Context, video string, t float64, out string) error
@@ -102,6 +102,14 @@ type Dedupe interface {
 	Duplicate(ctx context.Context, candidate storydomain.Idea, similar []storyrepo.Match) (bool, string, error)
 }
 
+// RenderSettings are the host profile's render knobs, read per render.
+type RenderSettings struct {
+	Duty         float64
+	Chunks       int
+	PreviewScale float64
+	FinalScale   float64
+}
+
 // Config tunes production.
 type Config struct {
 	WorkRoot     string        // per-deliverable working directories
@@ -111,6 +119,9 @@ type Config struct {
 	FinalScale   float64       // 1.0 = 1080p
 	AgentTimeout time.Duration // per agent call
 	FixAttempts  int           // agent retries when its output fails validation
+	// Render, when set, overrides the scales per render and supplies the
+	// duty cycle and chunks (from the worker's host profile).
+	Render func(ctx context.Context) RenderSettings
 }
 
 // Service runs production use cases.
