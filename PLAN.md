@@ -38,18 +38,18 @@ Update this file whenever a decision below changes.
 | Orchestration | Go backend. No n8n. |
 | Database | SQLite (`modernc.org/sqlite`, CGO-free), WAL, one writer connection. Litestream to S3 for backup. |
 | Job queue | Own small queue on SQLite behind a `Queue` port (lease, heartbeat, retry, unique keys). |
-| Remote workers | Talk to the API (lease / heartbeat / complete, presigned blob uploads) — never to the database file. |
+| Remote workers | `kurgu worker` with `KURGU_REMOTE_URL` + `KURGU_WORKER_TOKEN` claims agent and render jobs over the worker API, downloads the job's work dir, runs it locally and uploads the result — never touching the database or blob store. |
 | Blob storage | `BlobStore` port: `fs` driver (Mac / dev), `s3` driver (VPS: R2 or Hetzner). |
 | API | OpenAPI 3.1 spec-first, `oapi-codegen` strict server on `net/http` ServeMux, typed TS client. |
 | Web UI | Bun, React, TanStack (Router, Query, Form, Table), shadcn on Base UI, oxc (oxlint), tsgo. Static build embedded in the Go binary. |
-| Authoring agent | Claude Code headless (`claude -p`) behind an `Author` port, restricted tools, Kurgu MCP server. Swappable for API key / Agent SDK. |
-| Decision model | OpenRouter `typesafe/jev-1.13` for typed decisions only: dedupe verdict, idea selection, compliance check. |
-| Render engine | Chosen by benchmark: vanilla (`renderAt(t)` + Playwright + ffmpeg) vs Remotion vs Revideo. |
+| Authoring agent | Claude Code headless (`claude -p`) behind an `Agent` port with an explicit tool allow-list: file tools plus `Bash(kurgu tool:*)`. The agent's tools (`tts`, `frame`, `check`, `stock`, `music`) are `kurgu tool` subcommands rather than an MCP server — simpler, and the same binary on every host. Host settings, plugins and MCP servers are off except for the OpenSEO refresh. |
+| Decision model | OpenRouter `typesafe/jev-1.13` for typed decisions only: the duplicate-idea verdict for titles that are similar but not identical (trigram score 0.35–0.6). Ideas themselves come from Claude Code with a JSON schema. |
+| Render engine | **Vanilla** (docs/benchmarks/render.md): `composition.html` + `window.kurgu.renderAt(t)` driven by Go chromedp, frames piped to ffmpeg. `HeadlessExperimental.beginFrame` in chrome-headless-shell on Linux (3–13× faster on 0.5–1 vCPU), screenshots on macOS. Remotion: licence cost; Revideo: canvas-only, broken with ffmpeg 8. |
 | TTS | `Speech` port. Turkish: okur-tts (with word timings from its duration predictor). English: Kokoro-82M (timestamped ONNX). |
 | Music | `Music` port. MVP: procedural — the agent writes a Tone.js score rendered offline in Chromium. Paid API (Lyria) may follow. |
-| Stock media | Pexels video and photos (no audio). |
-| Blog | MDX committed to `marketing/src/content/blog/{tr,en}` via the GitHub API. No CMS migration (EmDash revisited later). |
-| Notifications | Web UI + SMTP email. |
+| Stock media | Pexels video and photos (no audio); clips are transcoded to short VP8 WebM so the composition can seek them frame by frame. |
+| Blog | Markdown with the site's frontmatter committed to `marketing/src/content/blog/{tr,en}` in one commit through the GitHub Git Data API, or written into a local checkout. Video embeds become privacy-enhanced iframes. No CMS migration. |
+| Notifications | In-app feed + SMTP digests (one email per person per flush, `KURGU_NOTIFY_EVERY`). Invitations are emailed when SMTP is set. |
 | Deployment | Dokploy, Compose type (needs `cpuset` / `cpu_shares`). Also runs natively on macOS. |
 
 ## 3. Runtime topology
@@ -93,15 +93,16 @@ Container ceiling on the VPS: `cpuset: "1"`, `cpu_shares: 64`, `cpus: 0.5`,
 | workspace | Workspace (timezone) |
 | pipeline | Pipeline (language, outputs, source, schedule, status) |
 | knowledge | Document, Page, Ref (document + page ranges), Coverage |
-| ideation | Idea (fingerprint), Opportunity |
-| story | Story (idea, brief, sources) owning deliverables: Video, Article, Translation; Revision; Feedback |
-| publishing | ChannelConnection, BlogTarget, Publication |
+| seo | Opportunity (keyword, volume, difficulty, intent), SEO profile |
+| story | Story (idea, brief, sources, target keyword) owning deliverables: video / article as lead, derived or translation; Revision; Feedback |
+| publishing | Channel (YouTube, sealed refresh token), BlogTarget, Publication |
 | job | Job (queue, kind, unique key, attempts, lease) |
 | settings | Throttle and host profiles |
 | notify | Email digests |
 
-Derived deliverables record the source revision they came from; changing the source marks
-them **stale** with a one-click re-derive.
+A derived deliverable starts once its lead is live (published, or ready when no publisher
+is connected), so an article can embed the published video. Approving an article queues
+its translations.
 
 ## 6. Production flow
 
@@ -126,16 +127,26 @@ Long-form video is the same flow per chapter, concatenated with ffmpeg.
 
 ## 8. Milestones
 
-0. Spikes: YouTube audit submitted; okur `--timings`; `claude -p` on the VPS; render
-   engine benchmark (5 fixed briefs × 3 engines, VPS profile at cpus 1.0 / 0.5 / 0.25 and
-   Mac chunked + VideoToolbox).
-1. Skeleton: layered Go module with architecture lint, SQLite + migrations, job queue,
-   scheduler, pipelines API, embedded web shell, `make dev` on the Mac.
-2. Identity: users, workspaces, sessions, roles.
-3. Knowledge base: upload, extraction, viewer, refs, token estimates.
-4. Shorts MVP: prompt-source pipeline, ad-hoc form, preview render, review loop, final render.
-5. Dedupe, SMTP notifications, settings UI, hybrid worker API.
-6. YouTube publishing.
-7. Articles: Turkish article, English translation, git publish, video ↔ article derivation.
-8. OpenSEO opportunities as a source strategy.
-9. Long-form video (16:9, chapters).
+All built; ✅ verified end to end on the Mac with the real agent, TTS and renderer unless
+noted.
+
+0. Spikes — ✅ okur word timings (no retraining: letter durations → word frames, 40 ms
+   frames, median error 20 ms); ✅ render benchmark (docs/benchmarks/render.md).
+   Outside the repo: submit the YouTube API audit; try `claude -p` on the VPS.
+1. Skeleton — ✅ layered module, SQLite + migrations, job queue, scheduler, pipelines, web shell.
+2. Identity — ✅ users, sessions, workspace roles, invitations, CLI bootstrap.
+3. Knowledge base — ✅ PDF / TXT / MD / EPUB upload, page extraction, token estimates,
+   viewer with PDF pane, page-range refs with token totals.
+4. Shorts MVP — ✅ prompt / knowledge / SEO pipelines, ad-hoc requests, Claude Code
+   drafting with okur narration, Tone.js music, preview render, review with timestamped
+   feedback resuming the agent session, approval, 1080p final.
+5. Dedupe (trigram + Jev), notifications (feed + SMTP digests), host profiles editable at
+   runtime, system checks, hybrid worker API — ✅ (SMTP and Jev against fakes only).
+6. YouTube publishing — built and tested against a fake Google; needs OAuth credentials
+   and the API audit to go live.
+7. Articles — ✅ Turkish article, English translation, publish to a site checkout; GitHub
+   commit tested against a fake API; video → article derivation with embed.
+8. OpenSEO — ✅ opportunity pool, import, SEO pipeline source; refresh through Claude
+   Code's OpenSEO connection not run (uses credits).
+9. Long-form — 16:9 compositions with scenes and YouTube chapters (enforced by the
+   check), chunked rendering; not yet produced end to end.

@@ -114,3 +114,26 @@ pinned `go run module@version`.
   take the actor's user id explicitly and never read the context.
 - Secrets (session and invitation tokens) are stored as SHA-256 hashes; request logs
   record the route pattern, never the path.
+
+## 11. Routes outside the spec
+
+Two route groups stream binary data in ways the strict server cannot, and are registered
+directly on the mux:
+
+- `GET /api/v1/workspaces/{ws}/stories/{id}/deliverables/{did}/revisions/{n}/{artifact}` —
+  revision media with Range support (`internal/transport/http/media.go`); same session and
+  `view` check as the spec's operations.
+- `/api/v1/worker/...` — the hybrid-worker API (`internal/transport/http/worker`),
+  bearer-token auth (`KURGU_WORKER_TOKEN`), off when the token is empty.
+
+Everything else goes through the spec.
+
+## 12. Agent runs
+
+- Work dirs live at `<KURGU_WORK_DIR>/<deliverable id>`; each revision's dir is archived
+  to the blob store, so another host can restore it.
+- Instructions are templates in `internal/service/production/v1/prompts`; they name the
+  tools `kurgu tool …`, and the agent's PATH starts with a `kurgu` link to the running
+  binary.
+- A step is begin (server: state + inputs) → run (no database; may run remotely) →
+  finish (server: archive + state). Keep `Run*` free of repositories.
