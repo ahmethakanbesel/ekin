@@ -49,6 +49,7 @@ type AdHocPayload struct {
 	Article     *pipelinedomain.ArticleSnapshot `json:"article,omitempty"`
 	Lead        string                          `json:"lead,omitempty"`
 	Refs        []storydomain.Ref               `json:"refs,omitempty"`
+	TemplateID  uuid.UUID                       `json:"templateId,omitempty"`
 }
 
 // AdHocRequest is a parsed ad-hoc request.
@@ -59,6 +60,8 @@ type AdHocRequest struct {
 	Style    string
 	Outputs  pipelinedomain.Outputs
 	Refs     []storydomain.Ref
+	// TemplateID is the house style; Nil for none.
+	TemplateID uuid.UUID
 }
 
 // MaxAdHocCount bounds one ad-hoc request.
@@ -78,6 +81,12 @@ func (s *Service) QueueAdHoc(ctx context.Context, workspaceID, actorID uuid.UUID
 	p := AdHocPayload{
 		WorkspaceID: workspaceID, ActorID: actorID, Idea: strings.TrimSpace(req.Idea), Count: req.Count,
 		Language: string(req.Language), Style: strings.TrimSpace(req.Style), Lead: string(req.Outputs.Lead()), Refs: req.Refs,
+		TemplateID: req.TemplateID,
+	}
+	if req.TemplateID != uuid.Nil && s.templates != nil {
+		if _, err := s.templates.Style(ctx, workspaceID, req.TemplateID); err != nil {
+			return nil, apperror.New(apperror.ValidationFailed, "the chosen template does not exist")
+		}
 	}
 	if v, ok := req.Outputs.Video(); ok {
 		snap := pipelinedomain.SnapshotVideo(v)
@@ -124,11 +133,15 @@ func (s *Service) PlanAdHoc(ctx context.Context, p AdHocPayload) error {
 	if err != nil {
 		return err
 	}
+	tmpl, err := s.style(ctx, p.WorkspaceID, p.TemplateID)
+	if err != nil {
+		return err
+	}
 	plans := make([]storydomain.Plan, 0, len(ideas))
 	for _, idea := range ideas {
 		plans = append(plans, storydomain.Plan{
 			WorkspaceID: p.WorkspaceID, Origin: storydomain.OriginAdHoc, Language: lang, Idea: idea.Idea,
-			Brief:   storydomain.Brief{Instructions: p.Idea, Style: p.Style, Refs: p.Refs},
+			Brief:   storydomain.Brief{Instructions: p.Idea, Style: p.Style, Refs: p.Refs, Template: tmpl},
 			Outputs: outputs, CreatedBy: p.ActorID,
 		})
 	}
@@ -214,9 +227,13 @@ func (s *Service) PlanRun(ctx context.Context, run pipelinesvc.RunPayload) error
 	if err != nil {
 		return err
 	}
+	tmpl, err := s.style(ctx, p.WorkspaceID(), p.TemplateID())
+	if err != nil {
+		return err
+	}
 	plans := make([]storydomain.Plan, 0, len(ideas))
 	for _, idea := range ideas {
-		brief := storydomain.Brief{Instructions: src.Instructions()}
+		brief := storydomain.Brief{Instructions: src.Instructions(), Template: tmpl}
 		if idea.Window >= 0 && idea.Window < len(windows) {
 			brief.Refs = windows[idea.Window]
 		}

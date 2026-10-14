@@ -38,6 +38,14 @@ var workspaceActions = map[string]identitydomain.Action{
 	"DeleteDocument":    identitydomain.ActionEdit,
 	"RetryDocument":     identitydomain.ActionEdit,
 
+	"ListTemplates":     identitydomain.ActionView,
+	"GetTemplate":       identitydomain.ActionView,
+	"CreateTemplate":    identitydomain.ActionEdit,
+	"UpdateTemplate":    identitydomain.ActionEdit,
+	"DeleteTemplate":    identitydomain.ActionEdit,
+	"DuplicateTemplate": identitydomain.ActionEdit,
+	"GenerateTemplate":  identitydomain.ActionEdit,
+
 	"GetSEOProfile":        identitydomain.ActionView,
 	"ListOpportunities":    identitydomain.ActionView,
 	"SaveSEOProfile":       identitydomain.ActionManage,

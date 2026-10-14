@@ -21,6 +21,7 @@ import (
 	jobdomain "kurgu/internal/domain/job/v1"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	storydomain "kurgu/internal/domain/story/v1"
+	templatedomain "kurgu/internal/domain/template/v1"
 	workspacedomain "kurgu/internal/domain/workspace/v1"
 	jobrepo "kurgu/internal/repository/job/v1"
 	knowledgerepo "kurgu/internal/repository/knowledge/v1"
@@ -28,12 +29,14 @@ import (
 	seorepo "kurgu/internal/repository/seo/v1"
 	settingsrepo "kurgu/internal/repository/settings/v1"
 	storyrepo "kurgu/internal/repository/story/v1"
+	templaterepo "kurgu/internal/repository/template/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	production "kurgu/internal/service/production/v1"
 	seosvc "kurgu/internal/service/seo/v1"
+	templatesvc "kurgu/internal/service/template/v1"
 	"kurgu/pkg/id"
 )
 
@@ -140,9 +143,11 @@ func newFixture(t *testing.T) fixture {
 	pipelines := pipelinesvc.NewService(pipelinerepo.NewSQLite(tx), workspaces, jobs, tx).WithDocuments(knowledge)
 	agent := &fakeAgent{titles: []string{"Kaygı ile endişe arasındaki fark"}}
 	seo := seosvc.NewService(seorepo.NewSQLite(tx), settingsrepo.NewSQLite(tx), jobs, agent, t.TempDir())
+	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, agent, t.TempDir())
+	pipelines.WithTemplates(templates)
 	svc := production.NewService(production.Config{WorkRoot: t.TempDir(), KurguBin: "/usr/local/bin/kurgu"}, production.Deps{
 		Stories: storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx,
-		Blobs: blobs, Agent: agent, Renderer: fakeRenderer{}, SEO: seo,
+		Blobs: blobs, Agent: agent, Renderer: fakeRenderer{}, SEO: seo, Templates: templates,
 	})
 	svc.AddPublisher(fakePublisher{pipelinedomain.KindVideo}).AddPublisher(fakePublisher{pipelinedomain.KindArticle})
 	return fixture{seo: seo, svc: svc, jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID()}
@@ -366,5 +371,38 @@ func TestSEOSourceTargetsBestOpportunity(t *testing.T) {
 	open, _ := f.seo.Next(ctx, f.ws, "tr", 5)
 	if len(open) != 1 || open[0].Keyword != "kaygı testi" {
 		t.Fatalf("open after run = %+v", open)
+	}
+}
+
+func TestTemplateReachesTheAgent(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
+	outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
+	source, _ := pipelinedomain.NewPromptSource("Kaygı üzerine.")
+	def := pipelinedomain.Definition{Name: "S", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source,
+		TemplateID: templatedomain.BuiltinID("evidence-guide")}
+	if _, err := f.pipelines.Create(ctx, f.ws, def); err == nil {
+		t.Fatal("an article-only template was accepted for a video pipeline")
+	}
+	def.TemplateID = templatedomain.BuiltinID("cosmic-flat")
+	p, err := f.pipelines.Create(ctx, f.ws, def)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.pipelines.RunNow(ctx, f.ws, p.ID(), 1)
+	f.drain(t)
+	st := f.story(t)
+	if st.Brief().Template == nil || st.Brief().Template.Name != "Cosmic flat explainer" {
+		t.Fatalf("story template = %+v", st.Brief().Template)
+	}
+	dir := f.agent.prompts[len(f.agent.prompts)-1].Dir
+	style, err := os.ReadFile(filepath.Join(dir, "STYLE.md"))
+	if err != nil || !strings.Contains(string(style), "#0B1D3A") || !strings.Contains(string(style), "never use any channel's name") {
+		t.Fatalf("STYLE.md = %s %v", style, err)
+	}
+	brief, _ := os.ReadFile(filepath.Join(dir, "BRIEF.md"))
+	if !strings.Contains(string(brief), "Follow `STYLE.md`") {
+		t.Fatal("brief does not point at STYLE.md")
 	}
 }

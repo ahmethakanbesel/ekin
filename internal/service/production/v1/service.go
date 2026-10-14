@@ -20,6 +20,7 @@ import (
 
 	"kurgu/internal/adapter/claude"
 	"kurgu/internal/adapter/render"
+	"kurgu/internal/apperror"
 	"kurgu/internal/blob"
 	"kurgu/internal/db"
 	jobdomain "kurgu/internal/domain/job/v1"
@@ -79,6 +80,12 @@ type Knowledge interface {
 type Opportunities interface {
 	Next(ctx context.Context, workspaceID uuid.UUID, language string, n int) ([]seodomain.Opportunity, error)
 	MarkUsed(ctx context.Context, workspaceID, opportunityID, storyID uuid.UUID) error
+}
+
+// Templates resolves a template to the style a story keeps (the
+// template service).
+type Templates interface {
+	Style(ctx context.Context, workspaceID, templateID uuid.UUID) (*storydomain.TemplateStyle, error)
 }
 
 // Notifier tells people that something needs them (M5: email digests).
@@ -148,6 +155,7 @@ type Service struct {
 	notifier   Notifier
 	dedupe     Dedupe
 	seo        Opportunities
+	templates  Templates
 	publishers map[pipelinedomain.Kind]Publisher
 	log        *slog.Logger
 	now        func() time.Time
@@ -166,6 +174,7 @@ type Deps struct {
 	Notifier  Notifier
 	Dedupe    Dedupe
 	SEO       Opportunities
+	Templates Templates
 	Log       *slog.Logger
 }
 
@@ -193,7 +202,7 @@ func NewService(cfg Config, d Deps) *Service {
 	}
 	return &Service{
 		cfg: cfg, stories: d.Stories, pipelines: d.Pipelines, knowledge: d.Knowledge, jobs: d.Jobs, tx: d.Tx,
-		blobs: d.Blobs, agent: d.Agent, renderer: d.Renderer, notifier: notifier, dedupe: d.Dedupe, seo: d.SEO,
+		blobs: d.Blobs, agent: d.Agent, renderer: d.Renderer, notifier: notifier, dedupe: d.Dedupe, seo: d.SEO, templates: d.Templates,
 		publishers: map[pipelinedomain.Kind]Publisher{}, log: log, now: time.Now,
 	}
 }
@@ -279,4 +288,17 @@ func (s *Service) mutate(ctx context.Context, storyID uuid.UUID, fn func(ctx con
 			return out, err
 		}
 	}
+}
+
+// style resolves a template id; Nil means no template.
+func (s *Service) style(ctx context.Context, workspaceID, templateID uuid.UUID) (*storydomain.TemplateStyle, error) {
+	if templateID == uuid.Nil || s.templates == nil {
+		return nil, nil
+	}
+	st, err := s.templates.Style(ctx, workspaceID, templateID)
+	if apperror.Is(err, apperror.NotFound) {
+		s.log.WarnContext(ctx, "template gone; producing without it", slog.String("template", templateID.String()))
+		return nil, nil
+	}
+	return st, err
 }

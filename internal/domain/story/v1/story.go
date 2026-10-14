@@ -125,9 +125,37 @@ type Brief struct {
 	Instructions string `json:"instructions"`
 	Style        string `json:"style,omitempty"`
 	Refs         []Ref  `json:"refs,omitempty"`
+	// Template is the house style chosen for the story, copied at
+	// planning so later template edits leave it alone.
+	Template *TemplateStyle `json:"template,omitempty"`
 	// Keyword is the search term an SEO-sourced story targets.
 	Keyword       string    `json:"keyword,omitempty"`
 	OpportunityID uuid.UUID `json:"opportunityId,omitempty"`
+}
+
+// TemplateStyle is a copy of a template's style.
+type TemplateStyle struct {
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	Guide       string    `json:"guide"`
+	Palette     []string  `json:"palette,omitempty"`
+	HeadingFont string    `json:"headingFont,omitempty"`
+	BodyFont    string    `json:"bodyFont,omitempty"`
+	MusicMood   string    `json:"musicMood,omitempty"`
+	Kinds       []string  `json:"kinds,omitempty"`
+}
+
+// Applies reports whether the style covers a deliverable of kind.
+func (t *TemplateStyle) Applies(kind string) bool {
+	if t == nil {
+		return false
+	}
+	for _, k := range t.Kinds {
+		if k == kind {
+			return true
+		}
+	}
+	return len(t.Kinds) == 0
 }
 
 // Story is the aggregate root.

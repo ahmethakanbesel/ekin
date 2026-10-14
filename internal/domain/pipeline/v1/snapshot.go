@@ -21,6 +21,7 @@ type Snapshot struct {
 	Lead        string
 	Source      SourceSnapshot
 	Schedule    *ScheduleSnapshot
+	TemplateID  uuid.UUID
 	Status      string
 	NextRunAt   time.Time
 	LastRunAt   time.Time
@@ -67,6 +68,7 @@ func (p *Pipeline) Snapshot() Snapshot {
 		Language:    string(p.def.Language),
 		Lead:        string(p.def.Outputs.lead),
 		Source:      p.def.Source.snapshot(),
+		TemplateID:  p.def.TemplateID,
 		Status:      string(p.status),
 		NextRunAt:   p.nextRunAt,
 		LastRunAt:   p.lastRunAt,
@@ -180,7 +182,7 @@ func DefinitionFromSnapshot(s Snapshot) (Definition, error) {
 		}
 		schedule = &sc
 	}
-	return Definition{Name: s.Name, Language: lang, Outputs: outputs, Source: source, Schedule: schedule}, nil
+	return Definition{Name: s.Name, Language: lang, Outputs: outputs, Source: source, Schedule: schedule, TemplateID: s.TemplateID}, nil
 }
 
 func sourceFromSnapshot(s SourceSnapshot) (Source, error) {

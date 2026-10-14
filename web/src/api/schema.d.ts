@@ -553,6 +553,82 @@ export interface paths {
         patch: operations["updateOpportunity"];
         trace?: never;
     };
+    "/workspaces/{workspaceId}/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listTemplates"];
+        put?: never;
+        post: operations["createTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/templates/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Has the agent research a YouTube channel on the web and draft a template that describes (never copies) its style. The draft appears in the list when the job finishes. */
+        post: operations["generateTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/templates/{templateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        get: operations["getTemplate"];
+        /** @description Built-ins are read-only (403); duplicate them first. */
+        put: operations["updateTemplate"];
+        post?: never;
+        delete: operations["deleteTemplate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/templates/{templateId}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["duplicateTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/stories": {
         parameters: {
             query?: never;
@@ -1018,6 +1094,10 @@ export interface components {
             keywords: string[];
             instructions?: string;
             refs?: components["schemas"]["KnowledgeRef"][];
+            /** @description The house style the story was produced with. */
+            templateName?: string;
+            /** @description Target search keyword (SEO pipelines). */
+            keyword?: string;
             status: components["schemas"]["DeliverableStatus"];
             deliverables: components["schemas"]["Deliverable"][];
             /** Format: date-time */
@@ -1044,6 +1124,11 @@ export interface components {
             /** @description Tone, visual style, audience notes. */
             style?: string;
             refs?: components["schemas"]["KnowledgeRef"][];
+            /**
+             * Format: uuid
+             * @description House style for the stories.
+             */
+            templateId?: string;
         };
         SystemCheck: {
             name: string;
@@ -1144,6 +1229,40 @@ export interface components {
         Integrations: {
             youtube: components["schemas"]["YouTubeIntegration"];
             blog?: components["schemas"]["BlogTarget"];
+        };
+        /** @enum {string} */
+        TemplateFont: "Inter" | "Lora" | "Nunito" | "Oswald" | "Caveat" | "JetBrains Mono";
+        TemplateInput: {
+            name: string;
+            description?: string;
+            /** @description What the style draws on; for people */
+            inspiration?: string;
+            kinds: components["schemas"]["DeliverableKind"][];
+            /** @description Markdown style guide. */
+            guide: string;
+            palette?: string[];
+            headingFont?: components["schemas"]["TemplateFont"];
+            bodyFont?: components["schemas"]["TemplateFont"];
+            musicMood?: string;
+        };
+        Template: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string;
+            inspiration: string;
+            kinds: components["schemas"]["DeliverableKind"][];
+            guide: string;
+            palette: string[];
+            headingFont: components["schemas"]["TemplateFont"];
+            bodyFont: components["schemas"]["TemplateFont"];
+            musicMood: string;
+            /** @enum {string} */
+            source: "builtin" | "custom" | "generated";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
         SEOProfile: {
             /** @description e.g. example.com */
@@ -1255,6 +1374,11 @@ export interface components {
             outputs: components["schemas"]["Outputs"];
             source: components["schemas"]["Source"];
             schedule?: components["schemas"]["Schedule"];
+            /**
+             * Format: uuid
+             * @description House style for this pipeline's stories.
+             */
+            templateId?: string;
         };
         Pipeline: {
             /** Format: uuid */
@@ -2464,6 +2588,188 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Opportunity"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Built-in templates first, then the workspace's own. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        templates: components["schemas"]["Template"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateInput"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    generateTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Channel name or URL. */
+                    channel: string;
+                    notes?: string;
+                    kinds?: components["schemas"]["DeliverableKind"][];
+                };
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The template. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateInput"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    duplicateTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                templateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The editable copy. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"];
                 };
             };
             default: components["responses"]["Error"];

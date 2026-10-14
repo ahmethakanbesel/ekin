@@ -22,20 +22,22 @@ import (
 	"kurgu/internal/blob"
 	"kurgu/internal/db/dbtest"
 	identitydomain "kurgu/internal/domain/identity/v1"
-	settingsdomain "kurgu/internal/domain/settings/v1"
 	jobdomain "kurgu/internal/domain/job/v1"
+	settingsdomain "kurgu/internal/domain/settings/v1"
 	"kurgu/internal/gen"
 	identityrepo "kurgu/internal/repository/identity/v1"
 	jobrepo "kurgu/internal/repository/job/v1"
 	knowledgerepo "kurgu/internal/repository/knowledge/v1"
-	settingsrepo "kurgu/internal/repository/settings/v1"
 	pipelinerepo "kurgu/internal/repository/pipeline/v1"
+	settingsrepo "kurgu/internal/repository/settings/v1"
+	templaterepo "kurgu/internal/repository/template/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
 	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
-	settingssvc "kurgu/internal/service/settings/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
+	settingssvc "kurgu/internal/service/settings/v1"
+	templatesvc "kurgu/internal/service/template/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	httptransport "kurgu/internal/transport/http"
 	systemhandler "kurgu/internal/transport/http/system/v1"
@@ -85,7 +87,10 @@ func newServer(t *testing.T) *server {
 	box, _ := secretbox.New([]byte("router-test-secret-0123"))
 	settings := settingssvc.NewService(settingsrepo.NewSQLite(tx), settingsdomain.Profile{Name: "default"}, slog.New(slog.DiscardHandler)).
 		WithCredentials(settingsdomain.Credentials{DecisionModel: "typesafe/jev-1.13"}, box)
+	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, nil, t.TempDir())
+	pipelines.WithTemplates(templates)
 	router, err := httptransport.NewRouter(httptransport.Deps{
+		Templates:  templates,
 		System:     systemhandler.New(settings, "default", "test", nil),
 		Identity:   identity,
 		Workspaces: workspacesvc.NewService(workspaces, identities, tx),
@@ -655,4 +660,41 @@ func TestCredentialsAreAdminOnlyAndHidden(t *testing.T) {
 	other.fail("GET", "/api/v1/system/credentials", nil, 403, "Forbidden")
 	other.fail("PATCH", "/api/v1/system/credentials", map[string]any{"values": map[string]string{"pexelsApiKey": "x"}}, 403, "Forbidden")
 	admin.fail("PATCH", "/api/v1/system/credentials", map[string]any{"values": map[string]string{"smtpPort": "abc"}}, 400, "ValidationFailed")
+}
+
+func TestTemplatesAPI(t *testing.T) {
+	srv := newServer(t)
+	owner := srv.signedIn(t, "owner@example.com")
+	ws := owner.workspace("acme")
+	base := "/api/v1/workspaces/" + ws.Id.String()
+
+	var list struct{ Templates []gen.Template }
+	owner.call("GET", base+"/templates", nil, 200, &list)
+	var cosmic gen.Template
+	for _, tm := range list.Templates {
+		if tm.Name == "Cosmic flat explainer" {
+			cosmic = tm
+		}
+	}
+	if cosmic.Source != gen.TemplateSourceBuiltin || len(cosmic.Palette) == 0 {
+		t.Fatalf("built-in = %+v", cosmic)
+	}
+	owner.fail("PUT", base+"/templates/"+cosmic.Id.String(), map[string]any{"name": "x", "kinds": []string{"video"}, "guide": "g"}, 403, "Forbidden")
+	var copyT gen.Template
+	owner.call("POST", base+"/templates/"+cosmic.Id.String()+"/duplicate", nil, 201, &copyT)
+	owner.call("PUT", base+"/templates/"+copyT.Id.String(), map[string]any{"name": "Ours", "kinds": []string{"video"}, "guide": "## Look\n- calm", "palette": []string{"#112233"}, "headingFont": "Oswald"}, 200, &copyT)
+	if copyT.Name != "Ours" || copyT.HeadingFont != "Oswald" || copyT.Source != gen.TemplateSourceCustom {
+		t.Fatalf("updated = %+v", copyT)
+	}
+
+	def := shortsDefinition()
+	def["templateId"] = copyT.Id.String()
+	var p gen.Pipeline
+	owner.call("POST", base+"/pipelines", def, 201, &p)
+	if p.Definition.TemplateId == nil || *p.Definition.TemplateId != copyT.Id {
+		t.Fatalf("pipeline template = %v", p.Definition.TemplateId)
+	}
+	def["templateId"] = "00000000-0000-7000-8000-000000000001"
+	owner.fail("POST", base+"/pipelines", def, 400, "ValidationFailed")
+	owner.call("DELETE", base+"/templates/"+copyT.Id.String(), nil, 204, nil)
 }

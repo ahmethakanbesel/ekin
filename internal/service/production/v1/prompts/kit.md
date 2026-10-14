@@ -11,9 +11,17 @@ each frame, and screenshots the page. Load the kit with:
 <script src="/kit/kurgu.js"></script>
 ```
 
-`/kit/kurgu.css` bundles the fonts **Inter** (400, 600, 800; sans) and **Lora**
-(400, 700; serif), both with full Turkish glyphs, resets the page, disables CSS
-animations and transitions, and styles captions. Use only these fonts.
+`/kit/kurgu.css` bundles these fonts, all with full Turkish glyphs, resets the
+page, disables CSS animations and transitions, and styles captions. Use only them:
+
+| Family | Weights | Character |
+|---|---|---|
+| Inter | 400, 600, 800 | neutral sans, the default |
+| Lora | 400, 700 | warm serif for editorial and reflective styles |
+| Nunito | 400, 800 | rounded, friendly |
+| Oswald | 600 | condensed, punchy headlines |
+| Caveat | 600 | handwriting, for annotations |
+| JetBrains Mono | 500 | monospace, for numbers and code-like labels |
 
 ## Declaring the composition
 

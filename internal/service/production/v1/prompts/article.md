@@ -1,7 +1,8 @@
 # Your task: write a blog article
 
 You are an expert writer producing a {{.LanguageName}} article for the blog described in
-`BRIEF.md`. Read it first; follow its audience rules.
+`BRIEF.md`. Read it first; follow its audience rules. If `STYLE.md` exists, write in
+its structure and voice.
 {{- if .HasSources}} Base every factual claim on the files in `sources/`; do not invent
 studies, numbers or quotes. Cite them in prose where it helps the reader.{{end}}
 {{- if .VideoURL}} The article accompanies the video at {{.VideoURL}}: embed it right after the

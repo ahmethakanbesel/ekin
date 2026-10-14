@@ -22,6 +22,7 @@ tags:
   - name: system
   - name: integrations
   - name: seo
+  - name: templates
   - name: pipelines
   - name: jobs
 
@@ -875,6 +876,131 @@ paths:
               schema: { $ref: "#/components/schemas/Opportunity" }
         default: { $ref: "#/components/responses/Error" }
 
+  /workspaces/{workspaceId}/templates:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listTemplates
+      tags: [templates]
+      responses:
+        "200":
+          description: Built-in templates first, then the workspace's own.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [templates]
+                properties:
+                  templates:
+                    type: array
+                    items: { $ref: "#/components/schemas/Template" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createTemplate
+      tags: [templates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TemplateInput" }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Template" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/templates/generate:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    post:
+      operationId: generateTemplate
+      tags: [templates]
+      description: >
+        Has the agent research a YouTube channel on the web and draft a template
+        that describes (never copies) its style. The draft appears in the list
+        when the job finishes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel]
+              properties:
+                channel: { type: string, maxLength: 300, description: Channel name or URL. }
+                notes: { type: string, maxLength: 2000 }
+                kinds:
+                  type: array
+                  items: { $ref: "#/components/schemas/DeliverableKind" }
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/templates/{templateId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - name: templateId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getTemplate
+      tags: [templates]
+      responses:
+        "200":
+          description: The template.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Template" }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      operationId: updateTemplate
+      tags: [templates]
+      description: Built-ins are read-only (403); duplicate them first.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TemplateInput" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Template" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteTemplate
+      tags: [templates]
+      responses:
+        "204":
+          description: Deleted.
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/templates/{templateId}/duplicate:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - name: templateId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: duplicateTemplate
+      tags: [templates]
+      responses:
+        "201":
+          description: The editable copy.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Template" }
+        default: { $ref: "#/components/responses/Error" }
+
   /workspaces/{workspaceId}/stories:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"
@@ -1502,6 +1628,8 @@ components:
         refs:
           type: array
           items: { $ref: "#/components/schemas/KnowledgeRef" }
+        templateName: { type: string, description: The house style the story was produced with. }
+        keyword: { type: string, description: Target search keyword (SEO pipelines). }
         status: { $ref: "#/components/schemas/DeliverableStatus" }
         deliverables:
           type: array
@@ -1542,6 +1670,10 @@ components:
         refs:
           type: array
           items: { $ref: "#/components/schemas/KnowledgeRef" }
+        templateId:
+          type: string
+          format: uuid
+          description: House style for the stories.
 
     SystemCheck:
       type: object
@@ -1674,6 +1806,54 @@ components:
       properties:
         youtube: { $ref: "#/components/schemas/YouTubeIntegration" }
         blog: { $ref: "#/components/schemas/BlogTarget" }
+
+    TemplateFont:
+      type: string
+      enum: [Inter, Lora, Nunito, Oswald, Caveat, JetBrains Mono]
+
+    TemplateInput:
+      type: object
+      required: [name, kinds, guide]
+      properties:
+        name: { type: string, maxLength: 80 }
+        description: { type: string, maxLength: 500 }
+        inspiration: { type: string, maxLength: 300, description: What the style draws on; for people, never shown on screen. }
+        kinds:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/DeliverableKind" }
+        guide: { type: string, maxLength: 20000, description: Markdown style guide. }
+        palette:
+          type: array
+          maxItems: 8
+          items: { type: string, pattern: "^#[0-9A-Fa-f]{6}$" }
+        headingFont: { $ref: "#/components/schemas/TemplateFont" }
+        bodyFont: { $ref: "#/components/schemas/TemplateFont" }
+        musicMood: { type: string, maxLength: 300 }
+
+    Template:
+      type: object
+      required: [id, name, description, inspiration, kinds, guide, palette, headingFont, bodyFont, musicMood, source, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        inspiration: { type: string }
+        kinds:
+          type: array
+          items: { $ref: "#/components/schemas/DeliverableKind" }
+        guide: { type: string }
+        palette:
+          type: array
+          items: { type: string }
+        headingFont: { $ref: "#/components/schemas/TemplateFont" }
+        bodyFont: { $ref: "#/components/schemas/TemplateFont" }
+        musicMood: { type: string }
+        source:
+          type: string
+          enum: [builtin, custom, generated]
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
 
     SEOProfile:
       type: object
@@ -1840,6 +2020,10 @@ components:
         outputs: { $ref: "#/components/schemas/Outputs" }
         source: { $ref: "#/components/schemas/Source" }
         schedule: { $ref: "#/components/schemas/Schedule" }
+        templateId:
+          type: string
+          format: uuid
+          description: House style for this pipeline's stories.
 
     Pipeline:
       type: object

@@ -100,6 +100,9 @@ func (h *Handler) CreateStories(ctx context.Context, req gen.CreateStoriesReques
 		return nil, err
 	}
 	in := productionsvc.AdHocRequest{Idea: req.Body.Idea, Count: req.Body.Count, Language: lang, Outputs: outputs}
+	if req.Body.TemplateId != nil {
+		in.TemplateID = *req.Body.TemplateId
+	}
 	if req.Body.Style != nil {
 		in.Style = *req.Body.Style
 	}
@@ -234,6 +237,13 @@ func ToWire(st *storydomain.Story) gen.Story {
 	}
 	if ins := st.Brief().Instructions; ins != "" {
 		out.Instructions = &ins
+	}
+	if t := st.Brief().Template; t != nil {
+		name := t.Name
+		out.TemplateName = &name
+	}
+	if kw := st.Brief().Keyword; kw != "" {
+		out.Keyword = &kw
 	}
 	if refs := st.Brief().Refs; len(refs) > 0 {
 		wire := make([]gen.KnowledgeRef, 0, len(refs))

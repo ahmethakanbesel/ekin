@@ -33,6 +33,8 @@ type Definition struct {
 	Outputs  Outputs
 	Source   Source
 	Schedule *Schedule
+	// TemplateID is the house style its stories use; Nil for none.
+	TemplateID uuid.UUID
 }
 
 // Pipeline is the aggregate root.
@@ -171,6 +173,7 @@ func (p *Pipeline) Name() string           { return p.def.Name }
 func (p *Pipeline) Language() Language     { return p.def.Language }
 func (p *Pipeline) Outputs() Outputs       { return p.def.Outputs }
 func (p *Pipeline) Source() Source         { return p.def.Source }
+func (p *Pipeline) TemplateID() uuid.UUID  { return p.def.TemplateID }
 func (p *Pipeline) Status() Status         { return p.status }
 func (p *Pipeline) NextRunAt() time.Time   { return p.nextRunAt }
 func (p *Pipeline) LastRunAt() time.Time   { return p.lastRunAt }

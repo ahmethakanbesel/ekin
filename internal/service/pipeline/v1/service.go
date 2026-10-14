@@ -44,8 +44,14 @@ type DocumentChecker interface {
 	CheckRange(ctx context.Context, workspaceID, documentID uuid.UUID, from, to int) error
 }
 
+// TemplateChecker verifies a pipeline's template (the template service).
+type TemplateChecker interface {
+	Check(ctx context.Context, workspaceID, templateID uuid.UUID, kinds []pipelinedomain.Kind) error
+}
+
 // Service runs pipeline use cases.
 type Service struct {
+	templates  TemplateChecker
 	repo       pipelinerepo.Repository
 	workspaces workspacerepo.Repository
 	jobs       Enqueuer
@@ -57,6 +63,12 @@ type Service struct {
 // NewService returns a Service.
 func NewService(repo pipelinerepo.Repository, workspaces workspacerepo.Repository, jobs Enqueuer, tx db.TxManager) *Service {
 	return &Service{repo: repo, workspaces: workspaces, jobs: jobs, tx: tx, now: time.Now}
+}
+
+// WithTemplates makes Create and Redefine check the chosen template.
+func (s *Service) WithTemplates(t TemplateChecker) *Service {
+	s.templates = t
+	return s
 }
 
 // WithDocuments makes Create and Redefine check knowledge references
@@ -77,7 +89,7 @@ func (s *Service) Create(ctx context.Context, workspaceID uuid.UUID, def pipelin
 	if _, err := s.workspaces.Get(ctx, workspaceID); err != nil {
 		return nil, err
 	}
-	if err := s.checkRefs(ctx, workspaceID, def.Source); err != nil {
+	if err := s.checkDefinition(ctx, workspaceID, def); err != nil {
 		return nil, err
 	}
 	p, err := pipelinedomain.New(id.New(), workspaceID, def, s.now())
@@ -104,7 +116,7 @@ func (s *Service) List(ctx context.Context, workspaceID uuid.UUID) ([]*pipelined
 // caller read; a newer stored version fails with StaleVersion instead of
 // overwriting someone else's edit.
 func (s *Service) Redefine(ctx context.Context, workspaceID, pipelineID uuid.UUID, version int64, def pipelinedomain.Definition) (*pipelinedomain.Pipeline, error) {
-	if err := s.checkRefs(ctx, workspaceID, def.Source); err != nil {
+	if err := s.checkDefinition(ctx, workspaceID, def); err != nil {
 		return nil, err
 	}
 	return s.change(ctx, workspaceID, pipelineID, version, func(p *pipelinedomain.Pipeline, now time.Time) error {
@@ -124,6 +136,21 @@ func (s *Service) Resume(ctx context.Context, workspaceID, pipelineID uuid.UUID)
 	return s.change(ctx, workspaceID, pipelineID, 0, func(p *pipelinedomain.Pipeline, now time.Time) error {
 		return p.Resume(now)
 	})
+}
+
+func (s *Service) checkDefinition(ctx context.Context, workspaceID uuid.UUID, def pipelinedomain.Definition) error {
+	if def.TemplateID != uuid.Nil && s.templates != nil {
+		var kinds []pipelinedomain.Kind
+		for _, k := range []pipelinedomain.Kind{pipelinedomain.KindVideo, pipelinedomain.KindArticle} {
+			if def.Outputs.Produces(k) {
+				kinds = append(kinds, k)
+			}
+		}
+		if err := s.templates.Check(ctx, workspaceID, def.TemplateID, kinds); err != nil {
+			return err
+		}
+	}
+	return s.checkRefs(ctx, workspaceID, def.Source)
 }
 
 func (s *Service) checkRefs(ctx context.Context, workspaceID uuid.UUID, src pipelinedomain.Source) error {

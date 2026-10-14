@@ -28,6 +28,7 @@ import (
 	seorepo "kurgu/internal/repository/seo/v1"
 	settingsrepo "kurgu/internal/repository/settings/v1"
 	storyrepo "kurgu/internal/repository/story/v1"
+	templaterepo "kurgu/internal/repository/template/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
 	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
@@ -38,12 +39,14 @@ import (
 	publishingsvc "kurgu/internal/service/publishing/v1"
 	seosvc "kurgu/internal/service/seo/v1"
 	settingssvc "kurgu/internal/service/settings/v1"
+	templatesvc "kurgu/internal/service/template/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	httptransport "kurgu/internal/transport/http"
 	systemhandler "kurgu/internal/transport/http/system/v1"
 	knowledgeworker "kurgu/internal/transport/job/knowledge/v1"
 	productionworker "kurgu/internal/transport/job/production/v1"
 	seoworker "kurgu/internal/transport/job/seo/v1"
+	templateworker "kurgu/internal/transport/job/template/v1"
 	"kurgu/internal/transport/schedule"
 	"kurgu/pkg/password"
 	"kurgu/pkg/secretbox"
@@ -68,6 +71,7 @@ type App struct {
 	notify     *notifysvc.Service
 	publishing *publishingsvc.Service
 	seo        *seosvc.Service
+	templates  *templatesvc.Service
 	version    string
 }
 
@@ -116,9 +120,12 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		&github.Client{}, log.With(slog.String("component", "publishing")))
 	agent := dynamicAgent{settings: settings, base: claude.Runner{Bin: cfg.Production.ClaudeBin}}
 	seo := seosvc.NewService(seorepo.NewSQLite(tx), settingsrepo.NewSQLite(tx), jobs, agent, cfg.Production.WorkDir)
+	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, agent, cfg.Production.WorkDir)
+	pipelines.WithTemplates(templates)
 	production, err := newProduction(cfg, settings, productionsvc.Deps{
-		SEO:     seo,
-		Stories: storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs,
+		SEO:       seo,
+		Templates: templates,
+		Stories:   storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs,
 		Notifier: notify,
 		Agent:    agent,
 		Dedupe:   dynamicDedupe{settings},
@@ -143,6 +150,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		notify:     notify,
 		publishing: publishing,
 		seo:        seo,
+		templates:  templates,
 	}, nil
 }
 
@@ -314,6 +322,7 @@ func (a *App) Work(ctx context.Context) error {
 	knowledgeworker.Register(runner, a.knowledge)
 	productionworker.Register(runner, a.production)
 	seoworker.Register(runner, a.seo)
+	templateworker.Register(runner, a.templates)
 	a.log.InfoContext(ctx, "worker started", slog.String("owner", w.Owner), slog.String("profile", w.Profile))
 	return runner.Run(ctx)
 }

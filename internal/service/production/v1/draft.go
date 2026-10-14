@@ -380,6 +380,12 @@ func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydo
 	if err := write("INSTRUCTIONS.md", instructions); err != nil {
 		return t, err
 	}
+	_ = os.Remove(filepath.Join(dir, "STYLE.md"))
+	if tmpl := st.Brief().Template; tmpl.Applies(string(d.Kind())) {
+		if err := write("STYLE.md", styleDoc(tmpl)); err != nil {
+			return t, err
+		}
+	}
 	return t, write("BRIEF.md", s.brief(st, d, t, source))
 }
 
@@ -463,6 +469,9 @@ func (s *Service) brief(st *storydomain.Story, d *storydomain.Deliverable, t tas
 	}
 	if ins := strings.TrimSpace(st.Brief().Instructions); ins != "" {
 		fmt.Fprintf(&b, "\n## Standing instructions\n\n%s\n", ins)
+	}
+	if tmpl := st.Brief().Template; tmpl.Applies(string(d.Kind())) {
+		fmt.Fprintf(&b, "\n## House style\n\nFollow `STYLE.md` (template %q).\n", tmpl.Name)
 	}
 	if style := strings.TrimSpace(st.Brief().Style); style != "" {
 		fmt.Fprintf(&b, "\n## Style\n\n%s\n", style)
@@ -605,4 +614,24 @@ func (s *Service) readBlob(ctx context.Context, key string) ([]byte, error) {
 	var b bytes.Buffer
 	_, err = b.ReadFrom(rc)
 	return b.Bytes(), err
+}
+
+// styleDoc renders a template as STYLE.md for the agent.
+func styleDoc(t *storydomain.TemplateStyle) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# House style: %s\n\n", t.Name)
+	if len(t.Palette) > 0 {
+		fmt.Fprintf(&b, "- **Palette:** %s (use these colours; the first is the background)\n", strings.Join(t.Palette, ", "))
+	}
+	if t.HeadingFont != "" {
+		fmt.Fprintf(&b, "- **Fonts:** headings %s, body and captions %s\n", t.HeadingFont, t.BodyFont)
+	}
+	if t.MusicMood != "" {
+		fmt.Fprintf(&b, "- **Music:** %s\n", t.MusicMood)
+	}
+	b.WriteString("\n" + strings.TrimSpace(t.Guide) + "\n\n")
+	b.WriteString("## Always\n\n")
+	b.WriteString("- This style may be inspired by a well-known channel. Make it recognisably our own: never use any channel's name, logo, mascot, characters, catchphrases, music or title cards.\n")
+	b.WriteString("- The brief's audience rules win over this style when they conflict.\n")
+	return b.String()
 }

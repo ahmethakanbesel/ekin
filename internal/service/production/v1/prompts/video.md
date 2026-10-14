@@ -9,6 +9,8 @@ YouTube{{if not .Long}} Shorts{{end}}. Everything you need is in this directory:
   numbers or quotes.
 {{- end}}
 - `KIT.md`: how compositions work. Read it before writing any code.
+- `STYLE.md` (when present): the house style. It overrides your own visual taste —
+  use its palette, fonts, motion, structure and narration voice.
 
 Work in this order and do not stop until `kurgu tool check` passes.
 

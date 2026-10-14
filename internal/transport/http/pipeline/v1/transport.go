@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"github.com/google/uuid"
+
 	"time"
 
 	"kurgu/internal/apperror"
@@ -25,6 +27,9 @@ func parseDefinition(in gen.PipelineDefinition) (pipelinedomain.Definition, erro
 		return pipelinedomain.Definition{}, err
 	}
 	def := pipelinedomain.Definition{Name: in.Name, Language: language, Outputs: outputs, Source: source}
+	if in.TemplateId != nil {
+		def.TemplateID = *in.TemplateId
+	}
 	if in.Schedule != nil {
 		loc, err := workspacedomain.ParseTimezone(in.Schedule.Timezone)
 		if err != nil {
@@ -164,6 +169,9 @@ func definitionToWire(p *pipelinedomain.Pipeline) gen.PipelineDefinition {
 	}
 	if s, ok := p.Schedule(); ok {
 		def.Schedule = &gen.Schedule{Cron: s.Expr(), Timezone: s.Location().String(), Batch: s.Batch()}
+	}
+	if tid := p.TemplateID(); tid != uuid.Nil {
+		def.TemplateId = &tid
 	}
 	return def
 }
