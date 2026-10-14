@@ -26,9 +26,11 @@ import (
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/emulation"
+	"github.com/chromedp/cdproto/headlessexperimental"
 	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/page"
 	cdpruntime "github.com/chromedp/cdproto/runtime"
+	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
 )
 
@@ -54,6 +56,27 @@ type Renderer struct {
 	Duty    float64 // 0 < duty ≤ 1; 0.25 sleeps 3× the frame time after each frame
 	GPU     bool
 	Quality int // JPEG quality of captured frames, default 90
+	// Capture is screenshot, beginframe or auto (beginframe on Linux,
+	// where chrome-headless-shell supports it and it is 3–13× faster on a
+	// small VPS; screenshot on macOS). See docs/benchmarks/render.md.
+	Capture string
+}
+
+// frameTimeout bounds every DevTools call: a stuck Chrome otherwise
+// blocks a render forever without an error.
+const frameTimeout = 30 * time.Second
+
+// beginFrame reports whether video renders use begin-frame capture. Auto
+// picks it on Linux when the browser is chrome-headless-shell, the only
+// build that has the HeadlessExperimental domain.
+func (r *Renderer) beginFrame(chrome string) bool {
+	switch r.Capture {
+	case "beginframe":
+		return true
+	case "screenshot":
+		return false
+	}
+	return runtime.GOOS == "linux" && strings.Contains(filepath.Base(chrome), "headless")
 }
 
 // Meta is what a composition declares on window.kurgu.
@@ -91,14 +114,22 @@ func (p *Problems) List() []string {
 
 // session is a browser plus the local server for one working directory.
 type session struct {
-	r        *Renderer
-	base     string
-	browser  context.Context
-	cancel   func()
-	problems *Problems
+	r          *Renderer
+	base       string
+	browser    context.Context
+	cancel     func()
+	problems   *Problems
+	beginFrame bool
 }
 
 func (r *Renderer) open(ctx context.Context, dir string) (*session, error) {
+	return r.openWith(ctx, dir, 0)
+}
+
+// openWith starts a browser; beginFrameScale > 0 starts it under
+// begin-frame control at that device scale (beginFrame ignores the
+// emulated scale, so it is fixed per browser).
+func (r *Renderer) openWith(ctx context.Context, dir string, beginFrameScale float64) (*session, error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, err
@@ -134,6 +165,13 @@ func (r *Renderer) open(ctx context.Context, dir string) (*session, error) {
 	if !r.GPU {
 		opts = append(opts, chromedp.Flag("disable-gpu", true))
 	}
+	if beginFrameScale > 0 {
+		opts = append(opts,
+			chromedp.Flag("enable-begin-frame-control", true),
+			chromedp.Flag("deterministic-mode", true),
+			chromedp.Flag("force-device-scale-factor", strconv.FormatFloat(beginFrameScale, 'f', -1, 64)),
+		)
+	}
 	allocCtx, cancelAlloc := chromedp.NewExecAllocator(ctx, opts...)
 	browserCtx, cancelBrowser := chromedp.NewContext(allocCtx)
 	if err := chromedp.Do(browserCtx); err != nil {
@@ -144,7 +182,8 @@ func (r *Renderer) open(ctx context.Context, dir string) (*session, error) {
 	}
 	return &session{
 		r: r, base: "http://" + ln.Addr().String(), browser: browserCtx, problems: &Problems{},
-		cancel: func() { cancelBrowser(); cancelAlloc(); _ = srv.Close() },
+		cancel:     func() { cancelBrowser(); cancelAlloc(); _ = srv.Close() },
+		beginFrame: beginFrameScale > 0,
 	}, nil
 }
 
@@ -153,7 +192,18 @@ func (s *session) close() { s.cancel() }
 // tab opens pagePath in a fresh browsing context at scale and waits for
 // window.kurgu.ready.
 func (s *session) tab(pagePath string, scale float64) (context.Context, Meta, error) {
-	ctx, _ := chromedp.NewContext(s.browser, chromedp.WithNewBrowserContext())
+	var ctx context.Context
+	if s.beginFrame {
+		on := true
+		res, err := cdp.Call(s.browser, chromedp.FromContext(s.browser).Browser, target.CreateTarget,
+			target.CreateTargetParams{URL: "about:blank", EnableBeginFrameControl: &on})
+		if err != nil {
+			return nil, Meta{}, fmt.Errorf("render: begin-frame target: %w", err)
+		}
+		ctx, _ = chromedp.NewContext(s.browser, chromedp.WithTargetID(res.TargetID))
+	} else {
+		ctx, _ = chromedp.NewContext(s.browser, chromedp.WithNewBrowserContext())
+	}
 	if err := chromedp.Do(ctx); err != nil {
 		return nil, Meta{}, fmt.Errorf("render: open tab: %w", err)
 	}
@@ -256,13 +306,37 @@ func (s *session) watch(ctx context.Context) {
 }
 
 func renderAt(ctx context.Context, t float64) error {
+	ctx, cancel := context.WithTimeout(ctx, frameTimeout)
+	defer cancel()
 	_, err := chromedp.Run(ctx, chromedp.Evaluate[bool](
 		`Promise.resolve(window.kurgu.renderAt(`+strconv.FormatFloat(t, 'f', 4, 64)+`)).then(() => true)`,
 		chromedp.EvalAwaitPromise))
 	return err
 }
 
+// captureFrame takes frame f: through beginFrame when the browser is
+// under begin-frame control, else a screenshot. A beginFrame without
+// damage returns nothing; the caller reuses the previous frame.
+func (s *session) captureFrame(ctx context.Context, f int, fps float64, quality int) ([]byte, error) {
+	if !s.beginFrame {
+		return capture(ctx, page.CaptureScreenshotFormatJpeg, quality)
+	}
+	ctx, cancel := context.WithTimeout(ctx, frameTimeout)
+	defer cancel()
+	q := int64(quality)
+	res, err := chromedp.Call(ctx, headlessexperimental.BeginFrame, headlessexperimental.BeginFrameParams{
+		FrameTimeTicks: 1e6 + float64(f)*1000/fps, Interval: 1000 / fps,
+		Screenshot: &headlessexperimental.ScreenshotParams{Format: headlessexperimental.ScreenshotParamsFormatJpeg, Quality: &q, OptimizeForSpeed: true},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.ScreenshotData, nil
+}
+
 func capture(ctx context.Context, format page.CaptureScreenshotFormat, quality int) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, frameTimeout)
+	defer cancel()
 	fast := true
 	p := page.CaptureScreenshotParams{Format: format, OptimizeForSpeed: &fast}
 	if format == page.CaptureScreenshotFormatJpeg {
@@ -355,7 +429,15 @@ func (r *Renderer) Video(ctx context.Context, dir, pagePath string, opts VideoOp
 }
 
 func (r *Renderer) video(ctx context.Context, dir, pagePath string, scale float64, out string) (Meta, error) {
-	s, err := r.open(ctx, dir)
+	bf := 0.0
+	chrome := r.Chrome
+	if chrome == "" {
+		chrome = FindChrome()
+	}
+	if r.beginFrame(chrome) {
+		bf = scale
+	}
+	s, err := r.openWith(ctx, dir, bf)
 	if err != nil {
 		return Meta{}, err
 	}
@@ -387,7 +469,7 @@ func (r *Renderer) video(ctx context.Context, dir, pagePath string, scale float6
 					return
 				}
 			}
-			errs[i] = r.encodeRange(ctx, tab, m, from, to, parts[i])
+			errs[i] = r.encodeRange(ctx, s, tab, m, from, to, parts[i])
 		})
 	}
 	wg.Wait()
@@ -405,7 +487,7 @@ func (r *Renderer) video(ctx context.Context, dir, pagePath string, scale float6
 	return m, nil
 }
 
-func (r *Renderer) encodeRange(ctx context.Context, tab context.Context, m Meta, from, to int, out string) error {
+func (r *Renderer) encodeRange(ctx context.Context, s *session, tab context.Context, m Meta, from, to int, out string) error {
 	quality := r.Quality
 	if quality == 0 {
 		quality = 90
@@ -424,18 +506,29 @@ func (r *Renderer) encodeRange(ctx context.Context, tab context.Context, m Meta,
 	if err := ff.Start(); err != nil {
 		return fmt.Errorf("render: start ffmpeg: %w", err)
 	}
-	var loopErr error
+	var (
+		loopErr error
+		last    []byte
+	)
 	for f := from; f < to && loopErr == nil; f++ {
 		start := time.Now()
 		if loopErr = renderAt(tab, float64(f)/m.FPS); loopErr != nil {
 			loopErr = fmt.Errorf("render: frame %d: %w", f, loopErr)
 			break
 		}
-		data, err := capture(tab, page.CaptureScreenshotFormatJpeg, quality)
+		data, err := s.captureFrame(tab, f, m.FPS, quality)
 		if err != nil {
 			loopErr = fmt.Errorf("render: capture frame %d: %w", f, err)
 			break
 		}
+		if len(data) == 0 {
+			data = last
+		}
+		if len(data) == 0 {
+			loopErr = fmt.Errorf("render: frame %d came back empty", f)
+			break
+		}
+		last = data
 		if _, err := stdin.Write(data); err != nil {
 			loopErr = fmt.Errorf("render: ffmpeg stopped: %w: %s", err, stderr.String())
 			break
@@ -582,7 +675,8 @@ func (r *Renderer) Transcode(ctx context.Context, in, out string, maxSeconds flo
 
 // FindChrome returns the first Chrome or Chromium found, or "".
 func FindChrome() string {
-	candidates := []string{"chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "headless_shell"}
+	candidates := []string{"chrome-headless-shell", "chromium-headless-shell", "/usr/lib/chromium/headless_shell",
+		"chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "headless_shell"}
 	if runtime.GOOS == "darwin" {
 		mac := []string{
 			"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",

@@ -10,6 +10,7 @@ x-kurgu: &kurgu
   build:
     context: ..
     dockerfile: Dockerfile
+    target: serve
   restart: unless-stopped
   volumes:
     - kurgu-data:/data
@@ -40,6 +41,11 @@ services:
 
   worker:
     <<: *kurgu
+    image: kurgu-worker:${KURGU_VERSION:-latest}
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: worker
     command: ["worker"]
     depends_on:
       serve:
