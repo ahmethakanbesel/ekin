@@ -1,0 +1,7 @@
+node_modules/
+out/
+*.mp4
+dist/
+.remotion/
+vanilla-go/kurgu-render-bench
+vanilla-go/kurgu-render-bench-linux-*

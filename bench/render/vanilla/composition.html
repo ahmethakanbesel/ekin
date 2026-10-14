@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Kurgu bench composition</title>
+<style>
+  @font-face { font-family: "Inter"; src: url("../assets/Inter.ttf") format("truetype"); font-weight: 100 900; }
+  html, body { margin: 0; padding: 0; background: #000; }
+  #stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; font-family: "Inter", sans-serif; color: #fff; }
+  #title { position: absolute; left: 90px; top: 200px; width: 900px; font-weight: 800; font-size: 92px; line-height: 1.05; letter-spacing: -2px; }
+  #photo { position: absolute; left: 90px; top: 400px; width: 900px; height: 640px; border-radius: 36px; overflow: hidden; }
+  #photo img { position: absolute; left: 0; top: -17.5px; width: 900px; height: 675px; transform-origin: 50% 50%; }
+  .card { position: absolute; left: 90px; width: 900px; height: 116px; border-radius: 28px; background: rgba(255,255,255,0.12);
+          display: flex; align-items: center; font-weight: 600; font-size: 46px; box-sizing: border-box; padding-left: 40px; }
+  .card i { width: 22px; height: 22px; border-radius: 11px; background: #ffd166; margin-right: 28px; flex: none; }
+  #caps { position: absolute; left: 60px; top: 1540px; width: 960px; height: 240px; display: flex; flex-wrap: wrap;
+          justify-content: center; align-content: center; font-weight: 700; font-size: 58px; line-height: 1.25; }
+  #caps span { margin: 0 10px; display: inline-block; }
+  #track { position: absolute; left: 0; top: 1890px; width: 1080px; height: 14px; background: rgba(255,255,255,0.15); }
+  #bar { position: absolute; left: 0; top: 0; height: 14px; width: 0; background: #ffd166; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="title"></div>
+  <div id="photo"><img src="../assets/photo.png" alt=""></div>
+  <div id="cards"></div>
+  <div id="caps"></div>
+  <div id="track"><div id="bar"></div></div>
+</div>
+<script>
+// Composition contract: window.kurgu = { duration, fps, width, height, ready, renderAt(t) }.
+// Every frame is a pure function of t (seconds). No timers, no requestAnimationFrame, no network.
+const SPEC = {"duration":20,"fps":30,"width":1080,"height":1920,"title":"Bağlanma stilleri","bullets":[{"at":4,"text":"Kaygılı: yakınlık ister"},{"at":8,"text":"Kaçıngan: mesafe koyar"},{"at":12,"text":"Güvenli: öğrenilebilir"}],"wordsPerPage":5,"words":[{"text":"Bağlanma","start":0.5,"end":0.91},{"text":"stili","start":0.96,"end":1.28},{"text":"çocuklukta","start":1.33,"end":1.8},{"text":"öğrenilir","start":1.85,"end":2.29},{"text":"ama","start":2.34,"end":2.6},{"text":"yetişkin","start":2.65,"end":3.06},{"text":"ilişkilerimizi","start":3.11,"end":3.69},{"text":"de","start":3.74,"end":3.98},{"text":"şekillendirir.","start":4.03,"end":4.61},{"text":"Kaygılı","start":4.86,"end":5.24},{"text":"bağlanan","start":5.29,"end":5.7},{"text":"kişi","start":5.75,"end":6.04},{"text":"yakınlık","start":6.09,"end":6.5},{"text":"ister,","start":6.55,"end":6.9},{"text":"kaçıngan","start":7.15,"end":7.56},{"text":"olan","start":7.61,"end":7.9},{"text":"ise","start":7.95,"end":8.22},{"text":"mesafe","start":8.27,"end":8.62},{"text":"koyar.","start":8.67,"end":9.02},{"text":"Güvenli","start":9.27,"end":9.65},{"text":"bağlanma","start":9.7,"end":10.11},{"text":"öğrenilebilir:","start":10.16,"end":10.74},{"text":"fark","start":10.99,"end":11.28},{"text":"etmek,","start":11.33,"end":11.68},{"text":"adlandırmak","start":11.93,"end":12.43},{"text":"ve","start":12.47,"end":12.71},{"text":"küçük","start":12.76,"end":13.09},{"text":"adımlarla","start":13.13,"end":13.57},{"text":"denemek","start":13.62,"end":14},{"text":"iyileşmenin","start":14.05,"end":14.55},{"text":"başlangıcıdır.","start":14.6,"end":15.18},{"text":"Bugün","start":15.43,"end":15.75},{"text":"ilk","start":15.8,"end":16.07},{"text":"küçük","start":16.11,"end":16.44},{"text":"adımı","start":16.49,"end":16.81},{"text":"birlikte","start":16.86,"end":17.27},{"text":"atalım,","start":17.32,"end":17.7},{"text":"hemen","start":17.95,"end":18.27},{"text":"şimdi,","start":18.32,"end":18.67},{"text":"burada.","start":18.92,"end":19.3}]};
+</script>
+<script>
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const easeOutCubic = x => 1 - Math.pow(1 - x, 3);
+const $ = id => document.getElementById(id);
+
+const title = $("title"), img = document.querySelector("#photo img"), photo = $("photo"), caps = $("caps"), bar = $("bar");
+title.textContent = SPEC.title;
+const cards = SPEC.bullets.map((b, i) => {
+  const el = document.createElement("div");
+  el.className = "card"; el.style.top = `${1090 + i * 140}px`;
+  el.innerHTML = `<i></i><span></span>`; el.lastChild.textContent = b.text;
+  $("cards").appendChild(el);
+  return el;
+});
+
+const pages = [];
+for (let i = 0; i < SPEC.words.length; i += SPEC.wordsPerPage) pages.push(SPEC.words.slice(i, i + SPEC.wordsPerPage));
+let shownPage = -1;
+
+function renderAt(t) {
+  const p = t / SPEC.duration;
+  document.getElementById("stage").style.background =
+    `linear-gradient(180deg, hsl(${230 + 40 * p}, 55%, 16%), hsl(${290 + 50 * p}, 60%, 30%))`;
+
+  const kt = easeOutCubic(clamp(t / 0.8));
+  title.style.opacity = kt;
+  title.style.transform = `translateY(${(1 - kt) * 60}px)`;
+
+  photo.style.opacity = easeOutCubic(clamp((t - 0.3) / 0.8));
+  img.style.transform = `translate(${-40 * p}px, ${-20 * p}px) scale(${1 + 0.25 * p})`;
+
+  SPEC.bullets.forEach((b, i) => {
+    const k = easeOutCubic(clamp((t - b.at) / 0.6));
+    cards[i].style.opacity = k;
+    cards[i].style.transform = `translateX(${(1 - k) * -120}px)`;
+  });
+
+  // Karaoke captions: the page whose first word has started; current word highlighted.
+  let pi = -1;
+  pages.forEach((pg, i) => { if (t >= pg[0].start) pi = i; });
+  if (pi !== shownPage) {
+    caps.replaceChildren(...(pi < 0 ? [] : pages[pi].map(w => { const s = document.createElement("span"); s.textContent = w.text; return s; })));
+    shownPage = pi;
+  }
+  if (pi >= 0) pages[pi].forEach((w, j) => {
+    const s = caps.children[j];
+    const current = t >= w.start && t < w.end;
+    s.style.color = current ? "#ffd166" : "#fff";
+    s.style.opacity = t < w.start ? 0.45 : 1;
+    s.style.transform = current ? "scale(1.08)" : "none";
+  });
+
+  bar.style.width = `${1080 * clamp(p)}px`;
+}
+
+window.kurgu = {
+  duration: SPEC.duration, fps: SPEC.fps, width: SPEC.width, height: SPEC.height,
+  ready: (async () => {
+    await document.fonts.load('800 92px "Inter"');
+    await document.fonts.ready;
+    await img.decode();
+    renderAt(0);
+  })(),
+  renderAt,
+};
+</script>
+</body>
+</html>

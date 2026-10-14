@@ -1,0 +1,7 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "ESNext", "moduleResolution": "bundler", "jsx": "react-jsx", "jsxImportSource": "@revideo/2d/lib",
+    "strict": true, "resolveJsonModule": true, "skipLibCheck": true, "noEmit": true, "types": ["@revideo/core/project"]
+  },
+  "include": ["src"]
+}
