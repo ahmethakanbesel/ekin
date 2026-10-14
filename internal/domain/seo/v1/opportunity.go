@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -179,6 +180,11 @@ type Candidate struct {
 	Difficulty int // -1 unknown
 	Intent     string
 	From       string // the seed or domain it came from
+	// Seeded marks keyword ideas for a seed. Research tools return
+	// broad ideas for short seeds (any popular "… nedir" query), so a
+	// seeded keyword must share a stem with the seeds or topics; a
+	// competitor's ranking keywords are relevant by origin.
+	Seeded bool
 }
 
 // Pick ranks candidates for educational content and returns the best n
@@ -187,7 +193,8 @@ type Candidate struct {
 // Informational intent ranks first; within it, more searches at lower
 // difficulty win. Near-duplicates (same words in another order) are
 // dropped.
-func Pick(cands []Candidate, known []string, brand string, n, maxDifficulty, minVolume int) []Candidate {
+func Pick(cands []Candidate, known []string, brand string, terms []string, n, maxDifficulty, minVolume int) []Candidate {
+	stems := Stems(terms)
 	seen := map[string]bool{}
 	for _, k := range known {
 		seen[wordKey(k)] = true
@@ -209,6 +216,8 @@ func Pick(cands []Candidate, known []string, brand string, n, maxDifficulty, min
 		case c.Difficulty > maxDifficulty:
 			continue
 		case minVolume > 0 && c.Volume < minVolume:
+			continue
+		case c.Seeded && len(stems) > 0 && !matches(c.Keyword, stems):
 			continue
 		}
 		seen[key] = true
@@ -238,6 +247,53 @@ func intentWeight(intent string) float64 {
 	default: // navigational, transactional: rarely an article's job
 		return 0.3
 	}
+}
+
+// stopwords never count as a topic on their own.
+var stopwords = map[string]bool{
+	"nedir": true, "nasıl": true, "neden": true, "için": true, "ile": true, "ve": true, "veya": true, "bir": true,
+	"what": true, "how": true, "why": true, "the": true, "and": true, "for": true, "with": true, "is": true,
+}
+
+// Stems returns the word stems of terms (seeds and topics): each word of
+// three letters or more, cut by one letter from five on so suffixes
+// still match ("kaygı" matches "kaygının", "terapi" matches "terapist").
+func Stems(terms []string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, t := range terms {
+		for _, w := range strings.FieldsFunc(lower(t), func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }) {
+			r := []rune(w)
+			if len(r) < 3 || stopwords[w] {
+				continue
+			}
+			if len(r) >= 5 {
+				r = r[:len(r)-1]
+			}
+			if stem := string(r); !seen[stem] {
+				seen[stem] = true
+				out = append(out, stem)
+			}
+		}
+	}
+	return out
+}
+
+func matches(keyword string, stems []string) bool {
+	for _, w := range strings.Fields(lower(keyword)) {
+		for _, s := range stems {
+			if strings.HasPrefix(w, s) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// lower lowercases with Turkish rules (İ → i, I → ı) after the general
+// ones, so Turkish and English keywords compare the same way.
+func lower(s string) string {
+	return strings.ToLowerSpecial(unicode.TurkishCase, s)
 }
 
 // wordKey identifies a keyword regardless of case and word order.

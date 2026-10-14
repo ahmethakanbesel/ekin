@@ -367,7 +367,7 @@ func (s *Service) refreshDirect(ctx context.Context, r Research, prof seodomain.
 				failures = append(failures, fmt.Sprintf("%q: %s", res.Seed, res.Error))
 				continue
 			}
-			cands = append(cands, candidates(res.Rows, "seed “"+res.Seed+"”")...)
+			cands = append(cands, candidates(res.Rows, "seed “"+res.Seed+"”", true)...)
 		}
 	}
 	for _, domain := range prof.Competitors {
@@ -376,7 +376,7 @@ func (s *Service) refreshDirect(ctx context.Context, r Research, prof seodomain.
 			failures = append(failures, domain+": "+err.Error())
 			continue
 		}
-		cands = append(cands, candidates(rows, domain)...)
+		cands = append(cands, candidates(rows, domain, false)...)
 	}
 	if len(cands) == 0 && len(failures) > 0 {
 		return jobdomain.Permanent(errors.New("OpenSEO research failed: " + strings.Join(failures, "; ")))
@@ -390,7 +390,8 @@ func (s *Service) refreshDirect(ctx context.Context, r Research, prof seodomain.
 		known = append(known, o.Keyword)
 	}
 	brand, _, _ := strings.Cut(prof.Domain, ".")
-	picks := seodomain.Pick(cands, known, brand, p.Count, prof.Difficulty(), prof.MinVolume)
+	terms := append(prof.SeedList(), strings.FieldsFunc(prof.Topics, func(r rune) bool { return r == ',' || r == '\n' || r == ';' })...)
+	picks := seodomain.Pick(cands, known, brand, terms, p.Count, prof.Difficulty(), prof.MinVolume)
 	items := make([]Item, 0, len(picks))
 	for _, c := range picks {
 		items = append(items, Item{Keyword: c.Keyword, Language: prof.Language, Volume: max(c.Volume, 0), Difficulty: c.Difficulty,
@@ -400,10 +401,10 @@ func (s *Service) refreshDirect(ctx context.Context, r Research, prof seodomain.
 	return err
 }
 
-func candidates(rows []openseo.Keyword, from string) []seodomain.Candidate {
+func candidates(rows []openseo.Keyword, from string, seeded bool) []seodomain.Candidate {
 	out := make([]seodomain.Candidate, 0, len(rows))
 	for _, k := range rows {
-		c := seodomain.Candidate{Keyword: k.Keyword, Volume: -1, Difficulty: -1, Intent: k.Intent, From: from}
+		c := seodomain.Candidate{Keyword: k.Keyword, Volume: -1, Difficulty: -1, Intent: k.Intent, From: from, Seeded: seeded}
 		if k.SearchVolume != nil {
 			c.Volume = *k.SearchVolume
 		}

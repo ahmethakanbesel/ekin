@@ -19,7 +19,7 @@ func TestPick(t *testing.T) {
 		{Keyword: "endişe ile kaygı farkı", Volume: -1, Difficulty: -1, Intent: "informational"},
 		{Keyword: "online terapi", Volume: 2900, Difficulty: 40, Intent: "commercial"},
 	}
-	got := seodomain.Pick(cands, []string{"Ruminasyon Nedir"}, "acme", 3, 50, 10)
+	got := seodomain.Pick(cands, []string{"Ruminasyon Nedir"}, "acme", nil, 3, 50, 10)
 	want := []string{"kaygı bozukluğu belirtileri", "online terapi", "terapist fiyatları"}
 	if len(got) != len(want) {
 		t.Fatalf("got %+v", got)
@@ -30,7 +30,7 @@ func TestPick(t *testing.T) {
 		}
 	}
 	// Unknown metrics are kept when no volume floor is set.
-	got = seodomain.Pick(cands, nil, "", 20, 50, 0)
+	got = seodomain.Pick(cands, nil, "", nil, 20, 50, 0)
 	found := false
 	for _, c := range got {
 		found = found || c.Keyword == "endişe ile kaygı farkı"
@@ -48,5 +48,37 @@ func TestProfileSeeds(t *testing.T) {
 	p.Seeds, p.Competitors = []string{"terapi"}, []string{"example.com"}
 	if p.EstimatedCredits() != 54+300 || p.Difficulty() != 50 {
 		t.Fatalf("estimate = %d, difficulty = %d", p.EstimatedCredits(), p.Difficulty())
+	}
+}
+
+// Live research for the seed "kaygı" returned popular health queries;
+// seeded ideas must share a stem with the seeds or topics.
+func TestPickKeepsSeededIdeasOnTopic(t *testing.T) {
+	cands := []seodomain.Candidate{
+		{Keyword: "kortizol nedir", Volume: 90500, Difficulty: 0, Intent: "informational", Seeded: true},
+		{Keyword: "astigmat nedir", Volume: 60500, Difficulty: 0, Intent: "informational", Seeded: true},
+		{Keyword: "kaygı bozukluğu belirtileri", Volume: 5400, Difficulty: 10, Intent: "informational", Seeded: true},
+		{Keyword: "kaygının fiziksel belirtileri", Volume: 900, Difficulty: 5, Intent: "informational", Seeded: true},
+		{Keyword: "online terapist", Volume: 2400, Difficulty: 15, Intent: "commercial", Seeded: true},
+		{Keyword: "İLİŞKİ terapisi", Volume: 1000, Difficulty: 15, Intent: "informational", Seeded: true},
+		{Keyword: "uyku hijyeni nedir", Volume: 3000, Difficulty: 5, Intent: "informational"}, // from a competitor
+	}
+	got := seodomain.Pick(cands, nil, "", []string{"kaygı", "terapi", "ilişki sorunları nedir"}, 10, 50, 0)
+	var names []string
+	for _, c := range got {
+		names = append(names, c.Keyword)
+	}
+	want := map[string]bool{"kaygı bozukluğu belirtileri": true, "kaygının fiziksel belirtileri": true, "online terapist": true,
+		"İLİŞKİ terapisi": true, "uyku hijyeni nedir": true}
+	if len(got) != len(want) {
+		t.Fatalf("picked %q", names)
+	}
+	for _, n := range names {
+		if !want[n] {
+			t.Fatalf("picked off-topic %q (all: %q)", n, names)
+		}
+	}
+	if s := seodomain.Stems([]string{"Kaygı, terapi", "nedir"}); len(s) != 2 || s[0] != "kayg" || s[1] != "terap" {
+		t.Fatalf("stems = %q", s)
 	}
 }
