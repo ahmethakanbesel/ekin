@@ -367,7 +367,9 @@ func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydo
 		data["Long"] = v.Format() == pipelinedomain.FormatLong
 		data["Width"], data["Height"] = w, h
 		data["MinSeconds"], data["MaxSeconds"] = int(lo), int(hi)
-		data["TargetWords"] = int(v.Duration().Seconds() * 2)
+		wps := wordsPerSecond(d.Language())
+		data["WordsPerSecond"] = strconv.FormatFloat(wps, 'f', 1, 64)
+		data["TargetWords"] = int(v.Duration().Seconds() * wps)
 		if instructions, err = execute("video.md", data); err != nil {
 			return t, err
 		}
@@ -517,6 +519,17 @@ func (s *Service) validate(ctx context.Context, t DraftTask, dir string) []strin
 		}
 	}
 	return nil
+}
+
+// wordsPerSecond is the narration pace scripts are written for: brisk and
+// conversational, like the explainer channels Shorts viewers stay for
+// (about 170 words a minute in English). Turkish words are longer, so
+// the same pace is fewer of them.
+func wordsPerSecond(l pipelinedomain.Language) float64 {
+	if l == pipelinedomain.English {
+		return 2.8
+	}
+	return 2.0
 }
 
 func scopeName(sc storydomain.Scope) string {

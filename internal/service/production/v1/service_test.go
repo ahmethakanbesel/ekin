@@ -264,6 +264,13 @@ func TestVideoWithDerivedArticleAndTranslation(t *testing.T) {
 		!strings.Contains(strings.Join(brief.Env, " "), ".bin") {
 		t.Fatalf("agent request = %+v", brief)
 	}
+	// A Turkish short is scripted for a brisk pace and the Shorts layout.
+	instructions, _ := os.ReadFile(filepath.Join(brief.Dir, "INSTRUCTIONS.md"))
+	for _, want := range []string{"about\n   2.0 words per second", "**Layout:**", "**Rhythm:**"} {
+		if !strings.Contains(string(instructions), want) {
+			t.Fatalf("video instructions lack %q:\n%s", want, instructions)
+		}
+	}
 
 	// Changes resume the agent session with the feedback.
 	at := 4.0
@@ -296,7 +303,7 @@ func TestVideoWithDerivedArticleAndTranslation(t *testing.T) {
 		t.Fatalf("derived = %s: %s", articleD.Status(), articleD.Failure())
 	}
 	brief = f.agent.prompts[len(f.agent.prompts)-1]
-	instructions, _ := os.ReadFile(filepath.Join(brief.Dir, "INSTRUCTIONS.md"))
+	instructions, _ = os.ReadFile(filepath.Join(brief.Dir, "INSTRUCTIONS.md"))
 	if !strings.Contains(string(instructions), `<YouTube id="ext-video" />`) {
 		t.Fatalf("derived article does not embed the published video:\n%s", instructions)
 	}
