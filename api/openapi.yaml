@@ -773,6 +773,24 @@ paths:
               schema: { $ref: "#/components/schemas/SEOProfile" }
         default: { $ref: "#/components/responses/Error" }
 
+  /workspaces/{workspaceId}/seo/openseo:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: getOpenSEOStatus
+      tags: [seo]
+      description: >
+        Checks the instance's OpenSEO API key and lists its projects (both
+        free). With a key, refreshes call OpenSEO directly; without one
+        they go through the host's Claude Code OpenSEO plugin.
+      responses:
+        "200":
+          description: Connection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OpenSEOStatus" }
+        default: { $ref: "#/components/responses/Error" }
+
   /workspaces/{workspaceId}/opportunities:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"
@@ -2100,6 +2118,47 @@ components:
         country: { type: string, description: Two-letter code such as TR. }
         language: { $ref: "#/components/schemas/Language" }
         topics: { type: string, description: What to look for. }
+        projectId: { type: string, description: The OpenSEO project direct refreshes are scoped to. }
+        seeds:
+          type: array
+          maxItems: 5
+          description: Seed keywords for research_keywords (about 54 credits each). Empty uses the topics.
+          items: { type: string }
+        competitors:
+          type: array
+          maxItems: 3
+          description: Domains whose ranking keywords to mine (about 100–300 credits each).
+          items: { type: string }
+        maxDifficulty: { type: integer, minimum: 0, maximum: 100, description: "Keyword difficulty ceiling; 0 means 50." }
+        minVolume: { type: integer, minimum: 0, description: Monthly searches floor. }
+        estimatedCredits:
+          type: integer
+          readOnly: true
+          description: The most a direct refresh with this profile should spend.
+
+    OpenSEOProject:
+      type: object
+      required: [id, name, locationCode, languageCode]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        domain: { type: string }
+        locationCode: { type: integer }
+        languageCode: { type: string }
+        url: { type: string }
+        organization: { type: string }
+
+    OpenSEOStatus:
+      type: object
+      required: [configured, projects]
+      properties:
+        configured: { type: boolean, description: An API key is set. }
+        email: { type: string }
+        creditsRemaining: { type: number, format: double }
+        projects:
+          type: array
+          items: { $ref: "#/components/schemas/OpenSEOProject" }
+        error: { type: string }
 
     OpportunityStatus:
       type: string

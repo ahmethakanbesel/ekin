@@ -123,7 +123,8 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		},
 		&github.Client{}, log.With(slog.String("component", "publishing")))
 	agent := dynamicAgent{settings: settings, base: claude.Runner{Bin: cfg.Production.ClaudeBin}}
-	seo := seosvc.NewService(seorepo.NewSQLite(tx), settingsrepo.NewSQLite(tx), jobs, agent, cfg.Production.WorkDir)
+	seo := seosvc.NewService(seorepo.NewSQLite(tx), settingsrepo.NewSQLite(tx), jobs, agent, cfg.Production.WorkDir).
+		WithResearch(openSEO(settings))
 	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, agent, cfg.Production.WorkDir)
 	p := cfg.Production
 	voices := voicesvc.NewService(settingsrepo.NewSQLite(tx), jobs,

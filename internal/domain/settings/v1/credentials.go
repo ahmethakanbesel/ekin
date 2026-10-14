@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -24,6 +25,8 @@ type Credentials struct {
 	SMTPTLS             string `json:"smtpTls,omitempty"`
 	YouTubeClientID     string `json:"youtubeClientId,omitempty"`
 	YouTubeClientSecret string `json:"youtubeClientSecret,omitempty"`
+	OpenSEOAPIKey       string `json:"openseoApiKey,omitempty"`
+	OpenSEOURL          string `json:"openseoUrl,omitempty"`
 }
 
 // CredentialField describes one credential for the settings page.
@@ -50,6 +53,8 @@ var Fields = []CredentialField{
 	{Key: "smtpTls", Env: "KURGU_SMTP_TLS", Label: "SMTP TLS (starttls, tls, none)", get: func(c *Credentials) *string { return &c.SMTPTLS }},
 	{Key: "youtubeClientId", Env: "KURGU_YOUTUBE_CLIENT_ID", Label: "YouTube OAuth client ID", get: func(c *Credentials) *string { return &c.YouTubeClientID }},
 	{Key: "youtubeClientSecret", Env: "KURGU_YOUTUBE_CLIENT_SECRET", Secret: true, Label: "YouTube OAuth client secret", get: func(c *Credentials) *string { return &c.YouTubeClientSecret }},
+	{Key: "openseoApiKey", Env: "KURGU_OPENSEO_API_KEY", Secret: true, Label: "OpenSEO API key (oseo_…)", get: func(c *Credentials) *string { return &c.OpenSEOAPIKey }},
+	{Key: "openseoUrl", Env: "KURGU_OPENSEO_URL", Label: "OpenSEO MCP endpoint", get: func(c *Credentials) *string { return &c.OpenSEOURL }},
 }
 
 // Value returns the field's value in c.
@@ -91,6 +96,16 @@ func (c *Credentials) Apply(patch map[string]string) error {
 	}
 	if t := c.SMTPTLS; t != "" && t != "starttls" && t != "tls" && t != "none" {
 		return apperror.New(apperror.ValidationFailed, "SMTP TLS must be starttls, tls or none")
+	}
+	if k := c.OpenSEOAPIKey; k != "" && !strings.HasPrefix(k, "oseo_") {
+		return apperror.New(apperror.ValidationFailed, "an OpenSEO API key starts with oseo_")
+	}
+	if u := c.OpenSEOURL; u != "" {
+		parsed, err := url.Parse(u)
+		local := err == nil && parsed.Scheme == "http" && (parsed.Hostname() == "localhost" || parsed.Hostname() == "127.0.0.1")
+		if err != nil || parsed.Host == "" || (parsed.Scheme != "https" && !local) {
+			return apperror.New(apperror.ValidationFailed, "the OpenSEO endpoint must be an https URL (http only for localhost)")
+		}
 	}
 	return nil
 }

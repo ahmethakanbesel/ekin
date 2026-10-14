@@ -64,7 +64,7 @@ func TestRouterIsFullyWired(t *testing.T) {
 		"/api/v1/me", "/api/v1/system", "/api/v1/system/profiles", "/api/v1/system/credentials",
 		base, base + "/members", base + "/invitations", base + "/pipelines", base + "/jobs", base + "/documents",
 		base + "/stories", base + "/notifications", base + "/integrations", base + "/seo", base + "/opportunities",
-		base + "/templates", base + "/voice", "/api/v1/voices",
+		base + "/templates", base + "/voice", "/api/v1/voices", base + "/seo/openseo",
 	} {
 		res, err := c.Get(srv.URL + path)
 		if err != nil {

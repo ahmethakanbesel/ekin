@@ -54,6 +54,7 @@ var workspaceActions = map[string]identitydomain.Action{
 	"GetSEOProfile":        identitydomain.ActionView,
 	"ListOpportunities":    identitydomain.ActionView,
 	"SaveSEOProfile":       identitydomain.ActionManage,
+	"GetOpenSEOStatus":     identitydomain.ActionManage,
 	"ImportOpportunities":  identitydomain.ActionEdit,
 	"RefreshOpportunities": identitydomain.ActionEdit,
 	"UpdateOpportunity":    identitydomain.ActionEdit,

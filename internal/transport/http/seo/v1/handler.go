@@ -34,8 +34,11 @@ func (h *Handler) SaveSEOProfile(ctx context.Context, req gen.SaveSEOProfileRequ
 	if err != nil {
 		return nil, err
 	}
+	b := req.Body
 	p, err := h.svc.SaveProfile(ctx, req.WorkspaceId, pr.User.ID(), seodomain.Profile{
-		Domain: req.Body.Domain, Country: req.Body.Country, Language: string(req.Body.Language), Topics: req.Body.Topics,
+		Domain: b.Domain, Country: b.Country, Language: string(b.Language), Topics: b.Topics,
+		ProjectID: deref(b.ProjectId), Seeds: derefList(b.Seeds), Competitors: derefList(b.Competitors),
+		MaxDifficulty: derefInt(b.MaxDifficulty), MinVolume: derefInt(b.MinVolume),
 	})
 	if err != nil {
 		return nil, err
@@ -107,7 +110,51 @@ func (h *Handler) UpdateOpportunity(ctx context.Context, req gen.UpdateOpportuni
 }
 
 func profileToWire(p seodomain.Profile) gen.SEOProfile {
-	return gen.SEOProfile{Domain: p.Domain, Country: p.Country, Language: gen.Language(cmp.Or(p.Language, "tr")), Topics: p.Topics}
+	seeds, competitors, est := p.Seeds, p.Competitors, p.EstimatedCredits()
+	if seeds == nil {
+		seeds = []string{}
+	}
+	if competitors == nil {
+		competitors = []string{}
+	}
+	maxDifficulty, minVolume := p.Difficulty(), p.MinVolume
+	return gen.SEOProfile{
+		Domain: p.Domain, Country: p.Country, Language: gen.Language(cmp.Or(p.Language, "tr")), Topics: p.Topics,
+		ProjectId: &p.ProjectID, Seeds: &seeds, Competitors: &competitors, MaxDifficulty: &maxDifficulty, MinVolume: &minVolume,
+		EstimatedCredits: &est,
+	}
+}
+
+func (h *Handler) GetOpenSEOStatus(ctx context.Context, _ gen.GetOpenSEOStatusRequestObject) (gen.GetOpenSEOStatusResponseObject, error) {
+	st := h.svc.OpenSEO(ctx)
+	out := gen.GetOpenSEOStatus200JSONResponse{Configured: st.Configured, Projects: []gen.OpenSEOProject{}}
+	if st.Error != "" {
+		out.Error = &st.Error
+	}
+	if a := st.Account; a != nil {
+		out.Email, out.CreditsRemaining = &a.UserEmail, a.CreditsRemaining
+	}
+	for _, p := range st.Projects {
+		out.Projects = append(out.Projects, gen.OpenSEOProject{
+			Id: p.ID, Name: p.Name, Domain: &p.Domain, LocationCode: p.LocationCode, LanguageCode: p.LanguageCode, Url: &p.URL,
+			Organization: &p.Organization,
+		})
+	}
+	return out, nil
+}
+
+func derefList(p *[]string) []string {
+	if p == nil {
+		return nil
+	}
+	return *p
+}
+
+func derefInt(p *int) int {
+	if p == nil {
+		return 0
+	}
+	return *p
 }
 
 func toWire(o seodomain.Opportunity) gen.Opportunity {

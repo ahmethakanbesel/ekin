@@ -6,6 +6,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"kurgu/internal/adapter/claude"
+	"kurgu/internal/adapter/openseo"
 	"kurgu/internal/apperror"
 	jobdomain "kurgu/internal/domain/job/v1"
 	seodomain "kurgu/internal/domain/seo/v1"
@@ -41,8 +43,18 @@ type Enqueuer interface {
 	Enqueue(ctx context.Context, spec jobdomain.Spec) (*jobdomain.Job, bool, error)
 }
 
+// Research is OpenSEO called directly with an API key
+// (internal/adapter/openseo).
+type Research interface {
+	Whoami(ctx context.Context) (openseo.Account, error)
+	Projects(ctx context.Context) ([]openseo.Project, error)
+	ResearchKeywords(ctx context.Context, projectID string, seeds []string, m openseo.Market) ([]openseo.SeedResult, error)
+	DomainKeywords(ctx context.Context, projectID, domain string, m openseo.Market) ([]openseo.Keyword, error)
+}
+
 // Service runs SEO use cases.
 type Service struct {
+	research func(ctx context.Context) Research
 	repo     seorepo.Repository
 	settings settingsrepo.Repository
 	jobs     Enqueuer
@@ -54,6 +66,21 @@ type Service struct {
 // NewService returns a Service.
 func NewService(repo seorepo.Repository, settings settingsrepo.Repository, jobs Enqueuer, agent Agent, workDir string) *Service {
 	return &Service{repo: repo, settings: settings, jobs: jobs, agent: agent, workDir: workDir, now: time.Now}
+}
+
+// WithResearch lets refreshes call OpenSEO directly. research returns
+// nil while no API key is set; refreshes then go through the agent and
+// the host's Claude Code OpenSEO plugin.
+func (s *Service) WithResearch(research func(ctx context.Context) Research) *Service {
+	s.research = research
+	return s
+}
+
+func (s *Service) direct(ctx context.Context) Research {
+	if s.research == nil {
+		return nil
+	}
+	return s.research(ctx)
 }
 
 // Item is an opportunity to import.
@@ -178,6 +205,26 @@ func (s *Service) SaveProfile(ctx context.Context, workspaceID, by uuid.UUID, p 
 	if len(p.Topics) > 2000 {
 		return p, apperror.New(apperror.ValidationFailed, "topics are too long")
 	}
+	p.ProjectID = strings.TrimSpace(p.ProjectID)
+	p.Seeds = cleanList(p.Seeds, func(s string) string { return strings.Join(strings.Fields(s), " ") })
+	p.Competitors = cleanList(p.Competitors, func(s string) string {
+		return strings.TrimSuffix(strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(s), "https://"), "http://"), "/")
+	})
+	switch {
+	case len(p.Seeds) > seodomain.MaxSeeds:
+		return p, apperror.New(apperror.ValidationFailed, fmt.Sprintf("at most %d seed keywords", seodomain.MaxSeeds))
+	case len(p.Competitors) > seodomain.MaxCompetitors:
+		return p, apperror.New(apperror.ValidationFailed, fmt.Sprintf("at most %d competitor domains", seodomain.MaxCompetitors))
+	case p.MaxDifficulty < 0 || p.MaxDifficulty > 100:
+		return p, apperror.New(apperror.ValidationFailed, "the difficulty ceiling must be 0–100")
+	case p.MinVolume < 0:
+		return p, apperror.New(apperror.ValidationFailed, "the volume floor must not be negative")
+	}
+	for _, c := range p.Competitors {
+		if !strings.Contains(c, ".") || strings.ContainsAny(c, " /") {
+			return p, apperror.New(apperror.ValidationFailed, "competitors are domains such as example.com: "+c)
+		}
+	}
 	return p, s.settings.Put(ctx, "seo:"+workspaceID.String(), p, by, s.now())
 }
 
@@ -187,7 +234,14 @@ func (s *Service) QueueRefresh(ctx context.Context, workspaceID uuid.UUID, count
 	if err != nil {
 		return nil, err
 	}
-	if p.Domain == "" && strings.TrimSpace(p.Topics) == "" {
+	if s.direct(ctx) != nil {
+		if p.ProjectID == "" {
+			return nil, apperror.New(apperror.ValidationFailed, "choose the OpenSEO project in the SEO settings first")
+		}
+		if len(p.SeedList()) == 0 && len(p.Competitors) == 0 {
+			return nil, apperror.New(apperror.ValidationFailed, "set seed keywords, topics or competitor domains first")
+		}
+	} else if p.Domain == "" && strings.TrimSpace(p.Topics) == "" {
 		return nil, apperror.New(apperror.ValidationFailed, "set the site domain or topics first")
 	}
 	if count <= 0 || count > 50 {
@@ -219,12 +273,15 @@ var refreshSchema = json.RawMessage(`{
   }
 }`)
 
-// Refresh runs a seo.refresh job: the agent queries OpenSEO with the
-// host's Claude Code OpenSEO connection and returns structured keywords.
+// Refresh runs a seo.refresh job: directly against OpenSEO's API when a
+// key is set, else through the agent and the host's OpenSEO plugin.
 func (s *Service) Refresh(ctx context.Context, p RefreshPayload) error {
 	prof, err := s.Profile(ctx, p.WorkspaceID)
 	if err != nil {
 		return err
+	}
+	if r := s.direct(ctx); r != nil {
+		return s.refreshDirect(ctx, r, prof, p)
 	}
 	existing, err := s.repo.List(ctx, p.WorkspaceID, "")
 	if err != nil {
@@ -273,4 +330,126 @@ Return the keywords in the content language as JSON.`,
 	}
 	_, err = s.Import(ctx, p.WorkspaceID, items, "openseo")
 	return err
+}
+
+func cleanList(in []string, norm func(string) string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, v := range in {
+		v = norm(v)
+		if v == "" || seen[strings.ToLower(v)] {
+			continue
+		}
+		seen[strings.ToLower(v)] = true
+		out = append(out, v)
+	}
+	return out
+}
+
+// refreshDirect researches the profile's seeds and competitors with
+// OpenSEO and imports the best new keywords.
+func (s *Service) refreshDirect(ctx context.Context, r Research, prof seodomain.Profile, p RefreshPayload) error {
+	if prof.ProjectID == "" {
+		return jobdomain.Permanent(errors.New("choose the OpenSEO project in the SEO settings"))
+	}
+	market := openseo.Market{LocationCode: openseo.Locations[prof.Country], LanguageCode: prof.Language}
+	var (
+		cands    []seodomain.Candidate
+		failures []string
+	)
+	if seeds := prof.SeedList(); len(seeds) > 0 {
+		results, err := r.ResearchKeywords(ctx, prof.ProjectID, seeds, market)
+		if err != nil {
+			return jobdomain.Permanent(err)
+		}
+		for _, res := range results {
+			if !res.OK {
+				failures = append(failures, fmt.Sprintf("%q: %s", res.Seed, res.Error))
+				continue
+			}
+			cands = append(cands, candidates(res.Rows, "seed “"+res.Seed+"”")...)
+		}
+	}
+	for _, domain := range prof.Competitors {
+		rows, err := r.DomainKeywords(ctx, prof.ProjectID, domain, market)
+		if err != nil {
+			failures = append(failures, domain+": "+err.Error())
+			continue
+		}
+		cands = append(cands, candidates(rows, domain)...)
+	}
+	if len(cands) == 0 && len(failures) > 0 {
+		return jobdomain.Permanent(errors.New("OpenSEO research failed: " + strings.Join(failures, "; ")))
+	}
+	existing, err := s.repo.List(ctx, p.WorkspaceID, "")
+	if err != nil {
+		return err
+	}
+	known := make([]string, 0, len(existing))
+	for _, o := range existing {
+		known = append(known, o.Keyword)
+	}
+	brand, _, _ := strings.Cut(prof.Domain, ".")
+	picks := seodomain.Pick(cands, known, brand, p.Count, prof.Difficulty(), prof.MinVolume)
+	items := make([]Item, 0, len(picks))
+	for _, c := range picks {
+		items = append(items, Item{Keyword: c.Keyword, Language: prof.Language, Volume: max(c.Volume, 0), Difficulty: c.Difficulty,
+			Intent: c.Intent, Note: note(c)})
+	}
+	_, err = s.Import(ctx, p.WorkspaceID, items, "openseo")
+	return err
+}
+
+func candidates(rows []openseo.Keyword, from string) []seodomain.Candidate {
+	out := make([]seodomain.Candidate, 0, len(rows))
+	for _, k := range rows {
+		c := seodomain.Candidate{Keyword: k.Keyword, Volume: -1, Difficulty: -1, Intent: k.Intent, From: from}
+		if k.SearchVolume != nil {
+			c.Volume = *k.SearchVolume
+		}
+		if k.KeywordDifficulty != nil {
+			c.Difficulty = *k.KeywordDifficulty
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+func note(c seodomain.Candidate) string {
+	parts := []string{"From " + c.From}
+	if c.Volume >= 0 {
+		parts = append(parts, fmt.Sprintf("%d searches/month", c.Volume))
+	}
+	if c.Difficulty >= 0 {
+		parts = append(parts, fmt.Sprintf("difficulty %d", c.Difficulty))
+	}
+	return strings.Join(parts, " · ")
+}
+
+// OpenSEOStatus is the instance's OpenSEO connection as the SEO
+// settings see it.
+type OpenSEOStatus struct {
+	Configured bool // an API key is set
+	Account    *openseo.Account
+	Projects   []openseo.Project
+	Error      string
+}
+
+// OpenSEO checks the API key and lists its projects; both calls are free.
+func (s *Service) OpenSEO(ctx context.Context) OpenSEOStatus {
+	r := s.direct(ctx)
+	if r == nil {
+		return OpenSEOStatus{}
+	}
+	st := OpenSEOStatus{Configured: true}
+	a, err := r.Whoami(ctx)
+	if err != nil {
+		st.Error = err.Error()
+		return st
+	}
+	st.Account = &a
+	if st.Projects, err = r.Projects(ctx); err != nil {
+		st.Error = err.Error()
+	}
+	return st
 }

@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"fmt"
+	"kurgu/internal/adapter/openseo"
+	seosvc "kurgu/internal/service/seo/v1"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -142,6 +144,21 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 	yt := creds.YouTubeClientID != "" && creds.YouTubeClientSecret != ""
 	redirect := "redirect URI " + a.cfg.PublicURL + "/api/v1/oauth/youtube/callback"
 	add("YouTube publishing", yt, map[bool]string{true: "OAuth client set; " + redirect, false: "OAuth client ID / secret not set; register the " + redirect}[yt])
+	if creds.OpenSEOAPIKey == "" {
+		add("OpenSEO", false, "no API key; SEO refreshes use the host's Claude Code OpenSEO plugin")
+	} else {
+		octx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
+		acct, err := (&openseo.Client{URL: creds.OpenSEOURL, APIKey: creds.OpenSEOAPIKey}).Whoami(octx)
+		cancel()
+		switch {
+		case err != nil:
+			add("OpenSEO", false, err.Error())
+		case acct.CreditsRemaining != nil:
+			add("OpenSEO", true, fmt.Sprintf("%s · %.0f credits left", acct.UserEmail, *acct.CreditsRemaining))
+		default:
+			add("OpenSEO", true, acct.UserEmail)
+		}
+	}
 	add("Duplicate checks (Jev)", creds.OpenRouterAPIKey != "", map[bool]string{true: creds.DecisionModel, false: "no OpenRouter key; title similarity only"}[creds.OpenRouterAPIKey != ""])
 	checksAt, lastChecks = time.Now(), out
 	return out
@@ -193,7 +210,7 @@ func probeTool(ctx context.Context, bin string, args ...string) (bool, string) {
 // is unset; envCredentials leaves those out so they are not reported as
 // coming from the environment.
 func credentialDefaults() settingsdomain.Credentials {
-	return settingsdomain.Credentials{DecisionModel: config.DefaultDecisionModel, SMTPTLS: config.DefaultSMTPTLS}
+	return settingsdomain.Credentials{DecisionModel: config.DefaultDecisionModel, SMTPTLS: config.DefaultSMTPTLS, OpenSEOURL: openseo.DefaultURL}
 }
 
 func envCredentials(cfg config.Config) settingsdomain.Credentials {
@@ -207,6 +224,7 @@ func envCredentials(cfg config.Config) settingsdomain.Credentials {
 		SMTPHost: cfg.Notify.SMTPHost, SMTPPort: port, SMTPUsername: cfg.Notify.SMTPUser, SMTPPassword: cfg.Notify.SMTPPassword,
 		SMTPFrom: cfg.Notify.SMTPFrom, SMTPTLS: cfg.Notify.SMTPTLS,
 		YouTubeClientID: cfg.Publishing.YouTubeClientID, YouTubeClientSecret: cfg.Publishing.YouTubeClientSecret,
+		OpenSEOAPIKey: os.Getenv("KURGU_OPENSEO_API_KEY"), OpenSEOURL: os.Getenv("KURGU_OPENSEO_URL"),
 	}
 	if _, ok := os.LookupEnv("KURGU_DECISION_MODEL"); !ok {
 		c.DecisionModel = ""
@@ -215,6 +233,17 @@ func envCredentials(cfg config.Config) settingsdomain.Credentials {
 		c.SMTPTLS = ""
 	}
 	return c
+}
+
+// openSEO returns a client for the current OpenSEO key, nil without one.
+func openSEO(settings *settingssvc.Service) func(ctx context.Context) seosvc.Research {
+	return func(ctx context.Context) seosvc.Research {
+		c := settings.Credentials(ctx)
+		if c.OpenSEOAPIKey == "" {
+			return nil
+		}
+		return &openseo.Client{URL: c.OpenSEOURL, APIKey: c.OpenSEOAPIKey}
+	}
 }
 
 // dynamicAgent runs Claude Code with the current model and token.

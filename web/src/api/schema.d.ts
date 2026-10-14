@@ -496,6 +496,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspaceId}/seo/openseo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        /** @description Checks the instance's OpenSEO API key and lists its projects (both free). With a key, refreshes call OpenSEO directly; without one they go through the host's Claude Code OpenSEO plugin. */
+        get: operations["getOpenSEOStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/opportunities": {
         parameters: {
             query?: never;
@@ -799,6 +818,28 @@ export interface paths {
         put?: never;
         /** @description Sends the deliverable back to the agent with feedback. */
         post: operations["requestChanges"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        /** @description The editable text of the latest revision: an article's article.md (frontmatter and body), or a video's narration and metadata. */
+        get: operations["getDeliverableContent"];
+        /** @description Saves a reviewer's edit as a new revision. Only a deliverable in review can be edited, and `revision` must still be the latest (409 Conflict otherwise). Article and metadata edits stay in review. An edited narration sends the video back to the agent, which keeps the text word for word, narrates it again and re-times the visuals. */
+        put: operations["editDeliverableContent"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1186,8 +1227,33 @@ export interface components {
             artifacts: string[];
             /** @description The agent's summary of this revision. */
             notes: string;
+            /**
+             * Format: uuid
+             * @description The person who edited this revision in place; absent when the agent made it.
+             */
+            editedBy?: string;
             /** Format: date-time */
             createdAt: string;
+        };
+        VideoMetadataContent: {
+            title: string;
+            description: string;
+            tags: string[];
+        };
+        DeliverableContent: {
+            revision: number;
+            /** @description article.md: YAML frontmatter, then the Markdown body. */
+            article?: string;
+            /** @description The spoken text; paragraphs separated by blank lines. */
+            narration?: string;
+            metadata?: components["schemas"]["VideoMetadataContent"];
+        };
+        DeliverableEdit: {
+            /** @description The revision the edit was made on. */
+            revision: number;
+            article?: string;
+            narration?: string;
+            metadata?: components["schemas"]["VideoMetadataContent"];
         };
         AdHocInput: {
             /** @description Free text — what you want made. */
@@ -1397,6 +1463,36 @@ export interface components {
             language: components["schemas"]["Language"];
             /** @description What to look for. */
             topics: string;
+            /** @description The OpenSEO project direct refreshes are scoped to. */
+            projectId?: string;
+            /** @description Seed keywords for research_keywords (about 54 credits each). Empty uses the topics. */
+            seeds?: string[];
+            /** @description Domains whose ranking keywords to mine (about 100–300 credits each). */
+            competitors?: string[];
+            /** @description Keyword difficulty ceiling; 0 means 50. */
+            maxDifficulty?: number;
+            /** @description Monthly searches floor. */
+            minVolume?: number;
+            /** @description The most a direct refresh with this profile should spend. */
+            readonly estimatedCredits?: number;
+        };
+        OpenSEOProject: {
+            id: string;
+            name: string;
+            domain?: string;
+            locationCode: number;
+            languageCode: string;
+            url?: string;
+            organization?: string;
+        };
+        OpenSEOStatus: {
+            /** @description An API key is set. */
+            configured: boolean;
+            email?: string;
+            /** Format: double */
+            creditsRemaining?: number;
+            projects: components["schemas"]["OpenSEOProject"][];
+            error?: string;
         };
         /** @enum {string} */
         OpportunityStatus: "open" | "used" | "dismissed";
@@ -2601,6 +2697,29 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    getOpenSEOStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Connection. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpenSEOStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listOpportunities: {
         parameters: {
             query?: {
@@ -3201,6 +3320,60 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["FeedbackInput"];
+            };
+        };
+        responses: {
+            /** @description The updated story. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Story"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getDeliverableContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Content. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliverableContent"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    editDeliverableContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeliverableEdit"];
             };
         };
         responses: {
