@@ -33,7 +33,7 @@ const usage = `usage: kurgu <command>
 
 commands:
   serve                 run the API, web UI and scheduler
-  worker                run the job worker
+  worker                run the job worker (remote with KURGU_REMOTE_URL)
   all                   run serve and worker in one process
   migrate up|down|status
   user create|reset-password
@@ -71,6 +71,9 @@ func run(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	if args[0] == "worker" && cfg.Remote.URL != "" {
+		return app.WorkRemote(ctx, cfg, log)
+	}
 	if args[0] == "migrate" {
 		return migrate(ctx, cfg, args[1:])
 	}

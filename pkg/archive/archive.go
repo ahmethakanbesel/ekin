@@ -1,4 +1,6 @@
-package production
+// Package archive packs a working directory as a gzipped tar and unpacks
+// it again, refusing entries that would escape the target directory.
+package archive
 
 import (
 	"archive/tar"
@@ -21,8 +23,8 @@ func skipInArchive(rel string, d fs.DirEntry) bool {
 	return strings.HasSuffix(rel, ".src.mp4")
 }
 
-// tarDir writes dir as a gzipped tar to w.
-func tarDir(dir string, w io.Writer) error {
+// TarGz writes dir as a gzipped tar to w.
+func TarGz(dir string, w io.Writer) error {
 	gz := gzip.NewWriter(w)
 	tw := tar.NewWriter(gz)
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
@@ -75,8 +77,8 @@ func tarDir(dir string, w io.Writer) error {
 	return gz.Close()
 }
 
-// untar extracts a gzipped tar into dir, refusing paths that escape it.
-func untar(r io.Reader, dir string) error {
+// Untar extracts a gzipped tar into dir, refusing paths that escape it.
+func Untar(r io.Reader, dir string) error {
 	gz, err := gzip.NewReader(r)
 	if err != nil {
 		return err

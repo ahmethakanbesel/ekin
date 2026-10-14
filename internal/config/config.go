@@ -34,6 +34,15 @@ type Config struct {
 	Production     Production
 	Notify         Notify
 	Publishing     Publishing
+	Remote         Remote
+}
+
+// Remote configures the hybrid-worker API on both ends: the server
+// accepts workers presenting Token; a worker with URL set claims jobs
+// from that server instead of opening a database.
+type Remote struct {
+	URL   string
+	Token string
 }
 
 // Publishing configures YouTube OAuth and the secret key.
@@ -223,6 +232,13 @@ func load(getenv func(string) string) (Config, error) {
 		SMTPTLS: str("KURGU_SMTP_TLS", "starttls"), SMTPPort: int(number("KURGU_SMTP_PORT", 0, 0, 65535)),
 		Every:         duration("KURGU_NOTIFY_EVERY", 10*time.Minute),
 		OpenRouterKey: str("KURGU_OPENROUTER_API_KEY", ""), DecisionModel: str("KURGU_DECISION_MODEL", "typesafe/jev-1.13"),
+	}
+	cfg.Remote = Remote{URL: strings.TrimRight(str("KURGU_REMOTE_URL", ""), "/"), Token: str("KURGU_WORKER_TOKEN", "")}
+	if cfg.Remote.URL != "" && cfg.Remote.Token == "" {
+		errs = append(errs, "KURGU_REMOTE_URL needs KURGU_WORKER_TOKEN")
+	}
+	if cfg.Remote.Token != "" && len(cfg.Remote.Token) < 24 {
+		errs = append(errs, "KURGU_WORKER_TOKEN must be at least 24 characters")
 	}
 	cfg.Publishing = Publishing{
 		YouTubeClientID: str("KURGU_YOUTUBE_CLIENT_ID", ""), YouTubeClientSecret: str("KURGU_YOUTUBE_CLIENT_SECRET", ""),

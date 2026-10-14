@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	jobdomain "kurgu/internal/domain/job/v1"
 )
 
@@ -48,9 +50,21 @@ type RunnerConfig struct {
 	SweepEach      time.Duration // abandoned-job sweep period; default Lease
 }
 
+// Queue is where a runner gets jobs: the job service in process, or the
+// server's worker API for a remote (hybrid) worker.
+type Queue interface {
+	Claim(ctx context.Context, queues []jobdomain.Queue, kinds []string, owner string, lease time.Duration) (*jobdomain.Job, error)
+	Heartbeat(ctx context.Context, jobID uuid.UUID, owner string, lease time.Duration) error
+	Complete(ctx context.Context, jobID uuid.UUID, owner string, cause error) error
+	Release(ctx context.Context, jobID uuid.UUID, owner string) error
+	ExpireAbandoned(ctx context.Context) (int, error)
+}
+
+var _ Queue = (*Service)(nil)
+
 // Runner claims and executes jobs.
 type Runner struct {
-	svc      *Service
+	svc      Queue
 	cfg      RunnerConfig
 	handlers map[string]Handler
 	heavy    chan struct{}
@@ -58,7 +72,7 @@ type Runner struct {
 }
 
 // NewRunner returns a Runner. Register handlers before Run.
-func NewRunner(svc *Service, cfg RunnerConfig, log *slog.Logger) *Runner {
+func NewRunner(svc Queue, cfg RunnerConfig, log *slog.Logger) *Runner {
 	if cfg.Lease <= 0 {
 		cfg.Lease = 2 * time.Minute
 	}

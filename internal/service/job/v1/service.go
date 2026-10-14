@@ -161,3 +161,8 @@ func (s *Service) mutate(ctx context.Context, jobID uuid.UUID, fn func(j *jobdom
 
 // Filter narrows List.
 type Filter = jobrepo.Filter
+
+// ByID returns a job by id, whatever its workspace (worker API).
+func (s *Service) ByID(ctx context.Context, jobID uuid.UUID) (*jobdomain.Job, error) {
+	return s.repo.GetByID(ctx, jobID)
+}

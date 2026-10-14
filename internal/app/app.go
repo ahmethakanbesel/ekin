@@ -191,14 +191,21 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, deps produc
 		return nil, err
 	}
 	profile := cfg.Worker.Profile
-	return productionsvc.NewService(productionsvc.Config{
+	pc := productionsvc.Config{
 		WorkRoot: p.WorkDir, KurguBin: bin, ToolEnv: toolEnv, AgentTimeout: p.AgentTimeout,
 		PreviewScale: p.PreviewScale, FinalScale: p.FinalScale,
-		Render: func(ctx context.Context) productionsvc.RenderSettings {
+	}
+	if settings != nil {
+		pc.Render = func(ctx context.Context) productionsvc.RenderSettings {
 			hp := settings.Cached(ctx, profile)
 			return productionsvc.RenderSettings{Duty: hp.RenderDuty, Chunks: hp.RenderChunks, PreviewScale: hp.PreviewScale, FinalScale: hp.FinalScale}
-		},
-	}, deps), nil
+		}
+	} else {
+		pc.Render = func(context.Context) productionsvc.RenderSettings {
+			return productionsvc.RenderSettings{Duty: p.Duty, Chunks: p.Chunks, PreviewScale: p.PreviewScale, FinalScale: p.FinalScale}
+		}
+	}
+	return productionsvc.NewService(pc, deps), nil
 }
 
 func openBlobs(c config.Blob) (blob.Store, error) {
@@ -223,20 +230,21 @@ func (a *App) Workspaces() *workspacesvc.Service { return a.workspaces }
 // Serve runs the HTTP API, the web UI and the scheduler until ctx ends.
 func (a *App) Serve(ctx context.Context) error {
 	router, err := httptransport.NewRouter(httptransport.Deps{
-		Identity:   a.identity,
-		Workspaces: a.workspaces,
-		Pipelines:  a.pipelines,
-		Jobs:       a.jobs,
-		Knowledge:  a.knowledge,
-		Production: a.production,
-		Feed:       a.notify,
-		Inviter:    inviter{a.notify, a.workspaces},
-		Publishing: a.publishing,
-		SEO:        a.seo,
-		System:     systemhandler.New(a.settings, a.cfg.Worker.Profile, a.version, a.checks),
-		PublicURL:  a.cfg.PublicURL,
-		UI:         web.Dist(),
-		Log:        a.log,
+		Identity:    a.identity,
+		Workspaces:  a.workspaces,
+		Pipelines:   a.pipelines,
+		Jobs:        a.jobs,
+		Knowledge:   a.knowledge,
+		Production:  a.production,
+		Feed:        a.notify,
+		Inviter:     inviter{a.notify, a.workspaces},
+		Publishing:  a.publishing,
+		SEO:         a.seo,
+		WorkerToken: a.cfg.Remote.Token,
+		System:      systemhandler.New(a.settings, a.cfg.Worker.Profile, a.version, a.checks),
+		PublicURL:   a.cfg.PublicURL,
+		UI:          web.Dist(),
+		Log:         a.log,
 	})
 	if err != nil {
 		return err

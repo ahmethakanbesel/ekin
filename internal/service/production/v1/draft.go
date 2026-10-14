@@ -22,6 +22,7 @@ import (
 	jobdomain "kurgu/internal/domain/job/v1"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	storydomain "kurgu/internal/domain/story/v1"
+	"kurgu/pkg/archive"
 )
 
 //go:embed prompts/*.md
@@ -540,7 +541,7 @@ func (s *Service) ensureWorkDir(ctx context.Context, d *storydomain.Deliverable,
 		return fmt.Errorf("restore work dir: %w", err)
 	}
 	defer func() { _ = rc.Close() }()
-	return untar(rc, dir)
+	return archive.Untar(rc, dir)
 }
 
 // archive uploads the working directory and the key outputs of this
@@ -553,7 +554,7 @@ func (s *Service) archive(ctx context.Context, st *storydomain.Story, d *storydo
 		return nil, err
 	}
 	defer func() { _ = tmp.Close(); _ = os.Remove(tmp.Name()) }()
-	if err := tarDir(dir, tmp); err != nil {
+	if err := archive.TarGz(dir, tmp); err != nil {
 		return nil, fmt.Errorf("pack work dir: %w", err)
 	}
 	if err := s.putFile(ctx, prefix+storydomain.ArtifactWorkdir, tmp.Name()); err != nil {

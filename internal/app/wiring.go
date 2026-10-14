@@ -13,12 +13,17 @@ import (
 
 	"github.com/google/uuid"
 
+	"kurgu/internal/adapter/remote"
 	"kurgu/internal/adapter/render"
+	"kurgu/internal/config"
 	identitydomain "kurgu/internal/domain/identity/v1"
 	identitysvc "kurgu/internal/service/identity/v1"
+	jobsvc "kurgu/internal/service/job/v1"
 	notifysvc "kurgu/internal/service/notify/v1"
+	productionsvc "kurgu/internal/service/production/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	systemhandler "kurgu/internal/transport/http/system/v1"
+	remoteworker "kurgu/internal/transport/job/remote/v1"
 )
 
 // directory answers the notify service's questions about people.
@@ -134,4 +139,26 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 	add("Duplicate checks (Jev)", a.cfg.Notify.OpenRouterKey != "", map[bool]string{true: a.cfg.Notify.DecisionModel, false: "KURGU_OPENROUTER_API_KEY not set; title similarity only"}[a.cfg.Notify.OpenRouterKey != ""])
 	checksAt, lastChecks = time.Now(), out
 	return out
+}
+
+// WorkRemote runs a hybrid worker: it claims agent and render jobs from
+// the server at KURGU_REMOTE_URL and runs them on this machine. It opens
+// no database.
+func WorkRemote(ctx context.Context, cfg config.Config, log *slog.Logger) error {
+	client := &remote.Client{BaseURL: cfg.Remote.URL, Token: cfg.Remote.Token, Owner: cfg.Worker.Owner}
+	prod, err := newProduction(cfg, nil, productionsvc.Deps{Log: log.With(slog.String("component", "production"))})
+	if err != nil {
+		return err
+	}
+	w := cfg.Worker
+	runner := jobsvc.NewRunner(client, jobsvc.RunnerConfig{
+		Owner: w.Owner,
+		Throttle: jobsvc.Throttle{
+			Concurrency: w.Concurrency, HeavyExclusive: w.HeavyExclusive, Cooldown: w.Cooldown, Paused: w.Paused,
+		},
+		Lease: w.Lease,
+	}, log.With(slog.String("component", "remote-worker")))
+	remoteworker.Register(runner, client, prod)
+	log.InfoContext(ctx, "remote worker started", slog.String("server", cfg.Remote.URL), slog.String("owner", w.Owner))
+	return runner.Run(ctx)
 }
