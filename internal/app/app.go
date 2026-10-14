@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"kurgu/internal/adapter/claude"
+	"kurgu/internal/adapter/elevenlabs"
 	"kurgu/internal/adapter/extract"
 	"kurgu/internal/adapter/github"
 	"kurgu/internal/adapter/render"
@@ -127,8 +128,10 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		WithResearch(openSEO(settings))
 	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, agent, cfg.Production.WorkDir)
 	p := cfg.Production
+	elevenLabsKey := func(ctx context.Context) string { return settings.Credentials(ctx).ElevenLabsAPIKey }
 	voices := voicesvc.NewService(settingsrepo.NewSQLite(tx), jobs,
-		&speech.Synth{UV: p.UV, ScriptDir: p.SpeechDir, ModelDir: p.SpeechModels}, blobs)
+		&speech.Synth{UV: p.UV, ScriptDir: p.SpeechDir, ModelDir: p.SpeechModels, ElevenLabsKey: elevenLabsKey}, blobs).
+		WithElevenLabs(func(ctx context.Context) *elevenlabs.Client { return &elevenlabs.Client{APIKey: elevenLabsKey(ctx)} })
 	pipelines.WithTemplates(templates).WithVoices(voices)
 	production, err := newProduction(cfg, settings, productionsvc.Deps{
 		SEO:       seo,
@@ -214,10 +217,13 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, deps produc
 		WorkRoot: p.WorkDir, KurguBin: bin, ToolEnv: toolEnv, AgentTimeout: p.AgentTimeout,
 		PreviewScale: p.PreviewScale, FinalScale: p.FinalScale,
 	}
-	pc.ExtraEnv = func(context.Context) []string { return []string{"KURGU_PEXELS_API_KEY=" + p.PexelsKey} }
+	pc.ExtraEnv = func(context.Context) []string {
+		return []string{"KURGU_PEXELS_API_KEY=" + p.PexelsKey, "KURGU_ELEVENLABS_API_KEY=" + p.ElevenLabsKey}
+	}
 	if settings != nil {
 		pc.ExtraEnv = func(ctx context.Context) []string {
-			return []string{"KURGU_PEXELS_API_KEY=" + settings.Credentials(ctx).PexelsAPIKey}
+			c := settings.Credentials(ctx)
+			return []string{"KURGU_PEXELS_API_KEY=" + c.PexelsAPIKey, "KURGU_ELEVENLABS_API_KEY=" + c.ElevenLabsAPIKey}
 		}
 		pc.Render = func(ctx context.Context) productionsvc.RenderSettings {
 			hp := settings.Cached(ctx, profile)

@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"kurgu/internal/adapter/elevenlabs"
 	"kurgu/internal/adapter/speech"
 	"kurgu/internal/apperror"
 	"kurgu/internal/blob"
@@ -52,12 +53,20 @@ type Service struct {
 	speaker  Speaker
 	blobs    blob.Store
 	now      func() time.Time
+	// elevenLabs returns a client with the current API key.
+	elevenLabs func(context.Context) *elevenlabs.Client
 }
 
 // NewService returns a Service. speaker may be nil in processes that do
 // not render previews.
 func NewService(settings settingsrepo.Repository, jobs Enqueuer, speaker Speaker, blobs blob.Store) *Service {
 	return &Service{settings: settings, jobs: jobs, speaker: speaker, blobs: blobs, now: time.Now}
+}
+
+// WithElevenLabs lets the service read the ElevenLabs account.
+func (s *Service) WithElevenLabs(client func(context.Context) *elevenlabs.Client) *Service {
+	s.elevenLabs = client
+	return s
 }
 
 func key(ws uuid.UUID) string { return "voice:" + ws.String() }
@@ -101,10 +110,55 @@ func (s *Service) Options(ctx context.Context, workspaceID uuid.UUID, language s
 }
 
 func toOptions(c voicedomain.Config, lexicon map[string]string) speech.Options {
-	return speech.Options{
-		Voice: c.Voice, Speed: c.Speed, Seed: c.Seed, SentencePause: c.SentencePause, ParagraphPause: c.ParagraphPause,
-		Quality: c.Quality, Lexicon: lexicon,
+	o := speech.Options{
+		Engine: c.Engine, Voice: c.Voice, Speed: c.Speed, Seed: c.Seed, SentencePause: c.SentencePause,
+		ParagraphPause: c.ParagraphPause, Quality: c.Quality, Lexicon: lexicon,
 	}
+	if el := c.ElevenLabs; el != nil {
+		o.ElevenLabs = &speech.ElevenLabsOptions{Model: el.Model, Stability: el.Stability, SimilarityBoost: el.SimilarityBoost,
+			Style: el.Style, SpeakerBoost: el.SpeakerBoost}
+	}
+	return o
+}
+
+// ElevenLabsAccount is what the voice settings show of the ElevenLabs
+// account.
+type ElevenLabsAccount struct {
+	Configured   bool
+	Error        string // set when the account could not be read
+	Subscription *elevenlabs.Subscription
+	Voices       []elevenlabs.Voice
+	Models       []elevenlabs.Model
+}
+
+// MaxElevenLabsVoices bounds the voices listed.
+const MaxElevenLabsVoices = 300
+
+// ElevenLabs reads the account's voices, models and usage. A missing key
+// is not an error: Configured is false.
+func (s *Service) ElevenLabs(ctx context.Context) (ElevenLabsAccount, error) {
+	var c *elevenlabs.Client
+	if s.elevenLabs != nil {
+		c = s.elevenLabs(ctx)
+	}
+	if c == nil || c.APIKey == "" {
+		return ElevenLabsAccount{}, nil
+	}
+	out := ElevenLabsAccount{Configured: true}
+	var err error
+	if out.Voices, err = c.Voices(ctx, MaxElevenLabsVoices); err != nil {
+		out.Error = err.Error()
+		return out, nil
+	}
+	if out.Models, err = c.Models(ctx); err != nil {
+		out.Error = err.Error()
+		return out, nil
+	}
+	// A key limited to text to speech cannot read usage; that is fine.
+	if sub, err := c.Subscription(ctx); err == nil {
+		out.Subscription = &sub
+	}
+	return out, nil
 }
 
 // MaxPreviewRunes bounds a preview's text.
@@ -113,6 +167,7 @@ const MaxPreviewRunes = 400
 // QueuePreview renders text with config on a worker; fetch it with
 // PreviewAudio(previewID) once the job finished.
 func (s *Service) QueuePreview(ctx context.Context, workspaceID uuid.UUID, language string, config voicedomain.Config, text string) (uuid.UUID, *jobdomain.Job, error) {
+	config = config.Normalize(language)
 	if err := config.Validate(language); err != nil {
 		return uuid.Nil, nil, err
 	}
@@ -122,6 +177,9 @@ func (s *Service) QueuePreview(ctx context.Context, workspaceID uuid.UUID, langu
 			"tr": "Merhaba. Bu ses, acme için hazırlanan videolarda kullanılacak. Kaygı ile endişe arasındaki farkı birlikte keşfedelim.",
 			"en": "Hello. This is the voice your videos will use. Let's explore the difference between worry and anxiety together.",
 		}[language]
+	}
+	if config.Engine == voicedomain.EngineElevenLabs && (s.elevenLabs == nil || s.elevenLabs(ctx).APIKey == "") {
+		return uuid.Nil, nil, apperror.New(apperror.ValidationFailed, "ElevenLabs needs an API key: add it under System → Credentials")
 	}
 	if len([]rune(text)) > MaxPreviewRunes {
 		return uuid.Nil, nil, apperror.New(apperror.ValidationFailed, fmt.Sprintf("a preview is at most %d characters", MaxPreviewRunes))

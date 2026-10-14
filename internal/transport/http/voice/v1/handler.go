@@ -28,8 +28,9 @@ func (h *Handler) ListVoices(_ context.Context, _ gen.ListVoicesRequestObject) (
 			voices = append(voices, gen.Voice{Id: v.ID, Label: v.Label, Accent: v.Accent, Gender: v.Gender})
 		}
 		out.Engines = append(out.Engines, gen.VoiceEngine{
-			Language: gen.Language(e.Language), Name: e.Name, Voices: voices, MinSpeed: e.MinSpeed, MaxSpeed: e.MaxSpeed,
-			HasSeed: e.HasSeed, HasQuality: e.HasQuality, DefaultVoice: e.DefaultVoice,
+			Id: gen.VoiceEngineId(e.ID), Language: gen.Language(e.Language), Name: e.Name, Voices: voices,
+			MinSpeed: e.MinSpeed, MaxSpeed: e.MaxSpeed, HasSeed: e.HasSeed, HasQuality: e.HasQuality, Cloud: e.Cloud,
+			DefaultVoice: e.DefaultVoice,
 		})
 	}
 	return out, nil
@@ -57,6 +58,35 @@ func (h *Handler) SaveVoiceSettings(ctx context.Context, req gen.SaveVoiceSettin
 		return nil, err
 	}
 	return gen.SaveVoiceSettings200JSONResponse(settingsToWire(v)), nil
+}
+
+func (h *Handler) GetElevenLabsAccount(ctx context.Context, _ gen.GetElevenLabsAccountRequestObject) (gen.GetElevenLabsAccountResponseObject, error) {
+	a, err := h.svc.ElevenLabs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := gen.GetElevenLabsAccount200JSONResponse{Configured: a.Configured, Voices: []gen.ElevenLabsVoice{}, Models: []gen.ElevenLabsModel{}}
+	if a.Error != "" {
+		out.Error = &a.Error
+	}
+	if sub := a.Subscription; sub != nil {
+		out.Tier, out.CharacterCount, out.CharacterLimit = &sub.Tier, &sub.CharacterCount, &sub.CharacterLimit
+	}
+	for _, v := range a.Voices {
+		w := gen.ElevenLabsVoice{Id: v.ID, Name: v.Name, Category: v.Category, Labels: v.Labels, Languages: v.Languages}
+		if w.Labels == nil {
+			w.Labels = map[string]string{}
+		}
+		if v.PreviewURL != "" {
+			w.PreviewUrl = &v.PreviewURL
+		}
+		out.Voices = append(out.Voices, w)
+	}
+	for _, m := range a.Models {
+		out.Models = append(out.Models, gen.ElevenLabsModel{Id: m.ID, Name: m.Name, Description: m.Description, Languages: m.Languages,
+			MaxCharacters: m.MaxCharacters, CostMultiplier: m.CostMultiplier, CanStyle: m.CanStyle, CanSpeakerBoost: m.CanSpeakerBoost})
+	}
+	return out, nil
 }
 
 func (h *Handler) PreviewVoice(ctx context.Context, req gen.PreviewVoiceRequestObject) (gen.PreviewVoiceResponseObject, error) {
@@ -90,6 +120,9 @@ func OverrideOf(in *gen.VoiceOverride) *voicedomain.Override {
 		return nil
 	}
 	var o voicedomain.Override
+	if in.Engine != nil {
+		o.Engine = string(*in.Engine)
+	}
 	if in.Voice != nil {
 		o.Voice = *in.Voice
 	}
@@ -108,6 +141,10 @@ func OverrideToWire(o *voicedomain.Override) *gen.VoiceOverride {
 		return nil
 	}
 	out := &gen.VoiceOverride{}
+	if o.Engine != "" {
+		e := gen.VoiceOverrideEngine(o.Engine)
+		out.Engine = &e
+	}
 	if o.Voice != "" {
 		out.Voice = &o.Voice
 	}
@@ -125,13 +162,25 @@ func configOf(c gen.VoiceConfig) voicedomain.Config {
 	if c.Quality != nil {
 		out.Quality = string(*c.Quality)
 	}
+	if c.Engine != nil {
+		out.Engine = string(*c.Engine)
+	}
+	if el := c.Elevenlabs; el != nil {
+		out.ElevenLabs = &voicedomain.ElevenLabs{Model: el.Model, Stability: el.Stability, SimilarityBoost: el.SimilarityBoost,
+			Style: el.Style, SpeakerBoost: el.SpeakerBoost}
+	}
 	return out
 }
 
 func settingsToWire(v voicedomain.Settings) gen.VoiceSettings {
 	out := gen.VoiceSettings{Languages: map[string]gen.VoiceConfig{}, Lexicon: map[string]map[string]string{}}
 	for lang, c := range v.Languages {
-		w := gen.VoiceConfig{Voice: c.Voice, Speed: c.Speed, SentencePause: c.SentencePause, ParagraphPause: c.ParagraphPause}
+		engine := gen.VoiceConfigEngine(c.Engine)
+		w := gen.VoiceConfig{Engine: &engine, Voice: c.Voice, Speed: c.Speed, SentencePause: c.SentencePause, ParagraphPause: c.ParagraphPause}
+		if el := c.ElevenLabs; el != nil {
+			w.Elevenlabs = &gen.ElevenLabsSettings{Model: el.Model, Stability: el.Stability, SimilarityBoost: el.SimilarityBoost,
+				Style: el.Style, SpeakerBoost: el.SpeakerBoost}
+		}
 		if c.Seed != 0 {
 			seed := c.Seed
 			w.Seed = &seed

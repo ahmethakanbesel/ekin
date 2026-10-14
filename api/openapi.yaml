@@ -899,7 +899,10 @@ paths:
     get:
       operationId: listVoices
       tags: [voice]
-      description: The TTS engine of each language and its voices and limits.
+      description: >
+        The TTS engines of each language (default first) with their voices
+        and limits. ElevenLabs lists no voices here: they come from the
+        account (getElevenLabsAccount).
       responses:
         "200":
           description: Catalog.
@@ -941,6 +944,24 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/VoiceSettings" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/voice/elevenlabs:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: getElevenLabsAccount
+      tags: [voice]
+      description: >
+        The ElevenLabs account's voices and text-to-speech models, and its
+        character usage when the key may read it. configured is false
+        without an API key; error is set when the account could not be read.
+      responses:
+        "200":
+          description: Account.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ElevenLabsAccount" }
         default: { $ref: "#/components/responses/Error" }
 
   /workspaces/{workspaceId}/voice/previews:
@@ -2012,8 +2033,11 @@ components:
 
     VoiceEngine:
       type: object
-      required: [language, name, voices, minSpeed, maxSpeed, hasSeed, hasQuality, defaultVoice]
+      required: [id, language, name, voices, minSpeed, maxSpeed, hasSeed, hasQuality, cloud, defaultVoice]
       properties:
+        id:
+          type: string
+          enum: [okur, ema, kokoro, elevenlabs]
         language: { $ref: "#/components/schemas/Language" }
         name: { type: string }
         voices:
@@ -2021,14 +2045,76 @@ components:
           items: { $ref: "#/components/schemas/Voice" }
         minSpeed: { type: number, format: double }
         maxSpeed: { type: number, format: double }
-        hasSeed: { type: boolean, description: "Seed picks another take of the same text (okur)." }
+        hasSeed: { type: boolean, description: "Seed picks another take of the same text." }
         hasQuality: { type: boolean, description: "Model precision: fp32 best, int8 fastest (Kokoro)." }
+        cloud: { type: boolean, description: "A paid API that needs a key; the narration text is sent to it." }
         defaultVoice: { type: string }
+
+    ElevenLabsSettings:
+      type: object
+      required: [model, stability, similarityBoost, style, speakerBoost]
+      properties:
+        model: { type: string, description: "Model ID, e.g. eleven_multilingual_v2." }
+        stability: { type: number, format: double, minimum: 0, maximum: 1 }
+        similarityBoost: { type: number, format: double, minimum: 0, maximum: 1 }
+        style: { type: number, format: double, minimum: 0, maximum: 1 }
+        speakerBoost: { type: boolean }
+
+    ElevenLabsVoice:
+      type: object
+      required: [id, name, category, labels, languages]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        category: { type: string }
+        labels:
+          type: object
+          additionalProperties: { type: string }
+        previewUrl: { type: string }
+        languages:
+          type: array
+          description: Languages the voice is verified for.
+          items: { type: string }
+
+    ElevenLabsModel:
+      type: object
+      required: [id, name, description, languages, maxCharacters, costMultiplier, canStyle, canSpeakerBoost]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        languages:
+          type: array
+          items: { type: string }
+        maxCharacters: { type: integer }
+        costMultiplier: { type: number, format: double, description: "Credits per character." }
+        canStyle: { type: boolean }
+        canSpeakerBoost: { type: boolean }
+
+    ElevenLabsAccount:
+      type: object
+      required: [configured, voices, models]
+      properties:
+        configured: { type: boolean }
+        error: { type: string }
+        tier: { type: string }
+        characterCount: { type: integer }
+        characterLimit: { type: integer }
+        voices:
+          type: array
+          items: { $ref: "#/components/schemas/ElevenLabsVoice" }
+        models:
+          type: array
+          items: { $ref: "#/components/schemas/ElevenLabsModel" }
 
     VoiceConfig:
       type: object
       required: [voice, speed, sentencePause, paragraphPause]
       properties:
+        engine:
+          type: string
+          enum: [okur, ema, kokoro, elevenlabs]
+          description: Omitted means the language's default engine.
         voice: { type: string }
         speed: { type: number, format: double }
         sentencePause: { type: number, format: double, minimum: 0, maximum: 3 }
@@ -2037,6 +2123,7 @@ components:
         quality:
           type: string
           enum: [fp32, fp16, int8]
+        elevenlabs: { $ref: "#/components/schemas/ElevenLabsSettings" }
 
     VoiceSettings:
       type: object
@@ -2057,8 +2144,13 @@ components:
 
     VoiceOverride:
       type: object
-      description: Overrides the workspace voice or speed for one pipeline or request.
+      description: >
+        Overrides the workspace engine, voice or speed for one pipeline or
+        request. A voice without an engine selects the engine that has it.
       properties:
+        engine:
+          type: string
+          enum: [okur, ema, kokoro, elevenlabs]
         voice: { type: string }
         speed: { type: number, format: double }
 

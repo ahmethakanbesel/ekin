@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"kurgu/internal/adapter/elevenlabs"
 	"kurgu/internal/adapter/openseo"
 	seosvc "kurgu/internal/service/seo/v1"
 	"log/slog"
@@ -136,7 +137,7 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 		chrome = render.FindChrome()
 	}
 	add("Chrome", chrome != "", map[bool]string{true: chrome, false: "not found; set KURGU_CHROME"}[chrome != ""])
-	_, okErr := os.Stat(filepath.Join(p.SpeechDir, "okur_say.py"))
+	_, okErr := os.Stat(filepath.Join(p.SpeechDir, "ema_say.py"))
 	add("Speech scripts", okErr == nil, p.SpeechDir)
 	add("Stock media (Pexels)", creds.PexelsAPIKey != "", map[bool]string{true: "API key set", false: "no Pexels key; compositions use no stock footage"}[creds.PexelsAPIKey != ""])
 	smtpOK := creds.SMTPHost != "" && creds.SMTPFrom != ""
@@ -158,6 +159,26 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 		default:
 			add("OpenSEO", true, acct.UserEmail)
 		}
+	}
+	if creds.ElevenLabsAPIKey == "" {
+		add("ElevenLabs", false, "no API key; narration uses the local engines")
+	} else {
+		ectx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
+		el := &elevenlabs.Client{APIKey: creds.ElevenLabsAPIKey}
+		sub, err := el.Subscription(ectx)
+		if err != nil {
+			// A key limited to text to speech cannot read usage; listing
+			// models still proves it works.
+			if _, merr := el.Models(ectx); merr == nil {
+				add("ElevenLabs", true, "API key works (no permission to read usage)")
+			} else {
+				add("ElevenLabs", false, merr.Error())
+			}
+		} else {
+			add("ElevenLabs", true, fmt.Sprintf("%s plan · %d of %d characters left", sub.Tier,
+				max(0, sub.CharacterLimit-sub.CharacterCount), sub.CharacterLimit))
+		}
+		cancel()
 	}
 	add("Duplicate checks (Jev)", creds.OpenRouterAPIKey != "", map[bool]string{true: creds.DecisionModel, false: "no OpenRouter key; title similarity only"}[creds.OpenRouterAPIKey != ""])
 	checksAt, lastChecks = time.Now(), out
@@ -225,6 +246,7 @@ func envCredentials(cfg config.Config) settingsdomain.Credentials {
 		SMTPFrom: cfg.Notify.SMTPFrom, SMTPTLS: cfg.Notify.SMTPTLS,
 		YouTubeClientID: cfg.Publishing.YouTubeClientID, YouTubeClientSecret: cfg.Publishing.YouTubeClientSecret,
 		OpenSEOAPIKey: os.Getenv("KURGU_OPENSEO_API_KEY"), OpenSEOURL: os.Getenv("KURGU_OPENSEO_URL"),
+		ElevenLabsAPIKey: cfg.Production.ElevenLabsKey,
 	}
 	if _, ok := os.LookupEnv("KURGU_DECISION_MODEL"); !ok {
 		c.DecisionModel = ""

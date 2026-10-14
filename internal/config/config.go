@@ -71,15 +71,18 @@ type Production struct {
 	SpeechModels string
 	UV           string
 	PexelsKey    string
-	Chrome       string
-	FFmpeg       string
-	Encoder      string
-	Chunks       int
-	Duty         float64
-	Threads      int
-	PreviewScale float64
-	FinalScale   float64
-	GPU          bool
+	// ElevenLabsKey is the ElevenLabs API key; on a hybrid worker it is the
+	// only source, since the worker has no settings database.
+	ElevenLabsKey string
+	Chrome        string
+	FFmpeg        string
+	Encoder       string
+	Chunks        int
+	Duty          float64
+	Threads       int
+	PreviewScale  float64
+	FinalScale    float64
+	GPU           bool
 }
 
 // Blob selects the blob store.
@@ -214,23 +217,24 @@ func load(getenv func(string) string) (Config, error) {
 	}
 	speechDir, _ := filepath.Abs(str("KURGU_SPEECH_DIR", "tools/speech"))
 	cfg.Production = Production{
-		WorkDir:      str("KURGU_WORK_DIR", filepath.Join(dataDir, "work")),
-		ClaudeBin:    str("KURGU_CLAUDE_BIN", "claude"),
-		ClaudeModel:  str("KURGU_CLAUDE_MODEL", ""),
-		AgentTimeout: duration("KURGU_AGENT_TIMEOUT", 45*time.Minute),
-		SpeechDir:    speechDir,
-		SpeechModels: str("KURGU_SPEECH_MODELS", ""),
-		UV:           str("KURGU_UV", "uv"),
-		PexelsKey:    str("KURGU_PEXELS_API_KEY", ""),
-		Chrome:       str("KURGU_CHROME", ""),
-		FFmpeg:       str("KURGU_FFMPEG", "ffmpeg"),
-		Encoder:      str("KURGU_RENDER_ENCODER", "libx264"),
-		Chunks:       int(number("KURGU_RENDER_CHUNKS", 1, 1, 16)),
-		Duty:         number("KURGU_RENDER_DUTY", 1, 0.05, 1),
-		Threads:      int(number("KURGU_RENDER_THREADS", 0, 0, 64)),
-		PreviewScale: number("KURGU_RENDER_PREVIEW_SCALE", 0.5, 0.25, 1),
-		FinalScale:   number("KURGU_RENDER_FINAL_SCALE", 1, 0.25, 2),
-		GPU:          boolean("KURGU_RENDER_GPU", false),
+		WorkDir:       str("KURGU_WORK_DIR", filepath.Join(dataDir, "work")),
+		ClaudeBin:     str("KURGU_CLAUDE_BIN", "claude"),
+		ClaudeModel:   str("KURGU_CLAUDE_MODEL", ""),
+		AgentTimeout:  duration("KURGU_AGENT_TIMEOUT", 45*time.Minute),
+		SpeechDir:     speechDir,
+		SpeechModels:  str("KURGU_SPEECH_MODELS", ""),
+		UV:            str("KURGU_UV", "uv"),
+		PexelsKey:     str("KURGU_PEXELS_API_KEY", ""),
+		ElevenLabsKey: str("KURGU_ELEVENLABS_API_KEY", ""),
+		Chrome:        str("KURGU_CHROME", ""),
+		FFmpeg:        str("KURGU_FFMPEG", "ffmpeg"),
+		Encoder:       str("KURGU_RENDER_ENCODER", "libx264"),
+		Chunks:        int(number("KURGU_RENDER_CHUNKS", 1, 1, 16)),
+		Duty:          number("KURGU_RENDER_DUTY", 1, 0.05, 1),
+		Threads:       int(number("KURGU_RENDER_THREADS", 0, 0, 64)),
+		PreviewScale:  number("KURGU_RENDER_PREVIEW_SCALE", 0.5, 0.25, 1),
+		FinalScale:    number("KURGU_RENDER_FINAL_SCALE", 1, 0.25, 2),
+		GPU:           boolean("KURGU_RENDER_GPU", false),
 	}
 	cfg.Notify = Notify{
 		SMTPHost: str("KURGU_SMTP_HOST", ""), SMTPUser: str("KURGU_SMTP_USERNAME", ""),

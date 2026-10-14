@@ -579,7 +579,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The TTS engine of each language and its voices and limits. */
+        /** @description The TTS engines of each language (default first) with their voices and limits. ElevenLabs lists no voices here: they come from the account (getElevenLabsAccount). */
         get: operations["listVoices"];
         put?: never;
         post?: never;
@@ -600,6 +600,25 @@ export interface paths {
         };
         get: operations["getVoiceSettings"];
         put: operations["saveVoiceSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/voice/elevenlabs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        /** @description The ElevenLabs account's voices and text-to-speech models, and its character usage when the key may read it. configured is false without an API key; error is set when the account could not be read. */
+        get: operations["getElevenLabsAccount"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -1378,6 +1397,8 @@ export interface components {
             gender: string;
         };
         VoiceEngine: {
+            /** @enum {string} */
+            id: "okur" | "ema" | "kokoro" | "elevenlabs";
             language: components["schemas"]["Language"];
             name: string;
             voices: components["schemas"]["Voice"][];
@@ -1385,13 +1406,65 @@ export interface components {
             minSpeed: number;
             /** Format: double */
             maxSpeed: number;
-            /** @description Seed picks another take of the same text (okur). */
+            /** @description Seed picks another take of the same text. */
             hasSeed: boolean;
             /** @description Model precision: fp32 best, int8 fastest (Kokoro). */
             hasQuality: boolean;
+            /** @description A paid API that needs a key; the narration text is sent to it. */
+            cloud: boolean;
             defaultVoice: string;
         };
+        ElevenLabsSettings: {
+            /** @description Model ID, e.g. eleven_multilingual_v2. */
+            model: string;
+            /** Format: double */
+            stability: number;
+            /** Format: double */
+            similarityBoost: number;
+            /** Format: double */
+            style: number;
+            speakerBoost: boolean;
+        };
+        ElevenLabsVoice: {
+            id: string;
+            name: string;
+            category: string;
+            labels: {
+                [key: string]: string;
+            };
+            previewUrl?: string;
+            /** @description Languages the voice is verified for. */
+            languages: string[];
+        };
+        ElevenLabsModel: {
+            id: string;
+            name: string;
+            description: string;
+            languages: string[];
+            maxCharacters: number;
+            /**
+             * Format: double
+             * @description Credits per character.
+             */
+            costMultiplier: number;
+            canStyle: boolean;
+            canSpeakerBoost: boolean;
+        };
+        ElevenLabsAccount: {
+            configured: boolean;
+            error?: string;
+            tier?: string;
+            characterCount?: number;
+            characterLimit?: number;
+            voices: components["schemas"]["ElevenLabsVoice"][];
+            models: components["schemas"]["ElevenLabsModel"][];
+        };
         VoiceConfig: {
+            /**
+             * @description Omitted means the language's default engine.
+             * @enum {string}
+             */
+            engine?: "okur" | "ema" | "kokoro" | "elevenlabs";
             voice: string;
             /** Format: double */
             speed: number;
@@ -1402,6 +1475,7 @@ export interface components {
             seed?: number;
             /** @enum {string} */
             quality?: "fp32" | "fp16" | "int8";
+            elevenlabs?: components["schemas"]["ElevenLabsSettings"];
         };
         VoiceSettings: {
             /** @description Config per language code (tr, en). */
@@ -1415,8 +1489,10 @@ export interface components {
                 };
             };
         };
-        /** @description Overrides the workspace voice or speed for one pipeline or request. */
+        /** @description Overrides the workspace engine, voice or speed for one pipeline or request. A voice without an engine selects the engine that has it. */
         VoiceOverride: {
+            /** @enum {string} */
+            engine?: "okur" | "ema" | "kokoro" | "elevenlabs";
             voice?: string;
             /** Format: double */
             speed?: number;
@@ -2906,6 +2982,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VoiceSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getElevenLabsAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ElevenLabsAccount"];
                 };
             };
             default: components["responses"]["Error"];

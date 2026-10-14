@@ -54,7 +54,8 @@ type Env struct {
 // FromEnviron builds Env from KURGU_* variables.
 func FromEnviron() (Env, error) {
 	e := Env{
-		Speech:    speech.Synth{UV: os.Getenv("KURGU_UV"), ScriptDir: os.Getenv("KURGU_SPEECH_DIR"), ModelDir: os.Getenv("KURGU_SPEECH_MODELS")},
+		Speech: speech.Synth{UV: os.Getenv("KURGU_UV"), ScriptDir: os.Getenv("KURGU_SPEECH_DIR"), ModelDir: os.Getenv("KURGU_SPEECH_MODELS"),
+			ElevenLabsKey: func(context.Context) string { return os.Getenv("KURGU_ELEVENLABS_API_KEY") }},
 		Pexels:    pexels.Client{APIKey: os.Getenv("KURGU_PEXELS_API_KEY")},
 		Renderer:  render.Renderer{Chrome: os.Getenv("KURGU_CHROME"), FFmpeg: os.Getenv("KURGU_FFMPEG")},
 		Stdout:    os.Stdout,

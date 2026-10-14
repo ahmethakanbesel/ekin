@@ -27,6 +27,7 @@ type Credentials struct {
 	YouTubeClientSecret string `json:"youtubeClientSecret,omitempty"`
 	OpenSEOAPIKey       string `json:"openseoApiKey,omitempty"`
 	OpenSEOURL          string `json:"openseoUrl,omitempty"`
+	ElevenLabsAPIKey    string `json:"elevenlabsApiKey,omitempty"`
 }
 
 // CredentialField describes one credential for the settings page.
@@ -55,6 +56,7 @@ var Fields = []CredentialField{
 	{Key: "youtubeClientSecret", Env: "KURGU_YOUTUBE_CLIENT_SECRET", Secret: true, Label: "YouTube OAuth client secret", get: func(c *Credentials) *string { return &c.YouTubeClientSecret }},
 	{Key: "openseoApiKey", Env: "KURGU_OPENSEO_API_KEY", Secret: true, Label: "OpenSEO API key (oseo_…)", get: func(c *Credentials) *string { return &c.OpenSEOAPIKey }},
 	{Key: "openseoUrl", Env: "KURGU_OPENSEO_URL", Label: "OpenSEO MCP endpoint", get: func(c *Credentials) *string { return &c.OpenSEOURL }},
+	{Key: "elevenlabsApiKey", Env: "KURGU_ELEVENLABS_API_KEY", Secret: true, Label: "ElevenLabs API key", get: func(c *Credentials) *string { return &c.ElevenLabsAPIKey }},
 }
 
 // Value returns the field's value in c.

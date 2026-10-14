@@ -1,5 +1,6 @@
-// Package speech synthesises narration with word timings by running the
-// scripts in tools/speech: okur-tts for Turkish, Kokoro for English.
+// Package speech synthesises narration with word timings: okur-tts or
+// EMA Lightning for Turkish and Kokoro for English by running the scripts
+// in tools/speech, or ElevenLabs for either over its API.
 package speech
 
 import (
@@ -38,38 +39,72 @@ type Timings struct {
 	Segments   []Segment `json:"segments"`
 }
 
-// Synth runs the scripts.
+// Synth runs the scripts and calls ElevenLabs.
 type Synth struct {
 	UV        string // uv binary; default "uv"
-	ScriptDir string // directory holding okur_say.py and kokoro_say.py
+	ScriptDir string // directory holding okur_say.py, ema_say.py and kokoro_say.py
 	ModelDir  string // optional weights cache root
 	Threads   int    // ONNX Runtime threads; 0 = all cores
+	// ElevenLabsKey returns the ElevenLabs API key, read per call so a key
+	// saved in the settings applies at once; nil or "" disables the engine.
+	ElevenLabsKey func(context.Context) string
+	ElevenLabsURL string // default elevenlabs.DefaultURL
+}
+
+// Engines.
+const (
+	EngineOkur       = "okur"
+	EngineEMA        = "ema"
+	EngineKokoro     = "kokoro"
+	EngineElevenLabs = "elevenlabs"
+)
+
+// ElevenLabsOptions are the ElevenLabs model and voice settings.
+type ElevenLabsOptions struct {
+	Model           string  `json:"model"`
+	Stability       float64 `json:"stability"`
+	SimilarityBoost float64 `json:"similarityBoost"`
+	Style           float64 `json:"style"`
+	SpeakerBoost    bool    `json:"speakerBoost"`
 }
 
 // Options shape the narration.
 type Options struct {
-	Voice          string            `json:"voice,omitempty"`
-	Speed          float64           `json:"speed,omitempty"`
-	Seed           int               `json:"seed,omitempty"`           // okur
-	SentencePause  float64           `json:"sentencePause,omitempty"`  // seconds; 0 = script default
-	ParagraphPause float64           `json:"paragraphPause,omitempty"` // seconds; 0 = script default
-	Quality        string            `json:"quality,omitempty"`        // kokoro: fp32 | fp16 | int8
-	Accent         string            `json:"accent,omitempty"`         // kokoro: en-us | en-gb
-	Lexicon        map[string]string `json:"lexicon,omitempty"`        // written word → spoken form
+	Engine         string             `json:"engine,omitempty"` // "" = the language's default (okur, kokoro)
+	Voice          string             `json:"voice,omitempty"`
+	Speed          float64            `json:"speed,omitempty"`
+	Seed           int                `json:"seed,omitempty"`           // okur, ema, elevenlabs
+	SentencePause  float64            `json:"sentencePause,omitempty"`  // seconds; 0 = script default
+	ParagraphPause float64            `json:"paragraphPause,omitempty"` // seconds; 0 = script default
+	Quality        string             `json:"quality,omitempty"`        // kokoro: fp32 | fp16 | int8
+	Accent         string             `json:"accent,omitempty"`         // kokoro: en-us | en-gb
+	Lexicon        map[string]string  `json:"lexicon,omitempty"`        // written word → spoken form
+	ElevenLabs     *ElevenLabsOptions `json:"elevenlabs,omitempty"`
 }
+
+// scripts maps a language's local engines to their scripts.
+var scripts = map[string]map[string]string{
+	"tr": {EngineOkur: "okur_say.py", EngineEMA: "ema_say.py"},
+	"en": {EngineKokoro: "kokoro_say.py"},
+}
+
+// defaultEngine is each language's engine when none is chosen.
+var defaultEngine = map[string]string{"tr": EngineOkur, "en": EngineKokoro}
 
 // Say synthesises the text in textFile into outDir/speech.wav and
 // outDir/timings.json. lang is "tr" or "en".
 func (s *Synth) Say(ctx context.Context, lang, textFile, outDir string, o Options) (Timings, error) {
+	engine := o.Engine
+	if engine == "" {
+		engine = defaultEngine[lang]
+	}
+	if engine == EngineElevenLabs && defaultEngine[lang] != "" {
+		return s.sayElevenLabs(ctx, lang, textFile, outDir, o)
+	}
 	voice, speed := o.Voice, o.Speed
-	script := ""
-	switch lang {
-	case "tr":
-		script = "okur_say.py"
-	case "en":
-		script = "kokoro_say.py"
-	default:
-		return Timings{}, fmt.Errorf("speech: no voice for language %q", lang)
+	script := scripts[lang][engine]
+	if script == "" {
+		return Timings{}, fmt.Errorf("speech: no %s voice for language %q", engine, lang)
 	}
 	uv := s.UV
 	if uv == "" {
@@ -89,7 +124,7 @@ func (s *Synth) Say(ctx context.Context, lang, textFile, outDir string, o Option
 	if o.ParagraphPause > 0 {
 		args = append(args, "--paragraph-pause", strconv.FormatFloat(o.ParagraphPause, 'f', 3, 64))
 	}
-	if lang == "tr" && o.Seed != 0 {
+	if engine != EngineKokoro && o.Seed != 0 {
 		args = append(args, "--seed", strconv.Itoa(o.Seed))
 	}
 	if lang == "en" {
