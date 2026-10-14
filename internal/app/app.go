@@ -246,7 +246,7 @@ func (a *App) Serve(ctx context.Context) error {
 		Publishing:  a.publishing,
 		SEO:         a.seo,
 		WorkerToken: a.cfg.Remote.Token,
-		System:      systemhandler.New(a.settings, a.cfg.Worker.Profile, a.version, a.checks),
+		System:      systemhandler.New(a.settings, a.cfg.Worker.Profile, a.version, a.checks).OnCredentialsChange(resetChecks),
 		PublicURL:   a.cfg.PublicURL,
 		UI:          web.Dist(),
 		Log:         a.log,
