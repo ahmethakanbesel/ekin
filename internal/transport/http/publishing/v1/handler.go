@@ -125,7 +125,8 @@ func (h *Handler) YouTubeCallback(ctx context.Context, req gen.YouTubeCallbackRe
 		return gen.YouTubeCallback302Response{Headers: gen.YouTubeCallback302ResponseHeaders{Location: loc + "?" + q.Encode()}}
 	}
 	if req.Params.Error != nil {
-		return back(uuid.Nil, url.Values{"youtube": {"error"}, "reason": {*req.Params.Error}}), nil
+		ws := h.svc.StateWorkspace(str(req.Params.State))
+		return back(ws, url.Values{"youtube": {"error"}, "reason": {*req.Params.Error}}), nil
 	}
 	ws, err := h.svc.Callback(ctx, str(req.Params.State), str(req.Params.Code))
 	if err != nil {

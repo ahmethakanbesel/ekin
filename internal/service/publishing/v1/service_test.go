@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"kurgu/internal/adapter/github"
 	"kurgu/internal/adapter/youtube"
 	"kurgu/internal/apperror"
@@ -123,6 +125,14 @@ func TestConnectAndUpload(t *testing.T) {
 	pub, err := svc.Video().Publish(ctx, req)
 	if err != nil || pub.URL != "https://www.youtube.com/shorts/vid9" || *privacy != "unlisted" {
 		t.Fatalf("publish = %+v %v privacy=%s", pub, err, *privacy)
+	}
+	// Google's error redirect (e.g. access_denied) carries the state, so
+	// the browser can go back to the right workspace.
+	if got := svc.StateWorkspace(state); got != ws {
+		t.Fatalf("state workspace = %v, want %v", got, ws)
+	}
+	if got := svc.StateWorkspace(state + "x"); got != uuid.Nil {
+		t.Fatalf("forged state workspace = %v", got)
 	}
 	expired := newService(t, google).WithClock(func() time.Time { return time.Now().Add(time.Hour) })
 	if _, err := expired.Callback(ctx, state, "code"); err == nil {

@@ -90,7 +90,7 @@ func requireAdmin(ctx context.Context) error {
 		return err
 	}
 	if !p.User.IsAdmin() {
-		return apperror.New(apperror.Forbidden, "only the instance admin can change host profiles")
+		return apperror.New(apperror.Forbidden, "only the instance admin can see and change host profiles")
 	}
 	return nil
 }

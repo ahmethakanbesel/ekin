@@ -100,6 +100,21 @@ func (s *Service) Callback(ctx context.Context, state, code string) (uuid.UUID, 
 	return st.WorkspaceID, s.repo.PutChannel(ctx, ch)
 }
 
+// StateWorkspace returns the workspace a signed OAuth state was issued
+// for, or Nil when the state is not ours. Expiry is not checked: it only
+// decides where to send the browser after Google reported an error.
+func (s *Service) StateWorkspace(state string) uuid.UUID {
+	raw, err := s.box.Verify(state)
+	if err != nil {
+		return uuid.Nil
+	}
+	var st oauthState
+	if json.Unmarshal([]byte(raw), &st) != nil {
+		return uuid.Nil
+	}
+	return st.WorkspaceID
+}
+
 // Channel returns the connected channel, if any.
 func (s *Service) Channel(ctx context.Context, workspaceID uuid.UUID) (publishingdomain.Channel, bool, error) {
 	ch, err := s.repo.Channel(ctx, workspaceID)
