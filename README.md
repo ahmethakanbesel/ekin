@@ -53,6 +53,14 @@ channel** has the agent research any channel on the web and write a new template
 template tells the agent to describe a style, never copy it: no channel names, logos,
 mascots, characters, catchphrases or music.
 
+## Editing in place
+
+A deliverable in review can be edited directly instead of asking the agent: an article's
+text and frontmatter, or a video's narration, title, description and tags. Each save is a
+new revision. Text and metadata edits stay in review (a video keeps its preview). An edited
+narration goes back to the agent, which keeps the text word for word, narrates it again
+and re-times the visuals to it. That takes a minute or two.
+
 ## Voice
 
 **Settings → Voice** sets how narration sounds, per language. Turkish uses okur-tts: speed,
@@ -80,7 +88,7 @@ environment variables below, which remain the fallback.
 | Duplicate verdicts | `KURGU_OPENROUTER_API_KEY` (Jev) |
 | YouTube | `KURGU_YOUTUBE_CLIENT_ID/SECRET`; redirect URI `<KURGU_PUBLIC_URL>/api/v1/oauth/youtube/callback`; then connect the channel in workspace settings |
 | Blog | Workspace settings → GitHub repo + token, or a local checkout |
-| OpenSEO | The worker host's Claude Code with the OpenSEO plugin connected |
+| OpenSEO | An API key (`oseo_…`, from OpenSEO) under System → Credentials or `KURGU_OPENSEO_API_KEY`: refreshes call OpenSEO's endpoint directly (`research_keywords` per seed, `get_domain_keyword_suggestions` per competitor) and Kurgu ranks the results itself. Without a key, the worker host's Claude Code with the OpenSEO plugin connected does the refresh. |
 | Hybrid worker | Server: `KURGU_WORKER_TOKEN`. Mac: `KURGU_REMOTE_URL=… KURGU_WORKER_TOKEN=… kurgu worker` |
 
 Throttling lives in **host profiles** (System page, admins): per-queue concurrency, heavy

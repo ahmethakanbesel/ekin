@@ -42,7 +42,7 @@ Update this file whenever a decision below changes.
 | Blob storage | `BlobStore` port: `fs` driver (Mac / dev), `s3` driver (VPS: R2 or Hetzner). |
 | API | OpenAPI 3.1 spec-first, `oapi-codegen` strict server on `net/http` ServeMux, typed TS client. |
 | Web UI | Bun, React, TanStack (Router, Query, Form, Table), shadcn on Base UI, oxc (oxlint), tsgo. Static build embedded in the Go binary. |
-| Authoring agent | Claude Code headless (`claude -p`) behind an `Agent` port with an explicit tool allow-list: file tools plus `Bash(kurgu tool:*)`. The agent's tools (`tts`, `frame`, `check`, `stock`, `music`) are `kurgu tool` subcommands rather than an MCP server — simpler, and the same binary on every host. Host settings, plugins and MCP servers are off except for the OpenSEO refresh. |
+| Authoring agent | Claude Code headless (`claude -p`) behind an `Agent` port with an explicit tool allow-list: file tools plus `Bash(kurgu tool:*)`. The agent's tools (`tts`, `frame`, `check`, `stock`, `music`) are `kurgu tool` subcommands rather than an MCP server — simpler, and the same binary on every host. Host settings, plugins and MCP servers are off except for the agent-based OpenSEO refresh (used only without an API key). |
 | Decision model | OpenRouter `typesafe/jev-1.13` for typed decisions only: the duplicate-idea verdict for titles that are similar but not identical (trigram score 0.35–0.6). Ideas themselves come from Claude Code with a JSON schema. |
 | Render engine | **Vanilla** (docs/benchmarks/render.md): `composition.html` + `window.kurgu.renderAt(t)` driven by Go chromedp, frames piped to ffmpeg. `HeadlessExperimental.beginFrame` in chrome-headless-shell on Linux (3–13× faster on 0.5–1 vCPU), screenshots on macOS. Remotion: licence cost; Revideo: canvas-only, broken with ffmpeg 8. |
 | TTS | `Speech` port. Turkish: okur-tts (with word timings from its duration predictor). English: Kokoro-82M (timestamped ONNX). |
@@ -148,7 +148,9 @@ noted.
    and the API audit to go live.
 7. Articles — ✅ Turkish article, English translation, publish to a site checkout; GitHub
    commit tested against a fake API; video → article derivation with embed.
-8. OpenSEO — ✅ opportunity pool, import, SEO pipeline source; refresh through Claude
-   Code's OpenSEO connection not run (uses credits).
+8. OpenSEO — ✅ opportunity pool, import, SEO pipeline source. Refresh calls OpenSEO's
+   MCP endpoint directly with an API key (JSON-RPC over HTTP, `internal/adapter/openseo`)
+   and ranks keywords in Go (`seo.Pick`); the agent plus Claude Code plugin remains the
+   fallback without a key. Not run against the live service (uses credits).
 9. Long-form — 16:9 compositions with scenes and YouTube chapters (enforced by the
    check), chunked rendering; not yet produced end to end.
