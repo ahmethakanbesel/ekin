@@ -1,4 +1,4 @@
-import type { Language, PipelineDefinition, Schemas } from "@/api/client"
+import type { Document, Language, PipelineDefinition, Schemas } from "@/api/client"
 import { m } from "@/i18n"
 
 // The editable shape of a pipeline. Both output sections are always
@@ -174,8 +174,15 @@ export type PipelineValidation = {
   fields: PipelineFieldErrors
 }
 
-/** Mirrors the backend's domain rules (internal/domain/pipeline/v1). */
-export function validatePipeline(v: PipelineFormValues): PipelineValidation {
+/** What validation needs to know about the workspace's documents, by id. */
+export type KnownDocuments = ReadonlyMap<string, Pick<Document, "status" | "pageCount">>
+
+/**
+ * Mirrors the backend's domain rules (internal/domain/pipeline/v1, and
+ * knowledge/v1 CheckRange once `docs` — the loaded knowledge base — is
+ * given: a referenced document must exist, be ready and have the pages).
+ */
+export function validatePipeline(v: PipelineFormValues, docs?: KnownDocuments): PipelineValidation {
   const t = m.validation
   const fields: PipelineFieldErrors = {}
   let form: string | undefined
@@ -214,7 +221,12 @@ export function validatePipeline(v: PipelineFormValues): PipelineValidation {
     const ranges: Array<{ doc: string; from: number; to: number } | undefined> = []
     refs.forEach((r, i) => {
       const doc = r.documentId.trim().toLowerCase()
+      const known = docs?.get(doc)
       if (!UUID.test(doc)) fields[`source.refs[${i}].documentId`] = t.documentId
+      else if (docs && !known) fields[`source.refs[${i}].documentId`] = t.documentMissing
+      else if (known && known.status !== "ready") {
+        fields[`source.refs[${i}].documentId`] = t.documentNotReady
+      }
       const fromBlank = r.fromPage.trim() === ""
       const toBlank = r.toPage.trim() === ""
       if (fromBlank && toBlank) {
@@ -227,6 +239,9 @@ export function validatePipeline(v: PipelineFormValues): PipelineValidation {
         fields[`source.refs[${i}].fromPage`] = t.pageRange
         ranges.push(undefined)
         return
+      }
+      if (known?.status === "ready" && to > known.pageCount) {
+        fields[`source.refs[${i}].fromPage`] = t.pageBeyond(known.pageCount)
       }
       ranges.push({ doc, from, to })
     })

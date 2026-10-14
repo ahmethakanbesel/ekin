@@ -1,9 +1,10 @@
-import type { ReactNode } from "react"
+import { useEffect, useMemo, type ReactNode } from "react"
 import { useForm, useStore, type DeepKeys } from "@tanstack/react-form"
+import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { FileTextIcon, PlusIcon, Trash2Icon, VideoIcon } from "lucide-react"
 
-import type { Language, PipelineDefinition } from "@/api/client"
+import type { Document, Language, PipelineDefinition } from "@/api/client"
 import { TimezoneCombobox } from "@/components/timezone-combobox"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,8 +29,16 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { DocumentCombobox } from "@/features/knowledge/document-combobox"
+import {
+  tokensLabel,
+  useTokenEstimates,
+  type RangeRequest,
+  type TokenEstimate,
+} from "@/features/knowledge/tokens"
 import { m } from "@/i18n"
 import { cn } from "@/lib/utils"
+import { documentsQuery } from "@/queries/documents"
 import {
   LANGUAGES,
   LIMITS,
@@ -39,9 +48,11 @@ import {
   toDefinition,
   toInt,
   validatePipeline,
+  type KnownDocuments,
   type Lead,
   type Orientation,
   type PipelineFormValues,
+  type RefValues,
   type SourceKind,
   type VideoFormat,
 } from "./model"
@@ -72,11 +83,18 @@ export function PipelineForm({
   readOnly = false,
   onSubmit,
 }: Props) {
+  const documents = useQuery(documentsQuery(workspaceId))
+  const known: KnownDocuments | undefined = useMemo(
+    () => documents.data && new Map(documents.data.map((d) => [d.id.toLowerCase(), d])),
+    [documents.data]
+  )
   const form = useForm({
     defaultValues: initialValues,
     validators: {
       onChange: ({ value }) => {
-        const r = validatePipeline(value)
+        // useForm takes the latest options each render, so this sees the
+        // documents loaded since.
+        const r = validatePipeline(value, known)
         if (!hasErrors(r)) return undefined
         return {
           form: r.form,
@@ -101,6 +119,22 @@ export function PipelineForm({
   const language = useStore(form.store, (s) => s.values.language)
   const sourceKind = useStore(form.store, (s) => s.values.source.kind)
   const scheduled = useStore(form.store, (s) => s.values.scheduled)
+  const refs = useStore(form.store, (s) => s.values.source.refs)
+
+  // Re-check the references once the documents arrive (or change status).
+  useEffect(() => {
+    if (known && sourceKind === "knowledge") void form.validate("change")
+  }, [form, known, sourceKind])
+
+  const docsById = useMemo(
+    () => new Map((documents.data ?? []).map((d) => [d.id.toLowerCase(), d])),
+    [documents.data]
+  )
+  const estimates = useTokenEstimates(
+    workspaceId,
+    sourceKind === "knowledge" ? refs.map((r) => rangeRequest(r, docsById)) : []
+  )
+  const total = sumEstimates(estimates)
 
   /** The first error of a field, once the user touched it or tried to submit. */
   const shown = (meta: { isTouched: boolean; errors: unknown[] }) =>
@@ -472,24 +506,25 @@ export function PipelineForm({
                     {refsField.state.value.map((_, i) => (
                       <div
                         key={i}
-                        className="grid items-start gap-2 rounded-3xl border p-3 sm:grid-cols-[1fr_7rem_7rem_auto]"
+                        className="grid items-start gap-2 rounded-3xl border p-3 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_auto]"
                       >
                         <form.Field name={`source.refs[${i}].documentId`}>
                           {(field) => (
-                            <Field data-invalid={!!shown(field.state.meta) || undefined}>
+                            <Field
+                              className="min-w-0"
+                              data-invalid={!!shown(field.state.meta) || undefined}
+                            >
                               <FieldLabel htmlFor={`pl-ref-${i}-doc`} className="sr-only">
-                                {m.pipelineForm.documentId}
+                                {m.pipelineForm.document}
                               </FieldLabel>
-                              <Input
+                              <DocumentCombobox
                                 id={`pl-ref-${i}-doc`}
-                                placeholder={m.pipelineForm.documentId}
-                                className="font-mono text-xs md:text-xs"
-                                spellCheck={false}
-                                autoComplete="off"
+                                disabled={readOnly}
+                                documents={documents.data ?? []}
                                 value={field.state.value}
-                                onChange={(e) => field.handleChange(e.target.value)}
+                                onChange={field.handleChange}
                                 onBlur={field.handleBlur}
-                                aria-invalid={!!shown(field.state.meta) || undefined}
+                                invalid={!!shown(field.state.meta)}
                               />
                               {shown(field.state.meta) ? (
                                 <FieldError>{shown(field.state.meta)}</FieldError>
@@ -510,6 +545,7 @@ export function PipelineForm({
                                 onChange={field.handleChange}
                                 onBlur={field.handleBlur}
                                 min={1}
+                                max={docsById.get(refs[i]?.documentId.toLowerCase() ?? "")?.pageCount}
                                 invalid={!!shown(field.state.meta)}
                               />
                             </>
@@ -528,6 +564,7 @@ export function PipelineForm({
                                 onChange={field.handleChange}
                                 onBlur={field.handleBlur}
                                 min={1}
+                                max={docsById.get(refs[i]?.documentId.toLowerCase() ?? "")?.pageCount}
                               />
                             </>
                           )}
@@ -555,9 +592,24 @@ export function PipelineForm({
                             err ? <FieldError className="sm:col-span-4">{err}</FieldError> : null
                           }
                         </form.Subscribe>
+                        <RefEstimate estimate={estimates[i]} />
                       </div>
                     ))}
-                    <div>
+                    {documents.data &&
+                    !documents.data.some((d) => d.status === "ready") &&
+                    !readOnly ? (
+                      <p className="text-sm text-muted-foreground">
+                        {m.pipelineForm.noDocuments}{" "}
+                        <Link
+                          to="/w/$workspaceId/knowledge"
+                          params={{ workspaceId }}
+                          className="font-medium text-foreground underline-offset-4 hover:underline"
+                        >
+                          {m.pipelineForm.uploadDocuments}
+                        </Link>
+                      </p>
+                    ) : null}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
                       <Button
                         type="button"
                         variant="outline"
@@ -568,6 +620,15 @@ export function PipelineForm({
                         <PlusIcon data-icon="inline-start" />
                         {m.pipelineForm.addRef}
                       </Button>
+                      {total ? (
+                        <p
+                          className="text-sm font-medium tabular"
+                          title={m.pipelineForm.tokensHint}
+                          aria-live="polite"
+                        >
+                          {m.pipelineForm.refsTotal(tokensLabel(total.tokens, total.approximate))}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 </Row>
@@ -826,5 +887,46 @@ function NumberInput({
       onBlur={onBlur}
       aria-invalid={invalid || undefined}
     />
+  )
+}
+
+/** The token range a reference row describes; blank pages mean the whole document. */
+function rangeRequest(r: RefValues, docs: ReadonlyMap<string, Document>): RangeRequest {
+  const doc = docs.get(r.documentId.trim().toLowerCase())
+  if (r.fromPage.trim() === "" && r.toPage.trim() === "") return { doc }
+  const from = toInt(r.fromPage)
+  const to = toInt(r.toPage)
+  if (from === undefined || to === undefined) return { doc: undefined }
+  return { doc, from, to }
+}
+
+function sumEstimates(
+  estimates: Array<TokenEstimate | undefined>
+): { tokens: number; approximate: boolean } | undefined {
+  const known = estimates.filter((e) => e !== undefined)
+  if (known.length === 0) return undefined
+  return {
+    tokens: known.reduce((sum, e) => sum + e.tokens, 0),
+    approximate: known.some((e) => e.approximate),
+  }
+}
+
+/** "Pages 12–40 · 29 pages · ≈ 18.2k tokens" under a reference row. */
+function RefEstimate({ estimate }: { estimate: TokenEstimate | undefined }) {
+  if (!estimate) return null
+  const pages = m.knowledge.pages(estimate.pages)
+  const tokens = tokensLabel(estimate.tokens, estimate.approximate)
+  return (
+    <p
+      className="px-1 text-xs text-muted-foreground tabular sm:col-span-4"
+      title={m.pipelineForm.tokensHint}
+    >
+      {estimate.whole
+        ? m.pipelineForm.wholeDocument(pages, tokens)
+        : m.pipelineForm.refEstimate(
+            `${m.knowledge.viewer.rangeSummary(estimate.from, estimate.to)} · ${pages}`,
+            tokens
+          )}
+    </p>
   )
 }

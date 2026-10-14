@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link, Outlet, useParams } from "@tanstack/react-router"
-import { ListChecksIcon, SettingsIcon, UsersIcon, WorkflowIcon } from "lucide-react"
+import { LibraryIcon, ListChecksIcon, SettingsIcon, UsersIcon, WorkflowIcon } from "lucide-react"
 
 import { isApiError } from "@/api/client"
 import { Brand } from "@/components/brand"
@@ -15,6 +15,7 @@ import { WorkspaceSwitcher } from "./workspace-switcher"
 
 const navItems = [
   { to: "/w/$workspaceId/pipelines", label: m.nav.pipelines, icon: WorkflowIcon },
+  { to: "/w/$workspaceId/knowledge", label: m.nav.knowledge, icon: LibraryIcon },
   { to: "/w/$workspaceId/jobs", label: m.nav.jobs, icon: ListChecksIcon },
   { to: "/w/$workspaceId/members", label: m.nav.members, icon: UsersIcon },
   { to: "/w/$workspaceId/settings", label: m.nav.settings, icon: SettingsIcon },

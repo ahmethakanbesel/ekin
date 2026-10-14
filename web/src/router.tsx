@@ -19,6 +19,9 @@ import { InvitePage } from "@/features/auth/invite-page"
 import { LoginPage } from "@/features/auth/login-page"
 import { safeNext, validateLoginSearch } from "@/features/auth/search"
 import { JobsPage } from "@/features/jobs/jobs-page"
+import { DocumentPage } from "@/features/knowledge/document-page"
+import { KnowledgePage } from "@/features/knowledge/knowledge-page"
+import { validateDocumentSearch } from "@/features/knowledge/search"
 import { validateJobsSearch } from "@/features/jobs/search"
 import { MembersPage } from "@/features/members/members-page"
 import { PipelinesPage } from "@/features/pipelines/list-page"
@@ -140,6 +143,19 @@ const editPipelineRoute = createRoute({
   component: EditPipelinePage,
 })
 
+const knowledgeRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: "/knowledge",
+  component: KnowledgePage,
+})
+
+const documentRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: "/knowledge/$documentId",
+  validateSearch: validateDocumentSearch,
+  component: DocumentPage,
+})
+
 const jobsRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "/jobs",
@@ -169,6 +185,8 @@ const routeTree = rootRoute.addChildren([
     pipelinesRoute,
     newPipelineRoute,
     editPipelineRoute,
+    knowledgeRoute,
+    documentRoute,
     jobsRoute,
     membersRoute,
     settingsRoute,
