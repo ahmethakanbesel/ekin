@@ -41,7 +41,9 @@ type Request struct {
 	Resume string
 	// JSONSchema asks for structured output validated against it.
 	JSONSchema json.RawMessage
-	Timeout    time.Duration
+	// Env is added to the runner's environment for this call.
+	Env     []string
+	Timeout time.Duration
 }
 
 // Result is what the session returned.
@@ -117,7 +119,7 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 	}
 	cmd := exec.CommandContext(ctx, bin, args...) //nolint:gosec // fixed binary, arguments built here
 	cmd.Dir = req.Dir
-	cmd.Env = append(os.Environ(), r.Env...)
+	cmd.Env = append(append(os.Environ(), r.Env...), req.Env...)
 	cmd.WaitDelay = 10 * time.Second
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr

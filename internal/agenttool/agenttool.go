@@ -203,10 +203,15 @@ type Report struct {
 
 var externalRef = regexp.MustCompile(`(?i)(src|href)\s*=\s*["'](https?:)?//|url\(\s*["']?(https?:)?//|import\s+[^;]*["']https?://|fetch\(\s*["']https?://`)
 
+// Prober loads a composition (render.Renderer).
+type Prober interface {
+	Probe(ctx context.Context, dir, pagePath string) (render.Meta, []string, error)
+}
+
 // Check validates a composition: it loads and renders without errors,
 // matches the spec's frame size and duration, follows the narration, and
 // references nothing on the network.
-func Check(ctx context.Context, r *render.Renderer, dir, pagePath string, spec Spec) Report {
+func Check(ctx context.Context, r Prober, dir, pagePath string, spec Spec) Report {
 	rep := Report{}
 	fail := func(format string, a ...any) { rep.Errors = append(rep.Errors, fmt.Sprintf(format, a...)) }
 	src, err := os.ReadFile(filepath.Join(dir, pagePath)) //nolint:gosec // the agent's own file

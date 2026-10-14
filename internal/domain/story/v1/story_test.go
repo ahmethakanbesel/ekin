@@ -102,8 +102,11 @@ func TestVideoLifecycle(t *testing.T) {
 	_ = s.Rendered(video.ID(), now)
 
 	queued, err := s.Approve(video.ID(), id.New(), id.New, now)
-	if err != nil || video.Status() != story.StatusFinalizing || len(queued) != 1 || queued[0].ID() != article.ID() || article.Status() != story.StatusQueued {
+	if err != nil || video.Status() != story.StatusFinalizing || len(queued) != 0 || article.Status() != story.StatusWaiting {
 		t.Fatalf("approve = %v %v", queued, err)
+	}
+	if _, err := s.ReleaseDerived(video.ID(), now); !apperror.Is(err, apperror.InvalidTransition) {
+		t.Fatalf("released before the final render: %v", err)
 	}
 	_ = s.Rendered(video.ID(), now)
 	if video.Status() != story.StatusReady {
@@ -114,6 +117,10 @@ func TestVideoLifecycle(t *testing.T) {
 	}
 	if err := s.Published(video.ID(), story.Publication{URL: "https://youtu.be/x", ExternalID: "x"}, now); err != nil || video.Status() != story.StatusPublished {
 		t.Fatalf("published = %v", err)
+	}
+	queued, err = s.ReleaseDerived(video.ID(), now)
+	if err != nil || len(queued) != 1 || queued[0].ID() != article.ID() || article.Status() != story.StatusQueued {
+		t.Fatalf("release = %v %v", queued, err)
 	}
 
 	// The derived article: approval adds its English translation.

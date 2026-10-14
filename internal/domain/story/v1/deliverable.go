@@ -256,9 +256,10 @@ func (s *Story) RequestChanges(id uuid.UUID, fb Feedback, now time.Time) error {
 }
 
 // Approve accepts a deliverable in review. Videos need a final render;
-// articles are ready at once. Approving the lead releases the derived
-// deliverables, and approving an article adds its translations. It
-// returns the deliverables that became queued.
+// articles are ready at once. Approving an article adds its
+// translations. It returns the deliverables that became queued. Derived
+// deliverables are released separately (ReleaseDerived), once the lead
+// is live and they can link to it.
 func (s *Story) Approve(id, by uuid.UUID, newID func() uuid.UUID, now time.Time) ([]*Deliverable, error) {
 	d, err := s.find(id, StatusReview)
 	if err != nil {
@@ -271,12 +272,6 @@ func (s *Story) Approve(id, by uuid.UUID, newID func() uuid.UUID, now time.Time)
 		d.set(StatusReady, now)
 	}
 	var queued []*Deliverable
-	for _, other := range s.deliverables {
-		if other.sourceID == d.id && other.status == StatusWaiting {
-			other.set(StatusQueued, now)
-			queued = append(queued, other)
-		}
-	}
 	if d.article != nil && d.role != RoleTranslation {
 		for _, lang := range d.article.Translations() {
 			if lang == d.language || s.hasTranslation(d.id, lang) {
@@ -292,6 +287,25 @@ func (s *Story) Approve(id, by uuid.UUID, newID func() uuid.UUID, now time.Time)
 		}
 	}
 	s.touch(now)
+	return queued, nil
+}
+
+// ReleaseDerived queues the deliverables waiting on source, which must
+// be ready or published, and returns them.
+func (s *Story) ReleaseDerived(source uuid.UUID, now time.Time) ([]*Deliverable, error) {
+	if _, err := s.find(source, StatusReady, StatusPublished); err != nil {
+		return nil, err
+	}
+	var queued []*Deliverable
+	for _, other := range s.deliverables {
+		if other.sourceID == source && other.status == StatusWaiting {
+			other.set(StatusQueued, now)
+			queued = append(queued, other)
+		}
+	}
+	if len(queued) > 0 {
+		s.touch(now)
+	}
 	return queued, nil
 }
 

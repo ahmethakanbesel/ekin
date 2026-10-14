@@ -340,3 +340,22 @@ func (s *Service) Excerpt(ctx context.Context, workspaceID uuid.UUID, refs []Ref
 	out.Markdown = b.String()
 	return out, nil
 }
+
+// PageCost is a page's token estimate.
+type PageCost struct {
+	Number, Tokens int
+}
+
+// PageTokens returns the token estimate of each page from..to (0, 0 =
+// whole document), for budgeting what an agent is given.
+func (s *Service) PageTokens(ctx context.Context, workspaceID, documentID uuid.UUID, from, to int) ([]PageCost, error) {
+	_, pages, err := s.Pages(ctx, workspaceID, documentID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]PageCost, 0, len(pages))
+	for _, p := range pages {
+		out = append(out, PageCost{Number: p.Number, Tokens: p.Tokens})
+	}
+	return out, nil
+}
