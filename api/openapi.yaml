@@ -1243,6 +1243,47 @@ paths:
               schema: { $ref: "#/components/schemas/Story" }
         default: { $ref: "#/components/responses/Error" }
 
+  /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/content:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+      - $ref: "#/components/parameters/DeliverableId"
+    get:
+      operationId: getDeliverableContent
+      tags: [stories]
+      description: >
+        The editable text of the latest revision: an article's article.md
+        (frontmatter and body), or a video's narration and metadata.
+      responses:
+        "200":
+          description: Content.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeliverableContent" }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      operationId: editDeliverableContent
+      tags: [stories]
+      description: >
+        Saves a reviewer's edit as a new revision. Only a deliverable in
+        review can be edited, and `revision` must still be the latest
+        (409 Conflict otherwise). Article and metadata edits stay in
+        review. An edited narration sends the video back to the agent,
+        which keeps the text word for word, narrates it again and
+        re-times the visuals.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeliverableEdit" }
+      responses:
+        "200":
+          description: The updated story.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Story" }
+        default: { $ref: "#/components/responses/Error" }
+
   /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/reject:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"
@@ -1752,7 +1793,39 @@ components:
         notes:
           type: string
           description: The agent's summary of this revision.
+        editedBy:
+          type: string
+          format: uuid
+          description: The person who edited this revision in place; absent when the agent made it.
         createdAt: { type: string, format: date-time }
+
+    VideoMetadataContent:
+      type: object
+      required: [title, description, tags]
+      properties:
+        title: { type: string, maxLength: 100 }
+        description: { type: string, maxLength: 5000 }
+        tags:
+          type: array
+          items: { type: string }
+
+    DeliverableContent:
+      type: object
+      required: [revision]
+      properties:
+        revision: { type: integer }
+        article: { type: string, description: "article.md: YAML frontmatter, then the Markdown body." }
+        narration: { type: string, description: The spoken text; paragraphs separated by blank lines. }
+        metadata: { $ref: "#/components/schemas/VideoMetadataContent" }
+
+    DeliverableEdit:
+      type: object
+      required: [revision]
+      properties:
+        revision: { type: integer, description: The revision the edit was made on. }
+        article: { type: string }
+        narration: { type: string }
+        metadata: { $ref: "#/components/schemas/VideoMetadataContent" }
 
     AdHocInput:
       type: object

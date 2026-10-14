@@ -252,10 +252,11 @@ func (r *SQLite) Delete(ctx context.Context, workspaceID, id uuid.UUID) error {
 
 func (r *SQLite) PutRevision(ctx context.Context, rev storydomain.Revision) error {
 	artifacts, _ := json.Marshal(nonNilMap(rev.Artifacts))
-	_, err := r.q.W(ctx).ExecContext(ctx, `INSERT INTO revisions (deliverable_id, number, feedback, artifacts, notes, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)
+	_, err := r.q.W(ctx).ExecContext(ctx, `INSERT INTO revisions (deliverable_id, number, feedback, artifacts, notes, edited_by, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (deliverable_id, number) DO UPDATE SET artifacts = excluded.artifacts, notes = excluded.notes`,
-		rev.DeliverableID.String(), rev.Number, jsonOrNull(rev.Feedback), string(artifacts), rev.Notes, timeutil.ToMillis(rev.CreatedAt))
+		rev.DeliverableID.String(), rev.Number, jsonOrNull(rev.Feedback), string(artifacts), rev.Notes, nullID(rev.EditedBy),
+		timeutil.ToMillis(rev.CreatedAt))
 	if err != nil {
 		return fmt.Errorf("write revision: %w", err)
 	}
@@ -278,7 +279,7 @@ func (r *SQLite) Revision(ctx context.Context, deliverableID uuid.UUID, number i
 }
 
 func (r *SQLite) revisions(ctx context.Context, where string, args ...any) ([]storydomain.Revision, error) {
-	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT deliverable_id, number, feedback, artifacts, notes, created_at FROM revisions WHERE `+where, args...)
+	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT deliverable_id, number, feedback, artifacts, notes, edited_by, created_at FROM revisions WHERE `+where, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query revisions: %w", err)
 	}
@@ -290,12 +291,16 @@ func (r *SQLite) revisions(ctx context.Context, where string, args ...any) ([]st
 			rawID     string
 			feedback  sql.NullString
 			artifacts string
+			editedBy  sql.NullString
 			created   int64
 		)
-		if err := rows.Scan(&rawID, &rev.Number, &feedback, &artifacts, &rev.Notes, &created); err != nil {
+		if err := rows.Scan(&rawID, &rev.Number, &feedback, &artifacts, &rev.Notes, &editedBy, &created); err != nil {
 			return nil, fmt.Errorf("scan revision: %w", err)
 		}
 		rev.DeliverableID, _ = uuid.Parse(rawID)
+		if editedBy.Valid {
+			rev.EditedBy, _ = uuid.Parse(editedBy.String)
+		}
 		if feedback.Valid {
 			rev.Feedback = &storydomain.Feedback{}
 			_ = json.Unmarshal([]byte(feedback.String), rev.Feedback)

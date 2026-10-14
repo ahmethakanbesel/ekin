@@ -157,7 +157,10 @@ type Revision struct {
 	Feedback      *Feedback
 	Artifacts     map[string]string
 	Notes         string
-	CreatedAt     time.Time
+	// EditedBy is the person who edited this revision in place; Nil when
+	// the agent made it.
+	EditedBy  uuid.UUID
+	CreatedAt time.Time
 }
 
 // Artifact names shared by the production pipeline.
@@ -222,6 +225,34 @@ func (s *Story) Drafted(id uuid.UUID, artifacts map[string]string, session, note
 		d.set(StatusRendering, now)
 	} else {
 		d.set(StatusReview, now)
+	}
+	s.touch(now)
+	return rev, nil
+}
+
+// Edited records a reviewer's in-place edit as the next revision. With
+// retime set (the narration changed), the deliverable goes back to the
+// agent to re-narrate and re-time its visuals to the edited text;
+// otherwise it stays in review.
+func (s *Story) Edited(id uuid.UUID, artifacts map[string]string, by uuid.UUID, retime *Feedback, now time.Time) (Revision, error) {
+	d, err := s.find(id, StatusReview)
+	if err != nil {
+		return Revision{}, err
+	}
+	if retime != nil && !d.IsVideo() {
+		return Revision{}, apperror.New(apperror.ValidationFailed, "only a video is re-timed after an edit")
+	}
+	d.revision++
+	rev := Revision{
+		DeliverableID: d.id, Number: d.revision, Artifacts: maps.Clone(artifacts), EditedBy: by,
+		Notes: "Edited in place.", CreatedAt: timeutil.Normalize(now),
+	}
+	if retime != nil {
+		rev.Notes = "Narration edited in place; the agent re-times the video to it."
+		d.pending = retime
+		d.set(StatusQueued, now)
+	} else {
+		d.updatedAt = timeutil.Normalize(now)
 	}
 	s.touch(now)
 	return rev, nil

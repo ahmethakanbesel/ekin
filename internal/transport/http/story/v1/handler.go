@@ -157,9 +157,14 @@ func (h *Handler) ListRevisions(ctx context.Context, req gen.ListRevisionsReques
 			names = append(names, name)
 		}
 		slices.Sort(names)
-		out = append(out, gen.Revision{
+		rev := gen.Revision{
 			Number: r.Number, Feedback: feedbackToWire(r.Feedback), Artifacts: names, Notes: r.Notes, CreatedAt: r.CreatedAt,
-		})
+		}
+		if r.EditedBy != uuid.Nil {
+			by := r.EditedBy
+			rev.EditedBy = &by
+		}
+		out = append(out, rev)
 	}
 	return gen.ListRevisions200JSONResponse{Revisions: out}, nil
 }
@@ -304,3 +309,35 @@ func feedbackToWire(fb *storydomain.Feedback) *gen.Feedback {
 }
 
 var timeNow = time.Now
+
+func (h *Handler) GetDeliverableContent(ctx context.Context, req gen.GetDeliverableContentRequestObject) (gen.GetDeliverableContentResponseObject, error) {
+	c, err := h.svc.Content(ctx, req.WorkspaceId, req.StoryId, req.DeliverableId)
+	if err != nil {
+		return nil, err
+	}
+	out := gen.GetDeliverableContent200JSONResponse{Revision: c.Revision, Article: c.Article, Narration: c.Narration}
+	if m := c.Metadata; m != nil {
+		tags := m.Tags
+		if tags == nil {
+			tags = []string{}
+		}
+		out.Metadata = &gen.VideoMetadataContent{Title: m.Title, Description: m.Description, Tags: tags}
+	}
+	return out, nil
+}
+
+func (h *Handler) EditDeliverableContent(ctx context.Context, req gen.EditDeliverableContentRequestObject) (gen.EditDeliverableContentResponseObject, error) {
+	p, err := principal.From(ctx)
+	if err != nil {
+		return nil, err
+	}
+	e := productionsvc.Edit{Revision: req.Body.Revision, Article: req.Body.Article, Narration: req.Body.Narration}
+	if m := req.Body.Metadata; m != nil {
+		e.Metadata = &productionsvc.VideoMetadata{Title: m.Title, Description: m.Description, Tags: m.Tags}
+	}
+	st, err := h.svc.EditContent(ctx, req.WorkspaceId, req.StoryId, req.DeliverableId, p.User.ID(), e)
+	if err != nil {
+		return nil, err
+	}
+	return gen.EditDeliverableContent200JSONResponse(ToWire(st)), nil
+}

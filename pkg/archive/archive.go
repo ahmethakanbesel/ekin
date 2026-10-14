@@ -120,3 +120,39 @@ func Untar(r io.Reader, dir string) error {
 		}
 	}
 }
+
+// ReadFiles returns the named files (slash paths) from a gzipped tar,
+// each read up to limit bytes; missing names are absent from the map.
+func ReadFiles(r io.Reader, limit int64, names ...string) (map[string][]byte, error) {
+	gz, err := gzip.NewReader(r)
+	if err != nil {
+		return nil, err
+	}
+	want := map[string]bool{}
+	for _, n := range names {
+		want[n] = true
+	}
+	out := map[string][]byte{}
+	tr := tar.NewReader(gz)
+	for len(out) < len(want) {
+		h, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if h.Typeflag != tar.TypeReg || !want[h.Name] {
+			continue
+		}
+		if h.Size > limit {
+			return nil, fmt.Errorf("%s is larger than %d bytes", h.Name, limit)
+		}
+		b, err := io.ReadAll(io.LimitReader(tr, limit))
+		if err != nil {
+			return nil, err
+		}
+		out[h.Name] = b
+	}
+	return out, nil
+}

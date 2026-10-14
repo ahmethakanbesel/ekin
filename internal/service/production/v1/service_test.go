@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"kurgu/internal/apperror"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,6 +49,9 @@ type fakeAgent struct {
 	mu      sync.Mutex
 	prompts []claude.Request
 	titles  []string
+	// seen holds article.md or narration/narration.txt as each draft
+	// found them, before writing.
+	seen []string
 }
 
 func (a *fakeAgent) Run(_ context.Context, req claude.Request) (claude.Result, error) {
@@ -68,6 +72,13 @@ func (a *fakeAgent) Run(_ context.Context, req claude.Request) (claude.Result, e
 		_ = os.WriteFile(p, []byte(content), 0o600)
 	}
 	instructions, _ := os.ReadFile(filepath.Join(req.Dir, "INSTRUCTIONS.md"))
+	seen, err := os.ReadFile(filepath.Join(req.Dir, "article.md"))
+	if err != nil {
+		seen, _ = os.ReadFile(filepath.Join(req.Dir, "narration", "narration.txt"))
+	}
+	a.mu.Lock()
+	a.seen = append(a.seen, string(seen))
+	a.mu.Unlock()
 	switch {
 	case strings.Contains(string(instructions), "produce a"):
 		write("script.md", "Sahne 1: Kaygı nedir?")
@@ -130,6 +141,9 @@ type fixture struct {
 	pipelines *pipelinesvc.Service
 	agent     *fakeAgent
 	ws        uuid.UUID
+	// host returns another production service on the same database and
+	// blobs with its own work root, like a second worker host.
+	host func() *production.Service
 }
 
 func newFixture(t *testing.T) fixture {
@@ -149,16 +163,25 @@ func newFixture(t *testing.T) fixture {
 	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, agent, t.TempDir())
 	voices := voicesvc.NewService(settingsrepo.NewSQLite(tx), jobs, nil, blobs)
 	pipelines.WithTemplates(templates).WithVoices(voices)
-	svc := production.NewService(production.Config{WorkRoot: t.TempDir(), KurguBin: "/usr/local/bin/kurgu"}, production.Deps{
-		Stories: storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx,
-		Blobs: blobs, Agent: agent, Renderer: fakeRenderer{}, SEO: seo, Templates: templates, Voices: voices,
-	})
-	svc.AddPublisher(fakePublisher{pipelinedomain.KindVideo}).AddPublisher(fakePublisher{pipelinedomain.KindArticle})
-	return fixture{voices: voices, seo: seo, svc: svc, jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID()}
+	host := func() *production.Service {
+		svc := production.NewService(production.Config{WorkRoot: t.TempDir(), KurguBin: "/usr/local/bin/kurgu"}, production.Deps{
+			Stories: storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx,
+			Blobs: blobs, Agent: agent, Renderer: fakeRenderer{}, SEO: seo, Templates: templates, Voices: voices,
+		})
+		svc.AddPublisher(fakePublisher{pipelinedomain.KindVideo}).AddPublisher(fakePublisher{pipelinedomain.KindArticle})
+		return svc
+	}
+	return fixture{voices: voices, seo: seo, svc: host(), jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID(), host: host}
 }
 
 // drain runs queued jobs until none are left, like a worker would.
 func (f fixture) drain(t *testing.T) {
+	t.Helper()
+	f.drainOn(t, f.svc)
+}
+
+// drainOn runs queued jobs on the given host.
+func (f fixture) drainOn(t *testing.T, svc *production.Service) {
 	t.Helper()
 	ctx := context.Background()
 	kinds := []string{pipelinesvc.KindRun, production.KindAdHoc, production.KindDraft, production.KindRender, production.KindPublish}
@@ -175,21 +198,21 @@ func (f fixture) drain(t *testing.T) {
 		case pipelinesvc.KindRun:
 			var p pipelinesvc.RunPayload
 			_ = json.Unmarshal(j.Payload(), &p)
-			runErr = f.svc.PlanRun(ctx, p)
+			runErr = svc.PlanRun(ctx, p)
 		case production.KindAdHoc:
 			var p production.AdHocPayload
 			_ = json.Unmarshal(j.Payload(), &p)
-			runErr = f.svc.PlanAdHoc(ctx, p)
+			runErr = svc.PlanAdHoc(ctx, p)
 		default:
 			var p production.DeliverablePayload
 			_ = json.Unmarshal(j.Payload(), &p)
 			switch j.Kind() {
 			case production.KindDraft:
-				runErr = f.svc.Draft(ctx, p)
+				runErr = svc.Draft(ctx, p)
 			case production.KindRender:
-				runErr = f.svc.Render(ctx, p)
+				runErr = svc.Render(ctx, p)
 			case production.KindPublish:
-				runErr = f.svc.PublishJob(ctx, p)
+				runErr = svc.PublishJob(ctx, p)
 			}
 		}
 		if runErr != nil {
@@ -454,3 +477,147 @@ func TestVoiceReachesTheTTSTool(t *testing.T) {
 		t.Fatalf("speech spec = %+v", sp)
 	}
 }
+
+func articleFixture(t *testing.T) (fixture, *storydomain.Story) {
+	t.Helper()
+	ctx := context.Background()
+	f := newFixture(t)
+	article, _ := pipelinedomain.NewArticleSpec(900, nil)
+	outputs, _ := pipelinedomain.NewOutputs(nil, &article, "")
+	source, _ := pipelinedomain.NewPromptSource("Kaygı üzerine.")
+	p, err := f.pipelines.Create(ctx, f.ws, pipelinedomain.Definition{Name: "A", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.pipelines.RunNow(ctx, f.ws, p.ID(), 1)
+	f.drain(t)
+	return f, f.story(t)
+}
+
+func TestEditArticleInPlace(t *testing.T) {
+	ctx := context.Background()
+	f, st := articleFixture(t)
+	d := st.Lead()
+	c, err := f.svc.Content(ctx, f.ws, st.ID(), d.ID())
+	if err != nil || c.Revision != 1 || c.Article == nil || !strings.Contains(*c.Article, "title: \"Kaygı nedir\"") {
+		t.Fatalf("content = %+v %v", c, err)
+	}
+	edited := strings.Replace(*c.Article, "Kaygı nedir", "Kaygı nedir ve ne değildir", 1) + "\nEditörün eklediği paragraf.\r\n"
+	editor := id.New()
+
+	bad := []production.Edit{
+		{Revision: 1},
+		{Revision: 1, Article: ptr("no frontmatter")},
+		{Revision: 1, Narration: ptr("bir videoya ait")},
+	}
+	for i, e := range bad {
+		if _, err := f.svc.EditContent(ctx, f.ws, st.ID(), d.ID(), editor, e); !apperror.Is(err, apperror.ValidationFailed) {
+			t.Errorf("bad edit %d: %v", i, err)
+		}
+	}
+	if _, err := f.svc.EditContent(ctx, f.ws, st.ID(), d.ID(), editor, production.Edit{Revision: 1, Article: &edited}); err != nil {
+		t.Fatal(err)
+	}
+	st = f.story(t)
+	if d = st.Lead(); d.Revision() != 2 || d.Status() != storydomain.StatusReview {
+		t.Fatalf("after edit: r%d %s", d.Revision(), d.Status())
+	}
+	revs, _ := f.svc.Revisions(ctx, f.ws, st.ID(), d.ID())
+	if revs[1].EditedBy != editor || revs[1].Artifacts[storydomain.ArtifactArticle] == "" {
+		t.Fatalf("revision 2 = %+v", revs[1])
+	}
+	c, _ = f.svc.Content(ctx, f.ws, st.ID(), d.ID())
+	if !strings.Contains(*c.Article, "ne değildir") || strings.Contains(*c.Article, "\r") || !strings.HasSuffix(*c.Article, "paragraf.\n") {
+		t.Fatalf("saved article = %q", *c.Article)
+	}
+	if _, err := f.svc.EditContent(ctx, f.ws, st.ID(), d.ID(), editor, production.Edit{Revision: 1, Article: &edited}); !apperror.Is(err, apperror.Conflict) {
+		t.Fatalf("stale edit: %v", err)
+	}
+}
+
+// A host that drafted an earlier revision keeps its work dir; after a
+// newer revision is made elsewhere it must restore it, not resume from
+// its stale copy.
+func TestStaleWorkDirIsRestored(t *testing.T) {
+	ctx := context.Background()
+	f, st := articleFixture(t) // revision 1 drafted on f.svc
+	d := st.Lead()
+	other := f.host()
+	c, _ := other.Content(ctx, f.ws, st.ID(), d.ID())
+	edited := *c.Article + "\nYalnızca diğer makinede yapılan değişiklik.\n"
+	if _, err := other.EditContent(ctx, f.ws, st.ID(), d.ID(), id.New(), production.Edit{Revision: 1, Article: &edited}); err != nil {
+		t.Fatal(err)
+	}
+	fb, _ := storydomain.NewFeedback("Girişi kısalt", storydomain.ScopeAll, nil, id.New(), time.Now())
+	if _, err := f.svc.RequestChanges(ctx, f.ws, st.ID(), d.ID(), fb); err != nil {
+		t.Fatal(err)
+	}
+	f.drain(t) // back on the first host
+	if seen := f.agent.seen[len(f.agent.seen)-1]; !strings.Contains(seen, "diğer makinede") {
+		t.Fatalf("the agent resumed from a stale work dir:\n%s", seen)
+	}
+	last := f.agent.prompts[len(f.agent.prompts)-1]
+	if !strings.Contains(last.Prompt, "read the files you are about to change again") {
+		t.Fatalf("revise prompt = %s", last.Prompt)
+	}
+}
+
+func TestEditVideoInPlace(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
+	outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
+	source, _ := pipelinedomain.NewPromptSource("Kaygı üzerine.")
+	p, _ := f.pipelines.Create(ctx, f.ws, pipelinedomain.Definition{Name: "V", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source})
+	_, _ = f.pipelines.RunNow(ctx, f.ws, p.ID(), 1)
+	f.drain(t)
+	st := f.story(t)
+	d := st.Lead()
+	c, err := f.svc.Content(ctx, f.ws, st.ID(), d.ID())
+	if err != nil || c.Narration == nil || *c.Narration != "Kaygı nedir?" || c.Metadata == nil || c.Metadata.Title != "Kaygı nedir?" {
+		t.Fatalf("content = %+v %v", c, err)
+	}
+
+	// Metadata only: stays in review and keeps the rendered preview.
+	meta := &production.VideoMetadata{Title: "Kaygı nedir, ne değildir?", Description: "Yeni açıklama.", Tags: []string{"kaygı", " ", "endişe"}}
+	if _, err := f.svc.EditContent(ctx, f.ws, st.ID(), d.ID(), id.New(), production.Edit{Revision: 1, Metadata: &production.VideoMetadata{Title: "<b>"}}); !apperror.Is(err, apperror.ValidationFailed) {
+		t.Fatalf("angle brackets accepted: %v", err)
+	}
+	if _, err := f.svc.EditContent(ctx, f.ws, st.ID(), d.ID(), id.New(), production.Edit{Revision: 1, Metadata: meta, Narration: ptr("Kaygı nedir?\r\n")}); err != nil {
+		t.Fatal(err)
+	}
+	st = f.story(t)
+	if d = st.Lead(); d.Revision() != 2 || d.Status() != storydomain.StatusReview {
+		t.Fatalf("after metadata edit: r%d %s", d.Revision(), d.Status())
+	}
+	revs, _ := f.svc.Revisions(ctx, f.ws, st.ID(), d.ID())
+	if revs[1].Artifacts[storydomain.ArtifactPreview] != revs[0].Artifacts[storydomain.ArtifactPreview] || revs[1].Artifacts[storydomain.ArtifactPreview] == "" {
+		t.Fatalf("preview not kept: %v", revs[1].Artifacts)
+	}
+	c, _ = f.svc.Content(ctx, f.ws, st.ID(), d.ID())
+	if c.Metadata.Title != "Kaygı nedir, ne değildir?" || len(c.Metadata.Tags) != 2 {
+		t.Fatalf("metadata = %+v", c.Metadata)
+	}
+
+	// Narration: back to the agent, which must keep the text and re-time.
+	text := "Kaygı, gelecekteki bir tehdide karşı bedenin alarmıdır."
+	if _, err := f.svc.EditContent(ctx, f.ws, st.ID(), d.ID(), id.New(), production.Edit{Revision: 2, Narration: &text}); err != nil {
+		t.Fatal(err)
+	}
+	if d = f.story(t).Lead(); d.Status() != storydomain.StatusQueued || d.Revision() != 3 {
+		t.Fatalf("after narration edit: r%d %s", d.Revision(), d.Status())
+	}
+	f.drain(t)
+	last := f.agent.prompts[len(f.agent.prompts)-1]
+	if last.Resume == "" || !strings.Contains(last.Prompt, "word for word") {
+		t.Fatalf("retime prompt = %+v", last)
+	}
+	if seen := f.agent.seen[len(f.agent.seen)-1]; strings.TrimSpace(seen) != text {
+		t.Fatalf("the agent found narration %q", seen)
+	}
+	if d = f.story(t).Lead(); d.Status() != storydomain.StatusReview || d.Revision() != 4 {
+		t.Fatalf("after re-timing: r%d %s", d.Revision(), d.Status())
+	}
+}
+
+func ptr[T any](v T) *T { return &v }

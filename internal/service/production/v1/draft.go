@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -540,11 +541,19 @@ func firstLine(s string) string {
 	return s
 }
 
-// ensureWorkDir restores the working directory from the latest revision's
-// archive when this host does not have it (another worker drafted it).
+// ensureWorkDir makes dir hold the deliverable's latest revision. A host
+// keeps its work dir between steps, but another host (a hybrid worker,
+// or the server for an in-place edit) may have made a newer revision
+// since, so the dir is restored when its revision marker is behind.
 func (s *Service) ensureWorkDir(ctx context.Context, d *storydomain.Deliverable, dir string) error {
 	if _, err := os.Stat(dir); err == nil {
-		return nil
+		raw, err := os.ReadFile(filepath.Join(dir, revisionMarker)) //nolint:gosec // our work dir
+		if err != nil || strings.TrimSpace(string(raw)) == strconv.Itoa(d.Revision()) {
+			return nil // current, or from before markers existed
+		}
+		if err := os.RemoveAll(dir); err != nil {
+			return err
+		}
 	}
 	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return err
@@ -552,6 +561,11 @@ func (s *Service) ensureWorkDir(ctx context.Context, d *storydomain.Deliverable,
 	if d.Revision() == 0 {
 		return nil
 	}
+	return s.restore(ctx, d, dir)
+}
+
+// restore unpacks the deliverable's latest revision into dir.
+func (s *Service) restore(ctx context.Context, d *storydomain.Deliverable, dir string) error {
 	rev, err := s.stories.Revision(ctx, d.ID(), d.Revision())
 	if err != nil {
 		return err
@@ -573,6 +587,9 @@ func (s *Service) ensureWorkDir(ctx context.Context, d *storydomain.Deliverable,
 func (s *Service) archive(ctx context.Context, st *storydomain.Story, d *storydomain.Deliverable, dir string) (map[string]string, error) {
 	prefix := fmt.Sprintf("ws/%s/stories/%s/%s/r%d/", st.WorkspaceID(), st.ID(), d.ID(), d.Revision()+1)
 	out := map[string]string{}
+	if err := os.WriteFile(filepath.Join(dir, revisionMarker), []byte(strconv.Itoa(d.Revision()+1)), 0o600); err != nil {
+		return nil, err
+	}
 	tmp, err := os.CreateTemp("", "kurgu-workdir-*.tar.gz")
 	if err != nil {
 		return nil, err
