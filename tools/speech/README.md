@@ -1,17 +1,19 @@
 # Speech helpers
 
-Two self-contained [PEP 723](https://peps.python.org/pep-0723/) scripts that turn narration text into a WAV plus
+Three self-contained [PEP 723](https://peps.python.org/pep-0723/) scripts that turn narration text into a WAV plus
 word and sentence timings. The Go worker shells out to them.
 
 | Script | Language | Engine | Output sample rate |
 |---|---|---|---|
 | `okur_say.py` | Turkish | [okur-tts](https://github.com/ahmethakanbesel/okur-tts) v1.0, ONNX Runtime CPU | 48000 Hz |
+| `ema_say.py` | Turkish | [EMA Lightning](https://huggingface.co/canberkkkkkk/ema-lightning) via its [ONNX export](https://huggingface.co/ozcancelik/ema-lightning-onnx), ONNX Runtime CPU | 48000 Hz |
 | `kokoro_say.py` | English | Kokoro-82M via [kokoro-onnx](https://github.com/thewh1teagle/kokoro-onnx) 0.6.1, ONNX Runtime CPU | 24000 Hz |
 
 ## Usage
 
 ```sh
 uv run --script tools/speech/okur_say.py   --text-file in.txt --out-dir out/ [--speed 1.0] [--model-dir DIR]
+uv run --script tools/speech/ema_say.py    --text-file in.txt --out-dir out/ [--speed 1.0] [--seed 0] [--model-dir DIR]
 uv run --script tools/speech/kokoro_say.py --text-file in.txt --out-dir out/ [--speed 1.0] [--voice af_heart] [--model-dir DIR]
 ```
 
@@ -116,3 +118,35 @@ First run, which downloads everything (wheels go into uv's cache, weights into `
 - okur: about 30 MB of wheels plus a git build of okur, and 22 MB of ONNX weights. 17 s in total here.
 - kokoro: about 35 MB of wheels, a 326 MB model and 28 MB of voices. 22 s in total here (fp16 and int8 are fetched
   only when selected).
+
+## EMA Lightning
+
+`ema_say.py` runs the ONNX export (`text`, `sound`, `decoder` graphs; 33 MB, pinned to a reviewed revision of
+`ozcancelik/ema-lightning-onnx`) without torch or the `ema-lightning` package. The text frontend is EMA's own:
+`normalizer-tr` reads numbers, dates, times and units aloud (prebuilt wheels for macOS and Linux x86_64; Linux arm64
+builds it from source with Rust), then Turkish lowercasing and the model's alphabet. The host loop is `plan()` from
+the export's `web/tts.js`. Like EMA's chunker, each spoken piece is held to about ten seconds and ends on a sentence
+mark, and every piece gets its own noise (`seed × 1000003 + piece`).
+
+The word timeline works as okur's does: the model is conditioned on whole frames per word (40 ms each), so a word's
+time comes straight from its frames, shared among its letters by predicted duration. Edges are then snapped to the
+audio. On the test paragraph word ends at pauses were within 100 ms of `silencedetect`, and Whisper (medium,
+Turkish) transcribed it correctly apart from how it wrote numbers, the brand name and "kaygı ile" (heard as "kaygıyla").
+
+One voice; `--voice` is ignored with a note on stderr. Speed 0.25–4 (Kurgu offers 0.5–2). On an Apple M4, 13.5 s of
+speech takes 0.9 s with a warm cache (about 15× faster than real time); the first run downloads about 33 MB of
+weights and the `normalizer-tr` and `onnxruntime` wheels.
+
+| Variable | Meaning |
+|---|---|
+| `KURGU_EMA_HF_REPO` | Hugging Face repo with the ONNX graphs (default `ozcancelik/ema-lightning-onnx`). |
+| `KURGU_EMA_REVISION` | Revision to download (default: the one the script was checked against). |
+
+## ElevenLabs
+
+ElevenLabs is not a script: `internal/adapter/speech` calls the API from Go and writes the same `speech.wav` (24 kHz;
+44.1 kHz PCM needs a Pro plan) and `timings.json` (`"engine": "elevenlabs"`). Each paragraph is one
+`/v1/text-to-speech/{voice}/with-timestamps` request, split at sentence ends past 2,500 characters, with the
+neighbouring chunks as `previous_text` / `next_text`. Words are timed from the per-character alignment: from a token's
+first letter or digit to its last. Pronunciation entries are applied to the text sent, and captions keep the written
+words. Leading and trailing silence of each chunk is trimmed, and the paragraph pause is inserted between paragraphs.

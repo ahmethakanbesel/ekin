@@ -7,7 +7,8 @@ the product and `CONVENTIONS.md` before writing code.
 
 Pipelines (cron or on demand) and ad-hoc requests turn a brief, knowledge-base pages or
 SEO keywords into stories. For each story Claude Code (headless) writes the script and an
-animated HTML composition, narrates it with okur-tts (Turkish) or Kokoro (English),
+animated HTML composition, narrates it with okur-tts or EMA Lightning (Turkish), Kokoro
+(English) or ElevenLabs (either),
 scores it with Tone.js, and Kurgu renders it in headless Chrome. Every deliverable waits
 in **Review**: request changes (pinned to a moment in the video) and the agent revises in
 the same session; approve and it renders at 1080p and publishes to YouTube, or commits
@@ -63,13 +64,27 @@ and re-times the visuals to it. That takes a minute or two.
 
 ## Voice
 
-**Settings → Voice** sets how narration sounds, per language. Turkish uses okur-tts: speed,
-sentence and paragraph pauses, and a seed. Each seed gives a different take of the same
-script. English uses Kokoro with 28 American and British voices, speed, pauses and model
-quality (fp32 / fp16 / int8). **Preview** renders a sample on a worker. The pronunciation
-dictionary maps a written word to how it should be said ("acme" → "ek mi",
-"CBT" → "si bi ti"). Captions keep the written word. Pipelines and ad-hoc requests can
-override the voice and speed.
+**Settings → Voice** sets how narration sounds, per language: the engine, then its voice,
+speed, sentence and paragraph pauses.
+
+| Engine | Language | Runs | Options |
+|---|---|---|---|
+| okur-tts (default) | Turkish | on the worker (CPU) | seed: each seed gives a different take of the same script |
+| EMA Lightning | Turkish | on the worker (CPU), about 15× faster than real time | seed |
+| Kokoro (default) | English | on the worker (CPU) | 28 American and British voices; model quality fp32 / fp16 / int8 |
+| ElevenLabs | Turkish, English | ElevenLabs API, billed per character | the account's voices, model, stability, similarity, style, speaker boost, seed |
+
+ElevenLabs needs an API key (System → Credentials or `KURGU_ELEVENLABS_API_KEY`); without one
+it cannot be saved or previewed. The narration text is sent to ElevenLabs, and every take is
+billed: the agent may narrate more than once while fitting the script to the video. Each
+paragraph is one request (long ones are split at sentence ends), with the neighbouring text
+sent along so the intonation carries over. Word timings come from ElevenLabs' character
+timestamps.
+
+**Preview** renders a sample on a worker. The pronunciation dictionary maps a written word to
+how it should be said ("acme" → "ek mi", "CBT" → "si bi ti"), for every engine.
+Captions keep the written word. Pipelines and ad-hoc requests can override the engine, voice
+and speed.
 
 ## Integrations
 
@@ -84,6 +99,7 @@ environment variables below, which remain the fallback.
 | Authoring agent | `claude` signed in (Mac) or `CLAUDE_CODE_OAUTH_TOKEN` (server); `KURGU_CLAUDE_MODEL` |
 | Speech | `tools/speech` scripts via `uv` (weights download on first use) |
 | Stock footage | `KURGU_PEXELS_API_KEY` |
+| ElevenLabs narration | `KURGU_ELEVENLABS_API_KEY`, or System → Credentials. A hybrid worker reads only its own environment. |
 | Email digests | `KURGU_SMTP_HOST/PORT/USERNAME/PASSWORD/FROM` |
 | Duplicate verdicts | `KURGU_OPENROUTER_API_KEY` (Jev) |
 | YouTube | `KURGU_YOUTUBE_CLIENT_ID/SECRET`; redirect URI `<KURGU_PUBLIC_URL>/api/v1/oauth/youtube/callback`; then connect the channel in workspace settings |

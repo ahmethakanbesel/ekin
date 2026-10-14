@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
  && mkdir -p /out/data
 
 # Worker: the same binary plus the tools it drives — Chromium and ffmpeg
-# (render), poppler (PDF text), uv + Python (okur / Kokoro speech) and the
+# (render), poppler (PDF text), uv + Python (okur / EMA / Kokoro speech) and the
 # Claude Code CLI (authoring agent). Build with --target worker.
 FROM debian:bookworm-slim AS worker
 RUN apt-get update && apt-get install -y --no-install-recommends \
