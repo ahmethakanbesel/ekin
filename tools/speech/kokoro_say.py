@@ -101,6 +101,36 @@ def chunks(text: str, lang: str) -> list[tuple[int, str]]:
     return out
 
 
+def load_lexicon(path) -> dict[str, str]:
+    """Pronunciation dictionary: {"written": "spoken"}; keys match case-insensitively."""
+    if path is None:
+        return {}
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise Failure(f"cannot read --lexicon: {e}") from e
+    if not isinstance(raw, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in raw.items()):
+        raise Failure("--lexicon must be a JSON object of strings")
+    return {k.strip().casefold(): v.strip() for k, v in raw.items() if k.strip() and v.strip()}
+
+
+def respell(tokens: list[str], lexicon: dict[str, str]) -> list[str]:
+    """Each written token as it should be spoken: the dictionary entry for its core (punctuation kept), else itself.
+    One spoken entry per written token, so timings map back to the written words."""
+    if not lexicon:
+        return tokens
+    out = []
+    for t in tokens:
+        i, j = 0, len(t)
+        while i < j and not t[i].isalnum():
+            i += 1
+        while j > i and not t[j - 1].isalnum():
+            j -= 1
+        spoken = lexicon.get(t[i:j].casefold())
+        out.append(t[:i] + spoken + t[j:] if spoken else t)
+    return out
+
+
 def map_tokens(tokens: list[str], spoken: list[str], render) -> list[tuple[int, int, int, int]]:
     """Group written tokens with the spoken words they became: [(tok_a, tok_b, spk_a, spk_b)].
 
@@ -286,9 +316,18 @@ def main() -> int:
     ap.add_argument("--out-dir", required=True, type=Path)
     ap.add_argument("--speed", type=float, default=1.0)
     ap.add_argument("--voice", default="af_heart")
+    ap.add_argument("--accent", choices=["en-us", "en-gb"], default=None, help="overrides KURGU_KOKORO_LANG")
+    ap.add_argument("--quality", choices=["fp32", "fp16", "int8"], default=None, help="overrides KURGU_KOKORO_MODEL")
+    ap.add_argument("--sentence-pause", type=float, default=SENTENCE_PAUSE, help="seconds between sentences")
+    ap.add_argument("--paragraph-pause", type=float, default=PARAGRAPH_PAUSE, help="seconds between paragraphs")
+    ap.add_argument("--lexicon", type=Path, default=None, help='JSON {"written": "spoken"} pronunciation dictionary')
     ap.add_argument("--model-dir", type=Path, default=Path("~/.cache/kurgu/speech/kokoro"))
     args = ap.parse_args()
     t0 = time.perf_counter()
+    for name, v in (("--sentence-pause", args.sentence_pause), ("--paragraph-pause", args.paragraph_pause)):
+        if not 0.0 <= v <= 3.0:
+            raise Failure(f"{name} must be between 0 and 3 seconds, got {v}")
+    lexicon = load_lexicon(args.lexicon)
     if not 0.5 <= args.speed <= 2.0:
         raise Failure(f"--speed must be between 0.5 and 2 for kokoro, got {args.speed}")
     try:
@@ -298,9 +337,9 @@ def main() -> int:
     pieces = chunks(text, "en")
     if not pieces:
         raise Failure("the text file has no text to read")
-    lang = os.environ.get("KURGU_KOKORO_LANG", "en-us")
+    lang = args.accent or os.environ.get("KURGU_KOKORO_LANG", "en-us")
 
-    model_path, voices_path = ensure_model(args.model_dir.expanduser(), os.environ.get("KURGU_KOKORO_MODEL", "fp32"))
+    model_path, voices_path = ensure_model(args.model_dir.expanduser(), args.quality or os.environ.get("KURGU_KOKORO_MODEL", "fp32"))
     import onnxruntime as ort
     from kokoro_onnx import Kokoro
 
@@ -324,22 +363,24 @@ def main() -> int:
     offset = 0
     prev_paragraph = None
     for paragraph, sentence in pieces:
-        if not render(sentence):
+        tokens = sentence.split()
+        spoken_tokens = respell(tokens, lexicon)
+        spoken_sentence = " ".join(spoken_tokens)
+        if not render(spoken_sentence):
             continue  # nothing pronounceable
-        audio, sr, timings = kokoro.create_timed(sentence, args.voice, speed=args.speed, lang=lang, trim=True,
+        audio, sr, timings = kokoro.create_timed(spoken_sentence, args.voice, speed=args.speed, lang=lang, trim=True,
                                                  sentence_pause=0.0, clause_pause=CLAUSE_PAUSE)
         audio = np.asarray(audio, dtype=np.float32)
         spoken = spoken_words(timings)
         if not len(audio) or all(span is None for _, span in spoken):
             continue  # punctuation only ("— ... —"): no word to say
         if prev_paragraph is not None:
-            gap = round((PARAGRAPH_PAUSE if paragraph != prev_paragraph else SENTENCE_PAUSE) * sr)
+            gap = round((args.paragraph_pause if paragraph != prev_paragraph else args.sentence_pause) * sr)
             parts.append(np.zeros(gap, dtype=np.float32))
             offset += gap
         prev_paragraph = paragraph
         sec = offset / sr
-        tokens = sentence.split()
-        groups = map_tokens(tokens, [w for w, _ in spoken], render)
+        groups = map_tokens(spoken_tokens, [w for w, _ in spoken], render)
         # The model lengthens a word's last phoneme to make the pause after it; snap word edges to the audio.
         spans = refine(audio, sr, [span for _, span in spoken])
         for w in place_words(tokens, groups, spans):

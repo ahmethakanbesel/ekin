@@ -22,6 +22,7 @@ import (
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	storydomain "kurgu/internal/domain/story/v1"
 	templatedomain "kurgu/internal/domain/template/v1"
+	voicedomain "kurgu/internal/domain/voice/v1"
 	workspacedomain "kurgu/internal/domain/workspace/v1"
 	jobrepo "kurgu/internal/repository/job/v1"
 	knowledgerepo "kurgu/internal/repository/knowledge/v1"
@@ -37,6 +38,7 @@ import (
 	production "kurgu/internal/service/production/v1"
 	seosvc "kurgu/internal/service/seo/v1"
 	templatesvc "kurgu/internal/service/template/v1"
+	voicesvc "kurgu/internal/service/voice/v1"
 	"kurgu/pkg/id"
 )
 
@@ -121,6 +123,7 @@ func (p fakePublisher) Publish(ctx context.Context, req production.PublishReques
 }
 
 type fixture struct {
+	voices    *voicesvc.Service
 	seo       *seosvc.Service
 	svc       *production.Service
 	jobs      *jobsvc.Service
@@ -144,13 +147,14 @@ func newFixture(t *testing.T) fixture {
 	agent := &fakeAgent{titles: []string{"Kaygı ile endişe arasındaki fark"}}
 	seo := seosvc.NewService(seorepo.NewSQLite(tx), settingsrepo.NewSQLite(tx), jobs, agent, t.TempDir())
 	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, agent, t.TempDir())
-	pipelines.WithTemplates(templates)
+	voices := voicesvc.NewService(settingsrepo.NewSQLite(tx), jobs, nil, blobs)
+	pipelines.WithTemplates(templates).WithVoices(voices)
 	svc := production.NewService(production.Config{WorkRoot: t.TempDir(), KurguBin: "/usr/local/bin/kurgu"}, production.Deps{
 		Stories: storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx,
-		Blobs: blobs, Agent: agent, Renderer: fakeRenderer{}, SEO: seo, Templates: templates,
+		Blobs: blobs, Agent: agent, Renderer: fakeRenderer{}, SEO: seo, Templates: templates, Voices: voices,
 	})
 	svc.AddPublisher(fakePublisher{pipelinedomain.KindVideo}).AddPublisher(fakePublisher{pipelinedomain.KindArticle})
-	return fixture{seo: seo, svc: svc, jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID()}
+	return fixture{voices: voices, seo: seo, svc: svc, jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID()}
 }
 
 // drain runs queued jobs until none are left, like a worker would.
@@ -404,5 +408,49 @@ func TestTemplateReachesTheAgent(t *testing.T) {
 	brief, _ := os.ReadFile(filepath.Join(dir, "BRIEF.md"))
 	if !strings.Contains(string(brief), "Follow `STYLE.md`") {
 		t.Fatal("brief does not point at STYLE.md")
+	}
+}
+
+func TestVoiceReachesTheTTSTool(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	v, _ := f.voices.Get(ctx, f.ws)
+	v.Languages["tr"] = voicedomain.Config{Voice: "okur", Speed: 1, SentencePause: 0.3, ParagraphPause: 0.9, Seed: 42}
+	v.Lexicon = map[string]map[string]string{"tr": {"acme": "ek mi"}}
+	if _, err := f.voices.Save(ctx, f.ws, id.New(), v); err != nil {
+		t.Fatal(err)
+	}
+	video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
+	outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
+	source, _ := pipelinedomain.NewPromptSource("Kaygı üzerine.")
+	def := pipelinedomain.Definition{Name: "S", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source,
+		Voice: &voicedomain.Override{Voice: "af_heart"}}
+	if _, err := f.pipelines.Create(ctx, f.ws, def); err == nil {
+		t.Fatal("an English voice was accepted for a Turkish pipeline")
+	}
+	def.Voice = &voicedomain.Override{Speed: 1.15}
+	p, err := f.pipelines.Create(ctx, f.ws, def)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.pipelines.RunNow(ctx, f.ws, p.ID(), 1)
+	f.drain(t)
+	var spec struct {
+		Speech struct {
+			Voice          string            `json:"voice"`
+			Speed          float64           `json:"speed"`
+			Seed           int               `json:"seed"`
+			ParagraphPause float64           `json:"paragraphPause"`
+			Lexicon        map[string]string `json:"lexicon"`
+		} `json:"speech"`
+	}
+	for _, e := range f.agent.prompts[len(f.agent.prompts)-1].Env {
+		if raw, ok := strings.CutPrefix(e, "KURGU_TOOL_SPEC="); ok {
+			_ = json.Unmarshal([]byte(raw), &spec)
+		}
+	}
+	sp := spec.Speech
+	if sp.Voice != "okur" || sp.Speed != 1.15 || sp.Seed != 42 || sp.ParagraphPause != 0.9 || sp.Lexicon["acme"] != "ek mi" {
+		t.Fatalf("speech spec = %+v", sp)
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"kurgu/internal/adapter/extract"
 	"kurgu/internal/adapter/github"
 	"kurgu/internal/adapter/render"
+	"kurgu/internal/adapter/speech"
 	"kurgu/internal/adapter/youtube"
 	"kurgu/internal/blob"
 	"kurgu/internal/config"
@@ -40,6 +41,7 @@ import (
 	seosvc "kurgu/internal/service/seo/v1"
 	settingssvc "kurgu/internal/service/settings/v1"
 	templatesvc "kurgu/internal/service/template/v1"
+	voicesvc "kurgu/internal/service/voice/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	httptransport "kurgu/internal/transport/http"
 	systemhandler "kurgu/internal/transport/http/system/v1"
@@ -47,6 +49,7 @@ import (
 	productionworker "kurgu/internal/transport/job/production/v1"
 	seoworker "kurgu/internal/transport/job/seo/v1"
 	templateworker "kurgu/internal/transport/job/template/v1"
+	voiceworker "kurgu/internal/transport/job/voice/v1"
 	"kurgu/internal/transport/schedule"
 	"kurgu/pkg/password"
 	"kurgu/pkg/secretbox"
@@ -72,6 +75,7 @@ type App struct {
 	publishing *publishingsvc.Service
 	seo        *seosvc.Service
 	templates  *templatesvc.Service
+	voices     *voicesvc.Service
 	version    string
 }
 
@@ -121,10 +125,14 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	agent := dynamicAgent{settings: settings, base: claude.Runner{Bin: cfg.Production.ClaudeBin}}
 	seo := seosvc.NewService(seorepo.NewSQLite(tx), settingsrepo.NewSQLite(tx), jobs, agent, cfg.Production.WorkDir)
 	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, agent, cfg.Production.WorkDir)
-	pipelines.WithTemplates(templates)
+	p := cfg.Production
+	voices := voicesvc.NewService(settingsrepo.NewSQLite(tx), jobs,
+		&speech.Synth{UV: p.UV, ScriptDir: p.SpeechDir, ModelDir: p.SpeechModels}, blobs)
+	pipelines.WithTemplates(templates).WithVoices(voices)
 	production, err := newProduction(cfg, settings, productionsvc.Deps{
 		SEO:       seo,
 		Templates: templates,
+		Voices:    voices,
 		Stories:   storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs,
 		Notifier: notify,
 		Agent:    agent,
@@ -151,6 +159,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		publishing: publishing,
 		seo:        seo,
 		templates:  templates,
+		voices:     voices,
 	}, nil
 }
 
@@ -254,6 +263,7 @@ func (a *App) Router() (http.Handler, error) {
 		Publishing:  a.publishing,
 		SEO:         a.seo,
 		Templates:   a.templates,
+		Voices:      a.voices,
 		WorkerToken: a.cfg.Remote.Token,
 		System:      systemhandler.New(a.settings, a.cfg.Worker.Profile, a.version, a.checks).OnCredentialsChange(resetChecks),
 		PublicURL:   a.cfg.PublicURL,
@@ -329,6 +339,7 @@ func (a *App) Work(ctx context.Context) error {
 	productionworker.Register(runner, a.production)
 	seoworker.Register(runner, a.seo)
 	templateworker.Register(runner, a.templates)
+	voiceworker.Register(runner, a.voices)
 	a.log.InfoContext(ctx, "worker started", slog.String("owner", w.Owner), slog.String("profile", w.Profile))
 	return runner.Run(ctx)
 }

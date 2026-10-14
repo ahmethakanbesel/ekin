@@ -14,6 +14,7 @@ import (
 	"kurgu/internal/db"
 	jobdomain "kurgu/internal/domain/job/v1"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
+	voicedomain "kurgu/internal/domain/voice/v1"
 	pipelinerepo "kurgu/internal/repository/pipeline/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
 	"kurgu/pkg/id"
@@ -49,8 +50,14 @@ type TemplateChecker interface {
 	Check(ctx context.Context, workspaceID, templateID uuid.UUID, kinds []pipelinedomain.Kind) error
 }
 
+// VoiceChecker verifies a pipeline's voice override (the voice service).
+type VoiceChecker interface {
+	CheckOverride(ctx context.Context, language string, o voicedomain.Override) error
+}
+
 // Service runs pipeline use cases.
 type Service struct {
+	voices     VoiceChecker
 	templates  TemplateChecker
 	repo       pipelinerepo.Repository
 	workspaces workspacerepo.Repository
@@ -63,6 +70,12 @@ type Service struct {
 // NewService returns a Service.
 func NewService(repo pipelinerepo.Repository, workspaces workspacerepo.Repository, jobs Enqueuer, tx db.TxManager) *Service {
 	return &Service{repo: repo, workspaces: workspaces, jobs: jobs, tx: tx, now: time.Now}
+}
+
+// WithVoices makes Create and Redefine check voice overrides.
+func (s *Service) WithVoices(v VoiceChecker) *Service {
+	s.voices = v
+	return s
 }
 
 // WithTemplates makes Create and Redefine check the chosen template.
@@ -139,6 +152,11 @@ func (s *Service) Resume(ctx context.Context, workspaceID, pipelineID uuid.UUID)
 }
 
 func (s *Service) checkDefinition(ctx context.Context, workspaceID uuid.UUID, def pipelinedomain.Definition) error {
+	if def.Voice != nil && s.voices != nil {
+		if err := s.voices.CheckOverride(ctx, string(def.Language), *def.Voice); err != nil {
+			return err
+		}
+	}
 	if def.TemplateID != uuid.Nil && s.templates != nil {
 		var kinds []pipelinedomain.Kind
 		for _, k := range []pipelinedomain.Kind{pipelinedomain.KindVideo, pipelinedomain.KindArticle} {

@@ -26,6 +26,7 @@ import (
 	publishingsvc "kurgu/internal/service/publishing/v1"
 	seosvc "kurgu/internal/service/seo/v1"
 	templatesvc "kurgu/internal/service/template/v1"
+	voicesvc "kurgu/internal/service/voice/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	identityhandler "kurgu/internal/transport/http/identity/v1"
 	jobhandler "kurgu/internal/transport/http/job/v1"
@@ -37,6 +38,7 @@ import (
 	storyhandler "kurgu/internal/transport/http/story/v1"
 	systemhandler "kurgu/internal/transport/http/system/v1"
 	templatehandler "kurgu/internal/transport/http/template/v1"
+	voicehandler "kurgu/internal/transport/http/voice/v1"
 	workerapi "kurgu/internal/transport/http/worker"
 	workspacehandler "kurgu/internal/transport/http/workspace/v1"
 )
@@ -62,6 +64,7 @@ type Deps struct {
 	Publishing *publishingsvc.Service
 	SEO        *seosvc.Service
 	Templates  *templatesvc.Service
+	Voices     *voicesvc.Service
 	// WorkerToken enables the hybrid-worker API when set.
 	WorkerToken string
 	// PublicURL is where browsers reach Kurgu, e.g. https://kurgu.example.com.
@@ -85,6 +88,7 @@ type (
 	publishing = publishinghandler.Handler
 	seo        = seohandler.Handler
 	templates  = templatehandler.Handler
+	voices     = voicehandler.Handler
 )
 
 // server stitches the per-context handlers into one StrictServerInterface.
@@ -99,6 +103,7 @@ type server struct {
 	*publishing
 	*seo
 	*templates
+	*voices
 }
 
 var _ gen.StrictServerInterface = server{}
@@ -134,6 +139,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		publishing: publishinghandler.New(d.Publishing),
 		seo:        seohandler.New(d.SEO),
 		templates:  templatehandler.New(d.Templates),
+		voices:     voicehandler.New(d.Voices),
 	}, []gen.StrictMiddlewareFunc{authenticate(d.Identity)}, gen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			writeErr(w, r, apperror.Wrap(apperror.BadRequest, err, "malformed request"))

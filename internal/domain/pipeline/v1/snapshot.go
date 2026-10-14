@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"kurgu/internal/apperror"
+	voicedomain "kurgu/internal/domain/voice/v1"
 	"kurgu/pkg/timeutil"
 )
 
@@ -22,6 +23,7 @@ type Snapshot struct {
 	Source      SourceSnapshot
 	Schedule    *ScheduleSnapshot
 	TemplateID  uuid.UUID
+	Voice       *voicedomain.Override
 	Status      string
 	NextRunAt   time.Time
 	LastRunAt   time.Time
@@ -69,6 +71,7 @@ func (p *Pipeline) Snapshot() Snapshot {
 		Lead:        string(p.def.Outputs.lead),
 		Source:      p.def.Source.snapshot(),
 		TemplateID:  p.def.TemplateID,
+		Voice:       p.Voice(),
 		Status:      string(p.status),
 		NextRunAt:   p.nextRunAt,
 		LastRunAt:   p.lastRunAt,
@@ -182,7 +185,7 @@ func DefinitionFromSnapshot(s Snapshot) (Definition, error) {
 		}
 		schedule = &sc
 	}
-	return Definition{Name: s.Name, Language: lang, Outputs: outputs, Source: source, Schedule: schedule, TemplateID: s.TemplateID}, nil
+	return Definition{Name: s.Name, Language: lang, Outputs: outputs, Source: source, Schedule: schedule, TemplateID: s.TemplateID, Voice: s.Voice}, nil
 }
 
 func sourceFromSnapshot(s SourceSnapshot) (Source, error) {

@@ -33,8 +33,8 @@ type Spec struct {
 	Height      int     `json:"height"`
 	MinDuration float64 `json:"minDuration"`
 	MaxDuration float64 `json:"maxDuration"`
-	Voice       string  `json:"voice,omitempty"`
-	Speed       float64 `json:"speed,omitempty"`
+	// Speech is the narration voice and its options.
+	Speech speech.Options `json:"speech"`
 	// Long marks long-form video: metadata needs YouTube chapters.
 	Long bool `json:"long,omitempty"`
 }
@@ -157,7 +157,7 @@ func (e Env) tts(ctx context.Context, textFile string) error {
 	if err := os.MkdirAll(out, 0o750); err != nil {
 		return err
 	}
-	t, err := e.Speech.Say(ctx, lang, e.path(textFile), out, e.Spec.Voice, e.Spec.Speed)
+	t, err := e.Speech.Say(ctx, lang, e.path(textFile), out, e.Spec.Speech)
 	if err != nil {
 		return err
 	}

@@ -46,6 +46,11 @@ var workspaceActions = map[string]identitydomain.Action{
 	"DuplicateTemplate": identitydomain.ActionEdit,
 	"GenerateTemplate":  identitydomain.ActionEdit,
 
+	"GetVoiceSettings":  identitydomain.ActionView,
+	"SaveVoiceSettings": identitydomain.ActionManage,
+	"PreviewVoice":      identitydomain.ActionEdit,
+	"GetVoicePreview":   identitydomain.ActionView,
+
 	"GetSEOProfile":        identitydomain.ActionView,
 	"ListOpportunities":    identitydomain.ActionView,
 	"SaveSEOProfile":       identitydomain.ActionManage,

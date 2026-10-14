@@ -54,7 +54,9 @@ func TestRouterIsFullyWired(t *testing.T) {
 	}
 	_ = post("/api/v1/auth/login", `{"email":"a@example.com","password":"correct-horse-1"}`).Body.Close()
 	res := post("/api/v1/workspaces", `{"name":"ws","timezone":"UTC"}`)
-	var ws struct{ ID string `json:"id"` }
+	var ws struct {
+		ID string `json:"id"`
+	}
 	_ = json.NewDecoder(res.Body).Decode(&ws)
 	_ = res.Body.Close()
 	base := "/api/v1/workspaces/" + ws.ID
@@ -62,7 +64,7 @@ func TestRouterIsFullyWired(t *testing.T) {
 		"/api/v1/me", "/api/v1/system", "/api/v1/system/profiles", "/api/v1/system/credentials",
 		base, base + "/members", base + "/invitations", base + "/pipelines", base + "/jobs", base + "/documents",
 		base + "/stories", base + "/notifications", base + "/integrations", base + "/seo", base + "/opportunities",
-		base + "/templates",
+		base + "/templates", base + "/voice", "/api/v1/voices",
 	} {
 		res, err := c.Get(srv.URL + path)
 		if err != nil {

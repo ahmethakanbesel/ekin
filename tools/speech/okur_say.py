@@ -106,6 +106,36 @@ def chunks(text: str, lang: str) -> list[tuple[int, str]]:
     return out
 
 
+def load_lexicon(path) -> dict[str, str]:
+    """Pronunciation dictionary: {"written": "spoken"}; keys match case-insensitively."""
+    if path is None:
+        return {}
+    try:
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise Failure(f"cannot read --lexicon: {e}") from e
+    if not isinstance(raw, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in raw.items()):
+        raise Failure("--lexicon must be a JSON object of strings")
+    return {k.strip().casefold(): v.strip() for k, v in raw.items() if k.strip() and v.strip()}
+
+
+def respell(tokens: list[str], lexicon: dict[str, str]) -> list[str]:
+    """Each written token as it should be spoken: the dictionary entry for its core (punctuation kept), else itself.
+    One spoken entry per written token, so timings map back to the written words."""
+    if not lexicon:
+        return tokens
+    out = []
+    for t in tokens:
+        i, j = 0, len(t)
+        while i < j and not t[i].isalnum():
+            i += 1
+        while j > i and not t[j - 1].isalnum():
+            j -= 1
+        spoken = lexicon.get(t[i:j].casefold())
+        out.append(t[:i] + spoken + t[j:] if spoken else t)
+    return out
+
+
 def map_tokens(tokens: list[str], spoken: list[str], render) -> list[tuple[int, int, int, int]]:
     """Group written tokens with the spoken words they became: [(tok_a, tok_b, spk_a, spk_b)].
 
@@ -335,7 +365,7 @@ class Okur:
         self.sample_rate = int(self.config["sample_rate"])
         self.hop = int(self.config["hop"])  # samples per latent frame: 1920 at 48 kHz = 40 ms
 
-    def say(self, letters: str, speed: float) -> tuple[np.ndarray, list[tuple[float, float] | None]]:
+    def say(self, letters: str, speed: float, seed: int = 0) -> tuple[np.ndarray, list[tuple[float, float] | None]]:
         """Audio for frontend output `letters`, and (start, end) seconds of each spoken word (None: no letters)."""
         ids = np.array([self.encode(letters)], dtype=np.int64)
         h, dur = (np.asarray(x) for x in self.sessions["text"].run(None, {"ids": ids}))
@@ -344,7 +374,7 @@ class Okur:
         counts = word_frames(dur[0].astype(np.float32), cw, n_words)
         fw, fp = frame_timeline(counts)
         steps, c = len(self.config["times"]), int(self.config["latent_dim"])
-        noise = gaussian_noise(SEED, steps * len(fw) * c).reshape(steps, 1, len(fw), c)
+        noise = gaussian_noise(seed, steps * len(fw) * c).reshape(steps, 1, len(fw), c)
         (z,) = self.sessions["sample"].run(None, {
             "h": h, "dur": dur.astype(np.float32), "cw": cw[None], "wstart": wstart[None], "fw": fw[None],
             "fp": fp[None].astype(np.float32), "noise": noise})
@@ -379,9 +409,17 @@ def main() -> int:
     ap.add_argument("--out-dir", required=True, type=Path)
     ap.add_argument("--speed", type=float, default=1.0)
     ap.add_argument("--voice", default=None, help="ignored: okur v1.0 has one voice")
+    ap.add_argument("--seed", type=int, default=SEED, help="noise seed: other values give other takes of the same text")
+    ap.add_argument("--sentence-pause", type=float, default=SENTENCE_PAUSE, help="seconds between sentences")
+    ap.add_argument("--paragraph-pause", type=float, default=PARAGRAPH_PAUSE, help="seconds between paragraphs")
+    ap.add_argument("--lexicon", type=Path, default=None, help='JSON {"written": "spoken"} pronunciation dictionary')
     ap.add_argument("--model-dir", type=Path, default=Path("~/.cache/kurgu/speech/okur"))
     args = ap.parse_args()
     t0 = time.perf_counter()
+    for name, v in (("--sentence-pause", args.sentence_pause), ("--paragraph-pause", args.paragraph_pause)):
+        if not 0.0 <= v <= 3.0:
+            raise Failure(f"{name} must be between 0 and 3 seconds, got {v}")
+    lexicon = load_lexicon(args.lexicon)
     if not 0.25 <= args.speed <= 4.0:
         raise Failure(f"--speed must be between 0.25 and 4, got {args.speed}")
     try:
@@ -404,15 +442,17 @@ def main() -> int:
     offset = 0  # samples
     prev_paragraph = None
     for paragraph, sentence in pieces:
-        letters = tts.frontend(sentence)
+        tokens = sentence.split()
+        spoken_tokens = respell(tokens, lexicon)
+        letters = tts.frontend(" ".join(spoken_tokens))
         if not any(ch in LETTERS for ch in letters):
             continue  # nothing pronounceable
         if prev_paragraph is not None:
-            gap = round((PARAGRAPH_PAUSE if paragraph != prev_paragraph else SENTENCE_PAUSE) * sr)
+            gap = round((args.paragraph_pause if paragraph != prev_paragraph else args.sentence_pause) * sr)
             parts.append(np.zeros(gap, dtype=np.float32))
             offset += gap
         prev_paragraph = paragraph
-        audio, spans = tts.say(letters, args.speed)
+        audio, spans = tts.say(letters, args.speed, args.seed)
         # The model opens with a short silence and closes with the pause its final punctuation asks for; trim both
         # so the inserted sentence and paragraph pauses set the rhythm, like kokoro's trimming.
         a, b = sounding_range(audio, sr)
@@ -422,8 +462,7 @@ def main() -> int:
                  for s in spans]
         spans = refine(audio, sr, spans)
         sec = offset / sr
-        tokens = sentence.split()
-        groups = map_tokens(tokens, letters.split(" "), render)
+        groups = map_tokens(spoken_tokens, letters.split(" "), render)
         for w in place_words(tokens, groups, spans):
             words.append({"text": w["text"], "start": w["start"] + sec, "end": w["end"] + sec})
         segments.append({"text": sentence, "start": sec, "end": sec + len(audio) / sr})

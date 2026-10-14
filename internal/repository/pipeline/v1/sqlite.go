@@ -13,6 +13,7 @@ import (
 	"kurgu/internal/apperror"
 	"kurgu/internal/db"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
+	voicedomain "kurgu/internal/domain/voice/v1"
 	"kurgu/pkg/timeutil"
 )
 
@@ -30,7 +31,7 @@ func NewSQLite(q db.QuerierSource) *SQLite {
 
 const pipelineColumns = `id, workspace_id, name, language, outputs, source,
 	schedule_cron, schedule_tz, schedule_batch, status, next_run_at, last_run_at,
-	created_at, updated_at, version, template_id`
+	created_at, updated_at, version, template_id, voice`
 
 // outputsJSON is the stored shape of the outputs column.
 type outputsJSON struct {
@@ -48,6 +49,7 @@ type row struct {
 	nextRunAt, lastRunAt                             sql.NullInt64
 	createdAt, updatedAt, version                    int64
 	templateID                                       sql.NullString
+	voice                                            sql.NullString
 }
 
 func toRow(s pipelinedomain.Snapshot) (row, error) {
@@ -76,6 +78,10 @@ func toRow(s pipelinedomain.Snapshot) (row, error) {
 	if s.TemplateID != uuid.Nil {
 		r.templateID = sql.NullString{String: s.TemplateID.String(), Valid: true}
 	}
+	if s.Voice != nil {
+		raw, _ := json.Marshal(s.Voice)
+		r.voice = sql.NullString{String: string(raw), Valid: true}
+	}
 	if sc := s.Schedule; sc != nil {
 		r.cron = sql.NullString{String: sc.Cron, Valid: true}
 		r.tz = sql.NullString{String: sc.Timezone, Valid: true}
@@ -90,10 +96,10 @@ func (r *SQLite) Create(ctx context.Context, p *pipelinedomain.Pipeline) error {
 		return err
 	}
 	_, err = r.q.W(ctx).ExecContext(ctx, `INSERT INTO pipelines (`+pipelineColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		v.id, v.workspaceID, v.name, v.language, v.outputs, v.source,
 		v.cron, v.tz, v.batch, v.status, v.nextRunAt, v.lastRunAt,
-		v.createdAt, v.updatedAt, v.version, v.templateID)
+		v.createdAt, v.updatedAt, v.version, v.templateID, v.voice)
 	if err != nil {
 		return fmt.Errorf("insert pipeline: %w", err)
 	}
@@ -109,11 +115,11 @@ func (r *SQLite) Update(ctx context.Context, p *pipelinedomain.Pipeline) (*pipel
 	res, err := r.q.W(ctx).ExecContext(ctx, `UPDATE pipelines SET
 			name = ?, language = ?, outputs = ?, source = ?,
 			schedule_cron = ?, schedule_tz = ?, schedule_batch = ?, status = ?,
-			next_run_at = ?, last_run_at = ?, updated_at = ?, template_id = ?, version = version + 1
+			next_run_at = ?, last_run_at = ?, updated_at = ?, template_id = ?, voice = ?, version = version + 1
 		WHERE id = ? AND workspace_id = ? AND version = ?`,
 		v.name, v.language, v.outputs, v.source,
 		v.cron, v.tz, v.batch, v.status,
-		v.nextRunAt, v.lastRunAt, v.updatedAt, v.templateID,
+		v.nextRunAt, v.lastRunAt, v.updatedAt, v.templateID, v.voice,
 		v.id, v.workspaceID, v.version)
 	if err != nil {
 		return nil, fmt.Errorf("update pipeline: %w", err)
@@ -187,7 +193,7 @@ func scanPipeline(s scanner) (*pipelinedomain.Pipeline, error) {
 	var v row
 	err := s.Scan(&v.id, &v.workspaceID, &v.name, &v.language, &v.outputs, &v.source,
 		&v.cron, &v.tz, &v.batch, &v.status, &v.nextRunAt, &v.lastRunAt,
-		&v.createdAt, &v.updatedAt, &v.version, &v.templateID)
+		&v.createdAt, &v.updatedAt, &v.version, &v.templateID, &v.voice)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -233,6 +239,7 @@ func fromRow(v row) (pipelinedomain.Snapshot, error) {
 		CreatedAt:   timeutil.FromMillis(v.createdAt),
 		UpdatedAt:   timeutil.FromMillis(v.updatedAt),
 		TemplateID:  parseTemplateID(v.templateID),
+		Voice:       parseVoice(v.voice),
 		Version:     v.version,
 	}
 	if v.cron.Valid {
@@ -254,4 +261,15 @@ func parseTemplateID(s sql.NullString) uuid.UUID {
 	}
 	id, _ := uuid.Parse(s.String)
 	return id
+}
+
+func parseVoice(s sql.NullString) *voicedomain.Override {
+	if !s.Valid {
+		return nil
+	}
+	var o voicedomain.Override
+	if json.Unmarshal([]byte(s.String), &o) != nil {
+		return nil
+	}
+	return &o
 }

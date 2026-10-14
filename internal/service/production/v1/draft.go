@@ -22,6 +22,7 @@ import (
 	jobdomain "kurgu/internal/domain/job/v1"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	storydomain "kurgu/internal/domain/story/v1"
+	voicedomain "kurgu/internal/domain/voice/v1"
 	"kurgu/pkg/archive"
 )
 
@@ -351,6 +352,17 @@ func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydo
 		lo, hi := durationBounds(v)
 		t.spec.Width, t.spec.Height, t.spec.MinDuration, t.spec.MaxDuration = w, h, lo, hi
 		t.spec.Long = v.Format() == pipelinedomain.FormatLong
+		if s.voices != nil {
+			var override *voicedomain.Override
+			if d.Language() == st.Language() {
+				override = st.Brief().Voice
+			}
+			opts, err := s.voices.Options(ctx, st.WorkspaceID(), string(d.Language()), override)
+			if err != nil {
+				return t, err
+			}
+			t.spec.Speech = opts
+		}
 		data["Long"] = v.Format() == pipelinedomain.FormatLong
 		data["Width"], data["Height"] = w, h
 		data["MinSeconds"], data["MaxSeconds"] = int(lo), int(hi)

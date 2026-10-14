@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"kurgu/internal/apperror"
+	voicedomain "kurgu/internal/domain/voice/v1"
 	"kurgu/pkg/timeutil"
 )
 
@@ -35,6 +36,8 @@ type Definition struct {
 	Schedule *Schedule
 	// TemplateID is the house style its stories use; Nil for none.
 	TemplateID uuid.UUID
+	// Voice overrides the workspace's narration voice; nil for none.
+	Voice *voicedomain.Override
 }
 
 // Pipeline is the aggregate root.
@@ -174,12 +177,19 @@ func (p *Pipeline) Language() Language     { return p.def.Language }
 func (p *Pipeline) Outputs() Outputs       { return p.def.Outputs }
 func (p *Pipeline) Source() Source         { return p.def.Source }
 func (p *Pipeline) TemplateID() uuid.UUID  { return p.def.TemplateID }
-func (p *Pipeline) Status() Status         { return p.status }
-func (p *Pipeline) NextRunAt() time.Time   { return p.nextRunAt }
-func (p *Pipeline) LastRunAt() time.Time   { return p.lastRunAt }
-func (p *Pipeline) CreatedAt() time.Time   { return p.createdAt }
-func (p *Pipeline) UpdatedAt() time.Time   { return p.updatedAt }
-func (p *Pipeline) Version() int64         { return p.version }
+func (p *Pipeline) Voice() *voicedomain.Override {
+	if p.def.Voice == nil {
+		return nil
+	}
+	v := *p.def.Voice
+	return &v
+}
+func (p *Pipeline) Status() Status       { return p.status }
+func (p *Pipeline) NextRunAt() time.Time { return p.nextRunAt }
+func (p *Pipeline) LastRunAt() time.Time { return p.lastRunAt }
+func (p *Pipeline) CreatedAt() time.Time { return p.createdAt }
+func (p *Pipeline) UpdatedAt() time.Time { return p.updatedAt }
+func (p *Pipeline) Version() int64       { return p.version }
 
 // Schedule returns the schedule, if the pipeline has one.
 func (p *Pipeline) Schedule() (Schedule, bool) {

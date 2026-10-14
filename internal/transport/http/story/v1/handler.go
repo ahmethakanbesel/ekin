@@ -4,6 +4,7 @@ package handler
 
 import (
 	"context"
+	voicehandler "kurgu/internal/transport/http/voice/v1"
 	"slices"
 	"time"
 
@@ -103,6 +104,7 @@ func (h *Handler) CreateStories(ctx context.Context, req gen.CreateStoriesReques
 	if req.Body.TemplateId != nil {
 		in.TemplateID = *req.Body.TemplateId
 	}
+	in.Voice = voicehandler.OverrideOf(req.Body.Voice)
 	if req.Body.Style != nil {
 		in.Style = *req.Body.Style
 	}

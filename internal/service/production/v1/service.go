@@ -20,6 +20,7 @@ import (
 
 	"kurgu/internal/adapter/claude"
 	"kurgu/internal/adapter/render"
+	"kurgu/internal/adapter/speech"
 	"kurgu/internal/apperror"
 	"kurgu/internal/blob"
 	"kurgu/internal/db"
@@ -27,6 +28,7 @@ import (
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	seodomain "kurgu/internal/domain/seo/v1"
 	storydomain "kurgu/internal/domain/story/v1"
+	voicedomain "kurgu/internal/domain/voice/v1"
 	storyrepo "kurgu/internal/repository/story/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
 )
@@ -86,6 +88,12 @@ type Opportunities interface {
 // template service).
 type Templates interface {
 	Style(ctx context.Context, workspaceID, templateID uuid.UUID) (*storydomain.TemplateStyle, error)
+}
+
+// Voices resolves narration settings (the voice service).
+type Voices interface {
+	Options(ctx context.Context, workspaceID uuid.UUID, language string, o *voicedomain.Override) (speech.Options, error)
+	CheckOverride(ctx context.Context, language string, o voicedomain.Override) error
 }
 
 // Notifier tells people that something needs them (M5: email digests).
@@ -156,6 +164,7 @@ type Service struct {
 	dedupe     Dedupe
 	seo        Opportunities
 	templates  Templates
+	voices     Voices
 	publishers map[pipelinedomain.Kind]Publisher
 	log        *slog.Logger
 	now        func() time.Time
@@ -175,6 +184,7 @@ type Deps struct {
 	Dedupe    Dedupe
 	SEO       Opportunities
 	Templates Templates
+	Voices    Voices
 	Log       *slog.Logger
 }
 
@@ -202,7 +212,7 @@ func NewService(cfg Config, d Deps) *Service {
 	}
 	return &Service{
 		cfg: cfg, stories: d.Stories, pipelines: d.Pipelines, knowledge: d.Knowledge, jobs: d.Jobs, tx: d.Tx,
-		blobs: d.Blobs, agent: d.Agent, renderer: d.Renderer, notifier: notifier, dedupe: d.Dedupe, seo: d.SEO, templates: d.Templates,
+		blobs: d.Blobs, agent: d.Agent, renderer: d.Renderer, notifier: notifier, dedupe: d.Dedupe, seo: d.SEO, templates: d.Templates, voices: d.Voices,
 		publishers: map[pipelinedomain.Kind]Publisher{}, log: log, now: time.Now,
 	}
 }

@@ -19,6 +19,7 @@ import (
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	seodomain "kurgu/internal/domain/seo/v1"
 	storydomain "kurgu/internal/domain/story/v1"
+	voicedomain "kurgu/internal/domain/voice/v1"
 	storyrepo "kurgu/internal/repository/story/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
@@ -50,6 +51,7 @@ type AdHocPayload struct {
 	Lead        string                          `json:"lead,omitempty"`
 	Refs        []storydomain.Ref               `json:"refs,omitempty"`
 	TemplateID  uuid.UUID                       `json:"templateId,omitempty"`
+	Voice       *voicedomain.Override           `json:"voice,omitempty"`
 }
 
 // AdHocRequest is a parsed ad-hoc request.
@@ -62,6 +64,8 @@ type AdHocRequest struct {
 	Refs     []storydomain.Ref
 	// TemplateID is the house style; Nil for none.
 	TemplateID uuid.UUID
+	// Voice overrides the narration voice; nil for none.
+	Voice *voicedomain.Override
 }
 
 // MaxAdHocCount bounds one ad-hoc request.
@@ -81,7 +85,12 @@ func (s *Service) QueueAdHoc(ctx context.Context, workspaceID, actorID uuid.UUID
 	p := AdHocPayload{
 		WorkspaceID: workspaceID, ActorID: actorID, Idea: strings.TrimSpace(req.Idea), Count: req.Count,
 		Language: string(req.Language), Style: strings.TrimSpace(req.Style), Lead: string(req.Outputs.Lead()), Refs: req.Refs,
-		TemplateID: req.TemplateID,
+		TemplateID: req.TemplateID, Voice: req.Voice,
+	}
+	if req.Voice != nil && s.voices != nil {
+		if err := s.voices.CheckOverride(ctx, string(req.Language), *req.Voice); err != nil {
+			return nil, err
+		}
 	}
 	if req.TemplateID != uuid.Nil && s.templates != nil {
 		if _, err := s.templates.Style(ctx, workspaceID, req.TemplateID); err != nil {
@@ -141,7 +150,7 @@ func (s *Service) PlanAdHoc(ctx context.Context, p AdHocPayload) error {
 	for _, idea := range ideas {
 		plans = append(plans, storydomain.Plan{
 			WorkspaceID: p.WorkspaceID, Origin: storydomain.OriginAdHoc, Language: lang, Idea: idea.Idea,
-			Brief:   storydomain.Brief{Instructions: p.Idea, Style: p.Style, Refs: p.Refs, Template: tmpl},
+			Brief:   storydomain.Brief{Instructions: p.Idea, Style: p.Style, Refs: p.Refs, Template: tmpl, Voice: p.Voice},
 			Outputs: outputs, CreatedBy: p.ActorID,
 		})
 	}
@@ -233,7 +242,7 @@ func (s *Service) PlanRun(ctx context.Context, run pipelinesvc.RunPayload) error
 	}
 	plans := make([]storydomain.Plan, 0, len(ideas))
 	for _, idea := range ideas {
-		brief := storydomain.Brief{Instructions: src.Instructions(), Template: tmpl}
+		brief := storydomain.Brief{Instructions: src.Instructions(), Template: tmpl, Voice: p.Voice()}
 		if idea.Window >= 0 && idea.Window < len(windows) {
 			brief.Refs = windows[idea.Window]
 		}

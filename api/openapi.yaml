@@ -23,6 +23,7 @@ tags:
   - name: integrations
   - name: seo
   - name: templates
+  - name: voice
   - name: pipelines
   - name: jobs
 
@@ -876,6 +877,107 @@ paths:
               schema: { $ref: "#/components/schemas/Opportunity" }
         default: { $ref: "#/components/responses/Error" }
 
+  /voices:
+    get:
+      operationId: listVoices
+      tags: [voice]
+      description: The TTS engine of each language and its voices and limits.
+      responses:
+        "200":
+          description: Catalog.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [engines]
+                properties:
+                  engines:
+                    type: array
+                    items: { $ref: "#/components/schemas/VoiceEngine" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/voice:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: getVoiceSettings
+      tags: [voice]
+      responses:
+        "200":
+          description: Narration settings per language and the pronunciation dictionary.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VoiceSettings" }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      operationId: saveVoiceSettings
+      tags: [voice]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VoiceSettings" }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VoiceSettings" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/voice/previews:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    post:
+      operationId: previewVoice
+      tags: [voice]
+      description: >
+        Renders a short sample on a worker (tts queue) with the given settings
+        and the workspace's pronunciation dictionary. Fetch the audio with the
+        returned previewId when the job has finished.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [language, config]
+              properties:
+                language: { $ref: "#/components/schemas/Language" }
+                config: { $ref: "#/components/schemas/VoiceConfig" }
+                text: { type: string, maxLength: 400 }
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [previewId, job]
+                properties:
+                  previewId: { type: string, format: uuid }
+                  job: { $ref: "#/components/schemas/Job" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/voice/previews/{previewId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - name: previewId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getVoicePreview
+      tags: [voice]
+      description: The rendered sample; 404 NotFound until it is ready.
+      responses:
+        "200":
+          description: WAV audio.
+          content:
+            audio/wav:
+              schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Error" }
+
   /workspaces/{workspaceId}/templates:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"
@@ -1674,6 +1776,7 @@ components:
           type: string
           format: uuid
           description: House style for the stories.
+        voice: { $ref: "#/components/schemas/VoiceOverride" }
 
     SystemCheck:
       type: object
@@ -1806,6 +1909,67 @@ components:
       properties:
         youtube: { $ref: "#/components/schemas/YouTubeIntegration" }
         blog: { $ref: "#/components/schemas/BlogTarget" }
+
+    Voice:
+      type: object
+      required: [id, label, accent, gender]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        accent: { type: string }
+        gender: { type: string }
+
+    VoiceEngine:
+      type: object
+      required: [language, name, voices, minSpeed, maxSpeed, hasSeed, hasQuality, defaultVoice]
+      properties:
+        language: { $ref: "#/components/schemas/Language" }
+        name: { type: string }
+        voices:
+          type: array
+          items: { $ref: "#/components/schemas/Voice" }
+        minSpeed: { type: number, format: double }
+        maxSpeed: { type: number, format: double }
+        hasSeed: { type: boolean, description: "Seed picks another take of the same text (okur)." }
+        hasQuality: { type: boolean, description: "Model precision: fp32 best, int8 fastest (Kokoro)." }
+        defaultVoice: { type: string }
+
+    VoiceConfig:
+      type: object
+      required: [voice, speed, sentencePause, paragraphPause]
+      properties:
+        voice: { type: string }
+        speed: { type: number, format: double }
+        sentencePause: { type: number, format: double, minimum: 0, maximum: 3 }
+        paragraphPause: { type: number, format: double, minimum: 0, maximum: 3 }
+        seed: { type: integer, minimum: 0, maximum: 1000000 }
+        quality:
+          type: string
+          enum: [fp32, fp16, int8]
+
+    VoiceSettings:
+      type: object
+      required: [languages, lexicon]
+      properties:
+        languages:
+          type: object
+          description: Config per language code (tr, en).
+          additionalProperties: { $ref: "#/components/schemas/VoiceConfig" }
+        lexicon:
+          type: object
+          description: >
+            Pronunciation dictionary per language: written word → how to say
+            it. Captions keep the written word.
+          additionalProperties:
+            type: object
+            additionalProperties: { type: string }
+
+    VoiceOverride:
+      type: object
+      description: Overrides the workspace voice or speed for one pipeline or request.
+      properties:
+        voice: { type: string }
+        speed: { type: number, format: double }
 
     TemplateFont:
       type: string
@@ -2024,6 +2188,7 @@ components:
           type: string
           format: uuid
           description: House style for this pipeline's stories.
+        voice: { $ref: "#/components/schemas/VoiceOverride" }
 
     Pipeline:
       type: object

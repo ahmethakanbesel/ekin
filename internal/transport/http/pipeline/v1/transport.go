@@ -1,6 +1,8 @@
 package handler
 
 import (
+	voicehandler "kurgu/internal/transport/http/voice/v1"
+
 	"github.com/google/uuid"
 
 	"time"
@@ -30,6 +32,7 @@ func parseDefinition(in gen.PipelineDefinition) (pipelinedomain.Definition, erro
 	if in.TemplateId != nil {
 		def.TemplateID = *in.TemplateId
 	}
+	def.Voice = voicehandler.OverrideOf(in.Voice)
 	if in.Schedule != nil {
 		loc, err := workspacedomain.ParseTimezone(in.Schedule.Timezone)
 		if err != nil {
@@ -173,6 +176,7 @@ func definitionToWire(p *pipelinedomain.Pipeline) gen.PipelineDefinition {
 	if tid := p.TemplateID(); tid != uuid.Nil {
 		def.TemplateId = &tid
 	}
+	def.Voice = voicehandler.OverrideToWire(p.Voice())
 	return def
 }
 

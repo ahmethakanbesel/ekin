@@ -46,9 +46,22 @@ type Synth struct {
 	Threads   int    // ONNX Runtime threads; 0 = all cores
 }
 
+// Options shape the narration.
+type Options struct {
+	Voice          string            `json:"voice,omitempty"`
+	Speed          float64           `json:"speed,omitempty"`
+	Seed           int               `json:"seed,omitempty"`           // okur
+	SentencePause  float64           `json:"sentencePause,omitempty"`  // seconds; 0 = script default
+	ParagraphPause float64           `json:"paragraphPause,omitempty"` // seconds; 0 = script default
+	Quality        string            `json:"quality,omitempty"`        // kokoro: fp32 | fp16 | int8
+	Accent         string            `json:"accent,omitempty"`         // kokoro: en-us | en-gb
+	Lexicon        map[string]string `json:"lexicon,omitempty"`        // written word → spoken form
+}
+
 // Say synthesises the text in textFile into outDir/speech.wav and
 // outDir/timings.json. lang is "tr" or "en".
-func (s *Synth) Say(ctx context.Context, lang, textFile, outDir, voice string, speed float64) (Timings, error) {
+func (s *Synth) Say(ctx context.Context, lang, textFile, outDir string, o Options) (Timings, error) {
+	voice, speed := o.Voice, o.Speed
 	script := ""
 	switch lang {
 	case "tr":
@@ -67,8 +80,41 @@ func (s *Synth) Say(ctx context.Context, lang, textFile, outDir, voice string, s
 	}
 	args := []string{"run", "--quiet", "--script", filepath.Join(s.ScriptDir, script),
 		"--text-file", textFile, "--out-dir", outDir, "--speed", strconv.FormatFloat(speed, 'f', 2, 64)}
-	if voice != "" {
+	if voice != "" && lang == "en" {
 		args = append(args, "--voice", voice)
+	}
+	if o.SentencePause > 0 {
+		args = append(args, "--sentence-pause", strconv.FormatFloat(o.SentencePause, 'f', 3, 64))
+	}
+	if o.ParagraphPause > 0 {
+		args = append(args, "--paragraph-pause", strconv.FormatFloat(o.ParagraphPause, 'f', 3, 64))
+	}
+	if lang == "tr" && o.Seed != 0 {
+		args = append(args, "--seed", strconv.Itoa(o.Seed))
+	}
+	if lang == "en" {
+		if o.Quality != "" {
+			args = append(args, "--quality", o.Quality)
+		}
+		accent := o.Accent
+		if accent == "" && strings.HasPrefix(voice, "b") {
+			accent = "en-gb" // British voices read best with British phonemes
+		}
+		if accent != "" {
+			args = append(args, "--accent", accent)
+		}
+	}
+	if len(o.Lexicon) > 0 {
+		raw, _ := json.Marshal(o.Lexicon)
+		lex := filepath.Join(outDir, ".lexicon.json")
+		if err := os.MkdirAll(outDir, 0o750); err != nil {
+			return Timings{}, err
+		}
+		if err := os.WriteFile(lex, raw, 0o600); err != nil {
+			return Timings{}, err
+		}
+		defer func() { _ = os.Remove(lex) }()
+		args = append(args, "--lexicon", lex)
 	}
 	if s.ModelDir != "" {
 		args = append(args, "--model-dir", filepath.Join(s.ModelDir, strings.TrimSuffix(script, "_say.py")))

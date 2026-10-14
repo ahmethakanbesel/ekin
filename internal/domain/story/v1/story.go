@@ -15,6 +15,7 @@ import (
 
 	"kurgu/internal/apperror"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
+	voicedomain "kurgu/internal/domain/voice/v1"
 	"kurgu/pkg/timeutil"
 )
 
@@ -128,6 +129,9 @@ type Brief struct {
 	// Template is the house style chosen for the story, copied at
 	// planning so later template edits leave it alone.
 	Template *TemplateStyle `json:"template,omitempty"`
+	// Voice overrides the workspace voice for narration in the story's
+	// language (from the pipeline or request).
+	Voice *voicedomain.Override `json:"voice,omitempty"`
 	// Keyword is the search term an SEO-sourced story targets.
 	Keyword       string    `json:"keyword,omitempty"`
 	OpportunityID uuid.UUID `json:"opportunityId,omitempty"`
