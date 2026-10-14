@@ -5,6 +5,7 @@
 //	kurgu all              serve and worker in one process (laptop mode)
 //	kurgu migrate up|down|status
 //	kurgu user create|reset-password
+//	kurgu tool tts|frame|check|stock|music
 //	kurgu version
 package main
 
@@ -37,6 +38,7 @@ commands:
   migrate up|down|status
   user create|reset-password
                         manage accounts (see kurgu user)
+  tool <command>        agent tools: tts, frame, check, stock, music
   version
 `
 
@@ -55,6 +57,11 @@ func run(args []string) error {
 	if args[0] == "version" {
 		fmt.Printf("kurgu %s (%s)\n", version, commit)
 		return nil
+	}
+	if args[0] == "tool" {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		return tool(ctx, args[1:])
 	}
 	cfg, err := config.Load()
 	if err != nil {
