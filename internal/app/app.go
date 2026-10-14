@@ -240,9 +240,9 @@ func (a *App) Identity() *identitysvc.Service { return a.identity }
 // Workspaces exposes the workspace service to the CLI.
 func (a *App) Workspaces() *workspacesvc.Service { return a.workspaces }
 
-// Serve runs the HTTP API, the web UI and the scheduler until ctx ends.
-func (a *App) Serve(ctx context.Context) error {
-	router, err := httptransport.NewRouter(httptransport.Deps{
+// Router builds the HTTP handler with every service wired in.
+func (a *App) Router() (http.Handler, error) {
+	return httptransport.NewRouter(httptransport.Deps{
 		Identity:    a.identity,
 		Workspaces:  a.workspaces,
 		Pipelines:   a.pipelines,
@@ -253,12 +253,18 @@ func (a *App) Serve(ctx context.Context) error {
 		Inviter:     inviter{a.notify, a.workspaces},
 		Publishing:  a.publishing,
 		SEO:         a.seo,
+		Templates:   a.templates,
 		WorkerToken: a.cfg.Remote.Token,
 		System:      systemhandler.New(a.settings, a.cfg.Worker.Profile, a.version, a.checks).OnCredentialsChange(resetChecks),
 		PublicURL:   a.cfg.PublicURL,
 		UI:          web.Dist(),
 		Log:         a.log,
 	})
+}
+
+// Serve runs the HTTP API, the web UI and the scheduler until ctx ends.
+func (a *App) Serve(ctx context.Context) error {
+	router, err := a.Router()
 	if err != nil {
 		return err
 	}
