@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -294,6 +295,27 @@ func (e NotificationKind) Valid() bool {
 	}
 }
 
+// Defines values for OpportunityStatus.
+const (
+	OpportunityStatusDismissed OpportunityStatus = "dismissed"
+	OpportunityStatusOpen      OpportunityStatus = "open"
+	OpportunityStatusUsed      OpportunityStatus = "used"
+)
+
+// Valid indicates whether the value is a known member of the OpportunityStatus enum.
+func (e OpportunityStatus) Valid() bool {
+	switch e {
+	case OpportunityStatusDismissed:
+		return true
+	case OpportunityStatusOpen:
+		return true
+	case OpportunityStatusUsed:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PipelineStatus.
 const (
 	PipelineStatusActive PipelineStatus = "active"
@@ -358,6 +380,7 @@ func (e Role) Valid() bool {
 const (
 	SourceKindKnowledge SourceKind = "knowledge"
 	SourceKindPrompt    SourceKind = "prompt"
+	SourceKindSeo       SourceKind = "seo"
 )
 
 // Valid indicates whether the value is a known member of the SourceKind enum.
@@ -366,6 +389,8 @@ func (e SourceKind) Valid() bool {
 	case SourceKindKnowledge:
 		return true
 	case SourceKindPrompt:
+		return true
+	case SourceKindSeo:
 		return true
 	default:
 		return false
@@ -426,6 +451,24 @@ func (e VideoSpecOrientation) Valid() bool {
 	case VideoSpecOrientationSquare:
 		return true
 	case VideoSpecOrientationVertical:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateOpportunityJSONBodyStatus.
+const (
+	UpdateOpportunityJSONBodyStatusDismissed UpdateOpportunityJSONBodyStatus = "dismissed"
+	UpdateOpportunityJSONBodyStatusOpen      UpdateOpportunityJSONBodyStatus = "open"
+)
+
+// Valid indicates whether the value is a known member of the UpdateOpportunityJSONBodyStatus enum.
+func (e UpdateOpportunityJSONBodyStatus) Valid() bool {
+	switch e {
+	case UpdateOpportunityJSONBodyStatusDismissed:
+		return true
+	case UpdateOpportunityJSONBodyStatusOpen:
 		return true
 	default:
 		return false
@@ -701,6 +744,37 @@ type Notification struct {
 // NotificationKind defines model for Notification.Kind.
 type NotificationKind string
 
+// Opportunity defines model for Opportunity.
+type Opportunity struct {
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Difficulty -1 when unknown
+	Difficulty int                 `json:"difficulty"`
+	Id         openapi_types.UUID  `json:"id"`
+	Intent     string              `json:"intent"`
+	Keyword    string              `json:"keyword"`
+	Language   Language            `json:"language"`
+	Note       string              `json:"note"`
+	Score      float32             `json:"score"`
+	Source     string              `json:"source"`
+	Status     OpportunityStatus   `json:"status"`
+	StoryId    *openapi_types.UUID `json:"storyId,omitempty"`
+	Volume     int                 `json:"volume"`
+}
+
+// OpportunityInput defines model for OpportunityInput.
+type OpportunityInput struct {
+	Difficulty *int      `json:"difficulty,omitempty"`
+	Intent     *string   `json:"intent,omitempty"`
+	Keyword    string    `json:"keyword"`
+	Language   *Language `json:"language,omitempty"`
+	Note       *string   `json:"note,omitempty"`
+	Volume     *int      `json:"volume,omitempty"`
+}
+
+// OpportunityStatus defines model for OpportunityStatus.
+type OpportunityStatus string
+
 // Outputs A video, an article, or both. With both, `lead` says which is produced first; the other is derived from it.
 type Outputs struct {
 	Article *ArticleSpec     `json:"article,omitempty"`
@@ -760,6 +834,19 @@ type Revision struct {
 // Role owner: everything, including settings and members. editor: pipelines, runs and review. viewer: read only.
 type Role string
 
+// SEOProfile defines model for SEOProfile.
+type SEOProfile struct {
+	// Country Two-letter code such as TR.
+	Country string `json:"country"`
+
+	// Domain e.g. example.com
+	Domain   string   `json:"domain"`
+	Language Language `json:"language"`
+
+	// Topics What to look for.
+	Topics string `json:"topics"`
+}
+
 // Schedule defines model for Schedule.
 type Schedule struct {
 	// Batch Items produced per run.
@@ -775,12 +862,14 @@ type Schedule struct {
 // Source defines model for Source.
 type Source struct {
 	// Instructions Required for prompt sources, where it acts as the system prompt; optional guidance for knowledge sources.
-	Instructions string          `json:"instructions"`
-	Kind         SourceKind      `json:"kind"`
-	Refs         *[]KnowledgeRef `json:"refs,omitempty"`
+	Instructions string `json:"instructions"`
+
+	// Kind prompt: ideas from the instructions. knowledge: ideas and facts from the referenced pages. seo: each idea targets one open keyword opportunity from the workspace's pool.
+	Kind SourceKind      `json:"kind"`
+	Refs *[]KnowledgeRef `json:"refs,omitempty"`
 }
 
-// SourceKind defines model for Source.Kind.
+// SourceKind prompt: ideas from the instructions. knowledge: ideas and facts from the referenced pages. seo: each idea targets one open keyword opportunity from the workspace's pool.
 type SourceKind string
 
 // Story defines model for Story.
@@ -972,6 +1061,29 @@ type ListNotificationsParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListOpportunitiesParams defines parameters for ListOpportunities.
+type ListOpportunitiesParams struct {
+	Status *OpportunityStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// ImportOpportunitiesJSONBody defines parameters for ImportOpportunities.
+type ImportOpportunitiesJSONBody struct {
+	Items []OpportunityInput `json:"items"`
+}
+
+// RefreshOpportunitiesJSONBody defines parameters for RefreshOpportunities.
+type RefreshOpportunitiesJSONBody struct {
+	Count *int `json:"count,omitempty"`
+}
+
+// UpdateOpportunityJSONBody defines parameters for UpdateOpportunity.
+type UpdateOpportunityJSONBody struct {
+	Status UpdateOpportunityJSONBodyStatus `json:"status"`
+}
+
+// UpdateOpportunityJSONBodyStatus defines parameters for UpdateOpportunity.
+type UpdateOpportunityJSONBodyStatus string
+
 // RedefinePipelineJSONBody defines parameters for RedefinePipeline.
 type RedefinePipelineJSONBody struct {
 	Definition PipelineDefinition `json:"definition"`
@@ -1029,6 +1141,15 @@ type CreateInvitationJSONRequestBody CreateInvitationJSONBody
 // ChangeMemberRoleJSONRequestBody defines body for ChangeMemberRole for application/json ContentType.
 type ChangeMemberRoleJSONRequestBody ChangeMemberRoleJSONBody
 
+// ImportOpportunitiesJSONRequestBody defines body for ImportOpportunities for application/json ContentType.
+type ImportOpportunitiesJSONRequestBody ImportOpportunitiesJSONBody
+
+// RefreshOpportunitiesJSONRequestBody defines body for RefreshOpportunities for application/json ContentType.
+type RefreshOpportunitiesJSONRequestBody RefreshOpportunitiesJSONBody
+
+// UpdateOpportunityJSONRequestBody defines body for UpdateOpportunity for application/json ContentType.
+type UpdateOpportunityJSONRequestBody UpdateOpportunityJSONBody
+
 // CreatePipelineJSONRequestBody defines body for CreatePipeline for application/json ContentType.
 type CreatePipelineJSONRequestBody = PipelineDefinition
 
@@ -1037,6 +1158,9 @@ type RedefinePipelineJSONRequestBody RedefinePipelineJSONBody
 
 // RunPipelineJSONRequestBody defines body for RunPipeline for application/json ContentType.
 type RunPipelineJSONRequestBody RunPipelineJSONBody
+
+// SaveSEOProfileJSONRequestBody defines body for SaveSEOProfile for application/json ContentType.
+type SaveSEOProfileJSONRequestBody = SEOProfile
 
 // CreateStoriesJSONRequestBody defines body for CreateStories for application/json ContentType.
 type CreateStoriesJSONRequestBody = AdHocInput
@@ -1164,6 +1288,18 @@ type ServerInterface interface {
 	// (GET /workspaces/{workspaceId}/notifications)
 	ListNotifications(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params ListNotificationsParams)
 
+	// (GET /workspaces/{workspaceId}/opportunities)
+	ListOpportunities(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params ListOpportunitiesParams)
+
+	// (POST /workspaces/{workspaceId}/opportunities)
+	ImportOpportunities(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
+
+	// (POST /workspaces/{workspaceId}/opportunities/refresh)
+	RefreshOpportunities(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
+
+	// (PATCH /workspaces/{workspaceId}/opportunities/{opportunityId})
+	UpdateOpportunity(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, opportunityId openapi_types.UUID)
+
 	// (GET /workspaces/{workspaceId}/pipelines)
 	ListPipelines(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
 
@@ -1187,6 +1323,12 @@ type ServerInterface interface {
 
 	// (POST /workspaces/{workspaceId}/pipelines/{pipelineId}/runs)
 	RunPipeline(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, pipelineId PipelineId)
+
+	// (GET /workspaces/{workspaceId}/seo)
+	GetSEOProfile(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
+
+	// (PUT /workspaces/{workspaceId}/seo)
+	SaveSEOProfile(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
 
 	// (GET /workspaces/{workspaceId}/stories)
 	ListStories(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params ListStoriesParams)
@@ -2480,6 +2622,150 @@ func (siw *ServerInterfaceWrapper) ListNotifications(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// ListOpportunities operation middleware
+func (siw *ServerInterfaceWrapper) ListOpportunities(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListOpportunitiesParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOpportunities(w, r, workspaceId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ImportOpportunities operation middleware
+func (siw *ServerInterfaceWrapper) ImportOpportunities(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ImportOpportunities(w, r, workspaceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefreshOpportunities operation middleware
+func (siw *ServerInterfaceWrapper) RefreshOpportunities(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefreshOpportunities(w, r, workspaceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateOpportunity operation middleware
+func (siw *ServerInterfaceWrapper) UpdateOpportunity(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "opportunityId" -------------
+	var opportunityId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "opportunityId", r.PathValue("opportunityId"), &opportunityId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "opportunityId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateOpportunity(w, r, workspaceId, opportunityId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPipelines operation middleware
 func (siw *ServerInterfaceWrapper) ListPipelines(w http.ResponseWriter, r *http.Request) {
 
@@ -2773,6 +3059,68 @@ func (siw *ServerInterfaceWrapper) RunPipeline(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RunPipeline(w, r, workspaceId, pipelineId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSEOProfile operation middleware
+func (siw *ServerInterfaceWrapper) GetSEOProfile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSEOProfile(w, r, workspaceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SaveSEOProfile operation middleware
+func (siw *ServerInterfaceWrapper) SaveSEOProfile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SaveSEOProfile(w, r, workspaceId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3404,6 +3752,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("DELETE "+options.BaseURL+"/workspaces/{workspaceId}/members/{userId}", wrapper.RemoveMember)
 	m.HandleFunc("PATCH "+options.BaseURL+"/workspaces/{workspaceId}/members/{userId}", wrapper.ChangeMemberRole)
 	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/notifications", wrapper.ListNotifications)
+	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/opportunities", wrapper.ListOpportunities)
+	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/opportunities", wrapper.ImportOpportunities)
+	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/opportunities/refresh", wrapper.RefreshOpportunities)
+	m.HandleFunc("PATCH "+options.BaseURL+"/workspaces/{workspaceId}/opportunities/{opportunityId}", wrapper.UpdateOpportunity)
 	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/pipelines", wrapper.ListPipelines)
 	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/pipelines", wrapper.CreatePipeline)
 	m.HandleFunc("DELETE "+options.BaseURL+"/workspaces/{workspaceId}/pipelines/{pipelineId}", wrapper.DeletePipeline)
@@ -3412,6 +3764,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/pipelines/{pipelineId}/pause", wrapper.PausePipeline)
 	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/pipelines/{pipelineId}/resume", wrapper.ResumePipeline)
 	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/pipelines/{pipelineId}/runs", wrapper.RunPipeline)
+	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/seo", wrapper.GetSEOProfile)
+	m.HandleFunc("PUT "+options.BaseURL+"/workspaces/{workspaceId}/seo", wrapper.SaveSEOProfile)
 	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/stories", wrapper.ListStories)
 	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/stories", wrapper.CreateStories)
 	m.HandleFunc("DELETE "+options.BaseURL+"/workspaces/{workspaceId}/stories/{storyId}", wrapper.DeleteStory)
@@ -4675,6 +5029,131 @@ func (response ListNotificationsdefaultJSONResponse) VisitListNotificationsRespo
 	return json.NewEncoder(w).Encode(response.Body)
 }
 
+type ListOpportunitiesRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	Params      ListOpportunitiesParams
+}
+
+type ListOpportunitiesResponseObject interface {
+	VisitListOpportunitiesResponse(w http.ResponseWriter) error
+}
+
+type ListOpportunities200JSONResponse struct {
+	Opportunities []Opportunity `json:"opportunities"`
+}
+
+func (response ListOpportunities200JSONResponse) VisitListOpportunitiesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListOpportunitiesdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListOpportunitiesdefaultJSONResponse) VisitListOpportunitiesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ImportOpportunitiesRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	Body        *ImportOpportunitiesJSONRequestBody
+}
+
+type ImportOpportunitiesResponseObject interface {
+	VisitImportOpportunitiesResponse(w http.ResponseWriter) error
+}
+
+type ImportOpportunities200JSONResponse struct {
+	Added int `json:"added"`
+}
+
+func (response ImportOpportunities200JSONResponse) VisitImportOpportunitiesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ImportOpportunitiesdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ImportOpportunitiesdefaultJSONResponse) VisitImportOpportunitiesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type RefreshOpportunitiesRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	Body        *RefreshOpportunitiesJSONRequestBody
+}
+
+type RefreshOpportunitiesResponseObject interface {
+	VisitRefreshOpportunitiesResponse(w http.ResponseWriter) error
+}
+
+type RefreshOpportunities202JSONResponse Job
+
+func (response RefreshOpportunities202JSONResponse) VisitRefreshOpportunitiesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RefreshOpportunitiesdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RefreshOpportunitiesdefaultJSONResponse) VisitRefreshOpportunitiesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type UpdateOpportunityRequestObject struct {
+	WorkspaceId   WorkspaceId        `json:"workspaceId"`
+	OpportunityId openapi_types.UUID `json:"opportunityId"`
+	Body          *UpdateOpportunityJSONRequestBody
+}
+
+type UpdateOpportunityResponseObject interface {
+	VisitUpdateOpportunityResponse(w http.ResponseWriter) error
+}
+
+type UpdateOpportunity200JSONResponse Opportunity
+
+func (response UpdateOpportunity200JSONResponse) VisitUpdateOpportunityResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type UpdateOpportunitydefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response UpdateOpportunitydefaultJSONResponse) VisitUpdateOpportunityResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
 type ListPipelinesRequestObject struct {
 	WorkspaceId WorkspaceId `json:"workspaceId"`
 }
@@ -4911,6 +5390,65 @@ type RunPipelinedefaultJSONResponse struct {
 }
 
 func (response RunPipelinedefaultJSONResponse) VisitRunPipelineResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetSEOProfileRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+}
+
+type GetSEOProfileResponseObject interface {
+	VisitGetSEOProfileResponse(w http.ResponseWriter) error
+}
+
+type GetSEOProfile200JSONResponse SEOProfile
+
+func (response GetSEOProfile200JSONResponse) VisitGetSEOProfileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetSEOProfiledefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetSEOProfiledefaultJSONResponse) VisitGetSEOProfileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type SaveSEOProfileRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	Body        *SaveSEOProfileJSONRequestBody
+}
+
+type SaveSEOProfileResponseObject interface {
+	VisitSaveSEOProfileResponse(w http.ResponseWriter) error
+}
+
+type SaveSEOProfile200JSONResponse SEOProfile
+
+func (response SaveSEOProfile200JSONResponse) VisitSaveSEOProfileResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SaveSEOProfiledefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response SaveSEOProfiledefaultJSONResponse) VisitSaveSEOProfileResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(response.StatusCode)
 
@@ -5347,6 +5885,18 @@ type StrictServerInterface interface {
 	// (GET /workspaces/{workspaceId}/notifications)
 	ListNotifications(ctx context.Context, request ListNotificationsRequestObject) (ListNotificationsResponseObject, error)
 
+	// (GET /workspaces/{workspaceId}/opportunities)
+	ListOpportunities(ctx context.Context, request ListOpportunitiesRequestObject) (ListOpportunitiesResponseObject, error)
+
+	// (POST /workspaces/{workspaceId}/opportunities)
+	ImportOpportunities(ctx context.Context, request ImportOpportunitiesRequestObject) (ImportOpportunitiesResponseObject, error)
+
+	// (POST /workspaces/{workspaceId}/opportunities/refresh)
+	RefreshOpportunities(ctx context.Context, request RefreshOpportunitiesRequestObject) (RefreshOpportunitiesResponseObject, error)
+
+	// (PATCH /workspaces/{workspaceId}/opportunities/{opportunityId})
+	UpdateOpportunity(ctx context.Context, request UpdateOpportunityRequestObject) (UpdateOpportunityResponseObject, error)
+
 	// (GET /workspaces/{workspaceId}/pipelines)
 	ListPipelines(ctx context.Context, request ListPipelinesRequestObject) (ListPipelinesResponseObject, error)
 
@@ -5370,6 +5920,12 @@ type StrictServerInterface interface {
 
 	// (POST /workspaces/{workspaceId}/pipelines/{pipelineId}/runs)
 	RunPipeline(ctx context.Context, request RunPipelineRequestObject) (RunPipelineResponseObject, error)
+
+	// (GET /workspaces/{workspaceId}/seo)
+	GetSEOProfile(ctx context.Context, request GetSEOProfileRequestObject) (GetSEOProfileResponseObject, error)
+
+	// (PUT /workspaces/{workspaceId}/seo)
+	SaveSEOProfile(ctx context.Context, request SaveSEOProfileRequestObject) (SaveSEOProfileResponseObject, error)
 
 	// (GET /workspaces/{workspaceId}/stories)
 	ListStories(ctx context.Context, request ListStoriesRequestObject) (ListStoriesResponseObject, error)
@@ -6532,6 +7088,136 @@ func (sh *strictHandler) ListNotifications(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+// ListOpportunities operation middleware
+func (sh *strictHandler) ListOpportunities(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params ListOpportunitiesParams) {
+	var request ListOpportunitiesRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListOpportunities(ctx, request.(ListOpportunitiesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListOpportunities")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListOpportunitiesResponseObject); ok {
+		if err := validResponse.VisitListOpportunitiesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ImportOpportunities operation middleware
+func (sh *strictHandler) ImportOpportunities(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId) {
+	var request ImportOpportunitiesRequestObject
+
+	request.WorkspaceId = workspaceId
+
+	var body ImportOpportunitiesJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ImportOpportunities(ctx, request.(ImportOpportunitiesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ImportOpportunities")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ImportOpportunitiesResponseObject); ok {
+		if err := validResponse.VisitImportOpportunitiesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RefreshOpportunities operation middleware
+func (sh *strictHandler) RefreshOpportunities(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId) {
+	var request RefreshOpportunitiesRequestObject
+
+	request.WorkspaceId = workspaceId
+
+	var body RefreshOpportunitiesJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RefreshOpportunities(ctx, request.(RefreshOpportunitiesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RefreshOpportunities")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RefreshOpportunitiesResponseObject); ok {
+		if err := validResponse.VisitRefreshOpportunitiesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateOpportunity operation middleware
+func (sh *strictHandler) UpdateOpportunity(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, opportunityId openapi_types.UUID) {
+	var request UpdateOpportunityRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.OpportunityId = opportunityId
+
+	var body UpdateOpportunityJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateOpportunity(ctx, request.(UpdateOpportunityRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateOpportunity")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateOpportunityResponseObject); ok {
+		if err := validResponse.VisitUpdateOpportunityResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListPipelines operation middleware
 func (sh *strictHandler) ListPipelines(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId) {
 	var request ListPipelinesRequestObject
@@ -6760,6 +7446,65 @@ func (sh *strictHandler) RunPipeline(w http.ResponseWriter, r *http.Request, wor
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RunPipelineResponseObject); ok {
 		if err := validResponse.VisitRunPipelineResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSEOProfile operation middleware
+func (sh *strictHandler) GetSEOProfile(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId) {
+	var request GetSEOProfileRequestObject
+
+	request.WorkspaceId = workspaceId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSEOProfile(ctx, request.(GetSEOProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSEOProfile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSEOProfileResponseObject); ok {
+		if err := validResponse.VisitGetSEOProfileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SaveSEOProfile operation middleware
+func (sh *strictHandler) SaveSEOProfile(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId) {
+	var request SaveSEOProfileRequestObject
+
+	request.WorkspaceId = workspaceId
+
+	var body SaveSEOProfileJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SaveSEOProfile(ctx, request.(SaveSEOProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SaveSEOProfile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SaveSEOProfileResponseObject); ok {
+		if err := validResponse.VisitSaveSEOProfileResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -7059,126 +7804,137 @@ func (sh *strictHandler) ListRevisions(w http.ResponseWriter, r *http.Request, w
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
-	"m0yFzlKqAAA=",
+	"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",
+	"aO5G3n68/Y8AAAD//2Vc2XbVvAAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

@@ -35,6 +35,8 @@ type Spec struct {
 	MaxDuration float64 `json:"maxDuration"`
 	Voice       string  `json:"voice,omitempty"`
 	Speed       float64 `json:"speed,omitempty"`
+	// Long marks long-form video: metadata needs YouTube chapters.
+	Long bool `json:"long,omitempty"`
 }
 
 // Env is the tool configuration read from the environment.
@@ -241,7 +243,7 @@ func Check(ctx context.Context, r Prober, dir, pagePath string, spec Spec) Repor
 	}
 	if _, err := os.Stat(filepath.Join(dir, "metadata.json")); err != nil {
 		fail("metadata.json is missing")
-	} else if err := checkMetadata(filepath.Join(dir, "metadata.json")); err != nil {
+	} else if err := checkMetadata(filepath.Join(dir, "metadata.json"), spec.Long, narration); err != nil {
 		fail("metadata.json: %v", err)
 	}
 	m, problems, err := r.Probe(ctx, dir, pagePath)
@@ -292,7 +294,7 @@ type Chapter struct {
 	Title string  `json:"title"`
 }
 
-func checkMetadata(p string) error {
+func checkMetadata(p string, long bool, duration float64) error {
 	raw, err := os.ReadFile(p) //nolint:gosec // agent dir
 	if err != nil {
 		return err
@@ -320,6 +322,21 @@ func checkMetadata(p string) error {
 	}
 	if len(m.Chapters) > 0 && m.Chapters[0].At != 0 {
 		return errors.New("the first chapter must start at 0")
+	}
+	if long {
+		// YouTube shows chapters only with at least three, ascending, each
+		// at least 10 seconds long.
+		if len(m.Chapters) < 3 {
+			return errors.New("a long video needs at least 3 chapters")
+		}
+		for i := 1; i < len(m.Chapters); i++ {
+			if m.Chapters[i].At-m.Chapters[i-1].At < 10 {
+				return fmt.Errorf("chapter %q starts less than 10 s after the previous one", m.Chapters[i].Title)
+			}
+			if duration > 0 && m.Chapters[i].At >= duration {
+				return fmt.Errorf("chapter %q starts after the narration ends", m.Chapters[i].Title)
+			}
+		}
 	}
 	return nil
 }

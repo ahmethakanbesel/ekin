@@ -16,9 +16,10 @@ Work in this order and do not stop until `kurgu tool check` passes.
    each with a one-line visual note. Target about {{.TargetWords}} spoken words
    ({{.MinSeconds}}–{{.MaxSeconds}} s at a calm pace of about 2 words per second).
 {{- if .Long}}
-   Structure: a cold open (20–40 s) that states the question, then chapters of 1–3
-   minutes each with a clear heading, then a short recap. No "subscribe" or
-   "like" requests.
+   Structure: a cold open (20–40 s) that states the question, then 4–9 chapters of
+   1–3 minutes each with a clear heading, then a short recap. No "subscribe" or
+   "like" requests. Mark each chapter start in `script.md`; after the tts step,
+   take the chapter start times from `narration/timings.json` segments.
 {{- else}}
    The first sentence is the hook and must land in under 2 seconds. Every
    sentence earns its place; end on a line that makes the viewer think or loops
@@ -33,7 +34,9 @@ Work in this order and do not stop until `kurgu tool check` passes.
    boundaries, karaoke captions throughout{{if not .Long}} placed in the middle third,
    clear of the bottom 20% and the right edge where YouTube draws its buttons{{end}}.
    Prefer typography, shapes, diagrams and data visualisations you build in
-   HTML/CSS/SVG. Stock footage is optional: `{{.Tool}} stock --query "..." --type video`
+   HTML/CSS/SVG.{{if .Long}} For a long video, organise the page as a list of scenes
+   (one per chapter section) driven by `Kurgu.scenes`, show a chapter title card at
+   each chapter start, and keep each scene's DOM small so seeking stays fast.{{end}} Stock footage is optional: `{{.Tool}} stock --query "..." --type video`
    (or `--type photo`) downloads into `assets/`; use it sparingly as backgrounds,
    dimmed under text. Keep text large ({{if .Long}}≥ 44 px{{else}}≥ 56 px{{end}}) and
    high-contrast; at most about 8 words on screen besides captions.

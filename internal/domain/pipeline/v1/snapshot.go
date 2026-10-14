@@ -201,8 +201,10 @@ func sourceFromSnapshot(s SourceSnapshot) (Source, error) {
 			refs = append(refs, ref)
 		}
 		return NewKnowledgeSource(s.Instructions, refs)
+	case SourceSEO:
+		return NewSEOSource(s.Instructions)
 	}
-	return Source{}, apperror.New(apperror.ValidationFailed, "source kind must be prompt or knowledge")
+	return Source{}, apperror.New(apperror.ValidationFailed, "source kind must be prompt, knowledge or seo")
 }
 
 // SnapshotVideo returns v's persisted form.

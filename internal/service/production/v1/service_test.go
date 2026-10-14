@@ -25,12 +25,15 @@ import (
 	jobrepo "kurgu/internal/repository/job/v1"
 	knowledgerepo "kurgu/internal/repository/knowledge/v1"
 	pipelinerepo "kurgu/internal/repository/pipeline/v1"
+	seorepo "kurgu/internal/repository/seo/v1"
+	settingsrepo "kurgu/internal/repository/settings/v1"
 	storyrepo "kurgu/internal/repository/story/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	production "kurgu/internal/service/production/v1"
+	seosvc "kurgu/internal/service/seo/v1"
 	"kurgu/pkg/id"
 )
 
@@ -115,6 +118,7 @@ func (p fakePublisher) Publish(ctx context.Context, req production.PublishReques
 }
 
 type fixture struct {
+	seo       *seosvc.Service
 	svc       *production.Service
 	jobs      *jobsvc.Service
 	pipelines *pipelinesvc.Service
@@ -135,12 +139,13 @@ func newFixture(t *testing.T) fixture {
 	knowledge := knowledgesvc.NewService(knowledgerepo.NewSQLite(tx), blobs, jobs, extract.New(), tx)
 	pipelines := pipelinesvc.NewService(pipelinerepo.NewSQLite(tx), workspaces, jobs, tx).WithDocuments(knowledge)
 	agent := &fakeAgent{titles: []string{"Kaygı ile endişe arasındaki fark"}}
+	seo := seosvc.NewService(seorepo.NewSQLite(tx), settingsrepo.NewSQLite(tx), jobs, agent, t.TempDir())
 	svc := production.NewService(production.Config{WorkRoot: t.TempDir(), KurguBin: "/usr/local/bin/kurgu"}, production.Deps{
 		Stories: storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx,
-		Blobs: blobs, Agent: agent, Renderer: fakeRenderer{},
+		Blobs: blobs, Agent: agent, Renderer: fakeRenderer{}, SEO: seo,
 	})
 	svc.AddPublisher(fakePublisher{pipelinedomain.KindVideo}).AddPublisher(fakePublisher{pipelinedomain.KindArticle})
-	return fixture{svc: svc, jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID()}
+	return fixture{seo: seo, svc: svc, jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID()}
 }
 
 // drain runs queued jobs until none are left, like a worker would.
@@ -326,5 +331,39 @@ func TestParseArticle(t *testing.T) {
 		if _, err := production.ParseArticle([]byte(bad)); err == nil {
 			t.Errorf("%s accepted", name)
 		}
+	}
+}
+
+func TestSEOSourceTargetsBestOpportunity(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	n, err := f.seo.Import(ctx, f.ws, []seosvc.Item{
+		{Keyword: "ruminasyon nedir", Language: "tr", Volume: 2400, Difficulty: 18, Intent: "informational"},
+		{Keyword: "kaygı testi", Language: "tr", Volume: 900, Difficulty: 70},
+		{Keyword: "Ruminasyon  NEDİR", Language: "tr"},
+	}, "manual")
+	if err != nil || n != 2 {
+		t.Fatalf("import = %d %v", n, err)
+	}
+	video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
+	outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
+	source, _ := pipelinedomain.NewSEOSource("Arama yapan yetişkinlere eğitici kısa videolar.")
+	p, err := f.pipelines.Create(ctx, f.ws, pipelinedomain.Definition{Name: "SEO", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.pipelines.RunNow(ctx, f.ws, p.ID(), 1)
+	f.drain(t)
+	st := f.story(t)
+	if st.Brief().Keyword != "ruminasyon nedir" {
+		t.Fatalf("keyword = %q", st.Brief().Keyword)
+	}
+	brief, _ := os.ReadFile(filepath.Join(f.agent.prompts[len(f.agent.prompts)-1].Dir, "BRIEF.md"))
+	if !strings.Contains(string(brief), `Target search keyword:** "ruminasyon nedir"`) {
+		t.Fatalf("brief lacks the keyword:\n%s", brief)
+	}
+	open, _ := f.seo.Next(ctx, f.ws, "tr", 5)
+	if len(open) != 1 || open[0].Keyword != "kaygı testi" {
+		t.Fatalf("open after run = %+v", open)
 	}
 }

@@ -102,8 +102,13 @@ func parseSource(in gen.Source) (pipelinedomain.Source, error) {
 			}
 		}
 		return pipelinedomain.NewKnowledgeSource(in.Instructions, refs)
+	case pipelinedomain.SourceSEO:
+		if in.Refs != nil && len(*in.Refs) > 0 {
+			return pipelinedomain.Source{}, apperror.New(apperror.ValidationFailed, "an SEO source takes no document references")
+		}
+		return pipelinedomain.NewSEOSource(in.Instructions)
 	}
-	return pipelinedomain.Source{}, apperror.New(apperror.ValidationFailed, "source kind must be prompt or knowledge")
+	return pipelinedomain.Source{}, apperror.New(apperror.ValidationFailed, "source kind must be prompt, knowledge or seo")
 }
 
 func toWire(p *pipelinedomain.Pipeline) gen.Pipeline {

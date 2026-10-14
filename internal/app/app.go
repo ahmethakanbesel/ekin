@@ -27,6 +27,7 @@ import (
 	notifyrepo "kurgu/internal/repository/notify/v1"
 	pipelinerepo "kurgu/internal/repository/pipeline/v1"
 	publishingrepo "kurgu/internal/repository/publishing/v1"
+	seorepo "kurgu/internal/repository/seo/v1"
 	settingsrepo "kurgu/internal/repository/settings/v1"
 	storyrepo "kurgu/internal/repository/story/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
@@ -37,12 +38,14 @@ import (
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	productionsvc "kurgu/internal/service/production/v1"
 	publishingsvc "kurgu/internal/service/publishing/v1"
+	seosvc "kurgu/internal/service/seo/v1"
 	settingssvc "kurgu/internal/service/settings/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	httptransport "kurgu/internal/transport/http"
 	systemhandler "kurgu/internal/transport/http/system/v1"
 	knowledgeworker "kurgu/internal/transport/job/knowledge/v1"
 	productionworker "kurgu/internal/transport/job/production/v1"
+	seoworker "kurgu/internal/transport/job/seo/v1"
 	"kurgu/internal/transport/schedule"
 	"kurgu/pkg/password"
 	"kurgu/pkg/secretbox"
@@ -66,6 +69,7 @@ type App struct {
 	settings   *settingssvc.Service
 	notify     *notifysvc.Service
 	publishing *publishingsvc.Service
+	seo        *seosvc.Service
 	version    string
 }
 
@@ -112,7 +116,10 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		&youtube.Client{ClientID: cfg.Publishing.YouTubeClientID, ClientSecret: cfg.Publishing.YouTubeClientSecret,
 			RedirectURL: cfg.PublicURL + "/api/v1/oauth/youtube/callback"},
 		&github.Client{}, log.With(slog.String("component", "publishing")))
+	agent := &claude.Runner{Bin: cfg.Production.ClaudeBin, Model: cfg.Production.ClaudeModel}
+	seo := seosvc.NewService(seorepo.NewSQLite(tx), settingsrepo.NewSQLite(tx), jobs, agent, cfg.Production.WorkDir)
 	production, err := newProduction(cfg, settings, productionsvc.Deps{
+		SEO:     seo,
 		Stories: storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs,
 		Notifier: notify,
 		Dedupe:   openrouter.Dedupe{Client: &openrouter.Client{APIKey: cfg.Notify.OpenRouterKey, Model: cfg.Notify.DecisionModel}},
@@ -136,6 +143,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		settings:   settings,
 		notify:     notify,
 		publishing: publishing,
+		seo:        seo,
 	}, nil
 }
 
@@ -224,6 +232,7 @@ func (a *App) Serve(ctx context.Context) error {
 		Feed:       a.notify,
 		Inviter:    inviter{a.notify, a.workspaces},
 		Publishing: a.publishing,
+		SEO:        a.seo,
 		System:     systemhandler.New(a.settings, a.cfg.Worker.Profile, a.version, a.checks),
 		PublicURL:  a.cfg.PublicURL,
 		UI:         web.Dist(),
@@ -291,6 +300,7 @@ func (a *App) Work(ctx context.Context) error {
 	}, a.log.With(slog.String("component", "worker")))
 	knowledgeworker.Register(runner, a.knowledge)
 	productionworker.Register(runner, a.production)
+	seoworker.Register(runner, a.seo)
 	a.log.InfoContext(ctx, "worker started", slog.String("owner", w.Owner), slog.String("profile", w.Profile))
 	return runner.Run(ctx)
 }

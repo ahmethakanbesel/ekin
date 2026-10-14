@@ -17,6 +17,7 @@ import (
 	"kurgu/internal/apperror"
 	jobdomain "kurgu/internal/domain/job/v1"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
+	seodomain "kurgu/internal/domain/seo/v1"
 	storydomain "kurgu/internal/domain/story/v1"
 	storyrepo "kurgu/internal/repository/story/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
@@ -131,7 +132,8 @@ func (s *Service) PlanAdHoc(ctx context.Context, p AdHocPayload) error {
 			Outputs: outputs, CreatedBy: p.ActorID,
 		})
 	}
-	return s.createStories(ctx, plans, "Ad-hoc request")
+	_, err = s.createStories(ctx, plans, "Ad-hoc request")
+	return err
 }
 
 func outputsFromPayload(p AdHocPayload) (pipelinedomain.Outputs, error) {
@@ -175,7 +177,25 @@ func (s *Service) PlanRun(ctx context.Context, run pipelinesvc.RunPayload) error
 		WorkspaceID: p.WorkspaceID(), Language: p.Language(), Instructions: src.Instructions(),
 		Outputs: p.Outputs(), Count: run.Count,
 	}
-	var windows [][]storydomain.Ref
+	var (
+		windows [][]storydomain.Ref
+		opps    []seodomain.Opportunity
+	)
+	if src.Kind() == pipelinedomain.SourceSEO {
+		if s.seo == nil {
+			return jobdomain.Permanent(errors.New("SEO opportunities are not available on this server"))
+		}
+		if opps, err = s.seo.Next(ctx, p.WorkspaceID(), string(p.Language()), run.Count); err != nil {
+			return err
+		}
+		if len(opps) == 0 {
+			return jobdomain.Permanent(errors.New("no open keyword opportunities: refresh them from OpenSEO or import some"))
+		}
+		for _, o := range opps {
+			req.Windows = append(req.Windows, describeOpportunity(o))
+		}
+		req.Count = len(opps)
+	}
 	if src.Kind() == pipelinedomain.SourceKnowledge {
 		windows, err = s.windows(ctx, p, run.Count)
 		if err != nil {
@@ -200,18 +220,53 @@ func (s *Service) PlanRun(ctx context.Context, run pipelinesvc.RunPayload) error
 		if idea.Window >= 0 && idea.Window < len(windows) {
 			brief.Refs = windows[idea.Window]
 		}
+		if idea.Window >= 0 && idea.Window < len(opps) {
+			brief.Keyword, brief.OpportunityID = opps[idea.Window].Keyword, opps[idea.Window].ID
+		}
 		plans = append(plans, storydomain.Plan{
 			WorkspaceID: p.WorkspaceID(), PipelineID: p.ID(), Origin: origin, Language: p.Language(),
 			Idea: idea.Idea, Brief: brief, Outputs: p.Outputs(),
 		})
 	}
-	return s.createStories(ctx, plans, p.Name())
+	created, err := s.createStories(ctx, plans, p.Name())
+	if err != nil {
+		return err
+	}
+	for _, st := range created {
+		if b := st.Brief(); b.OpportunityID != uuid.Nil {
+			if err := s.seo.MarkUsed(ctx, st.WorkspaceID(), b.OpportunityID, st.ID()); err != nil {
+				s.log.WarnContext(ctx, "opportunity not marked used", slog.Any("error", err))
+			}
+		}
+	}
+	return nil
 }
 
-func (s *Service) createStories(ctx context.Context, plans []storydomain.Plan, label string) error {
-	if len(plans) == 0 {
-		return jobdomain.Permanent(errors.New("no new ideas: every candidate repeated an earlier story"))
+func describeOpportunity(o seodomain.Opportunity) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Target search keyword: %q", o.Keyword)
+	if o.Volume > 0 {
+		fmt.Fprintf(&b, " (about %d searches a month", o.Volume)
+		if o.Difficulty >= 0 {
+			fmt.Fprintf(&b, ", difficulty %d/100", o.Difficulty)
+		}
+		b.WriteString(")")
 	}
+	if o.Intent != "" {
+		b.WriteString(". Intent: " + o.Intent)
+	}
+	if o.Note != "" {
+		b.WriteString(". " + o.Note)
+	}
+	b.WriteString(". The idea must answer what someone searching this wants to know.")
+	return b.String()
+}
+
+func (s *Service) createStories(ctx context.Context, plans []storydomain.Plan, label string) ([]*storydomain.Story, error) {
+	if len(plans) == 0 {
+		return nil, jobdomain.Permanent(errors.New("no new ideas: every candidate repeated an earlier story"))
+	}
+	var created []*storydomain.Story
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		for _, plan := range plans {
 			st, err := storydomain.New(id.New(), plan, id.New, s.now())
@@ -224,15 +279,16 @@ func (s *Service) createStories(ctx context.Context, plans []storydomain.Plan, l
 			if err := s.enqueueStep(ctx, st, st.Lead()); err != nil {
 				return err
 			}
+			created = append(created, st)
 		}
 		return nil
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	s.notify(ctx, Event{WorkspaceID: plans[0].WorkspaceID, Kind: "run", Title: label,
 		Detail: fmt.Sprintf("%d new stories in production", len(plans))})
-	return nil
+	return created, nil
 }
 
 // windows picks count page windows from the pipeline's knowledge refs,

@@ -42,8 +42,12 @@ type Request struct {
 	// JSONSchema asks for structured output validated against it.
 	JSONSchema json.RawMessage
 	// Env is added to the runner's environment for this call.
-	Env     []string
-	Timeout time.Duration
+	Env []string
+	// UserSettings loads the host user's Claude Code settings, plugins and
+	// MCP servers (e.g. an OpenSEO connection). Off by default so
+	// unattended runs are not shaped by whatever is installed.
+	UserSettings bool
+	Timeout      time.Duration
 }
 
 // Result is what the session returned.
@@ -96,11 +100,12 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 	args := []string{"-p", req.Prompt,
 		"--output-format", "json",
 		"--permission-mode", "acceptEdits",
+		"--tools", strings.Join(req.Tools, ","),
+	}
+	if !req.UserSettings {
 		// User and project settings on the host (hooks, plugins, MCP
 		// servers) must not leak into unattended runs.
-		"--setting-sources", "",
-		"--strict-mcp-config",
-		"--tools", strings.Join(req.Tools, ","),
+		args = append(args, "--setting-sources", "", "--strict-mcp-config")
 	}
 	if len(req.Allowed) > 0 {
 		args = append(args, "--allowedTools", strings.Join(req.Allowed, ","))

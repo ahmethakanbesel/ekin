@@ -24,6 +24,7 @@ import (
 	"kurgu/internal/db"
 	jobdomain "kurgu/internal/domain/job/v1"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
+	seodomain "kurgu/internal/domain/seo/v1"
 	storydomain "kurgu/internal/domain/story/v1"
 	storyrepo "kurgu/internal/repository/story/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
@@ -72,6 +73,12 @@ type Pipelines interface {
 type Knowledge interface {
 	Excerpt(ctx context.Context, workspaceID uuid.UUID, refs []knowledgesvc.Ref) (knowledgesvc.Excerpt, error)
 	PageTokens(ctx context.Context, workspaceID, documentID uuid.UUID, from, to int) ([]knowledgesvc.PageCost, error)
+}
+
+// Opportunities hands out SEO keyword opportunities (the seo service).
+type Opportunities interface {
+	Next(ctx context.Context, workspaceID uuid.UUID, language string, n int) ([]seodomain.Opportunity, error)
+	MarkUsed(ctx context.Context, workspaceID, opportunityID, storyID uuid.UUID) error
 }
 
 // Notifier tells people that something needs them (M5: email digests).
@@ -137,6 +144,7 @@ type Service struct {
 	renderer   Renderer
 	notifier   Notifier
 	dedupe     Dedupe
+	seo        Opportunities
 	publishers map[pipelinedomain.Kind]Publisher
 	log        *slog.Logger
 	now        func() time.Time
@@ -154,6 +162,7 @@ type Deps struct {
 	Renderer  Renderer
 	Notifier  Notifier
 	Dedupe    Dedupe
+	SEO       Opportunities
 	Log       *slog.Logger
 }
 
@@ -181,7 +190,7 @@ func NewService(cfg Config, d Deps) *Service {
 	}
 	return &Service{
 		cfg: cfg, stories: d.Stories, pipelines: d.Pipelines, knowledge: d.Knowledge, jobs: d.Jobs, tx: d.Tx,
-		blobs: d.Blobs, agent: d.Agent, renderer: d.Renderer, notifier: notifier, dedupe: d.Dedupe,
+		blobs: d.Blobs, agent: d.Agent, renderer: d.Renderer, notifier: notifier, dedupe: d.Dedupe, seo: d.SEO,
 		publishers: map[pipelinedomain.Kind]Publisher{}, log: log, now: time.Now,
 	}
 }

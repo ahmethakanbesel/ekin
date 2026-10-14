@@ -247,6 +247,7 @@ func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydo
 		w, h := videoFrame(v)
 		lo, hi := durationBounds(v)
 		t.spec.Width, t.spec.Height, t.spec.MinDuration, t.spec.MaxDuration = w, h, lo, hi
+		t.spec.Long = v.Format() == pipelinedomain.FormatLong
 		data["Long"] = v.Format() == pipelinedomain.FormatLong
 		data["Width"], data["Height"] = w, h
 		data["MinSeconds"], data["MaxSeconds"] = int(lo), int(hi)
@@ -353,6 +354,9 @@ func (s *Service) brief(st *storydomain.Story, d *storydomain.Deliverable, t tas
 	fmt.Fprintf(&b, "\n## Idea\n\n**%s**\n\n%s\n", idea.Title, idea.Angle)
 	if len(idea.Keywords) > 0 {
 		fmt.Fprintf(&b, "\nKeywords: %s\n", strings.Join(idea.Keywords, ", "))
+	}
+	if kw := st.Brief().Keyword; kw != "" {
+		fmt.Fprintf(&b, "\n**Target search keyword:** %q. Use it naturally in the title, in the first sentence, and in the description; answer exactly what someone searching it wants to know.\n", kw)
 	}
 	if ins := strings.TrimSpace(st.Brief().Instructions); ins != "" {
 		fmt.Fprintf(&b, "\n## Standing instructions\n\n%s\n", ins)

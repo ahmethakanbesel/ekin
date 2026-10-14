@@ -80,3 +80,18 @@ func TestRunRejectsBadInput(t *testing.T) {
 		}
 	}
 }
+
+func TestLongFormNeedsChapters(t *testing.T) {
+	if testing.Short() || render.FindChrome() == "" {
+		t.Skip("needs Chrome")
+	}
+	dir := copyDir(t, "../adapter/render/testdata/comp")
+	_ = os.WriteFile(filepath.Join(dir, "narration", "timings.json"), []byte(`{"duration": 2, "words": [{"text":"a","start":0,"end":1}]}`), 0o600)
+	spec := agenttool.Spec{Language: "tr", Width: 1080, Height: 1920, Long: true}
+	r := &render.Renderer{}
+	_ = os.WriteFile(filepath.Join(dir, "metadata.json"), []byte(`{"title":"t","description":"d","tags":[],"chapters":[{"at":0,"title":"Giriş"}]}`), 0o600)
+	rep := agenttool.Check(context.Background(), r, dir, "composition.html", spec)
+	if rep.OK || !strings.Contains(strings.Join(rep.Errors, " "), "at least 3 chapters") {
+		t.Fatalf("one chapter passed: %+v", rep.Errors)
+	}
+}

@@ -20,6 +20,9 @@ const (
 	// SourceKnowledge means ideas and material come from referenced
 	// knowledge-base pages; instructions are optional guidance.
 	SourceKnowledge SourceKind = "knowledge"
+	// SourceSEO means each idea targets one open keyword opportunity from
+	// the workspace's pool (OpenSEO); instructions set the brief.
+	SourceSEO SourceKind = "seo"
 )
 
 // Source limits.
@@ -123,6 +126,19 @@ func NewKnowledgeSource(instructions string, refs []KnowledgeRef) (Source, error
 		}
 	}
 	return Source{kind: SourceKnowledge, instructions: instructions, refs: slices.Clone(refs)}, nil
+}
+
+// NewSEOSource returns a source that draws keyword opportunities.
+// Instructions are required: they say what the content is for.
+func NewSEOSource(instructions string) (Source, error) {
+	instructions, err := parseInstructions(instructions)
+	if err != nil {
+		return Source{}, err
+	}
+	if instructions == "" {
+		return Source{}, apperror.New(apperror.ValidationFailed, "an SEO source needs instructions describing the content")
+	}
+	return Source{kind: SourceSEO, instructions: instructions}, nil
 }
 
 func (s Source) Kind() SourceKind     { return s.kind }

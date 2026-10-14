@@ -21,6 +21,7 @@ tags:
   - name: stories
   - name: system
   - name: integrations
+  - name: seo
   - name: pipelines
   - name: jobs
 
@@ -688,6 +689,139 @@ paths:
           headers:
             Location:
               schema: { type: string }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/seo:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: getSEOProfile
+      tags: [seo]
+      responses:
+        "200":
+          description: The workspace's SEO context.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SEOProfile" }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      operationId: saveSEOProfile
+      tags: [seo]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SEOProfile" }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SEOProfile" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/opportunities:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listOpportunities
+      tags: [seo]
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: "#/components/schemas/OpportunityStatus" }
+      responses:
+        "200":
+          description: Open first, best first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [opportunities]
+                properties:
+                  opportunities:
+                    type: array
+                    items: { $ref: "#/components/schemas/Opportunity" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: importOpportunities
+      tags: [seo]
+      description: Adds keywords (pasted, or exported from OpenSEO); duplicates are skipped.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  maxItems: 500
+                  items: { $ref: "#/components/schemas/OpportunityInput" }
+      responses:
+        "200":
+          description: How many were added.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [added]
+                properties:
+                  added: { type: integer }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/opportunities/refresh:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    post:
+      operationId: refreshOpportunities
+      tags: [seo]
+      description: >
+        Asks OpenSEO for new opportunities through the worker's Claude Code
+        OpenSEO connection (uses OpenSEO credits).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                count: { type: integer, minimum: 1, maximum: 50 }
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/opportunities/{opportunityId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - name: opportunityId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      operationId: updateOpportunity
+      tags: [seo]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [open, dismissed]
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Opportunity" }
         default: { $ref: "#/components/responses/Error" }
 
   /workspaces/{workspaceId}/stories:
@@ -1474,6 +1608,47 @@ components:
         youtube: { $ref: "#/components/schemas/YouTubeIntegration" }
         blog: { $ref: "#/components/schemas/BlogTarget" }
 
+    SEOProfile:
+      type: object
+      required: [domain, country, language, topics]
+      properties:
+        domain: { type: string, description: "e.g. example.com" }
+        country: { type: string, description: Two-letter code such as TR. }
+        language: { $ref: "#/components/schemas/Language" }
+        topics: { type: string, description: What to look for. }
+
+    OpportunityStatus:
+      type: string
+      enum: [open, used, dismissed]
+
+    OpportunityInput:
+      type: object
+      required: [keyword]
+      properties:
+        keyword: { type: string, maxLength: 120 }
+        language: { $ref: "#/components/schemas/Language" }
+        volume: { type: integer, minimum: 0 }
+        difficulty: { type: integer, minimum: -1, maximum: 100 }
+        intent: { type: string }
+        note: { type: string, maxLength: 1000 }
+
+    Opportunity:
+      type: object
+      required: [id, keyword, language, volume, difficulty, intent, note, source, status, score, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        keyword: { type: string }
+        language: { $ref: "#/components/schemas/Language" }
+        volume: { type: integer }
+        difficulty: { type: integer, description: "-1 when unknown" }
+        intent: { type: string }
+        note: { type: string }
+        source: { type: string }
+        status: { $ref: "#/components/schemas/OpportunityStatus" }
+        storyId: { type: string, format: uuid }
+        score: { type: number }
+        createdAt: { type: string, format: date-time }
+
     WorkspaceInput:
       type: object
       required: [name, timezone]
@@ -1558,7 +1733,11 @@ components:
       properties:
         kind:
           type: string
-          enum: [prompt, knowledge]
+          enum: [prompt, knowledge, seo]
+          description: >
+            prompt: ideas from the instructions. knowledge: ideas and facts from
+            the referenced pages. seo: each idea targets one open keyword
+            opportunity from the workspace's pool.
         instructions:
           type: string
           maxLength: 20000

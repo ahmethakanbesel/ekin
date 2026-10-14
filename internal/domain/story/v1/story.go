@@ -125,6 +125,9 @@ type Brief struct {
 	Instructions string `json:"instructions"`
 	Style        string `json:"style,omitempty"`
 	Refs         []Ref  `json:"refs,omitempty"`
+	// Keyword is the search term an SEO-sourced story targets.
+	Keyword       string    `json:"keyword,omitempty"`
+	OpportunityID uuid.UUID `json:"opportunityId,omitempty"`
 }
 
 // Story is the aggregate root.

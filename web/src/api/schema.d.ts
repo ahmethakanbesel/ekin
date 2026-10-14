@@ -388,6 +388,153 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspaceId}/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getIntegrations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/integrations/youtube": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Returns the Google consent URL; the browser goes there and comes back to /oauth/youtube/callback. */
+        post: operations["connectYouTube"];
+        delete: operations["disconnectYouTube"];
+        options?: never;
+        head?: never;
+        patch: operations["updateYouTube"];
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/integrations/blog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["saveBlog"];
+        post?: never;
+        delete: operations["deleteBlog"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/youtube/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Google redirects here; Kurgu stores the channel and redirects back to the workspace settings. */
+        get: operations["youTubeCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/seo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getSEOProfile"];
+        put: operations["saveSEOProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/opportunities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listOpportunities"];
+        put?: never;
+        /** @description Adds keywords (pasted, or exported from OpenSEO); duplicates are skipped. */
+        post: operations["importOpportunities"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/opportunities/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Asks OpenSEO for new opportunities through the worker's Claude Code OpenSEO connection (uses OpenSEO credits). */
+        post: operations["refreshOpportunities"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/opportunities/{opportunityId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                opportunityId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateOpportunity"];
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/stories": {
         parameters: {
             query?: never;
@@ -913,6 +1060,95 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        /** @enum {string} */
+        Privacy: "private" | "unlisted" | "public";
+        YouTubeIntegration: {
+            /** @description The server has Google OAuth credentials. */
+            configured: boolean;
+            connected: boolean;
+            channelId?: string;
+            channelTitle?: string;
+            privacy?: components["schemas"]["Privacy"];
+            /** Format: date-time */
+            connectedAt?: string;
+        };
+        BlogTarget: {
+            /** @enum {string} */
+            kind: "github" | "dir";
+            /** @description owner/name (github) */
+            repo?: string;
+            branch?: string;
+            /** @description Absolute path of a local checkout (dir). */
+            dir?: string;
+            /** @description e.g. marketing/src/content/blog */
+            contentDir: string;
+            publicDir: string;
+            siteUrl: string;
+            /** @description {locale} is empty for the default locale, otherwise 'en/' */
+            pathTemplate: string;
+            defaultLocale: string;
+            author: string;
+            /** @description Publish with draft true for a last manual pass. */
+            draft: boolean;
+            hasToken: boolean;
+        };
+        BlogInput: {
+            /** @enum {string} */
+            kind: "github" | "dir";
+            repo?: string;
+            branch?: string;
+            dir?: string;
+            contentDir: string;
+            publicDir?: string;
+            siteUrl?: string;
+            pathTemplate?: string;
+            defaultLocale?: string;
+            author?: string;
+            draft?: boolean;
+            /** @description GitHub token with contents write access. Omit to keep the stored one. */
+            token?: string;
+        };
+        Integrations: {
+            youtube: components["schemas"]["YouTubeIntegration"];
+            blog?: components["schemas"]["BlogTarget"];
+        };
+        SEOProfile: {
+            /** @description e.g. example.com */
+            domain: string;
+            /** @description Two-letter code such as TR. */
+            country: string;
+            language: components["schemas"]["Language"];
+            /** @description What to look for. */
+            topics: string;
+        };
+        /** @enum {string} */
+        OpportunityStatus: "open" | "used" | "dismissed";
+        OpportunityInput: {
+            keyword: string;
+            language?: components["schemas"]["Language"];
+            volume?: number;
+            difficulty?: number;
+            intent?: string;
+            note?: string;
+        };
+        Opportunity: {
+            /** Format: uuid */
+            id: string;
+            keyword: string;
+            language: components["schemas"]["Language"];
+            volume: number;
+            /** @description -1 when unknown */
+            difficulty: number;
+            intent: string;
+            note: string;
+            source: string;
+            status: components["schemas"]["OpportunityStatus"];
+            /** Format: uuid */
+            storyId?: string;
+            score: number;
+            /** Format: date-time */
+            createdAt: string;
+        };
         WorkspaceInput: {
             name: string;
             /** @description IANA timezone name, e.g. Europe/Istanbul. */
@@ -963,8 +1199,11 @@ export interface components {
             toPage?: number;
         };
         Source: {
-            /** @enum {string} */
-            kind: "prompt" | "knowledge";
+            /**
+             * @description prompt: ideas from the instructions. knowledge: ideas and facts from the referenced pages. seo: each idea targets one open keyword opportunity from the workspace's pool.
+             * @enum {string}
+             */
+            kind: "prompt" | "knowledge" | "seo";
             /** @description Required for prompt sources, where it acts as the system prompt; optional guidance for knowledge sources. */
             instructions: string;
             refs?: components["schemas"]["KnowledgeRef"][];
@@ -1800,6 +2039,344 @@ export interface operations {
                     "application/json": {
                         notifications: components["schemas"]["Notification"][];
                     };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getIntegrations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Publishing targets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Integrations"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    connectYouTube: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Consent URL. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        url: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    disconnectYouTube: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disconnected. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateYouTube: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    privacy: components["schemas"]["Privacy"];
+                };
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Integrations"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    saveBlog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlogInput"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Integrations"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteBlog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    youTubeCallback: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Back to the app. */
+            302: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSEOProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workspace's SEO context. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SEOProfile"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    saveSEOProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SEOProfile"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SEOProfile"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listOpportunities: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["OpportunityStatus"];
+            };
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Open first, best first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        opportunities: components["schemas"]["Opportunity"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    importOpportunities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    items: components["schemas"]["OpportunityInput"][];
+                };
+            };
+        };
+        responses: {
+            /** @description How many were added. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        added: number;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    refreshOpportunities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    count?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateOpportunity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                opportunityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "open" | "dismissed";
+                };
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Opportunity"];
                 };
             };
             default: components["responses"]["Error"];

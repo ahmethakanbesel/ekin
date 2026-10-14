@@ -38,6 +38,13 @@ var workspaceActions = map[string]identitydomain.Action{
 	"DeleteDocument":    identitydomain.ActionEdit,
 	"RetryDocument":     identitydomain.ActionEdit,
 
+	"GetSEOProfile":        identitydomain.ActionView,
+	"ListOpportunities":    identitydomain.ActionView,
+	"SaveSEOProfile":       identitydomain.ActionManage,
+	"ImportOpportunities":  identitydomain.ActionEdit,
+	"RefreshOpportunities": identitydomain.ActionEdit,
+	"UpdateOpportunity":    identitydomain.ActionEdit,
+
 	"GetIntegrations":   identitydomain.ActionView,
 	"ConnectYouTube":    identitydomain.ActionManage,
 	"UpdateYouTube":     identitydomain.ActionManage,
