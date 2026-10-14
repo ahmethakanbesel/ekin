@@ -553,6 +553,80 @@ export interface paths {
         patch: operations["updateOpportunity"];
         trace?: never;
     };
+    "/voices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The TTS engine of each language and its voices and limits. */
+        get: operations["listVoices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/voice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getVoiceSettings"];
+        put: operations["saveVoiceSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/voice/previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Renders a short sample on a worker (tts queue) with the given settings and the workspace's pronunciation dictionary. Fetch the audio with the returned previewId when the job has finished. */
+        post: operations["previewVoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/voice/previews/{previewId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                previewId: string;
+            };
+            cookie?: never;
+        };
+        /** @description The rendered sample; 404 NotFound until it is ready. */
+        get: operations["getVoicePreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/templates": {
         parameters: {
             query?: never;
@@ -1129,6 +1203,7 @@ export interface components {
              * @description House style for the stories.
              */
             templateId?: string;
+            voice?: components["schemas"]["VoiceOverride"];
         };
         SystemCheck: {
             name: string;
@@ -1146,7 +1221,7 @@ export interface components {
             env: string;
             secret: boolean;
             /** @enum {string} */
-            source: "settings" | "env" | "unset";
+            source: "settings" | "env" | "default" | "unset";
             /** @description The value for non-secrets; a hint such as ••••9876 for secrets. */
             value?: string;
         };
@@ -1229,6 +1304,56 @@ export interface components {
         Integrations: {
             youtube: components["schemas"]["YouTubeIntegration"];
             blog?: components["schemas"]["BlogTarget"];
+        };
+        Voice: {
+            id: string;
+            label: string;
+            accent: string;
+            gender: string;
+        };
+        VoiceEngine: {
+            language: components["schemas"]["Language"];
+            name: string;
+            voices: components["schemas"]["Voice"][];
+            /** Format: double */
+            minSpeed: number;
+            /** Format: double */
+            maxSpeed: number;
+            /** @description Seed picks another take of the same text (okur). */
+            hasSeed: boolean;
+            /** @description Model precision: fp32 best, int8 fastest (Kokoro). */
+            hasQuality: boolean;
+            defaultVoice: string;
+        };
+        VoiceConfig: {
+            voice: string;
+            /** Format: double */
+            speed: number;
+            /** Format: double */
+            sentencePause: number;
+            /** Format: double */
+            paragraphPause: number;
+            seed?: number;
+            /** @enum {string} */
+            quality?: "fp32" | "fp16" | "int8";
+        };
+        VoiceSettings: {
+            /** @description Config per language code (tr, en). */
+            languages: {
+                [key: string]: components["schemas"]["VoiceConfig"];
+            };
+            /** @description Pronunciation dictionary per language: written word → how to say it. Captions keep the written word. */
+            lexicon: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
+        };
+        /** @description Overrides the workspace voice or speed for one pipeline or request. */
+        VoiceOverride: {
+            voice?: string;
+            /** Format: double */
+            speed?: number;
         };
         /** @enum {string} */
         TemplateFont: "Inter" | "Lora" | "Nunito" | "Oswald" | "Caveat" | "JetBrains Mono";
@@ -1379,6 +1504,7 @@ export interface components {
              * @description House style for this pipeline's stories.
              */
             templateId?: string;
+            voice?: components["schemas"]["VoiceOverride"];
         };
         Pipeline: {
             /** Format: uuid */
@@ -2588,6 +2714,138 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Opportunity"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listVoices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Catalog. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        engines: components["schemas"]["VoiceEngine"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getVoiceSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Narration settings per language and the pronunciation dictionary. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    saveVoiceSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    previewVoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    language: components["schemas"]["Language"];
+                    config: components["schemas"]["VoiceConfig"];
+                    text?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        previewId: string;
+                        job: components["schemas"]["Job"];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getVoicePreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                previewId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description WAV audio. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/wav": string;
                 };
             };
             default: components["responses"]["Error"];

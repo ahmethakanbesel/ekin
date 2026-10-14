@@ -11,6 +11,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Input } from "@/components/ui/input"
 import { PublishingSection } from "@/features/publishing/publishing-section"
 import { useYouTubeReturn } from "@/features/publishing/youtube-return"
+import { VoiceSection } from "@/features/voice/voice-section"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { formatDateTime, useNow } from "@/lib/time"
@@ -34,6 +35,7 @@ export function WorkspaceSettingsPage() {
       {canManage ? null : <ReadOnlyNote>{m.workspace.readOnlyHint}</ReadOnlyNote>}
       {/* Re-mount the form when the stored workspace changes underneath it. */}
       <SettingsForm key={`${workspace.id}:${workspace.updatedAt}`} />
+      <VoiceSection />
       <PublishingSection />
     </div>
   )

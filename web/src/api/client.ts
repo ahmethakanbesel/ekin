@@ -51,6 +51,16 @@ export type OpportunityInput = Schemas["OpportunityInput"]
 export type Notification = Schemas["Notification"]
 export type SystemStatus = Schemas["SystemStatus"]
 export type HostProfile = Schemas["HostProfile"]
+export type Credential = Schemas["Credential"]
+export type Template = Schemas["Template"]
+export type TemplateInput = Schemas["TemplateInput"]
+export type TemplateFont = Schemas["TemplateFont"]
+export type DeliverableKind = Schemas["DeliverableKind"]
+export type Voice = Schemas["Voice"]
+export type VoiceEngine = Schemas["VoiceEngine"]
+export type VoiceConfig = Schemas["VoiceConfig"]
+export type VoiceSettings = Schemas["VoiceSettings"]
+export type VoiceOverride = Schemas["VoiceOverride"]
 
 /** A failed API call: the server's `{code, message}` plus the HTTP status. */
 export class ApiError extends Error {

@@ -222,6 +222,12 @@ function StoryFacts({
           <Fact label={m.story.language}>
             {m.values.language[s.language] ?? s.language}
           </Fact>
+          {s.templateName ? <Fact label={m.story.template}>{s.templateName}</Fact> : null}
+          {s.keyword ? (
+            <Fact label={m.story.keyword}>
+              <span className="font-medium">{s.keyword}</span>
+            </Fact>
+          ) : null}
           <Fact label={m.story.created}>
             <span
               className="tabular"

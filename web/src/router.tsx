@@ -33,6 +33,10 @@ import { StoriesPage } from "@/features/stories/list-page"
 import { NewRequestPage } from "@/features/stories/request-page"
 import { validateStoriesSearch } from "@/features/stories/search"
 import { StoryPage } from "@/features/stories/story-page"
+import { TemplatePage } from "@/features/templates/detail-page"
+import { TemplatesPage } from "@/features/templates/list-page"
+import { validateTemplatesSearch } from "@/features/templates/search"
+import { EditTemplatePage, NewTemplatePage } from "@/features/templates/template-pages"
 import { SystemPage } from "@/features/system/system-page"
 import { HomePage } from "@/features/workspaces/home-page"
 import { WorkspaceSettingsPage } from "@/features/workspaces/settings-page"
@@ -199,6 +203,31 @@ const seoRoute = createRoute({
   component: SeoPage,
 })
 
+const templatesRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: "/templates",
+  validateSearch: validateTemplatesSearch,
+  component: TemplatesPage,
+})
+
+const newTemplateRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: "/templates/new",
+  component: NewTemplatePage,
+})
+
+const templateRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: "/templates/$templateId",
+  component: TemplatePage,
+})
+
+const editTemplateRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: "/templates/$templateId/edit",
+  component: EditTemplatePage,
+})
+
 const jobsRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "/jobs",
@@ -237,6 +266,10 @@ const routeTree = rootRoute.addChildren([
     knowledgeRoute,
     documentRoute,
     seoRoute,
+    templatesRoute,
+    newTemplateRoute,
+    templateRoute,
+    editTemplateRoute,
     jobsRoute,
     membersRoute,
     settingsRoute,

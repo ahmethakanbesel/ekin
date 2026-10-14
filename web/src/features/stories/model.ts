@@ -19,6 +19,7 @@ import {
   type PipelineValidation,
   type RefValues,
 } from "@/features/pipelines/model"
+import { emptyOverride, toOverride, type VoiceOverrideValues } from "@/features/voice/model"
 import { m } from "@/i18n"
 
 // ---- List tabs ----
@@ -94,6 +95,10 @@ export type RequestFormValues = OutputsValues & {
   language: Language
   style: string
   refs: RefValues[]
+  /** The house style; "" for none. */
+  templateId: string
+  /** Narration voice or speed for these stories; "" for the workspace's. */
+  voice: VoiceOverrideValues
 }
 
 export function defaultRequestValues(): RequestFormValues {
@@ -104,6 +109,8 @@ export function defaultRequestValues(): RequestFormValues {
     ...defaultOutputs(),
     style: "",
     refs: [],
+    templateId: "",
+    voice: emptyOverride(),
   }
 }
 
@@ -134,5 +141,7 @@ export function toAdHocInput(v: RequestFormValues): AdHocInput {
     outputs: toOutputs(v, v.language),
     style: style || undefined,
     refs: v.refs.length > 0 ? toRefs(v.refs) : undefined,
+    templateId: v.templateId || undefined,
+    voice: toOverride(v.voice),
   }
 }

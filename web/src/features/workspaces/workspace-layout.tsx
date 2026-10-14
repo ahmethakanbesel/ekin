@@ -4,6 +4,7 @@ import {
   InboxIcon,
   LibraryIcon,
   ListChecksIcon,
+  PaletteIcon,
   SettingsIcon,
   TrendingUpIcon,
   UsersIcon,
@@ -18,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { UserMenu } from "@/features/auth/user-menu"
 import { NotificationBell } from "@/features/notifications/notification-bell"
 import { TAB_STATUSES } from "@/features/stories/model"
+import { TemplateDraftWatcher } from "@/features/templates/draft-watch"
 import { m } from "@/i18n"
 import { STORY_LIST_LIMIT, storiesQuery } from "@/queries/stories"
 import { workspaceQuery } from "@/queries/workspaces"
@@ -29,6 +31,7 @@ const navItems = [
   { to: "/w/$workspaceId/pipelines", label: m.nav.pipelines, icon: WorkflowIcon },
   { to: "/w/$workspaceId/knowledge", label: m.nav.knowledge, icon: LibraryIcon },
   { to: "/w/$workspaceId/seo", label: m.nav.seo, icon: TrendingUpIcon },
+  { to: "/w/$workspaceId/templates", label: m.nav.templates, icon: PaletteIcon },
   { to: "/w/$workspaceId/jobs", label: m.nav.jobs, icon: ListChecksIcon },
   { to: "/w/$workspaceId/members", label: m.nav.members, icon: UsersIcon },
   { to: "/w/$workspaceId/settings", label: m.nav.settings, icon: SettingsIcon },
@@ -110,6 +113,7 @@ export function WorkspaceLayout() {
 
   return (
     <WorkspaceContext.Provider value={workspace}>
+      <TemplateDraftWatcher workspaceId={workspaceId} />
       <div className="flex min-h-svh">
         <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col gap-4 border-r bg-sidebar p-3 md:flex">
           <div className="flex items-center justify-between gap-2">

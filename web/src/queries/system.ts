@@ -16,6 +16,32 @@ export const profilesQuery = () =>
     queryFn: ({ signal }) => call(api.GET("/system/profiles", { signal })),
   })
 
+/** API keys and service settings; secrets come back only as a hint. Admins only. */
+export const credentialsQuery = () =>
+  queryOptions({
+    queryKey: keys.credentials(),
+    queryFn: async ({ signal }) => {
+      const res = await call(api.GET("/system/credentials", { signal }))
+      return res.credentials
+    },
+  })
+
+/** Sets credentials by key; "" removes the saved value so the environment applies again. */
+export function useUpdateCredentials() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (values: Record<string, string>) => {
+      const res = await call(api.PATCH("/system/credentials", { body: { values } }))
+      return res.credentials
+    },
+    onSuccess: (credentials) => {
+      qc.setQueryData(keys.credentials(), credentials)
+      // The checks reflect the new keys (Pexels, SMTP, YouTube…).
+      void qc.invalidateQueries({ queryKey: keys.system(), exact: true })
+    },
+  })
+}
+
 export function useSaveProfile() {
   const qc = useQueryClient()
   return useMutation({

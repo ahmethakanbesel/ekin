@@ -6,11 +6,18 @@ export const keys = {
   me: () => ["me"] as const,
   system: () => ["system"] as const,
   profiles: () => ["system", "profiles"] as const,
+  credentials: () => ["system", "credentials"] as const,
+  voices: () => ["voices"] as const,
+  voiceSettings: (workspaceId: string) => ["workspaces", workspaceId, "voice"] as const,
   integrations: (workspaceId: string) => ["workspaces", workspaceId, "integrations"] as const,
   seoProfile: (workspaceId: string) => ["workspaces", workspaceId, "seo"] as const,
   opportunities: (workspaceId: string) => ["workspaces", workspaceId, "opportunities"] as const,
   opportunityList: (workspaceId: string, status: OpportunityStatus | "all") =>
     ["workspaces", workspaceId, "opportunities", "list", status] as const,
+  templates: (workspaceId: string) => ["workspaces", workspaceId, "templates"] as const,
+  template: (workspaceId: string, templateId: string) =>
+    ["workspaces", workspaceId, "templates", templateId] as const,
+  job: (workspaceId: string, jobId: string) => ["workspaces", workspaceId, "jobs", jobId] as const,
   notifications: (workspaceId: string) => ["workspaces", workspaceId, "notifications"] as const,
   invitation: (token: string) => ["invitation", token] as const,
   workspaces: () => ["workspaces"] as const,

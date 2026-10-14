@@ -17,9 +17,12 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { NumberInput, Row, Section, shownError } from "@/features/pipelines/form-parts"
-import { LANGUAGES, hasErrors, type KnownDocuments } from "@/features/pipelines/model"
+import { LANGUAGES, chosenKinds, hasErrors, type KnownDocuments } from "@/features/pipelines/model"
 import { OutputsFields, outputsFieldMap } from "@/features/pipelines/outputs-fields"
 import { RefsFields } from "@/features/pipelines/refs-fields"
+import { TemplateSelect } from "@/features/templates/template-select"
+import { emptyOverride } from "@/features/voice/model"
+import { VoiceOverrideSection } from "@/features/voice/override-section"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
@@ -111,6 +114,8 @@ function RequestForm({ workspaceId }: { workspaceId: string }) {
   })
   const language = useStore(form.store, (s) => s.values.language)
   const refCount = useStore(form.store, (s) => s.values.refs.length)
+  const videoEnabled = useStore(form.store, (s) => s.values.videoEnabled)
+  const articleEnabled = useStore(form.store, (s) => s.values.articleEnabled)
 
   // Re-check the references once the documents arrive (or change status).
   useEffect(() => {
@@ -192,6 +197,8 @@ function RequestForm({ workspaceId }: { workspaceId: string }) {
                   form.setFieldValue("article.translations", (prev) =>
                     prev.filter((l) => l !== value)
                   )
+                  // Voices belong to a language.
+                  form.setFieldValue("voice", emptyOverride())
                 },
               }}
             >
@@ -232,8 +239,29 @@ function RequestForm({ workspaceId }: { workspaceId: string }) {
         />
       </Section>
 
+      <form.Field name="voice">
+        {(field) => (
+          <VoiceOverrideSection
+            idPrefix="rq-voice"
+            language={language}
+            value={field.state.value}
+            onChange={field.handleChange}
+          />
+        )}
+      </form.Field>
+
       <Section title={m.request.sections.extras} description={m.request.extrasHint}>
         <FieldGroup className="gap-6">
+          <form.Field name="templateId">
+            {(field) => (
+              <TemplateSelect
+                id="rq-template"
+                value={field.state.value}
+                onChange={field.handleChange}
+                kinds={chosenKinds({ videoEnabled, articleEnabled })}
+              />
+            )}
+          </form.Field>
           <form.Field name="style">
             {(field) => (
               <Row

@@ -24,6 +24,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { TemplateSelect } from "@/features/templates/template-select"
+import { VoiceOverrideSection } from "@/features/voice/override-section"
+import { emptyOverride } from "@/features/voice/model"
 import { m } from "@/i18n"
 import { useAppForm } from "@/lib/form"
 import { documentsQuery } from "@/queries/documents"
@@ -31,6 +34,7 @@ import { NumberInput, Row, Section, shownError } from "./form-parts"
 import {
   LANGUAGES,
   LIMITS,
+  chosenKinds,
   hasErrors,
   toDefinition,
   validatePipeline,
@@ -110,6 +114,8 @@ export function PipelineForm({
   const language = useStore(form.store, (s) => s.values.language)
   const sourceKind = useStore(form.store, (s) => s.values.source.kind)
   const scheduled = useStore(form.store, (s) => s.values.scheduled)
+  const videoEnabled = useStore(form.store, (s) => s.values.videoEnabled)
+  const articleEnabled = useStore(form.store, (s) => s.values.articleEnabled)
 
   // Re-check the references once the documents arrive (or change status).
   useEffect(() => {
@@ -154,6 +160,8 @@ export function PipelineForm({
                 form.setFieldValue("article.translations", (prev) =>
                   prev.filter((l) => l !== value)
                 )
+                // Voices belong to a language.
+                form.setFieldValue("voice", emptyOverride())
               },
             }}
           >
@@ -198,6 +206,38 @@ export function PipelineForm({
           idPrefix="pl"
         />
       </Section>
+
+      {/* House style */}
+      <Section
+        title={m.pipelineForm.sections.style}
+        description={m.pipelineForm.styleHint}
+        disabled={readOnly}
+      >
+        <form.Field name="templateId">
+          {(field) => (
+            <TemplateSelect
+              id="pl-template"
+              value={field.state.value}
+              onChange={field.handleChange}
+              kinds={chosenKinds({ videoEnabled, articleEnabled })}
+              disabled={readOnly}
+            />
+          )}
+        </form.Field>
+      </Section>
+
+      {/* Voice */}
+      <form.Field name="voice">
+        {(field) => (
+          <VoiceOverrideSection
+            idPrefix="pl-voice"
+            language={language}
+            value={field.state.value}
+            onChange={field.handleChange}
+            readOnly={readOnly}
+          />
+        )}
+      </form.Field>
 
       {/* Source */}
       <Section title={m.pipelineForm.sections.source} disabled={readOnly}>

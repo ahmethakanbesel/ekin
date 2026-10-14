@@ -2,6 +2,7 @@ import type { Document, Language, PipelineDefinition, Schemas } from "@/api/clie
 
 type Outputs = Schemas["Outputs"]
 type KnowledgeRef = Schemas["KnowledgeRef"]
+import { emptyOverride, fromOverride, toOverride, type VoiceOverrideValues } from "@/features/voice/model"
 import { m } from "@/i18n"
 
 // The editable shape of a pipeline. Both output sections are always
@@ -51,6 +52,10 @@ export type PipelineFormValues = OutputsValues & {
   source: { kind: SourceKind; instructions: string; refs: RefValues[] }
   scheduled: boolean
   schedule: { cron: string; timezone: string; batch: string }
+  /** The house style; "" for none. */
+  templateId: string
+  /** Narration voice or speed for this pipeline; "" for the workspace's. */
+  voice: VoiceOverrideValues
 }
 
 export function emptyRef(): RefValues {
@@ -75,6 +80,8 @@ export function defaultValues(workspaceTimezone: string): PipelineFormValues {
     source: { kind: "prompt", instructions: "", refs: [] },
     scheduled: false,
     schedule: { cron: "0 2 * * *", timezone: workspaceTimezone, batch: "1" },
+    templateId: "",
+    voice: emptyOverride(),
   }
 }
 
@@ -117,6 +124,8 @@ export function fromDefinition(
           batch: String(def.schedule.batch),
         }
       : base.schedule,
+    templateId: def.templateId ?? "",
+    voice: fromOverride(def.voice),
   }
 }
 
@@ -171,8 +180,18 @@ export function toDefinition(v: PipelineFormValues): PipelineDefinition {
           batch: toInt(v.schedule.batch) ?? 0,
         }
       : undefined,
+    templateId: v.templateId || undefined,
+    voice: toOverride(v.voice),
   }
   return def
+}
+
+/** The output kinds a form has switched on. */
+export function chosenKinds(v: Pick<OutputsValues, "videoEnabled" | "articleEnabled">): Lead[] {
+  const kinds: Lead[] = []
+  if (v.videoEnabled) kinds.push("video")
+  if (v.articleEnabled) kinds.push("article")
+  return kinds
 }
 
 /** A whole number from a form string, or undefined when blank or not one. */

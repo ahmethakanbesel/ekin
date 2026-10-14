@@ -8,9 +8,10 @@ import { StandalonePage } from "@/features/auth/standalone-page"
 import { m } from "@/i18n"
 import { meQuery } from "@/queries/auth"
 import { systemQuery } from "@/queries/system"
+import { Credentials } from "./credentials"
 import { HostProfiles } from "./host-profiles"
 
-/** /system: what this server can do; for admins also the host profiles. */
+/** /system: what this server can do; for admins also credentials and host profiles. */
 export function SystemPage() {
   const me = useQuery(meQuery())
   const status = useQuery(systemQuery())
@@ -71,6 +72,7 @@ export function SystemPage() {
           </CardHeader>
           <CardContent>{checks}</CardContent>
         </Card>
+        {me.data?.isAdmin ? <Credentials /> : null}
         {me.data?.isAdmin ? <HostProfiles /> : null}
       </div>
     </StandalonePage>
