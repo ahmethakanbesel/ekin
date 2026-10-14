@@ -469,7 +469,7 @@ func (r *Renderer) video(ctx context.Context, dir, pagePath string, scale float6
 					return
 				}
 			}
-			errs[i] = r.encodeRange(ctx, s, tab, m, from, to, parts[i])
+			errs[i] = r.encodeRange(ctx, rangeJob{s: s, tab: tab, m: m, from: from, to: to, out: parts[i]})
 		})
 	}
 	wg.Wait()
@@ -487,7 +487,17 @@ func (r *Renderer) video(ctx context.Context, dir, pagePath string, scale float6
 	return m, nil
 }
 
-func (r *Renderer) encodeRange(ctx context.Context, s *session, tab context.Context, m Meta, from, to int, out string) error {
+// rangeJob is one contiguous frame range rendered in one tab.
+type rangeJob struct {
+	s        *session
+	tab      context.Context
+	m        Meta
+	from, to int
+	out      string
+}
+
+func (r *Renderer) encodeRange(ctx context.Context, j rangeJob) error {
+	s, tab, m, from, to, out := j.s, j.tab, j.m, j.from, j.to, j.out
 	quality := r.Quality
 	if quality == 0 {
 		quality = 90
