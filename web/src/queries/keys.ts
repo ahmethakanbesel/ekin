@@ -11,6 +11,7 @@ export const keys = {
   voiceSettings: (workspaceId: string) => ["workspaces", workspaceId, "voice"] as const,
   integrations: (workspaceId: string) => ["workspaces", workspaceId, "integrations"] as const,
   seoProfile: (workspaceId: string) => ["workspaces", workspaceId, "seo"] as const,
+  openSeo: (workspaceId: string) => ["workspaces", workspaceId, "seo", "openseo"] as const,
   opportunities: (workspaceId: string) => ["workspaces", workspaceId, "opportunities"] as const,
   opportunityList: (workspaceId: string, status: OpportunityStatus | "all") =>
     ["workspaces", workspaceId, "opportunities", "list", status] as const,

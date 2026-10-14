@@ -19,6 +19,18 @@ export const seoProfileQuery = (workspaceId: string) =>
       call(api.GET("/workspaces/{workspaceId}/seo", { params: { path: { workspaceId } }, signal })),
   })
 
+/**
+ * The instance's OpenSEO connection and its projects (owners and admins;
+ * free, spends no credits).
+ */
+export const openSeoStatusQuery = (workspaceId: string) =>
+  queryOptions({
+    queryKey: keys.openSeo(workspaceId),
+    queryFn: ({ signal }) =>
+      call(api.GET("/workspaces/{workspaceId}/seo/openseo", { params: { path: { workspaceId } }, signal })),
+    staleTime: 60_000,
+  })
+
 export function useSaveSeoProfile(workspaceId: string) {
   const qc = useQueryClient()
   return useMutation({

@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react"
+import { Fragment, useEffect, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { RotateCcwIcon } from "lucide-react"
 import { toast } from "sonner"
@@ -48,6 +48,7 @@ const GROUPS: Array<{ id: string; keys: string[] }> = [
     keys: ["smtpHost", "smtpPort", "smtpUsername", "smtpPassword", "smtpFrom", "smtpTls"],
   },
   { id: "youtube", keys: ["youtubeClientId", "youtubeClientSecret"] },
+  { id: "openseo", keys: ["openseoApiKey", "openseoUrl"] },
 ]
 
 const TLS_MODES = ["starttls", "tls", "none"] as const
@@ -90,6 +91,12 @@ export function Credentials() {
   const changed = credentials.filter((c) => isChanged(c, drafts[c.key]))
   const invalid = credentials.some((c) => draftError(c, drafts[c.key]))
   const redirect = youtubeRedirect(status.data?.checks)
+  const sectionRef = useRef<HTMLElement>(null)
+  const loaded = !!query.data
+  // Links to /system#credentials (from the SEO settings) land here once the table exists.
+  useEffect(() => {
+    if (loaded && window.location.hash === "#credentials") sectionRef.current?.scrollIntoView()
+  }, [loaded])
 
   // Forget the drafts the server now has (secrets go back to empty).
   const settle = (keys: string[]) =>
@@ -162,6 +169,9 @@ export function Credentials() {
                           </span>
                         </p>
                       ) : null}
+                      {g.id === "openseo" ? (
+                        <p className="mt-0.5 text-xs text-muted-foreground">{m.system.openseoHint}</p>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                   {g.rows.map((c) => (
@@ -196,7 +206,7 @@ export function Credentials() {
   }
 
   return (
-    <section>
+    <section id="credentials" ref={sectionRef} className="scroll-mt-8">
       <div className="mb-4 space-y-1">
         <h2 className="font-heading text-lg font-semibold tracking-tight">
           {m.system.credentialsTitle}

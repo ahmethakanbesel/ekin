@@ -38,6 +38,10 @@ export function useUpdateCredentials() {
       qc.setQueryData(keys.credentials(), credentials)
       // The checks reflect the new keys (Pexels, SMTP, YouTube…).
       void qc.invalidateQueries({ queryKey: keys.system(), exact: true })
+      // Every workspace's OpenSEO connection follows the instance's key.
+      void qc.invalidateQueries({
+        predicate: (q) => q.queryKey[0] === "workspaces" && q.queryKey[3] === "openseo",
+      })
     },
   })
 }

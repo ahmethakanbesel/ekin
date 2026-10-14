@@ -26,7 +26,8 @@ import { cn } from "@/lib/utils"
 import { opportunitiesQuery, useSetOpportunityStatus } from "@/queries/seo"
 import { ImportDialog } from "./import-dialog"
 import { SeoProfileCard } from "./profile-card"
-import { RefreshDialog } from "./refresh-dialog"
+import { OpenSeoCard } from "./openseo-card"
+import { RefreshDialog, useRefreshPlan } from "./refresh-dialog"
 import { OPPORTUNITY_TABS, type OpportunityTab } from "./search"
 
 const ROUTE = "/w/$workspaceId/seo"
@@ -41,6 +42,8 @@ export function SeoPage() {
   const now = useNow()
   const [importing, setImporting] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const plan = useRefreshPlan()
+  const canManage = useCan("manage")
 
   const importButton = canEdit ? (
     <Button variant="outline" onClick={() => setImporting(true)}>
@@ -116,6 +119,11 @@ export function SeoPage() {
                 <Button variant="outline" onClick={() => setRefreshing(true)}>
                   <SparklesIcon data-icon="inline-start" />
                   {m.seo.refresh}
+                  {plan.credits ? (
+                    <span className="ml-1 rounded-full bg-muted px-1.5 text-xs font-normal text-muted-foreground tabular">
+                      {m.seo.estimateShort(formatInteger(plan.credits))}
+                    </span>
+                  ) : null}
                 </Button>
                 {importButton}
               </div>
@@ -144,7 +152,8 @@ export function SeoPage() {
           </Tabs>
           {body}
         </section>
-        <aside className="xl:sticky xl:top-8">
+        <aside className="grid gap-6">
+          {canManage ? <OpenSeoCard /> : null}
           <SeoProfileCard />
         </aside>
       </div>
