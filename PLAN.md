@@ -94,6 +94,7 @@ Container ceiling on the VPS: `cpuset: "1"`, `cpu_shares: 64`, `cpus: 0.5`,
 | pipeline | Pipeline (language, outputs, source, schedule, status) |
 | knowledge | Document, Page, Ref (document + page ranges), Coverage |
 | seo | Opportunity (keyword, volume, difficulty, intent), SEO profile |
+| voice | Voice settings per language (engine voice, speed, pauses, seed, quality), pronunciation dictionary, per-pipeline override |
 | template | Template (house style: guide, palette, fonts, music mood); built-ins in code, workspace copies and agent drafts in the database |
 | story | Story (idea, brief, sources, target keyword) owning deliverables: video / article as lead, derived or translation; Revision; Feedback |
 | publishing | Channel (YouTube, sealed refresh token), BlogTarget, Publication |

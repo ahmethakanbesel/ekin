@@ -53,6 +53,16 @@ channel** has the agent research any channel on the web and write a new template
 template tells the agent to describe a style, never copy it: no channel names, logos,
 mascots, characters, catchphrases or music.
 
+## Voice
+
+**Settings → Voice** sets how narration sounds, per language. Turkish uses okur-tts: speed,
+sentence and paragraph pauses, and a seed. Each seed gives a different take of the same
+script. English uses Kokoro with 28 American and British voices, speed, pauses and model
+quality (fp32 / fp16 / int8). **Preview** renders a sample on a worker. The pronunciation
+dictionary maps a written word to how it should be said ("acme" → "ek mi",
+"CBT" → "si bi ti"). Captions keep the written word. Pipelines and ad-hoc requests can
+override the voice and speed.
+
 ## Integrations
 
 Everything optional degrades gracefully; **System** in the user menu shows what is set up.
