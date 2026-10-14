@@ -942,12 +942,16 @@ export interface components {
         FeedbackInput: {
             text: string;
             scope?: components["schemas"]["FeedbackScope"];
-            /** @description Video position the feedback refers to. */
+            /**
+             * Format: double
+             * @description Video position the feedback refers to.
+             */
             atSeconds?: number;
         };
         Feedback: {
             text: string;
             scope: components["schemas"]["FeedbackScope"];
+            /** Format: double */
             atSeconds?: number;
             /** Format: date-time */
             at: string;

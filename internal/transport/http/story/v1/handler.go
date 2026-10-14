@@ -182,7 +182,7 @@ func (h *Handler) RequestChanges(ctx context.Context, req gen.RequestChangesRequ
 	}
 	var at *float64
 	if req.Body.AtSeconds != nil {
-		v := float64(*req.Body.AtSeconds)
+		v := *req.Body.AtSeconds
 		at = &v
 	}
 	fb, err := storydomain.NewFeedback(req.Body.Text, scope, at, p.User.ID(), timeNow())
@@ -285,7 +285,7 @@ func feedbackToWire(fb *storydomain.Feedback) *gen.Feedback {
 	}
 	out := &gen.Feedback{Text: fb.Text, Scope: gen.FeedbackScope(fb.Scope), At: fb.At}
 	if fb.AtSeconds != nil {
-		v := float32(*fb.AtSeconds)
+		v := *fb.AtSeconds
 		out.AtSeconds = &v
 	}
 	return out

@@ -607,3 +607,18 @@ func TestKnowledgeBase(t *testing.T) {
 		t.Fatalf("pptx upload = %d", res.StatusCode)
 	}
 }
+
+// Feedback positions keep their precision (they were float32 once and
+// came back as 14.199999809265137).
+func TestFeedbackPositionIsDouble(t *testing.T) {
+	var body struct {
+		AtSeconds *float64 `json:"atSeconds"`
+	}
+	raw, _ := json.Marshal(gen.FeedbackInput{Text: "x", AtSeconds: ptr(14.2)})
+	_ = json.Unmarshal(raw, &body)
+	if body.AtSeconds == nil || *body.AtSeconds != 14.2 {
+		t.Fatalf("atSeconds = %v", body.AtSeconds)
+	}
+}
+
+func ptr[T any](v T) *T { return &v }

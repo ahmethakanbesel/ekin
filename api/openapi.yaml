@@ -1386,6 +1386,7 @@ components:
         scope: { $ref: "#/components/schemas/FeedbackScope" }
         atSeconds:
           type: number
+          format: double
           minimum: 0
           description: Video position the feedback refers to.
 
@@ -1395,7 +1396,7 @@ components:
       properties:
         text: { type: string }
         scope: { $ref: "#/components/schemas/FeedbackScope" }
-        atSeconds: { type: number }
+        atSeconds: { type: number, format: double }
         at: { type: string, format: date-time }
 
     Publication:
