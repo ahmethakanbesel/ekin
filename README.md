@@ -41,9 +41,25 @@ its default.
 | `kurgu user create\|reset-password` | Accounts; the password comes from `KURGU_PASSWORD`, a prompt or stdin |
 | `kurgu tool tts\|frame\|check\|stock\|music` | The authoring agent's tools (run by the agent in its work dir) |
 
+## Templates
+
+A template is a house style: palette, fonts, motion, structure, narration voice and music
+mood, written as a Markdown guide the agent follows (`STYLE.md` in its work dir). Pick
+one per pipeline or ad-hoc request. Ten built-ins ship with Kurgu, several inspired by the
+general look of well-known explainer channels (flat cosmic explainers, newsroom
+explainers, animated lessons, precise diagrams, minimal icons, reflective essays, friendly
+psychology, map journalism) plus "Clinical calm" and an article guide. **Draft from a
+channel** has the agent research any channel on the web and write a new template. Every
+template tells the agent to describe a style, never copy it: no channel names, logos,
+mascots, characters, catchphrases or music.
+
 ## Integrations
 
 Everything optional degrades gracefully; **System** in the user menu shows what is set up.
+API keys and service settings (Claude token and model, Pexels, OpenRouter, SMTP, YouTube
+OAuth) can be entered under **System → Credentials** (admins); they are stored encrypted
+with the instance key (`data/secret.key` or `KURGU_SECRET_KEY`) and override the
+environment variables below, which remain the fallback.
 
 | Feature | Settings |
 |---|---|
