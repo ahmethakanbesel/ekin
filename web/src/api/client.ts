@@ -39,6 +39,18 @@ export type FeedbackInput = Schemas["FeedbackInput"]
 export type FeedbackScope = Schemas["FeedbackScope"]
 export type AdHocInput = Schemas["AdHocInput"]
 export type KnowledgeRef = Schemas["KnowledgeRef"]
+export type Integrations = Schemas["Integrations"]
+export type YouTubeIntegration = Schemas["YouTubeIntegration"]
+export type Privacy = Schemas["Privacy"]
+export type BlogTarget = Schemas["BlogTarget"]
+export type BlogInput = Schemas["BlogInput"]
+export type SEOProfile = Schemas["SEOProfile"]
+export type Opportunity = Schemas["Opportunity"]
+export type OpportunityStatus = Schemas["OpportunityStatus"]
+export type OpportunityInput = Schemas["OpportunityInput"]
+export type Notification = Schemas["Notification"]
+export type SystemStatus = Schemas["SystemStatus"]
+export type HostProfile = Schemas["HostProfile"]
 
 /** A failed API call: the server's `{code, message}` plus the HTTP status. */
 export class ApiError extends Error {

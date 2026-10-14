@@ -36,7 +36,7 @@ import { formatDateTime } from "@/lib/time"
 import { useCreateInvitation } from "@/queries/members"
 import { isRole, roleItems } from "./roles"
 
-type Created = { email: string; url: string; expiresAt: string }
+type Created = { email: string; url: string; expiresAt: string; emailed: boolean }
 
 export function InviteDialog({
   open,
@@ -87,6 +87,7 @@ function InviteForm({
           // The server may answer with a path; a link to send needs the origin.
           url: new URL(res.url, window.location.origin).href,
           expiresAt: res.invitation.expiresAt,
+          emailed: res.emailed ?? false,
         })
       } catch {
         // shown in the banner
@@ -199,7 +200,11 @@ function InviteLink({ created, onDone }: { created: Created; onDone: () => void 
     <div className="grid gap-6">
       <DialogHeader>
         <DialogTitle>{m.members.linkTitle}</DialogTitle>
-        <DialogDescription>{m.members.linkDescription(created.email)}</DialogDescription>
+        <DialogDescription>
+          {created.emailed
+            ? m.members.linkEmailed(created.email)
+            : m.members.linkDescription(created.email)}
+        </DialogDescription>
       </DialogHeader>
       <Field>
         <FieldLabel htmlFor="invite-link">{m.members.link}</FieldLabel>

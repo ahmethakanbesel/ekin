@@ -5,6 +5,7 @@ import {
   LibraryIcon,
   ListChecksIcon,
   SettingsIcon,
+  TrendingUpIcon,
   UsersIcon,
   WorkflowIcon,
 } from "lucide-react"
@@ -15,6 +16,7 @@ import { EmptyState, ErrorState } from "@/components/page"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { UserMenu } from "@/features/auth/user-menu"
+import { NotificationBell } from "@/features/notifications/notification-bell"
 import { TAB_STATUSES } from "@/features/stories/model"
 import { m } from "@/i18n"
 import { STORY_LIST_LIMIT, storiesQuery } from "@/queries/stories"
@@ -26,6 +28,7 @@ const navItems = [
   { to: "/w/$workspaceId/stories", label: m.nav.review, icon: InboxIcon },
   { to: "/w/$workspaceId/pipelines", label: m.nav.pipelines, icon: WorkflowIcon },
   { to: "/w/$workspaceId/knowledge", label: m.nav.knowledge, icon: LibraryIcon },
+  { to: "/w/$workspaceId/seo", label: m.nav.seo, icon: TrendingUpIcon },
   { to: "/w/$workspaceId/jobs", label: m.nav.jobs, icon: ListChecksIcon },
   { to: "/w/$workspaceId/members", label: m.nav.members, icon: UsersIcon },
   { to: "/w/$workspaceId/settings", label: m.nav.settings, icon: SettingsIcon },
@@ -81,6 +84,10 @@ export function WorkspaceLayout() {
   }
 
   const workspace = ws.data
+  // Keyed: its "last opened" mark belongs to one workspace.
+  const bell = (
+    <NotificationBell key={workspaceId} workspaceId={workspaceId} timezone={workspace.timezone} />
+  )
   const nav = navItems.map((item) => (
     <Link
       key={item.to}
@@ -105,7 +112,10 @@ export function WorkspaceLayout() {
     <WorkspaceContext.Provider value={workspace}>
       <div className="flex min-h-svh">
         <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col gap-4 border-r bg-sidebar p-3 md:flex">
-          <Brand />
+          <div className="flex items-center justify-between gap-2">
+            <Brand />
+            {bell}
+          </div>
           <WorkspaceSwitcher current={workspace} />
           <nav className="grid gap-0.5">{nav}</nav>
           <div className="mt-auto">
@@ -119,6 +129,7 @@ export function WorkspaceLayout() {
               <div className="ml-auto max-w-56 min-w-0 flex-1">
                 <WorkspaceSwitcher current={workspace} />
               </div>
+              {bell}
               <UserMenu compact />
             </div>
             <nav className="flex gap-1 overflow-x-auto">{nav}</nav>

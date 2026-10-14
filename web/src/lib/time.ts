@@ -79,6 +79,17 @@ export function formatRelative(iso: string | undefined, now: number): string {
   return ""
 }
 
+/**
+ * Like formatRelative for things that already happened: a time just past
+ * a stale `now` (useNow ticks every 30 s) reads "now", not "in 10 seconds".
+ */
+export function formatAgo(iso: string | undefined, now: number): string {
+  if (!iso) return ""
+  const t = new Date(iso).getTime()
+  if (Number.isNaN(t)) return ""
+  return formatRelative(iso, Math.max(now, t))
+}
+
 /** 90 → "1:30", 3600 → "60:00". */
 export function formatDuration(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60)

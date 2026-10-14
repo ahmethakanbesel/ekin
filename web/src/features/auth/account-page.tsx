@@ -6,9 +6,16 @@ import { isApiError, type User } from "@/api/client"
 import { Banner, PageHeader } from "@/components/page"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Switch } from "@/components/ui/switch"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { meQuery, useChangePassword, useUpdateMe } from "@/queries/auth"
@@ -25,6 +32,7 @@ export function AccountPage() {
         <div className="grid gap-6">
           {/* Re-mount when the stored name changes underneath the form. */}
           <ProfileCard key={`${me.id}:${me.name}`} me={me} />
+          <NotificationsCard me={me} />
           <PasswordCard />
         </div>
       ) : (
@@ -99,6 +107,48 @@ function ProfileCard({ me }: { me: User }) {
             </form.Subscribe>
           </div>
         </form>
+      </CardContent>
+    </Card>
+  )
+}
+
+function NotificationsCard({ me }: { me: User }) {
+  const update = useUpdateMe()
+  // Shows the requested state while the request is in flight.
+  const checked = update.isPending
+    ? (update.variables.emailNotifications ?? me.emailNotifications)
+    : me.emailNotifications
+
+  const toggle = async (on: boolean) => {
+    try {
+      await update.mutateAsync({ emailNotifications: on })
+      toast.success(on ? m.account.emailDigestsOn : m.account.emailDigestsOff)
+    } catch (err) {
+      toast.error(errorMessage(err))
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="font-heading text-base font-medium">
+          {m.account.notificationsTitle}
+        </CardTitle>
+        <CardDescription>{m.account.notificationsDescription}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Field orientation="horizontal">
+          <FieldContent>
+            <FieldLabel htmlFor="account-email-digests">{m.account.emailDigests}</FieldLabel>
+            <FieldDescription>{m.account.emailDigestsHint}</FieldDescription>
+          </FieldContent>
+          <Switch
+            id="account-email-digests"
+            checked={checked}
+            disabled={update.isPending}
+            onCheckedChange={(on) => void toggle(on)}
+          />
+        </Field>
       </CardContent>
     </Card>
   )

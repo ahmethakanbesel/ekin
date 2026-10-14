@@ -1,9 +1,17 @@
-import type { DeliverableStatus, JobStatus } from "@/api/client"
+import type { DeliverableStatus, JobStatus, OpportunityStatus } from "@/api/client"
 
 // Hierarchical keys: invalidating ["workspaces", id] also refreshes that
 // workspace's pipelines, documents, jobs, members and stories.
 export const keys = {
   me: () => ["me"] as const,
+  system: () => ["system"] as const,
+  profiles: () => ["system", "profiles"] as const,
+  integrations: (workspaceId: string) => ["workspaces", workspaceId, "integrations"] as const,
+  seoProfile: (workspaceId: string) => ["workspaces", workspaceId, "seo"] as const,
+  opportunities: (workspaceId: string) => ["workspaces", workspaceId, "opportunities"] as const,
+  opportunityList: (workspaceId: string, status: OpportunityStatus | "all") =>
+    ["workspaces", workspaceId, "opportunities", "list", status] as const,
+  notifications: (workspaceId: string) => ["workspaces", workspaceId, "notifications"] as const,
   invitation: (token: string) => ["invitation", token] as const,
   workspaces: () => ["workspaces"] as const,
   workspace: (workspaceId: string) => ["workspaces", workspaceId] as const,

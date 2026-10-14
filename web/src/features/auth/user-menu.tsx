@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { ChevronsUpDownIcon, LogOutIcon, UserIcon } from "lucide-react"
+import { ChevronsUpDownIcon, LogOutIcon, ServerIcon, UserIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import type { User } from "@/api/client"
@@ -88,6 +88,10 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
         <DropdownMenuItem onClick={() => void navigate({ to: "/account" })}>
           <UserIcon />
           {m.auth.account}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void navigate({ to: "/system" })}>
+          <ServerIcon />
+          {m.nav.system}
         </DropdownMenuItem>
         <DropdownMenuItem disabled={logout.isPending} onClick={() => void signOut()}>
           <LogOutIcon />

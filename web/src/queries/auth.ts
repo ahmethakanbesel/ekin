@@ -69,9 +69,11 @@ export function useLogout() {
 export function useUpdateMe() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: { name: string }) => call(api.PATCH("/me", { body })),
-    onSuccess: (user) => {
+    mutationFn: (body: { name?: string; emailNotifications?: boolean }) =>
+      call(api.PATCH("/me", { body })),
+    onSuccess: (user, body) => {
       qc.setQueryData(keys.me(), user)
+      if (body.name === undefined) return
       // Member lists show the name.
       void qc.invalidateQueries({
         predicate: (q) => q.queryKey[0] === "workspaces" && q.queryKey[2] === "members",

@@ -1,6 +1,6 @@
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { ChevronRightIcon, LayersIcon, PlusIcon } from "lucide-react"
 
 import { EmptyState, ErrorState, PageHeader } from "@/components/page"
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { StandalonePage } from "@/features/auth/standalone-page"
+import { useYouTubeReturn } from "@/features/publishing/youtube-return"
 import { m } from "@/i18n"
 import { workspacesQuery } from "@/queries/workspaces"
 import { CreateWorkspaceDialog } from "./create-workspace-dialog"
@@ -16,6 +17,10 @@ import { CreateWorkspaceDialog } from "./create-workspace-dialog"
 export function HomePage() {
   const { data, error, isPending, refetch } = useQuery(workspacesQuery())
   const [creating, setCreating] = useState(false)
+  const search = useSearch({ from: "/" })
+  const navigate = useNavigate({ from: "/" })
+  const clear = useCallback(() => void navigate({ search: {}, replace: true }), [navigate])
+  useYouTubeReturn(search, clear)
 
   const newButton = (
     <Button onClick={() => setCreating(true)}>
