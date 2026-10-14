@@ -49,6 +49,7 @@ const GROUPS: Array<{ id: string; keys: string[] }> = [
   },
   { id: "youtube", keys: ["youtubeClientId", "youtubeClientSecret"] },
   { id: "openseo", keys: ["openseoApiKey", "openseoUrl"] },
+  { id: "speech", keys: ["elevenlabsApiKey"] },
 ]
 
 const TLS_MODES = ["starttls", "tls", "none"] as const

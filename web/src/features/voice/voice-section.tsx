@@ -4,6 +4,7 @@ import { DicesIcon, Loader2Icon, PlayIcon, PlusIcon, XIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { isApiError, type VoiceConfig, type VoiceEngine, type VoiceSettings } from "@/api/client"
+import { Badge } from "@/components/ui/badge"
 import { Banner, ErrorState, ReadOnlyNote } from "@/components/page"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,7 +17,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { Row } from "@/features/pipelines/form-parts"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
@@ -29,16 +29,24 @@ import {
   voiceSettingsQuery,
   voicesQuery,
 } from "@/queries/voice"
+import { ElevenLabsFields, ElevenLabsVoiceSelect } from "./elevenlabs-fields"
 import {
+  ELEVENLABS_DEFAULTS,
   QUALITIES,
   VOICE_LIMITS,
+  defaultConfig,
+  engineFor,
+  enginesFor,
   formatDecimal,
   fromLexicon,
   lexiconRow,
+  switchEngine,
   toLexicon,
   validateLexicon,
+  voiceLanguages,
   type LexiconRow,
 } from "./model"
+import { SliderRow } from "./slider-row"
 import { VoiceSelect } from "./voice-select"
 
 /** Workspace settings: narration per language, with previews and pronunciations. */
@@ -65,14 +73,15 @@ export function VoiceSection() {
   else
     body = (
       <div className="grid gap-6">
-        {engines.data.map((e) => {
-          const config = settings.data.languages[e.language]
-          const lexicon = settings.data.lexicon[e.language]
+        {voiceLanguages(engines.data).map((lang) => {
+          const config = settings.data.languages[lang]
+          const lexicon = settings.data.lexicon[lang]
           return (
             <LanguageCard
               // Re-mount when the stored settings of this language change.
-              key={`${e.language}:${JSON.stringify([config, lexicon])}`}
-              engine={e}
+              key={`${lang}:${JSON.stringify([config, lexicon])}`}
+              language={lang}
+              engines={enginesFor(engines.data, lang)}
               settings={settings.data}
               canManage={canManage}
               canEdit={canEdit}
@@ -96,16 +105,6 @@ export function VoiceSection() {
   )
 }
 
-function defaultConfig(engine: VoiceEngine): VoiceConfig {
-  return {
-    voice: engine.defaultVoice,
-    speed: 1,
-    sentencePause: 0.25,
-    paragraphPause: 0.5,
-    quality: engine.hasQuality ? "fp32" : undefined,
-  }
-}
-
 function seedText(c: VoiceConfig): string {
   return c.seed === undefined ? "" : String(c.seed)
 }
@@ -116,35 +115,47 @@ function seedProblem(seed: string): string | undefined {
   return /^\d+$/.test(t) && Number(t) <= VOICE_LIMITS.seed[1] ? undefined : m.voice.seedInvalid
 }
 
-/** The wire config: seed only for engines with one (blank: unset), quality only for those with one. */
+/**
+ * The wire config: seed only for engines with one (blank: unset), quality
+ * and ElevenLabs settings only for their engines.
+ */
 function toConfig(engine: VoiceEngine, c: VoiceConfig, seed: string): VoiceConfig {
   const t = seed.trim()
   return {
+    engine: engine.id,
     voice: c.voice,
     speed: c.speed,
     sentencePause: c.sentencePause,
     paragraphPause: c.paragraphPause,
     seed: engine.hasSeed && t !== "" && !seedProblem(t) ? Number(t) : undefined,
     quality: engine.hasQuality ? (c.quality ?? "fp32") : undefined,
+    elevenlabs: engine.id === "elevenlabs" ? (c.elevenlabs ?? ELEVENLABS_DEFAULTS) : undefined,
   }
 }
 
+function engineLabel(e: VoiceEngine): string {
+  return e.cloud ? m.voice.cloudEngine(e.name) : e.name
+}
+
 function LanguageCard({
-  engine,
+  language: lang,
+  engines,
   settings,
   canManage,
   canEdit,
 }: {
-  engine: VoiceEngine
+  language: string
+  engines: VoiceEngine[]
   settings: VoiceSettings
   canManage: boolean
   canEdit: boolean
 }) {
   const workspace = useWorkspace()
   const save = useSaveVoiceSettings(workspace.id)
-  const lang = engine.language
-  const stored = settings.languages[lang] ?? defaultConfig(engine)
+  const stored = settings.languages[lang] ?? defaultConfig(engines[0])
   const [config, setConfig] = useState<VoiceConfig>(stored)
+  const engine = engineFor(engines, lang, config.engine)
+  const storedEngine = engineFor(engines, lang, stored.engine)
   const [seed, setSeed] = useState(() => seedText(stored))
   const [initialRows] = useState(() => fromLexicon(settings.lexicon[lang]))
   const [rows, setRows] = useState<LexiconRow[]>(initialRows)
@@ -158,7 +169,7 @@ function LanguageCard({
   const lexicon = validateLexicon(rows)
   const lexiconInvalid = lexicon.rows.size > 0 || !!lexicon.list
   const dirty =
-    JSON.stringify(effective) !== JSON.stringify(toConfig(engine, stored, seedText(stored))) ||
+    JSON.stringify(effective) !== JSON.stringify(toConfig(storedEngine, stored, seedText(stored))) ||
     JSON.stringify(toLexicon(rows)) !== JSON.stringify(toLexicon(initialRows))
 
   const set = <K extends keyof VoiceConfig>(key: K, value: VoiceConfig[K]) =>
@@ -182,7 +193,7 @@ function LanguageCard({
     <Card>
       <CardHeader>
         <CardTitle>{name}</CardTitle>
-        <CardDescription>{m.voice.engine(engine.name)}</CardDescription>
+        <CardDescription>{m.voice.engine(engineLabel(storedEngine))}</CardDescription>
       </CardHeader>
       <CardContent>
         <form
@@ -194,14 +205,53 @@ function LanguageCard({
           }}
         >
           <div className="grid gap-5 sm:grid-cols-2">
+            <Row
+              label={m.voice.engineLabel}
+              htmlFor={id("engine")}
+              hint={engine.cloud ? m.voice.cloudHint : m.voice.localHint}
+            >
+              <Select
+                items={engines.map((e) => ({ value: e.id, label: engineLabel(e) }))}
+                disabled={disabled || engines.length < 2}
+                value={engine.id}
+                onValueChange={(v) => {
+                  const next = engines.find((e) => e.id === v)
+                  if (next && next.id !== engine.id) setConfig((c) => switchEngine(c, next))
+                }}
+              >
+                <SelectTrigger id={id("engine")} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {engines.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      <span className="flex items-center gap-2">
+                        {e.name}
+                        {e.cloud ? <Badge variant="outline">{m.voice.cloud}</Badge> : null}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Row>
             <Row label={m.voice.voice} htmlFor={id("voice")}>
-              <VoiceSelect
-                id={id("voice")}
-                engine={engine}
-                value={config.voice}
-                onChange={(v) => v && set("voice", v)}
-                disabled={disabled}
-              />
+              {engine.voices.length > 0 ? (
+                <VoiceSelect
+                  id={id("voice")}
+                  engine={engine}
+                  value={config.voice}
+                  onChange={(v) => v && set("voice", v)}
+                  disabled={disabled}
+                />
+              ) : (
+                <ElevenLabsVoiceSelect
+                  id={id("voice")}
+                  language={lang}
+                  value={config.voice}
+                  onChange={(v) => v && set("voice", v)}
+                  disabled={disabled}
+                />
+              )}
             </Row>
             {engine.hasQuality ? (
               <Row label={m.voice.quality} htmlFor={id("quality")} hint={m.voice.qualityHint}>
@@ -270,7 +320,7 @@ function LanguageCard({
             <SliderRow
               id={id("sentence")}
               label={m.voice.sentencePause}
-              hint={m.voice.pauseHint}
+              hint={engine.id === "elevenlabs" ? m.voice.elevenlabs.sentencePauseHint : m.voice.pauseHint}
               value={config.sentencePause}
               display={m.voice.seconds(formatDecimal(config.sentencePause))}
               min={VOICE_LIMITS.pause[0]}
@@ -290,6 +340,16 @@ function LanguageCard({
               onChange={(v) => set("paragraphPause", v)}
             />
           </div>
+
+          {engine.id === "elevenlabs" ? (
+            <ElevenLabsFields
+              idPrefix={id("el")}
+              language={lang}
+              value={config.elevenlabs ?? ELEVENLABS_DEFAULTS}
+              onChange={(el) => set("elevenlabs", el)}
+              disabled={disabled}
+            />
+          ) : null}
 
           <PreviewPanel
             language={lang}
@@ -318,51 +378,6 @@ function LanguageCard({
         </form>
       </CardContent>
     </Card>
-  )
-}
-
-function SliderRow({
-  id,
-  label,
-  hint,
-  value,
-  display,
-  min,
-  max,
-  disabled,
-  onChange,
-}: {
-  id: string
-  label: string
-  hint: string
-  value: number
-  display: string
-  min: number
-  max: number
-  disabled: boolean
-  onChange: (value: number) => void
-}) {
-  return (
-    <div className="grid gap-2">
-      <div className="flex items-baseline justify-between gap-2">
-        <span id={id} className="text-sm font-medium">
-          {label}
-        </span>
-        <span className="text-sm text-muted-foreground tabular">{display}</span>
-      </div>
-      <Slider
-        aria-labelledby={id}
-        thumbLabel={label}
-        valueText={display}
-        min={min}
-        max={max}
-        step={0.05}
-        disabled={disabled}
-        value={value}
-        onValueChange={(v) => onChange(Math.round((Array.isArray(v) ? v[0] : v) * 100) / 100)}
-      />
-      <p className="text-xs text-muted-foreground">{hint}</p>
-    </div>
   )
 }
 

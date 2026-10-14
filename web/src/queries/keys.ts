@@ -9,6 +9,7 @@ export const keys = {
   credentials: () => ["system", "credentials"] as const,
   voices: () => ["voices"] as const,
   voiceSettings: (workspaceId: string) => ["workspaces", workspaceId, "voice"] as const,
+  elevenLabsAccount: (workspaceId: string) => ["workspaces", workspaceId, "voice", "elevenlabs"] as const,
   integrations: (workspaceId: string) => ["workspaces", workspaceId, "integrations"] as const,
   seoProfile: (workspaceId: string) => ["workspaces", workspaceId, "seo"] as const,
   openSeo: (workspaceId: string) => ["workspaces", workspaceId, "seo", "openseo"] as const,

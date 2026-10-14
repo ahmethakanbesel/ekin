@@ -30,6 +30,20 @@ export const voiceSettingsQuery = (workspaceId: string) =>
       ),
   })
 
+/**
+ * The ElevenLabs account's voices, models and usage. Fetched only where an
+ * ElevenLabs engine is shown; each fetch calls ElevenLabs.
+ */
+export const elevenLabsAccountQuery = (workspaceId: string) =>
+  queryOptions({
+    queryKey: keys.elevenLabsAccount(workspaceId),
+    queryFn: ({ signal }) =>
+      call(
+        api.GET("/workspaces/{workspaceId}/voice/elevenlabs", { params: { path: { workspaceId } }, signal })
+      ),
+    staleTime: 5 * 60_000,
+  })
+
 export function useSaveVoiceSettings(workspaceId: string) {
   const qc = useQueryClient()
   return useMutation({

@@ -5,20 +5,26 @@ import { ChevronDownIcon } from "lucide-react"
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Field, FieldLabel } from "@/components/ui/field"
 import { Slider } from "@/components/ui/slider"
 import { Row } from "@/features/pipelines/form-parts"
 import { useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { cn } from "@/lib/utils"
-import { voicesQuery } from "@/queries/voice"
-import { engineFor, formatDecimal, type VoiceOverrideValues } from "./model"
+import { voiceSettingsQuery, voicesQuery } from "@/queries/voice"
+import { ElevenLabsVoiceSelect } from "./elevenlabs-fields"
+import { engineFor, enginesFor, formatDecimal, type VoiceOverrideValues } from "./model"
 import { VoiceSelect } from "./voice-select"
 
+/** The engine select's value for "workspace default". */
+const WORKSPACE = "workspace"
+
 /**
- * "Voice (optional)" in the pipeline and request forms: another voice or
- * speed than the workspace's, for the content language. Collapsed unless
- * an override is set. The host form clears it when the language changes.
+ * "Voice (optional)" in the pipeline and request forms: another engine,
+ * voice or speed than the workspace's, for the content language. Without
+ * an engine the voices are the workspace engine's. Collapsed unless an
+ * override is set. The host form clears it when the language changes.
  */
 export function VoiceOverrideSection({
   idPrefix,
@@ -35,15 +41,19 @@ export function VoiceOverrideSection({
 }) {
   const workspace = useWorkspace()
   const engines = useQuery(voicesQuery())
-  const engine = engineFor(engines.data, language)
-  const set = !!value.voice || !!value.speed
+  const settings = useQuery(voiceSettingsQuery(workspace.id))
+  const list = enginesFor(engines.data, language)
+  const workspaceEngine = engineFor(engines.data, language, settings.data?.languages[language]?.engine)
+  const engine = value.engine ? engineFor(engines.data, language, value.engine) : workspaceEngine
+  const set = !!value.engine || !!value.voice || !!value.speed
   const [open, setOpen] = useState(set)
   const t = m.voice.override
   const contentId = `${idPrefix}-content`
   const speed = value.speed ? Number(value.speed) : 1
-  const voiceLabel = value.voice
+  const voiceName = value.voice
     ? (engine?.voices.find((v) => v.id === value.voice)?.label ?? value.voice)
     : t.workspaceDefault
+  const voiceLabel = value.engine && engine ? `${engine.name} · ${voiceName}` : voiceName
   const speedLabel = value.speed ? m.voice.speedValue(formatDecimal(speed)) : t.workspaceDefault
 
   return (
@@ -72,8 +82,38 @@ export function VoiceOverrideSection({
       {open ? (
         <CardContent id={contentId}>
           <fieldset disabled={readOnly} className="grid gap-5 sm:grid-cols-2">
+            {list.length > 1 ? (
+              <Row label={t.engine} htmlFor={`${idPrefix}-engine`}>
+                <Select
+                  items={[
+                    { value: WORKSPACE, label: t.workspaceDefault },
+                    ...list.map((e) => ({ value: e.id, label: e.cloud ? m.voice.cloudEngine(e.name) : e.name })),
+                  ]}
+                  disabled={readOnly}
+                  value={value.engine || WORKSPACE}
+                  // Voices differ per engine, so a new engine starts from its default voice.
+                  onValueChange={(v) =>
+                    onChange({ ...value, engine: !v || v === WORKSPACE ? "" : String(v), voice: "" })
+                  }
+                >
+                  <SelectTrigger id={`${idPrefix}-engine`} className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={WORKSPACE}>{t.workspaceDefault}</SelectItem>
+                    {list.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>
+                        {e.cloud ? m.voice.cloudEngine(e.name) : e.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </Row>
+            ) : null}
             <Row label={t.voice} htmlFor={`${idPrefix}-voice`}>
-              {engine ? (
+              {!engine ? (
+                <p className="text-sm text-muted-foreground">{m.common.loading}</p>
+              ) : engine.voices.length > 0 ? (
                 <VoiceSelect
                   id={`${idPrefix}-voice`}
                   engine={engine}
@@ -83,7 +123,14 @@ export function VoiceOverrideSection({
                   onChange={(voice) => onChange({ ...value, voice })}
                 />
               ) : (
-                <p className="text-sm text-muted-foreground">{m.common.loading}</p>
+                <ElevenLabsVoiceSelect
+                  id={`${idPrefix}-voice`}
+                  language={language}
+                  value={value.voice}
+                  defaultLabel={t.workspaceDefault}
+                  disabled={readOnly}
+                  onChange={(voice) => onChange({ ...value, voice })}
+                />
               )}
             </Row>
             <div className="grid content-start gap-2">

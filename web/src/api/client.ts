@@ -66,6 +66,10 @@ export type VoiceEngine = Schemas["VoiceEngine"]
 export type VoiceConfig = Schemas["VoiceConfig"]
 export type VoiceSettings = Schemas["VoiceSettings"]
 export type VoiceOverride = Schemas["VoiceOverride"]
+export type ElevenLabsSettings = Schemas["ElevenLabsSettings"]
+export type ElevenLabsVoice = Schemas["ElevenLabsVoice"]
+export type ElevenLabsModel = Schemas["ElevenLabsModel"]
+export type ElevenLabsAccount = Schemas["ElevenLabsAccount"]
 
 /** A failed API call: the server's `{code, message}` plus the HTTP status. */
 export class ApiError extends Error {

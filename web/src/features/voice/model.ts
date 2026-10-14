@@ -1,4 +1,11 @@
-import type { Voice, VoiceEngine, VoiceOverride } from "@/api/client"
+import type {
+  ElevenLabsSettings,
+  ElevenLabsVoice,
+  Voice,
+  VoiceConfig,
+  VoiceEngine,
+  VoiceOverride,
+} from "@/api/client"
 import { m } from "@/i18n"
 
 /** Mirrors internal/domain/voice/v1. */
@@ -50,8 +57,70 @@ export function shortLabel(v: Voice): string {
   return i > 0 ? v.label.slice(0, i) : v.label
 }
 
-export function engineFor(engines: VoiceEngine[] | undefined, language: string) {
-  return engines?.find((e) => e.language === language)
+/** A language's engines, default first. */
+export function enginesFor(engines: VoiceEngine[] | undefined, language: string): VoiceEngine[] {
+  return engines?.filter((e) => e.language === language) ?? []
+}
+
+/** A language's engine by id; no id (or an unknown one) is the language's default. */
+export function engineFor(engines: VoiceEngine[] | undefined, language: string, id?: string) {
+  const list = enginesFor(engines, language)
+  return list.find((e) => e.id === id) ?? list[0]
+}
+
+/** The languages that have an engine, in catalogue order. */
+export function voiceLanguages(engines: VoiceEngine[]): string[] {
+  return [...new Set(engines.map((e) => e.language))]
+}
+
+/** Mirrors voice.ElevenLabsDefaults. */
+export const ELEVENLABS_DEFAULTS: ElevenLabsSettings = {
+  model: "eleven_multilingual_v2",
+  stability: 0.5,
+  similarityBoost: 0.75,
+  style: 0,
+  speakerBoost: true,
+}
+
+/** How a language starts with an engine (mirrors voice.DefaultConfig). */
+export function defaultConfig(engine: VoiceEngine): VoiceConfig {
+  return {
+    engine: engine.id,
+    voice: engine.defaultVoice,
+    speed: 1,
+    sentencePause: 0.25,
+    paragraphPause: 0.5,
+    quality: engine.hasQuality ? "fp32" : undefined,
+    elevenlabs: engine.id === "elevenlabs" ? { ...ELEVENLABS_DEFAULTS } : undefined,
+  }
+}
+
+/**
+ * Switching engines starts from the new engine's defaults and keeps the
+ * pauses and the seed, as the server does for overrides.
+ */
+export function switchEngine(c: VoiceConfig, engine: VoiceEngine): VoiceConfig {
+  return {
+    ...defaultConfig(engine),
+    sentencePause: c.sentencePause,
+    paragraphPause: c.paragraphPause,
+    seed: c.seed,
+  }
+}
+
+/** "Rachel · American · female", from an account voice's labels. */
+export function elevenLabsVoiceLabel(v: ElevenLabsVoice): string {
+  const parts = [v.labels.accent, v.labels.gender].filter(Boolean)
+  return parts.length ? `${v.name} · ${parts.join(" · ")}` : v.name
+}
+
+/**
+ * Account voices for a language: verified for it first, then the rest
+ * (multilingual models read any voice in any language), by name.
+ */
+export function sortElevenLabsVoices(voices: ElevenLabsVoice[], language: string) {
+  const verified = (v: ElevenLabsVoice) => (v.languages.includes(language) ? 0 : 1)
+  return voices.toSorted((a, b) => verified(a) - verified(b) || a.name.localeCompare(b.name, m.locale))
 }
 
 // ---- Pronunciation dictionary ----
@@ -98,19 +167,23 @@ export function fromLexicon(lex: Record<string, string> | undefined): LexiconRow
 // ---- Per-pipeline / per-request override ----
 
 /** "" means the workspace default. */
-export type VoiceOverrideValues = { voice: string; speed: string }
+export type VoiceOverrideValues = { engine: string; voice: string; speed: string }
 
 export function emptyOverride(): VoiceOverrideValues {
-  return { voice: "", speed: "" }
+  return { engine: "", voice: "", speed: "" }
 }
 
 export function fromOverride(o: VoiceOverride | undefined): VoiceOverrideValues {
-  return { voice: o?.voice ?? "", speed: o?.speed ? String(o.speed) : "" }
+  return { engine: o?.engine ?? "", voice: o?.voice ?? "", speed: o?.speed ? String(o.speed) : "" }
 }
 
 /** The wire override, or undefined when it changes nothing. */
 export function toOverride(v: VoiceOverrideValues): VoiceOverride | undefined {
   const speed = v.speed ? Number(v.speed) : undefined
-  if (!v.voice && !speed) return undefined
-  return { voice: v.voice || undefined, speed: speed || undefined }
+  if (!v.engine && !v.voice && !speed) return undefined
+  return {
+    engine: (v.engine || undefined) as VoiceOverride["engine"],
+    voice: v.voice || undefined,
+    speed: speed || undefined,
+  }
 }
