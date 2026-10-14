@@ -119,6 +119,12 @@ func Load() (Config, error) {
 	return load(os.Getenv)
 }
 
+// Defaults that the settings page reports as built in.
+const (
+	DefaultDecisionModel = "typesafe/jev-1.13"
+	DefaultSMTPTLS       = "starttls"
+)
+
 func load(getenv func(string) string) (Config, error) {
 	var errs []string
 	str := func(key, def string) string {
@@ -229,9 +235,9 @@ func load(getenv func(string) string) (Config, error) {
 	cfg.Notify = Notify{
 		SMTPHost: str("KURGU_SMTP_HOST", ""), SMTPUser: str("KURGU_SMTP_USERNAME", ""),
 		SMTPPassword: str("KURGU_SMTP_PASSWORD", ""), SMTPFrom: str("KURGU_SMTP_FROM", ""),
-		SMTPTLS: str("KURGU_SMTP_TLS", "starttls"), SMTPPort: int(number("KURGU_SMTP_PORT", 0, 0, 65535)),
+		SMTPTLS: str("KURGU_SMTP_TLS", DefaultSMTPTLS), SMTPPort: int(number("KURGU_SMTP_PORT", 0, 0, 65535)),
 		Every:         duration("KURGU_NOTIFY_EVERY", 10*time.Minute),
-		OpenRouterKey: str("KURGU_OPENROUTER_API_KEY", ""), DecisionModel: str("KURGU_DECISION_MODEL", "typesafe/jev-1.13"),
+		OpenRouterKey: str("KURGU_OPENROUTER_API_KEY", ""), DecisionModel: str("KURGU_DECISION_MODEL", DefaultDecisionModel),
 	}
 	cfg.Remote = Remote{URL: strings.TrimRight(str("KURGU_REMOTE_URL", ""), "/"), Token: str("KURGU_WORKER_TOKEN", "")}
 	if cfg.Remote.URL != "" && cfg.Remote.Token == "" {

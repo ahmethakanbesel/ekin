@@ -107,3 +107,34 @@ func TestCredentials(t *testing.T) {
 		}
 	}
 }
+
+func TestCredentialDefaultsAreNotReportedAsEnv(t *testing.T) {
+	ctx := context.Background()
+	_, tx := dbtest.Open(t)
+	box, _ := secretbox.New([]byte("test-secret-0123456789"))
+	tests := []struct {
+		name       string
+		env        settingsdomain.Credentials
+		wantSource string
+		wantValue  string
+	}{
+		{"built-in default", settingsdomain.Credentials{}, "default", "typesafe/jev-1.13"},
+		{"set in the environment", settingsdomain.Credentials{DecisionModel: "other/model"}, "env", "other/model"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := settingssvc.NewService(settingsrepo.NewSQLite(tx), defaults(), slog.New(slog.DiscardHandler)).
+				WithCredentials(tt.env, box).
+				WithCredentialDefaults(settingsdomain.Credentials{DecisionModel: "typesafe/jev-1.13", SMTPTLS: "starttls"})
+			if c := svc.Credentials(ctx); c.DecisionModel != tt.wantValue || c.SMTPTLS != "starttls" {
+				t.Fatalf("effective = %+v", c)
+			}
+			statuses, _ := svc.CredentialStatuses(ctx)
+			for _, st := range statuses {
+				if st.Field.Key == "decisionModel" && (st.Source != tt.wantSource || st.Value != tt.wantValue) {
+					t.Fatalf("status = %+v", st)
+				}
+			}
+		})
+	}
+}

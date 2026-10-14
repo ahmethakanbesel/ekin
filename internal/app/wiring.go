@@ -189,18 +189,32 @@ func probeTool(ctx context.Context, bin string, args ...string) (bool, string) {
 }
 
 // envCredentials are the KURGU_* values the settings page overrides.
+// credentialDefaults are the values config falls back to when a variable
+// is unset; envCredentials leaves those out so they are not reported as
+// coming from the environment.
+func credentialDefaults() settingsdomain.Credentials {
+	return settingsdomain.Credentials{DecisionModel: config.DefaultDecisionModel, SMTPTLS: config.DefaultSMTPTLS}
+}
+
 func envCredentials(cfg config.Config) settingsdomain.Credentials {
 	port := ""
 	if cfg.Notify.SMTPPort > 0 {
 		port = strconv.Itoa(cfg.Notify.SMTPPort)
 	}
-	return settingsdomain.Credentials{
+	c := settingsdomain.Credentials{
 		ClaudeOAuthToken: os.Getenv("CLAUDE_CODE_OAUTH_TOKEN"), ClaudeModel: cfg.Production.ClaudeModel,
 		PexelsAPIKey: cfg.Production.PexelsKey, OpenRouterAPIKey: cfg.Notify.OpenRouterKey, DecisionModel: cfg.Notify.DecisionModel,
 		SMTPHost: cfg.Notify.SMTPHost, SMTPPort: port, SMTPUsername: cfg.Notify.SMTPUser, SMTPPassword: cfg.Notify.SMTPPassword,
 		SMTPFrom: cfg.Notify.SMTPFrom, SMTPTLS: cfg.Notify.SMTPTLS,
 		YouTubeClientID: cfg.Publishing.YouTubeClientID, YouTubeClientSecret: cfg.Publishing.YouTubeClientSecret,
 	}
+	if _, ok := os.LookupEnv("KURGU_DECISION_MODEL"); !ok {
+		c.DecisionModel = ""
+	}
+	if _, ok := os.LookupEnv("KURGU_SMTP_TLS"); !ok {
+		c.SMTPTLS = ""
+	}
+	return c
 }
 
 // dynamicAgent runs Claude Code with the current model and token.

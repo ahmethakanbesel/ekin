@@ -36,6 +36,7 @@ type Service struct {
 
 	box      *secretbox.Box
 	envCreds settingsdomain.Credentials
+	defCreds settingsdomain.Credentials
 	credsAt  time.Time
 	creds    settingsdomain.Credentials
 }
@@ -44,6 +45,13 @@ type Service struct {
 // box seals what the settings page stores.
 func (s *Service) WithCredentials(env settingsdomain.Credentials, box *secretbox.Box) *Service {
 	s.envCreds, s.box = env, box
+	return s
+}
+
+// WithCredentialDefaults sets the built-in values used when neither the
+// settings page nor the environment sets a credential.
+func (s *Service) WithCredentialDefaults(d settingsdomain.Credentials) *Service {
+	s.defCreds = d
 	return s
 }
 
@@ -85,7 +93,7 @@ func (s *Service) Credentials(ctx context.Context) settingsdomain.Credentials {
 	if err != nil {
 		s.log.WarnContext(ctx, "read credentials", slog.Any("error", err))
 	}
-	c := s.envCreds.Merge(stored)
+	c := s.defCreds.Merge(s.envCreds).Merge(stored)
 	s.mu.Lock()
 	s.creds, s.credsAt = c, s.now()
 	s.mu.Unlock()
@@ -95,7 +103,7 @@ func (s *Service) Credentials(ctx context.Context) settingsdomain.Credentials {
 // CredentialStatus is one credential as the settings page sees it.
 type CredentialStatus struct {
 	Field  settingsdomain.CredentialField
-	Source string // settings | env | unset
+	Source string // settings | env | default | unset
 	Value  string // plain for non-secrets, a hint for secrets
 }
 
@@ -113,6 +121,8 @@ func (s *Service) CredentialStatuses(ctx context.Context) ([]CredentialStatus, e
 			st.Source = "settings"
 		} else if v = f.Value(s.envCreds); v != "" {
 			st.Source = "env"
+		} else if v = f.Value(s.defCreds); v != "" {
+			st.Source = "default"
 		}
 		if v != "" {
 			st.Value = v
