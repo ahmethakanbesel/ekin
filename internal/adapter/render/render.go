@@ -6,11 +6,14 @@
 package render
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"image/color"
+	"image/png"
 	"io/fs"
 	"math"
 	"net"
@@ -402,6 +405,63 @@ func (r *Renderer) Snapshot(ctx context.Context, dir, pagePath string, times []f
 		paths = append(paths, p)
 	}
 	return paths, s.problems.List(), nil
+}
+
+// Sample is one frame of a composition as luminance at a small size.
+type Sample struct {
+	T    float64
+	W, H int
+	Gray []uint8 // row-major, W×H
+}
+
+// sampleScale draws a 1080×1920 composition at 135×240: enough to see
+// what is on screen, cheap enough to sample every half second.
+const sampleScale = 0.125
+
+// Sample renders the composition every `every` seconds, small and with
+// the captions hidden, so checks can judge what the picture itself does.
+func (r *Renderer) Sample(ctx context.Context, dir, pagePath string, every float64) ([]Sample, []string, error) {
+	s, err := r.open(ctx, dir)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer s.close()
+	tab, m, err := s.tab(pagePath, sampleScale)
+	if err != nil {
+		return nil, s.problems.List(), err
+	}
+	if _, err := chromedp.Run(tab, chromedp.Evaluate[bool](`(() => {
+		const st = document.createElement("style");
+		st.textContent = ".kurgu-captions { visibility: hidden !important; }";
+		document.head.appendChild(st);
+		return true;
+	})()`)); err != nil {
+		return nil, s.problems.List(), err
+	}
+	var out []Sample
+	for t := 0.0; t < m.Duration; t += every {
+		if err := renderAt(tab, t); err != nil {
+			return out, s.problems.List(), fmt.Errorf("render: renderAt(%.2f): %w", t, err)
+		}
+		data, err := capture(tab, page.CaptureScreenshotFormatPng, 0)
+		if err != nil {
+			return out, s.problems.List(), err
+		}
+		img, err := png.Decode(bytes.NewReader(data))
+		if err != nil {
+			return out, s.problems.List(), fmt.Errorf("render: decode frame %.2f: %w", t, err)
+		}
+		b := img.Bounds()
+		smp := Sample{T: t, W: b.Dx(), H: b.Dy(), Gray: make([]uint8, b.Dx()*b.Dy())}
+		for y := range smp.H {
+			for x := range smp.W {
+				g := color.GrayModel.Convert(img.At(b.Min.X+x, b.Min.Y+y)).(color.Gray)
+				smp.Gray[y*smp.W+x] = g.Y
+			}
+		}
+		out = append(out, smp)
+	}
+	return out, s.problems.List(), nil
 }
 
 // VideoOptions tune one render. Zero values fall back to the

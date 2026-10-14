@@ -213,7 +213,8 @@ type Prober interface {
 
 // Check validates a composition: it loads and renders without errors,
 // matches the spec's frame size and duration, follows the narration, and
-// references nothing on the network.
+// references nothing on the network. When r is also a Sampler, it checks
+// the picture too: no caption-only stretches, no long stills.
 func Check(ctx context.Context, r Prober, dir, pagePath string, spec Spec) Report {
 	rep := Report{}
 	fail := func(format string, a ...any) { rep.Errors = append(rep.Errors, fmt.Sprintf(format, a...)) }
@@ -270,6 +271,18 @@ func Check(ctx context.Context, r Prober, dir, pagePath string, spec Spec) Repor
 		}
 		if m.FPS != 30 && m.FPS != 25 && m.FPS != 60 {
 			rep.Warnings = append(rep.Warnings, fmt.Sprintf("fps %.0f is unusual; use 30", m.FPS))
+		}
+		if smp, ok := r.(Sampler); ok && len(rep.Errors) == 0 {
+			samples, problems, err := smp.Sample(ctx, dir, pagePath, sampleEvery)
+			if err != nil {
+				fail("%v", err)
+			}
+			for _, p := range problems {
+				fail("page: %s", p)
+			}
+			errs, warns := checkPicture(samples, narration, spec.Long)
+			rep.Errors = append(rep.Errors, errs...)
+			rep.Warnings = append(rep.Warnings, warns...)
 		}
 	}
 	if _, err := os.Stat(filepath.Join(dir, "music.js")); err == nil {
