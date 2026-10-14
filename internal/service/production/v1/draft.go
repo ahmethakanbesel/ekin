@@ -145,7 +145,7 @@ func (s *Service) RunDraft(ctx context.Context, task DraftTask, dir string) (Dra
 		tools = append(tools, "Bash")
 		allowed = append(allowed, "Bash(kurgu tool:*)")
 	}
-	req := claude.Request{Dir: dir, Tools: tools, Allowed: allowed, Timeout: s.cfg.AgentTimeout, Env: s.toolEnv(task.Spec)}
+	req := claude.Request{Dir: dir, Tools: tools, Allowed: allowed, Timeout: s.cfg.AgentTimeout, Env: s.toolEnv(ctx, task.Spec)}
 	fb := task.Feedback
 	var err error
 	switch {
@@ -279,17 +279,17 @@ type task struct {
 	article *pipelinedomain.ArticleSpec
 }
 
-func (s *Service) toolEnv(spec agenttool.Spec) []string {
+func (s *Service) toolEnv(ctx context.Context, spec agenttool.Spec) []string {
 	raw, _ := json.Marshal(spec)
 	env := append(append([]string(nil), s.cfg.ToolEnv...), "KURGU_TOOL_SPEC="+string(raw))
-	if dir := s.binDir(); dir != "" {
+	if dir := s.binDir(ctx); dir != "" {
 		env = append(env, "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	}
 	return env
 }
 
 // binDir holds a `kurgu` symlink to this binary for the agent's PATH.
-func (s *Service) binDir() string {
+func (s *Service) binDir(ctx context.Context) string {
 	if s.cfg.KurguBin == "" {
 		return ""
 	}
@@ -301,7 +301,7 @@ func (s *Service) binDir() string {
 	_ = os.MkdirAll(dir, 0o750)
 	_ = os.Remove(link)
 	if err := os.Symlink(s.cfg.KurguBin, link); err != nil {
-		s.log.Warn("cannot link kurgu for the agent", slog.Any("error", err))
+		s.log.WarnContext(ctx, "cannot link kurgu for the agent", slog.Any("error", err))
 		return ""
 	}
 	return dir
