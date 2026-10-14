@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react"
+import { lazy, Suspense, useRef, useState, type ReactNode } from "react"
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import {
@@ -9,6 +9,7 @@ import {
   ExternalLinkIcon,
   Loader2Icon,
   MessageSquareIcon,
+  PencilIcon,
   RotateCwIcon,
   SendIcon,
   XCircleIcon,
@@ -25,10 +26,14 @@ import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { formatDateTime, formatRelative, useNow } from "@/lib/time"
 import { cn } from "@/lib/utils"
+import { membersQuery } from "@/queries/members"
 import { revisionsQuery, useDeliverableAction } from "@/queries/stories"
 import { formatTimestamp, scopeLabel, sourceOf } from "./model"
 import { ArticlePreview, FilesList, VideoPreview, type ArtifactRef } from "./previews"
 import { RejectDialog, RequestChangesDialog } from "./review-dialogs"
+
+// Only reviewers who edit need the editor; load it on first use.
+const ContentEditor = lazy(() => import("./content-editor").then((mod) => ({ default: mod.ContentEditor })))
 
 export function DeliverablePanel({
   workspaceId,
@@ -37,6 +42,7 @@ export function DeliverablePanel({
   deliverable: d,
   canEdit,
   canManage,
+  onDirtyChange,
 }: {
   workspaceId: string
   timezone: string
@@ -44,6 +50,8 @@ export function DeliverablePanel({
   deliverable: Deliverable
   canEdit: boolean
   canManage: boolean
+  /** Whether the in-place editor holds unsaved changes. */
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   const revisions = useQuery({
     ...revisionsQuery(workspaceId, story.id, d),
@@ -56,6 +64,9 @@ export function DeliverablePanel({
   const videoRef = useRef<HTMLVideoElement>(null)
   const [changing, setChanging] = useState<{ atSeconds?: number } | null>(null)
   const [rejecting, setRejecting] = useState(false)
+  const [editing, setEditing] = useState(false)
+  // Editing applies to the latest revision of a deliverable in review only.
+  const showEditor = editing && canEdit && d.status === "review" && d.revision > 0
   const approve = useDeliverableAction(workspaceId, story.id, "approve")
   const retry = useDeliverableAction(workspaceId, story.id, "retry")
   const publish = useDeliverableAction(workspaceId, story.id, "publish")
@@ -109,6 +120,12 @@ export function DeliverablePanel({
           <MessageSquareIcon data-icon="inline-start" />
           {m.review.requestChanges}
         </Button>
+        {d.revision > 0 ? (
+          <Button variant="outline" disabled={busy} onClick={() => setEditing(true)}>
+            <PencilIcon data-icon="inline-start" />
+            {m.review.edit}
+          </Button>
+        ) : null}
         <Button variant="ghost" disabled={busy} onClick={() => setRejecting(true)}>
           <XIcon data-icon="inline-start" />
           {m.review.reject}
@@ -149,6 +166,9 @@ export function DeliverablePanel({
       </a>
     )
   }
+
+  // While editing, the editor has its own Save and Cancel.
+  if (showEditor) actions = null
 
   const artifacts: ArtifactRef | undefined = current && {
     workspaceId,
@@ -197,7 +217,18 @@ export function DeliverablePanel({
           <p>{sentence(errorMessage(publish.error))}</p>
         </Banner>
       ) : null}
-      {viewingOld && latest ? (
+      {showEditor ? (
+        <Suspense fallback={<PreviewSkeleton />}>
+          <ContentEditor
+            workspaceId={workspaceId}
+            story={story}
+            deliverable={d}
+            onClose={() => setEditing(false)}
+            onDirtyChange={onDirtyChange}
+          />
+        </Suspense>
+      ) : null}
+      {!showEditor && viewingOld && latest ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-dashed px-4 py-2.5 text-sm">
           <span className="text-muted-foreground">
             {m.revisions.viewingOld(current.number, latest.number)}
@@ -207,18 +238,21 @@ export function DeliverablePanel({
           </Button>
         </div>
       ) : null}
-      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="min-w-0">{preview}</div>
-        <RevisionList
-          deliverable={d}
-          revisions={list}
-          loading={revisions.isPending && d.revision > 0}
-          current={current?.number}
-          latest={latest?.number}
-          timezone={timezone}
-          onPick={(n) => setPicked(n === latest?.number ? null : n)}
-        />
-      </div>
+      {showEditor ? null : (
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="min-w-0">{preview}</div>
+          <RevisionList
+            workspaceId={workspaceId}
+            deliverable={d}
+            revisions={list}
+            loading={revisions.isPending && d.revision > 0}
+            current={current?.number}
+            latest={latest?.number}
+            timezone={timezone}
+            onPick={(n) => setPicked(n === latest?.number ? null : n)}
+          />
+        </div>
+      )}
       <RequestChangesDialog
         workspaceId={workspaceId}
         storyId={story.id}
@@ -417,6 +451,7 @@ function FeedbackLine({ feedback: f, kind }: { feedback: Feedback; kind: Deliver
 // ---- Revisions ----
 
 function RevisionList({
+  workspaceId,
   deliverable: d,
   revisions,
   loading,
@@ -425,6 +460,7 @@ function RevisionList({
   timezone,
   onPick,
 }: {
+  workspaceId: string
   deliverable: Deliverable
   revisions: Revision[]
   loading: boolean
@@ -435,6 +471,13 @@ function RevisionList({
 }) {
   const now = useNow()
   const newestFirst = revisions.toReversed()
+  // Names for revisions a person edited in place (any member may list members).
+  const members = useQuery({
+    ...membersQuery(workspaceId),
+    enabled: revisions.some((r) => r.editedBy),
+  })
+  const editorName = (userId: string) =>
+    members.data?.find((x) => x.userId.toLowerCase() === userId.toLowerCase())?.name
   return (
     <aside className="grid gap-3 lg:sticky lg:top-4" aria-label={m.revisions.title}>
       <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
@@ -462,6 +505,7 @@ function RevisionList({
         <ol className="grid gap-2">
           {newestFirst.map((r) => {
             const selected = r.number === current
+            const editor = r.editedBy ? editorName(r.editedBy) : undefined
             return (
               <li key={r.number}>
                 <button
@@ -493,17 +537,24 @@ function RevisionList({
                       <FeedbackLine feedback={r.feedback} kind={d.kind} />
                     </span>
                   ) : null}
-                  <span className="grid gap-0.5 text-xs">
-                    <span className="font-medium text-muted-foreground">{m.revisions.notes}</span>
-                    <span
-                      className={cn(
-                        "whitespace-pre-wrap text-foreground/85",
-                        !selected && "line-clamp-3"
-                      )}
-                    >
-                      {r.notes.trim() || m.revisions.noNotes}
+                  {r.editedBy ? (
+                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <PencilIcon className="size-3.5" />
+                      {editor ? m.revisions.editedBy(editor) : m.revisions.editedInPlace}
                     </span>
-                  </span>
+                  ) : (
+                    <span className="grid gap-0.5 text-xs">
+                      <span className="font-medium text-muted-foreground">{m.revisions.notes}</span>
+                      <span
+                        className={cn(
+                          "whitespace-pre-wrap text-foreground/85",
+                          !selected && "line-clamp-3"
+                        )}
+                      >
+                        {r.notes.trim() || m.revisions.noNotes}
+                      </span>
+                    </span>
+                  )}
                 </button>
               </li>
             )

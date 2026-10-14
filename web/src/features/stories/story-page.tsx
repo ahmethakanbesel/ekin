@@ -28,6 +28,7 @@ import { pipelinesQuery } from "@/queries/pipelines"
 import { storyQuery } from "@/queries/stories"
 import { BackToStories } from "./back-link"
 import { KindIcon, statusTone } from "./badges"
+import { DiscardChangesDialog } from "./discard-dialog"
 import { DeliverablePanel } from "./deliverable-panel"
 import { deliverableLabel } from "./model"
 import { DeleteStoryDialog } from "./review-dialogs"
@@ -83,6 +84,10 @@ function StoryView({ story }: { story: Story }) {
   const navigate = useNavigate()
   const [deleting, setDeleting] = useState(false)
   const [picked, setPicked] = useState<string | null>(null)
+  // The deliverable whose editor holds unsaved changes, and the tab the
+  // reviewer asked for meanwhile (switching tabs unmounts the editor).
+  const [dirtyId, setDirtyId] = useState<string | null>(null)
+  const [pendingTab, setPendingTab] = useState<string | null>(null)
   const selected =
     (picked && story.deliverables.find((d) => d.id === picked)?.id) ||
     firstToOpen(story)?.id
@@ -118,7 +123,11 @@ function StoryView({ story }: { story: Story }) {
       ) : (
         <Tabs
           value={selected}
-          onValueChange={(v) => setPicked(String(v))}
+          onValueChange={(v) => {
+            const next = String(v)
+            if (dirtyId && dirtyId !== next) setPendingTab(next)
+            else setPicked(next)
+          }}
           className="mt-6 gap-5"
         >
           <div className="-mx-1 overflow-x-auto px-1 pb-1">
@@ -152,12 +161,23 @@ function StoryView({ story }: { story: Story }) {
                 deliverable={d}
                 canEdit={canEdit}
                 canManage={canManage}
+                onDirtyChange={(dirty) =>
+                  setDirtyId((cur) => (dirty ? d.id : cur === d.id ? null : cur))
+                }
               />
             </TabsContent>
           ))}
         </Tabs>
       )}
 
+      <DiscardChangesDialog
+        open={pendingTab !== null}
+        onKeep={() => setPendingTab(null)}
+        onDiscard={() => {
+          setPicked(pendingTab)
+          setPendingTab(null)
+        }}
+      />
       <DeleteStoryDialog
         workspaceId={workspace.id}
         story={deleting ? story : null}

@@ -6,8 +6,10 @@ import {
   call,
   toApiError,
   ApiError,
+  isApiError,
   type AdHocInput,
   type Deliverable,
+  type DeliverableEdit,
   type DeliverableStatus,
   type FeedbackInput,
   type Story,
@@ -203,6 +205,56 @@ export function useRequestChanges(workspaceId: string, storyId: string) {
         })
       ),
     onSuccess: store,
+  })
+}
+
+/**
+ * The editable text of a deliverable's latest revision. Fetched afresh
+ * each time the editor opens and never refetched behind it, so a window
+ * refocus cannot swap the text being edited.
+ */
+export const deliverableContentQuery = (workspaceId: string, storyId: string, deliverableId: string) =>
+  queryOptions({
+    queryKey: keys.content(workspaceId, storyId, deliverableId),
+    queryFn: ({ signal }) =>
+      call(
+        api.GET("/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/content", {
+          params: { path: { workspaceId, storyId, deliverableId } },
+          signal,
+        })
+      ),
+    staleTime: Infinity,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
+
+/**
+ * Saves a reviewer's edit as a new revision. The server answers 409 when
+ * `revision` is no longer the latest; the story is refetched then, so the
+ * page shows what changed.
+ */
+export function useEditDeliverableContent(workspaceId: string, storyId: string, deliverableId: string) {
+  const qc = useQueryClient()
+  const store = useStoreStory(workspaceId)
+  return useMutation({
+    mutationFn: (body: DeliverableEdit) =>
+      call(
+        api.PUT("/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/content", {
+          params: { path: { workspaceId, storyId, deliverableId } },
+          body,
+        })
+      ),
+    onSuccess: (story) => {
+      store(story)
+      void qc.invalidateQueries({ queryKey: keys.revisions(workspaceId, storyId, deliverableId) })
+    },
+    onError: (err) => {
+      if (isApiError(err) && err.status === 409) {
+        void qc.invalidateQueries({ queryKey: keys.story(workspaceId, storyId), exact: true })
+        void qc.invalidateQueries({ queryKey: keys.revisions(workspaceId, storyId, deliverableId) })
+      }
+    },
   })
 }
 
