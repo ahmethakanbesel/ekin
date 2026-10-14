@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"kurgu/internal/adapter/elevenlabs"
 	"kurgu/internal/adapter/speech"
 	"kurgu/internal/apperror"
 	"kurgu/internal/blob"
@@ -86,5 +87,42 @@ func TestVoiceSettingsAndPreview(t *testing.T) {
 	}
 	if _, _, err := svc.QueuePreview(ctx, w.ID(), "en", voicedomain.Config{Voice: "okur", Speed: 1}, ""); !apperror.Is(err, apperror.ValidationFailed) {
 		t.Fatalf("okur accepted for English: %v", err)
+	}
+}
+
+func TestElevenLabsNeedsAKey(t *testing.T) {
+	ctx := context.Background()
+	_, tx := dbtest.Open(t)
+	w, _ := workspacedomain.New(id.New(), "ws", time.UTC, time.Now())
+	_ = workspacerepo.NewSQLite(tx).Create(ctx, w)
+	jobs := jobsvc.NewService(jobrepo.NewSQLite(tx), tx)
+	blobs, _ := blob.NewFS(t.TempDir())
+	key := ""
+	svc := voicesvc.NewService(settingsrepo.NewSQLite(tx), jobs, &speaker{}, blobs).
+		WithElevenLabs(func(context.Context) *elevenlabs.Client { return &elevenlabs.Client{APIKey: key} })
+
+	v, _ := svc.Get(ctx, w.ID())
+	v.Languages["en"] = voicedomain.Config{Engine: voicedomain.EngineElevenLabs, Voice: "21m00Tcm4TlvDq8ikWAM", Speed: 1}
+	cfg := v.Languages["en"]
+	override := voicedomain.Override{Engine: voicedomain.EngineElevenLabs}
+	if _, err := svc.Save(ctx, w.ID(), id.New(), v); !apperror.Is(err, apperror.ValidationFailed) {
+		t.Fatalf("saved without a key: %v", err)
+	}
+	if err := svc.CheckOverride(ctx, "en", override); !apperror.Is(err, apperror.ValidationFailed) {
+		t.Fatalf("override accepted without a key: %v", err)
+	}
+	if _, _, err := svc.QueuePreview(ctx, w.ID(), "en", cfg, ""); !apperror.Is(err, apperror.ValidationFailed) {
+		t.Fatalf("preview queued without a key: %v", err)
+	}
+	key = "sk_test"
+	if _, err := svc.Save(ctx, w.ID(), id.New(), v); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.CheckOverride(ctx, "en", override); err != nil {
+		t.Fatal(err)
+	}
+	o, err := svc.Options(ctx, w.ID(), "en", nil)
+	if err != nil || o.Engine != "elevenlabs" || o.ElevenLabs == nil || o.ElevenLabs.Model != "eleven_multilingual_v2" {
+		t.Fatalf("options = %+v, %v", o, err)
 	}
 }

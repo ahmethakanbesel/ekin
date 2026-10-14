@@ -90,12 +90,32 @@ func (s *Service) Save(ctx context.Context, workspaceID, by uuid.UUID, v voicedo
 	if err := v.Validate(); err != nil {
 		return v, err
 	}
+	for _, c := range v.Languages {
+		if err := s.requireKey(ctx, c.Engine); err != nil {
+			return v, err
+		}
+	}
 	return v, s.settings.Put(ctx, key(workspaceID), v, by, s.now())
 }
 
 // CheckOverride verifies a pipeline's or request's voice override.
-func (s *Service) CheckOverride(_ context.Context, language string, o voicedomain.Override) error {
-	return o.Validate(language)
+func (s *Service) CheckOverride(ctx context.Context, language string, o voicedomain.Override) error {
+	if err := o.Validate(language); err != nil {
+		return err
+	}
+	return s.requireKey(ctx, o.Engine)
+}
+
+// requireKey refuses the ElevenLabs engine while no API key is set:
+// every narration with it would fail.
+func (s *Service) requireKey(ctx context.Context, engine string) error {
+	if engine != voicedomain.EngineElevenLabs {
+		return nil
+	}
+	if s.elevenLabs == nil || s.elevenLabs(ctx).APIKey == "" {
+		return apperror.New(apperror.ValidationFailed, "ElevenLabs needs an API key: add it under System → Credentials")
+	}
+	return nil
 }
 
 // Options returns the speech options a deliverable in language is
@@ -178,8 +198,8 @@ func (s *Service) QueuePreview(ctx context.Context, workspaceID uuid.UUID, langu
 			"en": "Hello. This is the voice your videos will use. Let's explore the difference between worry and anxiety together.",
 		}[language]
 	}
-	if config.Engine == voicedomain.EngineElevenLabs && (s.elevenLabs == nil || s.elevenLabs(ctx).APIKey == "") {
-		return uuid.Nil, nil, apperror.New(apperror.ValidationFailed, "ElevenLabs needs an API key: add it under System → Credentials")
+	if err := s.requireKey(ctx, config.Engine); err != nil {
+		return uuid.Nil, nil, err
 	}
 	if len([]rune(text)) > MaxPreviewRunes {
 		return uuid.Nil, nil, apperror.New(apperror.ValidationFailed, fmt.Sprintf("a preview is at most %d characters", MaxPreviewRunes))
