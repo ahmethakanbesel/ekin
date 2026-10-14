@@ -3,6 +3,7 @@ package settings_test
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	settingsrepo "kurgu/internal/repository/settings/v1"
 	settingssvc "kurgu/internal/service/settings/v1"
 	"kurgu/pkg/id"
+	"kurgu/pkg/secretbox"
 )
 
 func defaults() settingsdomain.Profile {
@@ -53,5 +55,55 @@ func TestProfiles(t *testing.T) {
 	bad.Concurrency = map[jobdomain.Queue]int{"gpu": 1}
 	if _, err := svc.SaveProfile(ctx, bad, id.New()); !apperror.Is(err, apperror.ValidationFailed) {
 		t.Fatalf("bad queue = %v", err)
+	}
+}
+
+func TestCredentials(t *testing.T) {
+	ctx := context.Background()
+	_, tx := dbtest.Open(t)
+	box, _ := secretbox.New([]byte("test-secret-0123456789"))
+	env := settingsdomain.Credentials{PexelsAPIKey: "env-pexels-key-1234", DecisionModel: "typesafe/jev-1.13"}
+	repo := settingsrepo.NewSQLite(tx)
+	svc := settingssvc.NewService(repo, defaults(), slog.New(slog.DiscardHandler)).WithCredentials(env, box)
+
+	if c := svc.Credentials(ctx); c.PexelsAPIKey != "env-pexels-key-1234" {
+		t.Fatalf("env fallback = %+v", c)
+	}
+	if err := svc.UpdateCredentials(ctx, map[string]string{"pexelsApiKey": "ui-key-abcdef9876", "smtpPort": "587"}, id.New()); err != nil {
+		t.Fatal(err)
+	}
+	if c := svc.Credentials(ctx); c.PexelsAPIKey != "ui-key-abcdef9876" || c.Port() != 587 || c.DecisionModel != "typesafe/jev-1.13" {
+		t.Fatalf("merged = %+v", c)
+	}
+	var raw map[string]string
+	_ = repo.Get(ctx, "credentials", &raw)
+	if strings.Contains(raw["sealed"], "ui-key") {
+		t.Fatal("credentials stored in clear")
+	}
+	statuses, _ := svc.CredentialStatuses(ctx)
+	for _, st := range statuses {
+		switch st.Field.Key {
+		case "pexelsApiKey":
+			if st.Source != "settings" || st.Value != "••••9876" {
+				t.Fatalf("pexels status = %+v", st)
+			}
+		case "decisionModel":
+			if st.Source != "env" || st.Value != "typesafe/jev-1.13" {
+				t.Fatalf("model status = %+v", st)
+			}
+		}
+	}
+	if err := svc.UpdateCredentials(ctx, map[string]string{"pexelsApiKey": ""}, id.New()); err != nil {
+		t.Fatal(err)
+	}
+	if c := svc.Credentials(ctx); c.PexelsAPIKey != "env-pexels-key-1234" {
+		t.Fatalf("cleared value did not fall back to env: %+v", c)
+	}
+	for name, patch := range map[string]map[string]string{
+		"unknown key": {"awsKey": "x"}, "bad port": {"smtpPort": "99999"}, "bad tls": {"smtpTls": "ssl"},
+	} {
+		if err := svc.UpdateCredentials(ctx, patch, id.New()); !apperror.Is(err, apperror.ValidationFailed) {
+			t.Errorf("%s = %v", name, err)
+		}
 	}
 }

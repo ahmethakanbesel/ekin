@@ -7,20 +7,28 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 
+	"kurgu/internal/adapter/claude"
+	"kurgu/internal/adapter/openrouter"
 	"kurgu/internal/adapter/remote"
 	"kurgu/internal/adapter/render"
+	"kurgu/internal/adapter/smtp"
 	"kurgu/internal/config"
 	identitydomain "kurgu/internal/domain/identity/v1"
+	settingsdomain "kurgu/internal/domain/settings/v1"
+	storydomain "kurgu/internal/domain/story/v1"
+	storyrepo "kurgu/internal/repository/story/v1"
 	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	notifysvc "kurgu/internal/service/notify/v1"
 	productionsvc "kurgu/internal/service/production/v1"
+	settingssvc "kurgu/internal/service/settings/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	systemhandler "kurgu/internal/transport/http/system/v1"
 	remoteworker "kurgu/internal/transport/job/remote/v1"
@@ -93,6 +101,13 @@ var (
 	lastChecks []systemhandler.Check
 )
 
+// resetChecks drops the cached checks (after a credentials change).
+func resetChecks() {
+	checksMu.Lock()
+	defer checksMu.Unlock()
+	lastChecks = nil
+}
+
 // checks reports what this instance can do, cached for a minute.
 func (a *App) checks(ctx context.Context) []systemhandler.Check {
 	checksMu.Lock()
@@ -101,6 +116,7 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 		return lastChecks
 	}
 	p := a.cfg.Production
+	creds := a.settings.Credentials(ctx)
 	var out []systemhandler.Check
 	add := func(name string, ok bool, detail string) {
 		out = append(out, systemhandler.Check{Name: name, OK: ok, Detail: detail})
@@ -120,12 +136,13 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 	add("Chrome", chrome != "", map[bool]string{true: chrome, false: "not found; set KURGU_CHROME"}[chrome != ""])
 	_, okErr := os.Stat(filepath.Join(p.SpeechDir, "okur_say.py"))
 	add("Speech scripts", okErr == nil, p.SpeechDir)
-	add("Stock media (Pexels)", p.PexelsKey != "", map[bool]string{true: "API key set", false: "KURGU_PEXELS_API_KEY not set; compositions use no stock footage"}[p.PexelsKey != ""])
-	add("Email (SMTP)", a.cfg.Notify.SMTPHost != "" && a.cfg.Notify.SMTPFrom != "", map[bool]string{true: a.cfg.Notify.SMTPHost, false: "KURGU_SMTP_HOST / KURGU_SMTP_FROM not set; digests stay in the app"}[a.cfg.Notify.SMTPHost != ""])
-	yt := a.cfg.Publishing.YouTubeClientID != "" && a.cfg.Publishing.YouTubeClientSecret != ""
+	add("Stock media (Pexels)", creds.PexelsAPIKey != "", map[bool]string{true: "API key set", false: "no Pexels key; compositions use no stock footage"}[creds.PexelsAPIKey != ""])
+	smtpOK := creds.SMTPHost != "" && creds.SMTPFrom != ""
+	add("Email (SMTP)", smtpOK, map[bool]string{true: creds.SMTPHost, false: "SMTP host / from not set; digests stay in the app"}[smtpOK])
+	yt := creds.YouTubeClientID != "" && creds.YouTubeClientSecret != ""
 	redirect := "redirect URI " + a.cfg.PublicURL + "/api/v1/oauth/youtube/callback"
-	add("YouTube publishing", yt, map[bool]string{true: "OAuth client set; " + redirect, false: "KURGU_YOUTUBE_CLIENT_ID / KURGU_YOUTUBE_CLIENT_SECRET not set; register the " + redirect}[yt])
-	add("Duplicate checks (Jev)", a.cfg.Notify.OpenRouterKey != "", map[bool]string{true: a.cfg.Notify.DecisionModel, false: "KURGU_OPENROUTER_API_KEY not set; title similarity only"}[a.cfg.Notify.OpenRouterKey != ""])
+	add("YouTube publishing", yt, map[bool]string{true: "OAuth client set; " + redirect, false: "OAuth client ID / secret not set; register the " + redirect}[yt])
+	add("Duplicate checks (Jev)", creds.OpenRouterAPIKey != "", map[bool]string{true: creds.DecisionModel, false: "no OpenRouter key; title similarity only"}[creds.OpenRouterAPIKey != ""])
 	checksAt, lastChecks = time.Now(), out
 	return out
 }
@@ -169,4 +186,56 @@ func probeTool(ctx context.Context, bin string, args ...string) (bool, string) {
 	}
 	line, _, _ := strings.Cut(strings.TrimSpace(string(v)), "\n")
 	return true, line
+}
+
+// envCredentials are the KURGU_* values the settings page overrides.
+func envCredentials(cfg config.Config) settingsdomain.Credentials {
+	port := ""
+	if cfg.Notify.SMTPPort > 0 {
+		port = strconv.Itoa(cfg.Notify.SMTPPort)
+	}
+	return settingsdomain.Credentials{
+		ClaudeOAuthToken: os.Getenv("CLAUDE_CODE_OAUTH_TOKEN"), ClaudeModel: cfg.Production.ClaudeModel,
+		PexelsAPIKey: cfg.Production.PexelsKey, OpenRouterAPIKey: cfg.Notify.OpenRouterKey, DecisionModel: cfg.Notify.DecisionModel,
+		SMTPHost: cfg.Notify.SMTPHost, SMTPPort: port, SMTPUsername: cfg.Notify.SMTPUser, SMTPPassword: cfg.Notify.SMTPPassword,
+		SMTPFrom: cfg.Notify.SMTPFrom, SMTPTLS: cfg.Notify.SMTPTLS,
+		YouTubeClientID: cfg.Publishing.YouTubeClientID, YouTubeClientSecret: cfg.Publishing.YouTubeClientSecret,
+	}
+}
+
+// dynamicAgent runs Claude Code with the current model and token.
+type dynamicAgent struct {
+	settings *settingssvc.Service
+	base     claude.Runner
+}
+
+func (a dynamicAgent) Run(ctx context.Context, req claude.Request) (claude.Result, error) {
+	c := a.settings.Credentials(ctx)
+	r := a.base
+	r.Model = c.ClaudeModel
+	if c.ClaudeOAuthToken != "" {
+		r.Env = append(append([]string(nil), r.Env...), "CLAUDE_CODE_OAUTH_TOKEN="+c.ClaudeOAuthToken)
+	}
+	return r.Run(ctx, req)
+}
+
+// dynamicDedupe asks Jev with the current OpenRouter key.
+type dynamicDedupe struct{ settings *settingssvc.Service }
+
+func (d dynamicDedupe) Duplicate(ctx context.Context, idea storydomain.Idea, similar []storyrepo.Match) (bool, string, error) {
+	c := d.settings.Credentials(ctx)
+	return openrouter.Dedupe{Client: &openrouter.Client{APIKey: c.OpenRouterAPIKey, Model: c.DecisionModel}}.Duplicate(ctx, idea, similar)
+}
+
+// dynamicMailer sends through the current SMTP settings.
+type dynamicMailer struct{ settings *settingssvc.Service }
+
+func (m dynamicMailer) mailer() *smtp.Mailer {
+	c := m.settings.Credentials(context.Background())
+	return smtp.New(smtp.Config{Host: c.SMTPHost, Port: c.Port(), Username: c.SMTPUsername, Password: c.SMTPPassword, From: c.SMTPFrom, TLS: c.SMTPTLS})
+}
+
+func (m dynamicMailer) Enabled() bool { return m.mailer().Enabled() }
+func (m dynamicMailer) Send(to, subject, body string) error {
+	return m.mailer().Send(to, subject, body)
 }

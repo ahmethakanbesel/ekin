@@ -27,6 +27,13 @@ type Handler struct {
 	profile  string
 	version  string
 	checks   func(ctx context.Context) []Check
+	onChange func() // credentials changed: drop cached checks
+}
+
+// OnCredentialsChange registers fn to run after credentials change.
+func (h *Handler) OnCredentialsChange(fn func()) *Handler {
+	h.onChange = fn
+	return h
 }
 
 // New returns a Handler. profile is the worker profile of this process.
@@ -84,13 +91,63 @@ func (h *Handler) SaveProfile(ctx context.Context, req gen.SaveProfileRequestObj
 	return gen.SaveProfile200JSONResponse(profileToWire(saved)), nil
 }
 
+func (h *Handler) credentials(ctx context.Context) ([]gen.Credential, error) {
+	statuses, err := h.settings.CredentialStatuses(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]gen.Credential, 0, len(statuses))
+	for _, st := range statuses {
+		c := gen.Credential{Key: st.Field.Key, Label: st.Field.Label, Env: st.Field.Env, Secret: st.Field.Secret,
+			Source: gen.CredentialSource(st.Source)}
+		if st.Value != "" {
+			v := st.Value
+			c.Value = &v
+		}
+		out = append(out, c)
+	}
+	return out, nil
+}
+
+func (h *Handler) ListCredentials(ctx context.Context, _ gen.ListCredentialsRequestObject) (gen.ListCredentialsResponseObject, error) {
+	if err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	out, err := h.credentials(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return gen.ListCredentials200JSONResponse{Credentials: out}, nil
+}
+
+func (h *Handler) UpdateCredentials(ctx context.Context, req gen.UpdateCredentialsRequestObject) (gen.UpdateCredentialsResponseObject, error) {
+	if err := requireAdmin(ctx); err != nil {
+		return nil, err
+	}
+	p, err := principal.From(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.settings.UpdateCredentials(ctx, req.Body.Values, p.User.ID()); err != nil {
+		return nil, err
+	}
+	if h.onChange != nil {
+		h.onChange()
+	}
+	out, err := h.credentials(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return gen.UpdateCredentials200JSONResponse{Credentials: out}, nil
+}
+
 func requireAdmin(ctx context.Context) error {
 	p, err := principal.From(ctx)
 	if err != nil {
 		return err
 	}
 	if !p.User.IsAdmin() {
-		return apperror.New(apperror.Forbidden, "only the instance admin can see and change host profiles")
+		return apperror.New(apperror.Forbidden, "only the instance admin can see and change system settings")
 	}
 	return nil
 }

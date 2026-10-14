@@ -4,6 +4,7 @@ package settings
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"slices"
 	"strings"
@@ -16,13 +17,14 @@ import (
 	settingsdomain "kurgu/internal/domain/settings/v1"
 	settingsrepo "kurgu/internal/repository/settings/v1"
 	jobsvc "kurgu/internal/service/job/v1"
+	"kurgu/pkg/secretbox"
 )
 
 // cacheFor is how long a worker trusts a profile it read; edits apply
 // within this delay.
 const cacheFor = 10 * time.Second
 
-// Service reads and writes host profiles.
+// Service reads and writes host profiles and credentials.
 type Service struct {
 	repo     settingsrepo.Repository
 	defaults settingsdomain.Profile // from the environment
@@ -31,6 +33,119 @@ type Service struct {
 
 	mu     sync.Mutex
 	cached map[string]cachedProfile
+
+	box      *secretbox.Box
+	envCreds settingsdomain.Credentials
+	credsAt  time.Time
+	creds    settingsdomain.Credentials
+}
+
+// WithCredentials enables credentials: env holds the KURGU_* values,
+// box seals what the settings page stores.
+func (s *Service) WithCredentials(env settingsdomain.Credentials, box *secretbox.Box) *Service {
+	s.envCreds, s.box = env, box
+	return s
+}
+
+const credentialsKey = "credentials"
+
+type sealedDoc struct {
+	Sealed string `json:"sealed"`
+}
+
+// stored returns the credentials saved from the settings page.
+func (s *Service) stored(ctx context.Context) (settingsdomain.Credentials, error) {
+	var doc sealedDoc
+	err := s.repo.Get(ctx, credentialsKey, &doc)
+	if apperror.Is(err, apperror.NotFound) || s.box == nil {
+		return settingsdomain.Credentials{}, nil
+	}
+	if err != nil {
+		return settingsdomain.Credentials{}, err
+	}
+	plain, err := s.box.Open(doc.Sealed)
+	if err != nil {
+		return settingsdomain.Credentials{}, err
+	}
+	var c settingsdomain.Credentials
+	return c, json.Unmarshal([]byte(plain), &c)
+}
+
+// Credentials returns the effective credentials (settings page over
+// environment), re-read at most every cacheFor.
+func (s *Service) Credentials(ctx context.Context) settingsdomain.Credentials {
+	s.mu.Lock()
+	if !s.credsAt.IsZero() && s.now().Sub(s.credsAt) < cacheFor {
+		c := s.creds
+		s.mu.Unlock()
+		return c
+	}
+	s.mu.Unlock()
+	stored, err := s.stored(ctx)
+	if err != nil {
+		s.log.WarnContext(ctx, "read credentials", slog.Any("error", err))
+	}
+	c := s.envCreds.Merge(stored)
+	s.mu.Lock()
+	s.creds, s.credsAt = c, s.now()
+	s.mu.Unlock()
+	return c
+}
+
+// CredentialStatus is one credential as the settings page sees it.
+type CredentialStatus struct {
+	Field  settingsdomain.CredentialField
+	Source string // settings | env | unset
+	Value  string // plain for non-secrets, a hint for secrets
+}
+
+// CredentialStatuses describes every credential without revealing secrets.
+func (s *Service) CredentialStatuses(ctx context.Context) ([]CredentialStatus, error) {
+	stored, err := s.stored(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]CredentialStatus, 0, len(settingsdomain.Fields))
+	for _, f := range settingsdomain.Fields {
+		st := CredentialStatus{Field: f, Source: "unset"}
+		v := f.Value(stored)
+		if v != "" {
+			st.Source = "settings"
+		} else if v = f.Value(s.envCreds); v != "" {
+			st.Source = "env"
+		}
+		if v != "" {
+			st.Value = v
+			if f.Secret {
+				st.Value = settingsdomain.Hint(v)
+			}
+		}
+		out = append(out, st)
+	}
+	return out, nil
+}
+
+// UpdateCredentials applies patch (key → value; "" removes the saved
+// value so the environment applies again) and stores the result sealed.
+func (s *Service) UpdateCredentials(ctx context.Context, patch map[string]string, by uuid.UUID) error {
+	if s.box == nil {
+		return apperror.New(apperror.InternalError, "credentials are not enabled")
+	}
+	c, err := s.stored(ctx)
+	if err != nil {
+		return err
+	}
+	if err := c.Apply(patch); err != nil {
+		return err
+	}
+	raw, _ := json.Marshal(c)
+	if err := s.repo.Put(ctx, credentialsKey, sealedDoc{Sealed: s.box.Seal(string(raw))}, by, s.now()); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	s.credsAt = time.Time{}
+	s.mu.Unlock()
+	return nil
 }
 
 type cachedProfile struct {

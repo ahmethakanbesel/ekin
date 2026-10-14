@@ -283,6 +283,9 @@ type task struct {
 func (s *Service) toolEnv(ctx context.Context, spec agenttool.Spec) []string {
 	raw, _ := json.Marshal(spec)
 	env := append(append([]string(nil), s.cfg.ToolEnv...), "KURGU_TOOL_SPEC="+string(raw))
+	if s.cfg.ExtraEnv != nil {
+		env = append(env, s.cfg.ExtraEnv(ctx)...)
+	}
 	if dir := s.binDir(ctx); dir != "" {
 		env = append(env, "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 	}

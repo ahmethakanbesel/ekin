@@ -334,6 +334,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/system/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description API keys and service settings. Secrets are never returned, only a hint of their last characters. Admins only. */
+        get: operations["listCredentials"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Sets credentials by key. An empty string removes the saved value, so the environment variable applies again. Stored encrypted. Admins only. */
+        patch: operations["updateCredentials"];
+        trace?: never;
+    };
     "/system/profiles": {
         parameters: {
             query?: never;
@@ -1035,6 +1053,17 @@ export interface components {
         SystemStatus: {
             version: string;
             checks: components["schemas"]["SystemCheck"][];
+        };
+        Credential: {
+            key: string;
+            label: string;
+            /** @description The environment variable used when nothing is saved. */
+            env: string;
+            secret: boolean;
+            /** @enum {string} */
+            source: "settings" | "env" | "unset";
+            /** @description The value for non-secrets; a hint such as ••••9876 for secrets. */
+            value?: string;
         };
         HostProfile: {
             name: string;
@@ -1964,6 +1993,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SystemStatus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Credentials. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        credentials: components["schemas"]["Credential"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    values: {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Updated credentials. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        credentials: components["schemas"]["Credential"][];
+                    };
                 };
             };
             default: components["responses"]["Error"];

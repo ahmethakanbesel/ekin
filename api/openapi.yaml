@@ -519,6 +519,57 @@ paths:
               schema: { $ref: "#/components/schemas/SystemStatus" }
         default: { $ref: "#/components/responses/Error" }
 
+  /system/credentials:
+    get:
+      operationId: listCredentials
+      tags: [system]
+      description: >
+        API keys and service settings. Secrets are never returned, only a hint
+        of their last characters. Admins only.
+      responses:
+        "200":
+          description: Credentials.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [credentials]
+                properties:
+                  credentials:
+                    type: array
+                    items: { $ref: "#/components/schemas/Credential" }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateCredentials
+      tags: [system]
+      description: >
+        Sets credentials by key. An empty string removes the saved value, so
+        the environment variable applies again. Stored encrypted. Admins only.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [values]
+              properties:
+                values:
+                  type: object
+                  additionalProperties: { type: string, maxLength: 4096 }
+      responses:
+        "200":
+          description: Updated credentials.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [credentials]
+                properties:
+                  credentials:
+                    type: array
+                    items: { $ref: "#/components/schemas/Credential" }
+        default: { $ref: "#/components/responses/Error" }
+
   /system/profiles:
     get:
       operationId: listProfiles
@@ -1508,6 +1559,21 @@ components:
         checks:
           type: array
           items: { $ref: "#/components/schemas/SystemCheck" }
+
+    Credential:
+      type: object
+      required: [key, label, env, secret, source]
+      properties:
+        key: { type: string }
+        label: { type: string }
+        env: { type: string, description: The environment variable used when nothing is saved. }
+        secret: { type: boolean }
+        source:
+          type: string
+          enum: [settings, env, unset]
+        value:
+          type: string
+          description: The value for non-secrets; a hint such as ••••9876 for secrets.
 
     HostProfile:
       type: object

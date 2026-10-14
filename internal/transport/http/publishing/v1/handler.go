@@ -23,7 +23,7 @@ type Handler struct {
 func New(svc *publishingsvc.Service) *Handler { return &Handler{svc: svc} }
 
 func (h *Handler) integrations(ctx context.Context, ws uuid.UUID) (gen.Integrations, error) {
-	out := gen.Integrations{Youtube: gen.YouTubeIntegration{Configured: h.svc.YouTubeConfigured()}}
+	out := gen.Integrations{Youtube: gen.YouTubeIntegration{Configured: h.svc.YouTubeConfigured(ctx)}}
 	ch, ok, err := h.svc.Channel(ctx, ws)
 	if err != nil {
 		return out, err

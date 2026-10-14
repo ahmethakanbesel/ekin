@@ -13,9 +13,7 @@ import (
 	"kurgu/internal/adapter/claude"
 	"kurgu/internal/adapter/extract"
 	"kurgu/internal/adapter/github"
-	"kurgu/internal/adapter/openrouter"
 	"kurgu/internal/adapter/render"
-	"kurgu/internal/adapter/smtp"
 	"kurgu/internal/adapter/youtube"
 	"kurgu/internal/blob"
 	"kurgu/internal/config"
@@ -100,29 +98,30 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	knowledge.WithUsage(pipelines)
 	identity := identitysvc.NewService(identities, workspaces, tx, password.New(password.Default))
 	workspaceSvc := workspacesvc.NewService(workspaces, identities, tx)
-	settings := settingssvc.NewService(settingsrepo.NewSQLite(tx), defaultProfile(cfg), log.With(slog.String("component", "settings")))
-	mailer := smtp.New(smtp.Config{
-		Host: cfg.Notify.SMTPHost, Port: cfg.Notify.SMTPPort, Username: cfg.Notify.SMTPUser,
-		Password: cfg.Notify.SMTPPassword, From: cfg.Notify.SMTPFrom, TLS: cfg.Notify.SMTPTLS,
-	})
-	notify := notifysvc.NewService(notifyrepo.NewSQLite(tx), directory{identity, workspaceSvc}, mailer, cfg.PublicURL,
-		log.With(slog.String("component", "notify")))
 	box, err := openSecretBox(cfg.Publishing)
 	if err != nil {
 		_ = d.Close()
 		return nil, err
 	}
+	settings := settingssvc.NewService(settingsrepo.NewSQLite(tx), defaultProfile(cfg), log.With(slog.String("component", "settings"))).
+		WithCredentials(envCredentials(cfg), box)
+	notify := notifysvc.NewService(notifyrepo.NewSQLite(tx), directory{identity, workspaceSvc}, dynamicMailer{settings}, cfg.PublicURL,
+		log.With(slog.String("component", "notify")))
 	publishing := publishingsvc.NewService(publishingrepo.NewSQLite(tx), box,
-		&youtube.Client{ClientID: cfg.Publishing.YouTubeClientID, ClientSecret: cfg.Publishing.YouTubeClientSecret,
-			RedirectURL: cfg.PublicURL + "/api/v1/oauth/youtube/callback"},
+		func(ctx context.Context) *youtube.Client {
+			c := settings.Credentials(ctx)
+			return &youtube.Client{ClientID: c.YouTubeClientID, ClientSecret: c.YouTubeClientSecret,
+				RedirectURL: cfg.PublicURL + "/api/v1/oauth/youtube/callback"}
+		},
 		&github.Client{}, log.With(slog.String("component", "publishing")))
-	agent := &claude.Runner{Bin: cfg.Production.ClaudeBin, Model: cfg.Production.ClaudeModel}
+	agent := dynamicAgent{settings: settings, base: claude.Runner{Bin: cfg.Production.ClaudeBin}}
 	seo := seosvc.NewService(seorepo.NewSQLite(tx), settingsrepo.NewSQLite(tx), jobs, agent, cfg.Production.WorkDir)
 	production, err := newProduction(cfg, settings, productionsvc.Deps{
 		SEO:     seo,
 		Stories: storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs,
 		Notifier: notify,
-		Dedupe:   openrouter.Dedupe{Client: &openrouter.Client{APIKey: cfg.Notify.OpenRouterKey, Model: cfg.Notify.DecisionModel}},
+		Agent:    agent,
+		Dedupe:   dynamicDedupe{settings},
 		Log:      log.With(slog.String("component", "production")),
 	})
 	if err != nil {
@@ -181,10 +180,12 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, deps produc
 		Chrome: p.Chrome, FFmpeg: p.FFmpeg, Encoder: p.Encoder, Chunks: p.Chunks, Duty: p.Duty,
 		Threads: p.Threads, GPU: p.GPU,
 	}
-	deps.Agent = &claude.Runner{Bin: p.ClaudeBin, Model: p.ClaudeModel}
+	if deps.Agent == nil {
+		deps.Agent = &claude.Runner{Bin: p.ClaudeBin, Model: p.ClaudeModel}
+	}
 	deps.Renderer = renderer
 	toolEnv := []string{
-		"KURGU_SPEECH_DIR=" + p.SpeechDir, "KURGU_UV=" + p.UV, "KURGU_PEXELS_API_KEY=" + p.PexelsKey,
+		"KURGU_SPEECH_DIR=" + p.SpeechDir, "KURGU_UV=" + p.UV,
 		"KURGU_CHROME=" + p.Chrome, "KURGU_FFMPEG=" + p.FFmpeg, "KURGU_SPEECH_MODELS=" + p.SpeechModels,
 	}
 	if err := os.MkdirAll(p.WorkDir, 0o750); err != nil {
@@ -195,7 +196,11 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, deps produc
 		WorkRoot: p.WorkDir, KurguBin: bin, ToolEnv: toolEnv, AgentTimeout: p.AgentTimeout,
 		PreviewScale: p.PreviewScale, FinalScale: p.FinalScale,
 	}
+	pc.ExtraEnv = func(context.Context) []string { return []string{"KURGU_PEXELS_API_KEY=" + p.PexelsKey} }
 	if settings != nil {
+		pc.ExtraEnv = func(ctx context.Context) []string {
+			return []string{"KURGU_PEXELS_API_KEY=" + settings.Credentials(ctx).PexelsAPIKey}
+		}
 		pc.Render = func(ctx context.Context) productionsvc.RenderSettings {
 			hp := settings.Cached(ctx, profile)
 			return productionsvc.RenderSettings{Duty: hp.RenderDuty, Chunks: hp.RenderChunks, PreviewScale: hp.PreviewScale, FinalScale: hp.FinalScale}

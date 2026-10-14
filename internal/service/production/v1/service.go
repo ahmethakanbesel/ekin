@@ -129,6 +129,9 @@ type Config struct {
 	// Render, when set, overrides the scales per render and supplies the
 	// duty cycle and chunks (from the worker's host profile).
 	Render func(ctx context.Context) RenderSettings
+	// ExtraEnv adds settings read per call (e.g. the Pexels key from the
+	// settings page) to the tools' environment.
+	ExtraEnv func(ctx context.Context) []string
 }
 
 // Service runs production use cases.

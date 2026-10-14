@@ -36,14 +36,15 @@ const stateTTL = 15 * time.Minute
 type Service struct {
 	repo publishingrepo.Repository
 	box  *secretbox.Box
-	yt   *youtube.Client
+	yt   func(ctx context.Context) *youtube.Client
 	gh   *github.Client
 	log  *slog.Logger
 	now  func() time.Time
 }
 
-// NewService returns a Service.
-func NewService(repo publishingrepo.Repository, box *secretbox.Box, yt *youtube.Client, gh *github.Client, log *slog.Logger) *Service {
+// NewService returns a Service. yt returns the OAuth client with the
+// current credentials (they can change from the settings page).
+func NewService(repo publishingrepo.Repository, box *secretbox.Box, yt func(ctx context.Context) *youtube.Client, gh *github.Client, log *slog.Logger) *Service {
 	return &Service{repo: repo, box: box, yt: yt, gh: gh, log: log, now: time.Now}
 }
 
@@ -54,7 +55,7 @@ func (s *Service) WithClock(now func() time.Time) *Service {
 }
 
 // YouTubeConfigured reports whether OAuth credentials exist.
-func (s *Service) YouTubeConfigured() bool { return s.yt.Configured() }
+func (s *Service) YouTubeConfigured(ctx context.Context) bool { return s.yt(ctx).Configured() }
 
 type oauthState struct {
 	WorkspaceID uuid.UUID `json:"w"`
@@ -63,12 +64,12 @@ type oauthState struct {
 }
 
 // ConnectURL starts connecting a YouTube channel to the workspace.
-func (s *Service) ConnectURL(_ context.Context, workspaceID, userID uuid.UUID) (string, error) {
-	if !s.yt.Configured() {
+func (s *Service) ConnectURL(ctx context.Context, workspaceID, userID uuid.UUID) (string, error) {
+	if !s.yt(ctx).Configured() {
 		return "", apperror.New(apperror.ValidationFailed, "YouTube is not set up on this server (KURGU_YOUTUBE_CLIENT_ID and KURGU_YOUTUBE_CLIENT_SECRET)")
 	}
 	raw, _ := json.Marshal(oauthState{WorkspaceID: workspaceID, UserID: userID, Expires: s.now().Add(stateTTL).Unix()})
-	return s.yt.AuthURL(s.box.Sign(string(raw))), nil
+	return s.yt(ctx).AuthURL(s.box.Sign(string(raw))), nil
 }
 
 // Callback finishes the OAuth round trip and stores the channel. It
@@ -82,11 +83,11 @@ func (s *Service) Callback(ctx context.Context, state, code string) (uuid.UUID, 
 	if err := json.Unmarshal([]byte(raw), &st); err != nil || s.now().Unix() > st.Expires {
 		return st.WorkspaceID, apperror.New(apperror.BadRequest, "the connection request expired; start again")
 	}
-	refresh, access, err := s.yt.Exchange(ctx, code)
+	refresh, access, err := s.yt(ctx).Exchange(ctx, code)
 	if err != nil {
 		return st.WorkspaceID, err
 	}
-	id, title, err := s.yt.Channel(ctx, access)
+	id, title, err := s.yt(ctx).Channel(ctx, access)
 	if err != nil {
 		return st.WorkspaceID, err
 	}
@@ -193,7 +194,7 @@ type videoPublisher struct{ s *Service }
 func (p videoPublisher) Kind() pipelinedomain.Kind { return pipelinedomain.KindVideo }
 
 func (p videoPublisher) Ready(ctx context.Context, ws uuid.UUID) (bool, error) {
-	if !p.s.yt.Configured() {
+	if !p.s.yt(ctx).Configured() {
 		return false, nil
 	}
 	_, ok, err := p.s.Channel(ctx, ws)
@@ -229,7 +230,8 @@ func (p videoPublisher) Publish(ctx context.Context, req productionsvc.PublishRe
 	if err != nil {
 		return storydomain.Publication{}, err
 	}
-	access, err := s.yt.Access(ctx, refresh)
+	yt := s.yt(ctx)
+	access, err := yt.Access(ctx, refresh)
 	if err != nil {
 		return storydomain.Publication{}, fmt.Errorf("%w (reconnect the channel in workspace settings)", err)
 	}
@@ -255,7 +257,7 @@ func (p videoPublisher) Publish(ctx context.Context, req productionsvc.PublishRe
 		return storydomain.Publication{}, err
 	}
 	defer func() { _ = video.Close() }()
-	id, err := s.yt.Upload(ctx, access, youtube.Video{
+	id, err := yt.Upload(ctx, access, youtube.Video{
 		Title: meta.Title, Description: description, Tags: meta.Tags, Language: string(req.Deliverable.Language()),
 		Privacy: string(ch.Privacy), Body: video, Size: size,
 	})
@@ -263,7 +265,7 @@ func (p videoPublisher) Publish(ctx context.Context, req productionsvc.PublishRe
 		return storydomain.Publication{}, err
 	}
 	if poster, _, err := req.Open(ctx, storydomain.ArtifactPoster); err == nil {
-		if err := s.yt.Thumbnail(ctx, access, id, poster); err != nil {
+		if err := yt.Thumbnail(ctx, access, id, poster); err != nil {
 			s.log.InfoContext(ctx, "custom thumbnail not set", slog.Any("error", err))
 		}
 		_ = poster.Close()

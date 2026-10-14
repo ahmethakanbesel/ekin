@@ -60,7 +60,7 @@ func newService(t *testing.T, google *httptest.Server) *publishingsvc.Service {
 	if google != nil {
 		yt.Endpoints = youtube.Endpoints{Auth: google.URL + "/auth", Token: google.URL + "/token", API: google.URL + "/api", Upload: google.URL + "/upload/videos"}
 	}
-	return publishingsvc.NewService(publishingrepo.NewInMemory(), box, yt, &github.Client{}, slog.New(slog.DiscardHandler))
+	return publishingsvc.NewService(publishingrepo.NewInMemory(), box, func(context.Context) *youtube.Client { return yt }, &github.Client{}, slog.New(slog.DiscardHandler))
 }
 
 func request(t *testing.T, kind pipelinedomain.Kind, files map[string]string, lead *storydomain.Publication) productionsvc.PublishRequest {

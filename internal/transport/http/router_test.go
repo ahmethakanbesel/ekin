@@ -22,20 +22,25 @@ import (
 	"kurgu/internal/blob"
 	"kurgu/internal/db/dbtest"
 	identitydomain "kurgu/internal/domain/identity/v1"
+	settingsdomain "kurgu/internal/domain/settings/v1"
 	jobdomain "kurgu/internal/domain/job/v1"
 	"kurgu/internal/gen"
 	identityrepo "kurgu/internal/repository/identity/v1"
 	jobrepo "kurgu/internal/repository/job/v1"
 	knowledgerepo "kurgu/internal/repository/knowledge/v1"
+	settingsrepo "kurgu/internal/repository/settings/v1"
 	pipelinerepo "kurgu/internal/repository/pipeline/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
 	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
+	settingssvc "kurgu/internal/service/settings/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	httptransport "kurgu/internal/transport/http"
+	systemhandler "kurgu/internal/transport/http/system/v1"
 	"kurgu/pkg/password"
+	"kurgu/pkg/secretbox"
 )
 
 const publicURL = "https://kurgu.example.com"
@@ -77,7 +82,11 @@ func newServer(t *testing.T) *server {
 	knowledge := knowledgesvc.NewService(knowledgerepo.NewSQLite(tx), blobs, jobs, extract.New(), tx)
 	pipelines := pipelinesvc.NewService(pipelinerepo.NewSQLite(tx), workspaces, jobs, tx).WithDocuments(knowledge)
 	knowledge.WithUsage(pipelines)
+	box, _ := secretbox.New([]byte("router-test-secret-0123"))
+	settings := settingssvc.NewService(settingsrepo.NewSQLite(tx), settingsdomain.Profile{Name: "default"}, slog.New(slog.DiscardHandler)).
+		WithCredentials(settingsdomain.Credentials{DecisionModel: "typesafe/jev-1.13"}, box)
 	router, err := httptransport.NewRouter(httptransport.Deps{
+		System:     systemhandler.New(settings, "default", "test", nil),
 		Identity:   identity,
 		Workspaces: workspacesvc.NewService(workspaces, identities, tx),
 		Pipelines:  pipelines,
@@ -622,3 +631,28 @@ func TestFeedbackPositionIsDouble(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func TestCredentialsAreAdminOnlyAndHidden(t *testing.T) {
+	srv := newServer(t)
+	admin := srv.signedIn(t, "admin@example.com") // first account: admin
+	other := srv.signedIn(t, "other@example.com")
+
+	var out struct{ Credentials []gen.Credential }
+	admin.call("PATCH", "/api/v1/system/credentials", map[string]any{"values": map[string]string{"pexelsApiKey": "secret-pexels-9876", "claudeModel": "sonnet"}}, 200, &out)
+	got := map[string]gen.Credential{}
+	for _, c := range out.Credentials {
+		got[c.Key] = c
+	}
+	if c := got["pexelsApiKey"]; c.Source != "settings" || c.Value == nil || *c.Value != "••••9876" {
+		t.Fatalf("pexels = %+v", c)
+	}
+	if c := got["claudeModel"]; c.Value == nil || *c.Value != "sonnet" {
+		t.Fatalf("model = %+v", c)
+	}
+	if c := got["decisionModel"]; c.Source != "env" {
+		t.Fatalf("decision model = %+v", c)
+	}
+	other.fail("GET", "/api/v1/system/credentials", nil, 403, "Forbidden")
+	other.fail("PATCH", "/api/v1/system/credentials", map[string]any{"values": map[string]string{"pexelsApiKey": "x"}}, 403, "Forbidden")
+	admin.fail("PATCH", "/api/v1/system/credentials", map[string]any{"values": map[string]string{"smtpPort": "abc"}}, 400, "ValidationFailed")
+}
