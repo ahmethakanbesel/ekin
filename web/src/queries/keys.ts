@@ -1,7 +1,7 @@
-import type { JobStatus } from "@/api/client"
+import type { DeliverableStatus, JobStatus } from "@/api/client"
 
 // Hierarchical keys: invalidating ["workspaces", id] also refreshes that
-// workspace's pipelines, documents, jobs and members.
+// workspace's pipelines, documents, jobs, members and stories.
 export const keys = {
   me: () => ["me"] as const,
   invitation: (token: string) => ["invitation", token] as const,
@@ -20,4 +20,30 @@ export const keys = {
   jobs: (workspaceId: string) => ["workspaces", workspaceId, "jobs"] as const,
   jobList: (workspaceId: string, filter: { status: JobStatus[]; limit: number }) =>
     ["workspaces", workspaceId, "jobs", "list", filter] as const,
+  stories: (workspaceId: string) => ["workspaces", workspaceId, "stories"] as const,
+  storyLists: (workspaceId: string) => ["workspaces", workspaceId, "stories", "list"] as const,
+  storyList: (workspaceId: string, filter: { status: DeliverableStatus[]; limit: number }) =>
+    ["workspaces", workspaceId, "stories", "list", filter] as const,
+  story: (workspaceId: string, storyId: string) =>
+    ["workspaces", workspaceId, "stories", storyId] as const,
+  revisions: (workspaceId: string, storyId: string, deliverableId: string) =>
+    ["workspaces", workspaceId, "stories", storyId, "deliverables", deliverableId, "revisions"] as const,
+  artifact: (
+    workspaceId: string,
+    storyId: string,
+    deliverableId: string,
+    revision: number,
+    name: string
+  ) =>
+    [
+      "workspaces",
+      workspaceId,
+      "stories",
+      storyId,
+      "deliverables",
+      deliverableId,
+      "revisions",
+      revision,
+      name,
+    ] as const,
 }

@@ -20,7 +20,9 @@ import { workspacesQuery } from "@/queries/workspaces"
 import { CreateWorkspaceDialog } from "./create-workspace-dialog"
 
 const sectionRoutes = {
+  stories: "/w/$workspaceId/stories",
   pipelines: "/w/$workspaceId/pipelines",
+  knowledge: "/w/$workspaceId/knowledge",
   jobs: "/w/$workspaceId/jobs",
   members: "/w/$workspaceId/members",
   settings: "/w/$workspaceId/settings",
@@ -29,7 +31,9 @@ const sectionRoutes = {
 /** The section of the current workspace URL, kept when switching. */
 function currentSection(pathname: string): keyof typeof sectionRoutes {
   const part = pathname.split("/")[3]
-  return part === "jobs" || part === "members" || part === "settings" ? part : "pipelines"
+  return part !== undefined && Object.hasOwn(sectionRoutes, part)
+    ? (part as keyof typeof sectionRoutes)
+    : "stories"
 }
 
 export function WorkspaceSwitcher({ current }: { current: Workspace }) {

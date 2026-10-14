@@ -49,7 +49,7 @@ export function HomePage() {
         {data.map((w) => (
           <li key={w.id}>
             <Link
-              to="/w/$workspaceId/pipelines"
+              to="/w/$workspaceId/stories"
               params={{ workspaceId: w.id }}
               aria-label={m.workspace.open(w.name)}
               className="flex items-center gap-3 rounded-3xl border bg-card px-4 py-3 outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/30"

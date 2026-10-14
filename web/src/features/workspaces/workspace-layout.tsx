@@ -1,6 +1,13 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link, Outlet, useParams } from "@tanstack/react-router"
-import { LibraryIcon, ListChecksIcon, SettingsIcon, UsersIcon, WorkflowIcon } from "lucide-react"
+import {
+  InboxIcon,
+  LibraryIcon,
+  ListChecksIcon,
+  SettingsIcon,
+  UsersIcon,
+  WorkflowIcon,
+} from "lucide-react"
 
 import { isApiError } from "@/api/client"
 import { Brand } from "@/components/brand"
@@ -8,12 +15,15 @@ import { EmptyState, ErrorState } from "@/components/page"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { UserMenu } from "@/features/auth/user-menu"
+import { TAB_STATUSES } from "@/features/stories/model"
 import { m } from "@/i18n"
+import { STORY_LIST_LIMIT, storiesQuery } from "@/queries/stories"
 import { workspaceQuery } from "@/queries/workspaces"
 import { WorkspaceContext } from "./context"
 import { WorkspaceSwitcher } from "./workspace-switcher"
 
 const navItems = [
+  { to: "/w/$workspaceId/stories", label: m.nav.review, icon: InboxIcon },
   { to: "/w/$workspaceId/pipelines", label: m.nav.pipelines, icon: WorkflowIcon },
   { to: "/w/$workspaceId/knowledge", label: m.nav.knowledge, icon: LibraryIcon },
   { to: "/w/$workspaceId/jobs", label: m.nav.jobs, icon: ListChecksIcon },
@@ -21,9 +31,20 @@ const navItems = [
   { to: "/w/$workspaceId/settings", label: m.nav.settings, icon: SettingsIcon },
 ] as const
 
+/** How often the nav refreshes the number of stories waiting for review. */
+const REVIEW_COUNT_MS = 30_000
+
 export function WorkspaceLayout() {
   const { workspaceId } = useParams({ from: "/w/$workspaceId" })
   const ws = useQuery(workspaceQuery(workspaceId))
+  // Shares its cache with the "Needs review" tab.
+  const review = useQuery({
+    ...storiesQuery(workspaceId, TAB_STATUSES.review),
+    enabled: ws.isSuccess,
+    refetchInterval: REVIEW_COUNT_MS,
+    refetchIntervalInBackground: true,
+  })
+  const reviewCount = review.data?.length ?? 0
 
   if (ws.isPending) {
     return (
@@ -69,6 +90,14 @@ export function WorkspaceLayout() {
     >
       <item.icon />
       {item.label}
+      {item.to === "/w/$workspaceId/stories" && reviewCount > 0 ? (
+        <span
+          className="ml-auto min-w-5 rounded-full bg-amber-500/20 px-1.5 text-center text-[11px] leading-5 font-semibold text-amber-800 tabular dark:text-amber-300"
+          aria-label={m.nav.reviewCount(reviewCount)}
+        >
+          {reviewCount >= STORY_LIST_LIMIT ? `${STORY_LIST_LIMIT}+` : reviewCount}
+        </span>
+      ) : null}
     </Link>
   ))
 

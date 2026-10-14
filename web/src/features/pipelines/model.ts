@@ -1,4 +1,7 @@
 import type { Document, Language, PipelineDefinition, Schemas } from "@/api/client"
+
+type Outputs = Schemas["Outputs"]
+type KnowledgeRef = Schemas["KnowledgeRef"]
 import { m } from "@/i18n"
 
 // The editable shape of a pipeline. Both output sections are always
@@ -29,14 +32,22 @@ export const LIMITS = {
 
 export type RefValues = { documentId: string; fromPage: string; toPage: string }
 
-export type PipelineFormValues = {
-  name: string
-  language: Language
+/**
+ * The outputs part of a form (pipelines and ad-hoc requests share it; see
+ * outputs-fields.tsx). Both sections are always present so toggling one
+ * off and on again keeps what was typed.
+ */
+export type OutputsValues = {
   videoEnabled: boolean
   video: { format: VideoFormat; orientation: Orientation; durationSeconds: string }
   articleEnabled: boolean
   article: { words: string; translations: Language[] }
   lead: Lead
+}
+
+export type PipelineFormValues = OutputsValues & {
+  name: string
+  language: Language
   source: { kind: SourceKind; instructions: string; refs: RefValues[] }
   scheduled: boolean
   schedule: { cron: string; timezone: string; batch: string }
@@ -46,15 +57,21 @@ export function emptyRef(): RefValues {
   return { documentId: "", fromPage: "", toPage: "" }
 }
 
-export function defaultValues(workspaceTimezone: string): PipelineFormValues {
+export function defaultOutputs(): OutputsValues {
   return {
-    name: "",
-    language: "tr",
     videoEnabled: true,
     video: { format: "short", orientation: "vertical", durationSeconds: "60" },
     articleEnabled: false,
     article: { words: "1200", translations: [] },
     lead: "video",
+  }
+}
+
+export function defaultValues(workspaceTimezone: string): PipelineFormValues {
+  return {
+    name: "",
+    language: "tr",
+    ...defaultOutputs(),
     source: { kind: "prompt", instructions: "", refs: [] },
     scheduled: false,
     schedule: { cron: "0 2 * * *", timezone: workspaceTimezone, batch: "1" },
@@ -103,42 +120,49 @@ export function fromDefinition(
   }
 }
 
+/** The wire outputs of a form. Call only on values that validate. */
+export function toOutputs(v: OutputsValues, language: Language): Outputs {
+  const both = v.videoEnabled && v.articleEnabled
+  return {
+    video: v.videoEnabled
+      ? {
+          format: v.video.format,
+          orientation: v.video.orientation,
+          durationSeconds: toInt(v.video.durationSeconds) ?? 0,
+        }
+      : undefined,
+    article: v.articleEnabled
+      ? {
+          words: toInt(v.article.words) ?? 0,
+          translations: v.article.translations.filter((l) => l !== language),
+        }
+      : undefined,
+    lead: both ? v.lead : v.videoEnabled ? "video" : "article",
+  }
+}
+
+/** The wire references of reference rows; blank pages mean the whole document. */
+export function toRefs(refs: RefValues[]): KnowledgeRef[] {
+  return refs.map((r) => {
+    const from = toInt(r.fromPage)
+    const to = toInt(r.toPage)
+    return {
+      documentId: r.documentId.trim(),
+      ...(from !== undefined && to !== undefined ? { fromPage: from, toPage: to } : {}),
+    }
+  })
+}
+
 /** Builds the wire definition. Call only on values that validate. */
 export function toDefinition(v: PipelineFormValues): PipelineDefinition {
-  const both = v.videoEnabled && v.articleEnabled
   const def: PipelineDefinition = {
     name: v.name.trim(),
     language: v.language,
-    outputs: {
-      video: v.videoEnabled
-        ? {
-            format: v.video.format,
-            orientation: v.video.orientation,
-            durationSeconds: toInt(v.video.durationSeconds) ?? 0,
-          }
-        : undefined,
-      article: v.articleEnabled
-        ? {
-            words: toInt(v.article.words) ?? 0,
-            translations: v.article.translations.filter((l) => l !== v.language),
-          }
-        : undefined,
-      lead: both ? v.lead : v.videoEnabled ? "video" : "article",
-    },
+    outputs: toOutputs(v, v.language),
     source: {
       kind: v.source.kind,
       instructions: v.source.instructions.trim(),
-      refs:
-        v.source.kind === "knowledge"
-          ? v.source.refs.map((r) => {
-              const from = toInt(r.fromPage)
-              const to = toInt(r.toPage)
-              return {
-                documentId: r.documentId.trim(),
-                ...(from !== undefined && to !== undefined ? { fromPage: from, toPage: to } : {}),
-              }
-            })
-          : undefined,
+      refs: v.source.kind === "knowledge" ? toRefs(v.source.refs) : undefined,
     },
     schedule: v.scheduled
       ? {
@@ -185,78 +209,24 @@ export type KnownDocuments = ReadonlyMap<string, Pick<Document, "status" | "page
 export function validatePipeline(v: PipelineFormValues, docs?: KnownDocuments): PipelineValidation {
   const t = m.validation
   const fields: PipelineFieldErrors = {}
-  let form: string | undefined
 
   const name = v.name.trim()
   if (!name) fields.name = t.nameRequired
   else if ([...name].length > LIMITS.name) fields.name = t.nameTooLong
 
-  if (!v.videoEnabled && !v.articleEnabled) form = t.outputRequired
-
-  if (v.videoEnabled) {
-    if (v.video.format === "short" && !ORIENTATIONS.short.includes(v.video.orientation)) {
-      fields["video.orientation"] = t.shortOrientation
-    }
-    const short = v.video.format === "short"
-    if (!inRange(v.video.durationSeconds, short ? LIMITS.shortSeconds : LIMITS.longSeconds)) {
-      fields["video.durationSeconds"] = short ? t.durationShort : t.durationLong
-    }
-  }
-
-  if (v.articleEnabled && !inRange(v.article.words, LIMITS.words)) {
-    fields["article.words"] = t.words
-  }
+  const form = validateOutputs(v, fields)
 
   const instructions = v.source.instructions.trim()
   if ([...instructions].length > LIMITS.instructions) {
     fields["source.instructions"] = t.instructionsTooLong
   } else if (v.source.kind === "prompt" && !instructions) {
     fields["source.instructions"] = t.instructionsRequired
+  } else if (v.source.kind === "seo" && !instructions) {
+    fields["source.instructions"] = t.briefRequired
   }
 
   if (v.source.kind === "knowledge") {
-    const refs = v.source.refs
-    if (refs.length === 0) fields["source.refs"] = t.refsRequired
-    else if (refs.length > LIMITS.refs) fields["source.refs"] = t.refsTooMany
-    const ranges: Array<{ doc: string; from: number; to: number } | undefined> = []
-    refs.forEach((r, i) => {
-      const doc = r.documentId.trim().toLowerCase()
-      const known = docs?.get(doc)
-      if (!UUID.test(doc)) fields[`source.refs[${i}].documentId`] = t.documentId
-      else if (docs && !known) fields[`source.refs[${i}].documentId`] = t.documentMissing
-      else if (known && known.status !== "ready") {
-        fields[`source.refs[${i}].documentId`] = t.documentNotReady
-      }
-      const fromBlank = r.fromPage.trim() === ""
-      const toBlank = r.toPage.trim() === ""
-      if (fromBlank && toBlank) {
-        ranges.push({ doc, from: 0, to: 0 })
-        return
-      }
-      const from = toInt(r.fromPage)
-      const to = toInt(r.toPage)
-      if (from === undefined || to === undefined || from < 1 || to < from) {
-        fields[`source.refs[${i}].fromPage`] = t.pageRange
-        ranges.push(undefined)
-        return
-      }
-      if (known?.status === "ready" && to > known.pageCount) {
-        fields[`source.refs[${i}].fromPage`] = t.pageBeyond(known.pageCount)
-      }
-      ranges.push({ doc, from, to })
-    })
-    ranges.forEach((a, i) => {
-      if (!a || fields[`source.refs[${i}].documentId`]) return
-      for (let j = 0; j < i; j++) {
-        const b = ranges[j]
-        if (!b || b.doc !== a.doc) continue
-        const whole = a.from === 0 || b.from === 0
-        if (whole || (a.from <= b.to && b.from <= a.to)) {
-          fields[`source.refs[${i}].fromPage`] = t.pageOverlap
-          return
-        }
-      }
-    })
+    validateRefs(v.source.refs, "source.refs", fields, { required: true, docs })
   }
 
   if (v.scheduled) {
@@ -272,6 +242,85 @@ export function validatePipeline(v: PipelineFormValues, docs?: KnownDocuments): 
   }
 
   return { form, fields }
+}
+
+/**
+ * Checks the outputs part of a form, adding field errors (keyed `video.…`,
+ * `article.…`) to fields. Returns the error not tied to one input: no
+ * output chosen.
+ */
+export function validateOutputs(v: OutputsValues, fields: PipelineFieldErrors): string | undefined {
+  const t = m.validation
+  if (v.videoEnabled) {
+    if (v.video.format === "short" && !ORIENTATIONS.short.includes(v.video.orientation)) {
+      fields["video.orientation"] = t.shortOrientation
+    }
+    const short = v.video.format === "short"
+    if (!inRange(v.video.durationSeconds, short ? LIMITS.shortSeconds : LIMITS.longSeconds)) {
+      fields["video.durationSeconds"] = short ? t.durationShort : t.durationLong
+    }
+  }
+  if (v.articleEnabled && !inRange(v.article.words, LIMITS.words)) {
+    fields["article.words"] = t.words
+  }
+  return !v.videoEnabled && !v.articleEnabled ? t.outputRequired : undefined
+}
+
+/**
+ * Checks document reference rows at `path` (e.g. "source.refs"), adding
+ * errors keyed `${path}[i].documentId` / `${path}[i].fromPage` and, for
+ * the list itself, `path`. With `docs` — the loaded knowledge base — it
+ * also mirrors knowledge/v1 CheckRange: a referenced document must exist,
+ * be ready and have the pages.
+ */
+export function validateRefs(
+  refs: RefValues[],
+  path: string,
+  fields: PipelineFieldErrors,
+  { required, docs }: { required: boolean; docs?: KnownDocuments },
+): void {
+  const t = m.validation
+  if (required && refs.length === 0) fields[path] = t.refsRequired
+  else if (refs.length > LIMITS.refs) fields[path] = t.refsTooMany
+  const ranges: Array<{ doc: string; from: number; to: number } | undefined> = []
+  refs.forEach((r, i) => {
+    const doc = r.documentId.trim().toLowerCase()
+    const known = docs?.get(doc)
+    if (!UUID.test(doc)) fields[`${path}[${i}].documentId`] = t.documentId
+    else if (docs && !known) fields[`${path}[${i}].documentId`] = t.documentMissing
+    else if (known && known.status !== "ready") {
+      fields[`${path}[${i}].documentId`] = t.documentNotReady
+    }
+    const fromBlank = r.fromPage.trim() === ""
+    const toBlank = r.toPage.trim() === ""
+    if (fromBlank && toBlank) {
+      ranges.push({ doc, from: 0, to: 0 })
+      return
+    }
+    const from = toInt(r.fromPage)
+    const to = toInt(r.toPage)
+    if (from === undefined || to === undefined || from < 1 || to < from) {
+      fields[`${path}[${i}].fromPage`] = t.pageRange
+      ranges.push(undefined)
+      return
+    }
+    if (known?.status === "ready" && to > known.pageCount) {
+      fields[`${path}[${i}].fromPage`] = t.pageBeyond(known.pageCount)
+    }
+    ranges.push({ doc, from, to })
+  })
+  ranges.forEach((a, i) => {
+    if (!a || fields[`${path}[${i}].documentId`]) return
+    for (let j = 0; j < i; j++) {
+      const b = ranges[j]
+      if (!b || b.doc !== a.doc) continue
+      const whole = a.from === 0 || b.from === 0
+      if (whole || (a.from <= b.to && b.from <= a.to)) {
+        fields[`${path}[${i}].fromPage`] = t.pageOverlap
+        return
+      }
+    }
+  })
 }
 
 export function hasErrors(r: PipelineValidation): boolean {

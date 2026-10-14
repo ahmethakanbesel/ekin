@@ -30,6 +30,15 @@ export type Document = Schemas["Document"]
 export type DocumentFormat = Document["format"]
 export type DocumentStatus = Document["status"]
 export type DocumentPage = Schemas["DocumentPage"]
+export type Story = Schemas["Story"]
+export type Deliverable = Schemas["Deliverable"]
+export type DeliverableStatus = Schemas["DeliverableStatus"]
+export type Revision = Schemas["Revision"]
+export type Feedback = Schemas["Feedback"]
+export type FeedbackInput = Schemas["FeedbackInput"]
+export type FeedbackScope = Schemas["FeedbackScope"]
+export type AdHocInput = Schemas["AdHocInput"]
+export type KnowledgeRef = Schemas["KnowledgeRef"]
 
 /** A failed API call: the server's `{code, message}` plus the HTTP status. */
 export class ApiError extends Error {

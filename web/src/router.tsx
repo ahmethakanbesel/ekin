@@ -26,6 +26,10 @@ import { validateJobsSearch } from "@/features/jobs/search"
 import { MembersPage } from "@/features/members/members-page"
 import { PipelinesPage } from "@/features/pipelines/list-page"
 import { EditPipelinePage, NewPipelinePage } from "@/features/pipelines/pipeline-pages"
+import { StoriesPage } from "@/features/stories/list-page"
+import { NewRequestPage } from "@/features/stories/request-page"
+import { validateStoriesSearch } from "@/features/stories/search"
+import { StoryPage } from "@/features/stories/story-page"
 import { HomePage } from "@/features/workspaces/home-page"
 import { WorkspaceSettingsPage } from "@/features/workspaces/settings-page"
 import { WorkspaceLayout } from "@/features/workspaces/workspace-layout"
@@ -121,8 +125,27 @@ const workspaceIndexRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "/",
   beforeLoad: ({ params }) => {
-    throw redirect({ to: "/w/$workspaceId/pipelines", params, replace: true })
+    throw redirect({ to: "/w/$workspaceId/stories", params, replace: true })
   },
+})
+
+const storiesRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: "/stories",
+  validateSearch: validateStoriesSearch,
+  component: StoriesPage,
+})
+
+const newStoriesRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: "/stories/new",
+  component: NewRequestPage,
+})
+
+const storyRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: "/stories/$storyId",
+  component: StoryPage,
 })
 
 const pipelinesRoute = createRoute({
@@ -182,6 +205,9 @@ const routeTree = rootRoute.addChildren([
   accountRoute,
   workspaceRoute.addChildren([
     workspaceIndexRoute,
+    storiesRoute,
+    newStoriesRoute,
+    storyRoute,
     pipelinesRoute,
     newPipelineRoute,
     editPipelineRoute,
