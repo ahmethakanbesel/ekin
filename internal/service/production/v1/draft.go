@@ -62,10 +62,44 @@ func (s *Service) workDir(d *storydomain.Deliverable) string {
 	return filepath.Join(s.cfg.WorkRoot, d.ID().String())
 }
 
-// Draft runs a deliverable.draft job: the agent writes (or revises) the
-// deliverable in its working directory, Kurgu validates and archives the
-// result as the next revision.
+// DraftTask is a self-contained agent job: with the working directory it
+// is everything RunDraft needs, so it can run on another host (the
+// hybrid worker) as well as here.
+type DraftTask struct {
+	Payload     DeliverablePayload    `json:"payload"`
+	Spec        agenttool.Spec        `json:"spec"`
+	Video       bool                  `json:"video"`
+	Translation bool                  `json:"translation"`
+	TargetWords int                   `json:"targetWords,omitempty"`
+	Revision    int                   `json:"revision"` // before this draft
+	Resume      string                `json:"resume,omitempty"`
+	Feedback    *storydomain.Feedback `json:"feedback,omitempty"`
+}
+
+// DraftResult is what the agent produced besides files.
+type DraftResult struct {
+	Session string `json:"session"`
+	Notes   string `json:"notes"`
+}
+
+// Draft runs a deliverable.draft job here: begin, run the agent, finish.
 func (s *Service) Draft(ctx context.Context, p DeliverablePayload) error {
+	task, dir, err := s.BeginDraft(ctx, p)
+	if err != nil || dir == "" {
+		return err
+	}
+	res, err := s.RunDraft(ctx, task, dir)
+	if err != nil {
+		s.FailStep(ctx, p, err)
+		return nil
+	}
+	return s.FinishDraft(ctx, task, dir, res)
+}
+
+// BeginDraft hands the deliverable to the agent: it marks it drafting
+// and prepares its working directory. An empty dir means there is
+// nothing to do (the deliverable moved on).
+func (s *Service) BeginDraft(ctx context.Context, p DeliverablePayload) (DraftTask, string, error) {
 	var feedback *storydomain.Feedback
 	st, err := s.mutate(ctx, p.StoryID, func(_ context.Context, st *storydomain.Story) error {
 		var err error
@@ -73,22 +107,111 @@ func (s *Service) Draft(ctx context.Context, p DeliverablePayload) error {
 		return err
 	})
 	if apperror.Is(err, apperror.InvalidTransition) || apperror.Is(err, apperror.StoryNotFound) {
-		return jobdomain.Permanent(err) // already handled, rejected or deleted
+		return DraftTask{}, "", jobdomain.Permanent(err) // already handled, rejected or deleted
 	}
+	if err != nil {
+		return DraftTask{}, "", err
+	}
+	d, _ := st.Deliverable(p.DeliverableID)
+	dir := s.workDir(d)
+	if err := s.ensureWorkDir(ctx, d, dir); err != nil {
+		s.FailStep(ctx, p, err)
+		return DraftTask{}, "", nil
+	}
+	t, err := s.prepare(ctx, st, d, dir)
+	if err != nil {
+		s.FailStep(ctx, p, err)
+		return DraftTask{}, "", nil
+	}
+	task := DraftTask{
+		Payload: p, Spec: t.spec, Video: d.IsVideo(), Translation: d.Role() == storydomain.RoleTranslation,
+		Revision: d.Revision(), Feedback: feedback,
+	}
+	if t.article != nil {
+		task.TargetWords = t.article.Words()
+	}
+	if feedback != nil {
+		task.Resume = d.Session()
+	}
+	return task, dir, nil
+}
+
+// RunDraft runs the agent in dir until its output validates. It touches
+// no database, so a remote worker can run it.
+func (s *Service) RunDraft(ctx context.Context, task DraftTask, dir string) (DraftResult, error) {
+	tools := []string{"Read", "Write", "Edit", "Glob", "Grep"}
+	allowed := append([]string(nil), tools...)
+	if task.Video {
+		tools = append(tools, "Bash")
+		allowed = append(allowed, "Bash(kurgu tool:*)")
+	}
+	req := claude.Request{Dir: dir, Tools: tools, Allowed: allowed, Timeout: s.cfg.AgentTimeout, Env: s.toolEnv(task.Spec)}
+	fb := task.Feedback
+	var err error
+	switch {
+	case fb != nil && task.Resume != "":
+		req.Resume = task.Resume
+		req.Prompt, err = execute("revise.md", map[string]any{
+			"Revision": task.Revision, "Feedback": fb.Text, "Scope": scopeName(fb.Scope), "At": atSeconds(fb), "Tool": toolCmd,
+		})
+		if err != nil {
+			return DraftResult{}, err
+		}
+	default:
+		req.Prompt = "Read INSTRUCTIONS.md, then BRIEF.md, and do the task they describe."
+		if fb != nil {
+			req.Prompt += fmt.Sprintf("\n\nA reviewer asked for these changes to the previous version (kept in this directory): %s", fb.Text)
+		}
+	}
+	res, err := s.agent.Run(ctx, req)
+	if err != nil {
+		return DraftResult{}, err
+	}
+	session := res.SessionID
+	for attempt := 0; ; attempt++ {
+		problems := s.validate(ctx, task, dir)
+		if len(problems) == 0 {
+			break
+		}
+		if attempt >= s.cfg.FixAttempts {
+			return DraftResult{}, fmt.Errorf("output still invalid after %d fixes: %s", attempt, strings.Join(problems, "; "))
+		}
+		res, err = s.agent.Run(ctx, claude.Request{
+			Dir: dir, Tools: req.Tools, Allowed: req.Allowed, Timeout: s.cfg.AgentTimeout, Resume: session, Env: req.Env,
+			Prompt: "Kurgu's own check of your output failed:\n\n- " + strings.Join(problems, "\n- ") +
+				"\n\nFix every item, check again, and reply when done.",
+		})
+		if err != nil {
+			return DraftResult{}, err
+		}
+		if res.SessionID != "" {
+			session = res.SessionID
+		}
+	}
+	return DraftResult{Session: session, Notes: strings.TrimSpace(res.Text)}, nil
+}
+
+// FinishDraft archives dir as the next revision and moves the
+// deliverable on (to rendering or review).
+func (s *Service) FinishDraft(ctx context.Context, task DraftTask, dir string, res DraftResult) error {
+	p := task.Payload
+	st, err := s.stories.GetByID(ctx, p.StoryID)
 	if err != nil {
 		return err
 	}
-	d, _ := st.Deliverable(p.DeliverableID)
-	artifacts, session, notes, err := s.runAgent(ctx, st, d, feedback)
+	d, err := st.Deliverable(p.DeliverableID)
 	if err != nil {
-		s.log.ErrorContext(ctx, "draft failed", slog.String("deliverable", d.ID().String()), slog.Any("error", err))
-		s.fail(ctx, st, d, err)
+		return jobdomain.Permanent(err)
+	}
+	artifacts, err := s.archive(ctx, st, d, dir)
+	if err != nil {
+		s.FailStep(ctx, p, err)
 		return nil
 	}
 	var rev storydomain.Revision
 	st, err = s.mutate(ctx, p.StoryID, func(ctx context.Context, st *storydomain.Story) error {
 		var err error
-		rev, err = st.Drafted(p.DeliverableID, artifacts, session, notes, s.now())
+		rev, err = st.Drafted(p.DeliverableID, artifacts, res.Session, res.Notes, s.now())
 		if err != nil {
 			return err
 		}
@@ -106,6 +229,25 @@ func (s *Service) Draft(ctx context.Context, p DeliverablePayload) error {
 			Detail: fmt.Sprintf("%s revision %d is ready for review", d.Kind(), rev.Number)})
 	}
 	return nil
+}
+
+// FailStep marks the deliverable's current step failed.
+func (s *Service) FailStep(ctx context.Context, p DeliverablePayload, cause error) {
+	st, err := s.stories.GetByID(ctx, p.StoryID)
+	if err != nil {
+		return
+	}
+	d, err := st.Deliverable(p.DeliverableID)
+	if err != nil {
+		return
+	}
+	s.log.ErrorContext(ctx, "step failed", slog.String("deliverable", d.ID().String()), slog.String("status", string(d.Status())), slog.Any("error", cause))
+	s.fail(ctx, st, d, cause)
+}
+
+// WorkDir is the local working directory of a deliverable.
+func (s *Service) WorkDir(deliverableID uuid.UUID) string {
+	return filepath.Join(s.cfg.WorkRoot, deliverableID.String())
 }
 
 // fail marks the deliverable failed and tells the workspace.
@@ -126,76 +268,10 @@ func (s *Service) fail(ctx context.Context, st *storydomain.Story, d *storydomai
 		Detail: fmt.Sprintf("%s failed: %s", d.Kind(), firstLine(reason))})
 }
 
-// runAgent prepares the working directory, runs the agent until its
-// output validates, and archives the result.
-func (s *Service) runAgent(ctx context.Context, st *storydomain.Story, d *storydomain.Deliverable, fb *storydomain.Feedback) (map[string]string, string, string, error) {
-	dir := s.workDir(d)
-	if err := s.ensureWorkDir(ctx, d, dir); err != nil {
-		return nil, "", "", err
-	}
-	task, err := s.prepare(ctx, st, d, dir)
-	if err != nil {
-		return nil, "", "", err
-	}
-	req := claude.Request{
-		Dir:     dir,
-		Tools:   []string{"Read", "Write", "Edit", "Glob", "Grep", "Bash"},
-		Allowed: []string{"Read", "Write", "Edit", "Glob", "Grep", "Bash(" + s.cfg.KurguBin + " tool:*)"},
-		Timeout: s.cfg.AgentTimeout,
-	}
-	if !d.IsVideo() {
-		req.Tools = []string{"Read", "Write", "Edit", "Glob", "Grep"}
-		req.Allowed = req.Tools
-	}
-	if fb != nil && d.Session() != "" {
-		req.Resume = d.Session()
-		req.Prompt, err = execute("revise.md", map[string]any{
-			"Revision": d.Revision(), "Feedback": fb.Text, "Scope": scopeName(fb.Scope), "At": atSeconds(fb), "Tool": s.toolCmd(),
-		})
-	} else {
-		req.Prompt = "Read INSTRUCTIONS.md, then BRIEF.md, and do the task they describe."
-		if fb != nil {
-			req.Prompt += fmt.Sprintf("\n\nA reviewer asked for these changes to the previous version (kept in this directory): %s", fb.Text)
-		}
-	}
-	if err != nil {
-		return nil, "", "", err
-	}
-	req.Env = s.toolEnv(task)
-	runner := s.agent
-	res, err := runner.Run(ctx, req)
-	if err != nil {
-		return nil, "", "", err
-	}
-	session := res.SessionID
-	for attempt := 0; ; attempt++ {
-		problems := s.validate(ctx, d, dir, task)
-		if len(problems) == 0 {
-			break
-		}
-		if attempt >= s.cfg.FixAttempts {
-			return nil, "", "", fmt.Errorf("output still invalid after %d fixes: %s", attempt, strings.Join(problems, "; "))
-		}
-		res, err = runner.Run(ctx, claude.Request{
-			Dir: dir, Tools: req.Tools, Allowed: req.Allowed, Timeout: s.cfg.AgentTimeout, Resume: session, Env: req.Env,
-			Prompt: "Kurgu's own check of your output failed:\n\n- " + strings.Join(problems, "\n- ") +
-				"\n\nFix every item, check again, and reply when done.",
-		})
-		if err != nil {
-			return nil, "", "", err
-		}
-		if res.SessionID != "" {
-			session = res.SessionID
-		}
-	}
-	artifacts, err := s.archive(ctx, st, d, dir)
-	if err != nil {
-		return nil, "", "", err
-	}
-	return artifacts, session, strings.TrimSpace(res.Text), nil
-}
-
-func (s *Service) toolCmd() string { return s.cfg.KurguBin + " tool" }
+// toolCmd is how instructions name the agent tools; RunDraft puts a
+// `kurgu` link to this binary first on the agent's PATH, so the same
+// instructions work on every host.
+const toolCmd = "kurgu tool"
 
 // task is what the tools and the validator need to know.
 type task struct {
@@ -203,9 +279,32 @@ type task struct {
 	article *pipelinedomain.ArticleSpec
 }
 
-func (s *Service) toolEnv(t task) []string {
-	spec, _ := json.Marshal(t.spec)
-	return append(append([]string(nil), s.cfg.ToolEnv...), "KURGU_TOOL_SPEC="+string(spec))
+func (s *Service) toolEnv(spec agenttool.Spec) []string {
+	raw, _ := json.Marshal(spec)
+	env := append(append([]string(nil), s.cfg.ToolEnv...), "KURGU_TOOL_SPEC="+string(raw))
+	if dir := s.binDir(); dir != "" {
+		env = append(env, "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	}
+	return env
+}
+
+// binDir holds a `kurgu` symlink to this binary for the agent's PATH.
+func (s *Service) binDir() string {
+	if s.cfg.KurguBin == "" {
+		return ""
+	}
+	dir := filepath.Join(s.cfg.WorkRoot, ".bin")
+	link := filepath.Join(dir, "kurgu")
+	if target, err := os.Readlink(link); err == nil && target == s.cfg.KurguBin {
+		return dir
+	}
+	_ = os.MkdirAll(dir, 0o750)
+	_ = os.Remove(link)
+	if err := os.Symlink(s.cfg.KurguBin, link); err != nil {
+		s.log.Warn("cannot link kurgu for the agent", slog.Any("error", err))
+		return ""
+	}
+	return dir
 }
 
 // prepare writes INSTRUCTIONS.md, BRIEF.md, KIT.md and the sources.
@@ -239,7 +338,7 @@ func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydo
 	var instructions string
 	data := map[string]any{
 		"LanguageName": languageName(d.Language()), "HasSources": sources != "" || source.text != "",
-		"Tool": s.toolCmd(),
+		"Tool": toolCmd,
 	}
 	switch {
 	case d.IsVideo():
@@ -372,9 +471,9 @@ func (s *Service) brief(st *storydomain.Story, d *storydomain.Deliverable, t tas
 
 // validate checks the agent's output the same way the tools do, so a
 // session that ended early cannot slip through.
-func (s *Service) validate(ctx context.Context, d *storydomain.Deliverable, dir string, t task) []string {
-	if d.IsVideo() {
-		rep := agenttool.Check(ctx, s.renderer, dir, "composition.html", t.spec)
+func (s *Service) validate(ctx context.Context, t DraftTask, dir string) []string {
+	if t.Video {
+		rep := agenttool.Check(ctx, s.renderer, dir, "composition.html", t.Spec)
 		return rep.Errors
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, "article.md")) //nolint:gosec // our work dir
@@ -385,8 +484,8 @@ func (s *Service) validate(ctx context.Context, d *storydomain.Deliverable, dir 
 	if err != nil {
 		return []string{err.Error()}
 	}
-	if t.article != nil && d.Role() != storydomain.RoleTranslation {
-		target := t.article.Words()
+	if t.TargetWords > 0 && !t.Translation {
+		target := t.TargetWords
 		if a.Words < target*6/10 || a.Words > target*16/10 {
 			return []string{fmt.Sprintf("the body has %d words; the target is about %d", a.Words, target)}
 		}

@@ -228,7 +228,8 @@ func TestVideoWithDerivedArticleAndTranslation(t *testing.T) {
 		}
 	}
 	brief := f.agent.prompts[1]
-	if !strings.Contains(strings.Join(brief.Allowed, ","), "Bash(/usr/local/bin/kurgu tool:*)") || !strings.Contains(strings.Join(brief.Env, " "), "KURGU_TOOL_SPEC") {
+	if !strings.Contains(strings.Join(brief.Allowed, ","), "Bash(kurgu tool:*)") || !strings.Contains(strings.Join(brief.Env, " "), "KURGU_TOOL_SPEC") ||
+		!strings.Contains(strings.Join(brief.Env, " "), ".bin") {
 		t.Fatalf("agent request = %+v", brief)
 	}
 

@@ -20,13 +20,102 @@ import (
 	"kurgu/pkg/id"
 )
 
-// Render runs a deliverable.render job: the preview (for review) or the
-// final full-resolution render (after approval).
+// RenderTask is a render job: with the working directory it is
+// everything RunRender needs, so a remote worker can run it.
+type RenderTask struct {
+	Payload  DeliverablePayload `json:"payload"`
+	Revision int                `json:"revision"`
+}
+
+// Render runs a deliverable.render job here: the preview (for review)
+// or the final full-resolution render (after approval).
 func (s *Service) Render(ctx context.Context, p DeliverablePayload) error {
+	task, dir, err := s.BeginRender(ctx, p)
+	if err != nil || dir == "" {
+		return err
+	}
+	out, err := os.MkdirTemp("", "kurgu-render-*")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.RemoveAll(out) }()
+	files, err := s.RunRender(ctx, task, dir, out)
+	if err != nil {
+		s.FailStep(ctx, p, err)
+		return nil
+	}
+	return s.FinishRender(ctx, task, files)
+}
+
+// BeginRender checks the deliverable still wants this render and makes
+// sure its working directory is here. An empty dir means nothing to do.
+func (s *Service) BeginRender(ctx context.Context, p DeliverablePayload) (RenderTask, string, error) {
 	st, err := s.stories.GetByID(ctx, p.StoryID)
 	if apperror.Is(err, apperror.StoryNotFound) {
-		return jobdomain.Permanent(err)
+		return RenderTask{}, "", jobdomain.Permanent(err)
 	}
+	if err != nil {
+		return RenderTask{}, "", err
+	}
+	d, err := st.Deliverable(p.DeliverableID)
+	if err != nil {
+		return RenderTask{}, "", jobdomain.Permanent(err)
+	}
+	want := storydomain.StatusRendering
+	if p.Final {
+		want = storydomain.StatusFinalizing
+	}
+	if d.Status() != want {
+		return RenderTask{}, "", nil // superseded (rejected, changed, retried)
+	}
+	dir := s.workDir(d)
+	if err := s.ensureWorkDir(ctx, d, dir); err != nil {
+		s.FailStep(ctx, p, err)
+		return RenderTask{}, "", nil
+	}
+	return RenderTask{Payload: p, Revision: d.Revision()}, dir, nil
+}
+
+// RunRender renders dir into outDir and returns the artifact files by
+// name. It touches no database.
+func (s *Service) RunRender(ctx context.Context, task RenderTask, dir, outDir string) (map[string]string, error) {
+	rs := RenderSettings{PreviewScale: s.cfg.PreviewScale, FinalScale: s.cfg.FinalScale}
+	if s.cfg.Render != nil {
+		rs = s.cfg.Render(ctx)
+	}
+	opts := render.VideoOptions{Scale: rs.PreviewScale, Duty: rs.Duty, Chunks: rs.Chunks}
+	name := storydomain.ArtifactPreview
+	if task.Payload.Final {
+		opts.Scale, name = rs.FinalScale, storydomain.ArtifactFinal
+	}
+	silent := filepath.Join(outDir, "silent.mp4")
+	meta, err := s.renderer.Video(ctx, dir, "composition.html", opts, silent)
+	if err != nil {
+		return nil, err
+	}
+	music := ""
+	if _, err := os.Stat(filepath.Join(dir, "music.js")); err == nil {
+		music = filepath.Join(outDir, "music.wav")
+		if _, err := s.renderer.Music(ctx, dir, meta.Duration, music); err != nil {
+			return nil, err
+		}
+	}
+	out := filepath.Join(outDir, name)
+	if err := s.renderer.Mix(ctx, silent, filepath.Join(dir, "narration", "speech.wav"), music, meta.Duration, out); err != nil {
+		return nil, err
+	}
+	poster := filepath.Join(outDir, storydomain.ArtifactPoster)
+	if err := s.renderer.Poster(ctx, out, math.Min(1.5, meta.Duration/3), poster); err != nil {
+		return nil, err
+	}
+	return map[string]string{name: out, storydomain.ArtifactPoster: poster}, nil
+}
+
+// FinishRender stores the rendered files on the revision and moves the
+// deliverable to review (preview) or ready (final).
+func (s *Service) FinishRender(ctx context.Context, task RenderTask, files map[string]string) error {
+	p := task.Payload
+	st, err := s.stories.GetByID(ctx, p.StoryID)
 	if err != nil {
 		return err
 	}
@@ -34,18 +123,21 @@ func (s *Service) Render(ctx context.Context, p DeliverablePayload) error {
 	if err != nil {
 		return jobdomain.Permanent(err)
 	}
-	want := storydomain.StatusRendering
-	if p.Final {
-		want = storydomain.StatusFinalizing
+	if d.Revision() != task.Revision {
+		return nil // a newer revision replaced this one meanwhile
 	}
-	if d.Status() != want {
-		return nil // superseded (rejected, changed, retried)
-	}
-	keys, err := s.renderVideo(ctx, st, d, p.Final)
-	if err != nil {
-		s.log.ErrorContext(ctx, "render failed", slog.String("deliverable", d.ID().String()), slog.Any("error", err))
-		s.fail(ctx, st, d, err)
-		return nil
+	prefix := fmt.Sprintf("ws/%s/stories/%s/%s/r%d/", st.WorkspaceID(), st.ID(), d.ID(), d.Revision())
+	keys := map[string]string{}
+	for artifact, path := range files {
+		switch artifact {
+		case storydomain.ArtifactPreview, storydomain.ArtifactFinal, storydomain.ArtifactPoster:
+		default:
+			continue
+		}
+		if err := s.putFile(ctx, prefix+artifact, path); err != nil {
+			return err
+		}
+		keys[artifact] = prefix + artifact
 	}
 	st, err = s.mutate(ctx, p.StoryID, func(ctx context.Context, st *storydomain.Story) error {
 		rev, err := s.stories.Revision(ctx, d.ID(), d.Revision())
@@ -98,56 +190,6 @@ func (s *Service) releaseDerived(ctx context.Context, storyID, source uuid.UUID)
 		return nil
 	})
 	return err
-}
-
-func (s *Service) renderVideo(ctx context.Context, st *storydomain.Story, d *storydomain.Deliverable, final bool) (map[string]string, error) {
-	dir := s.workDir(d)
-	if err := s.ensureWorkDir(ctx, d, dir); err != nil {
-		return nil, err
-	}
-	tmp, err := os.MkdirTemp("", "kurgu-render-*")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = os.RemoveAll(tmp) }()
-	rs := RenderSettings{PreviewScale: s.cfg.PreviewScale, FinalScale: s.cfg.FinalScale}
-	if s.cfg.Render != nil {
-		rs = s.cfg.Render(ctx)
-	}
-	opts := render.VideoOptions{Scale: rs.PreviewScale, Duty: rs.Duty, Chunks: rs.Chunks}
-	name := storydomain.ArtifactPreview
-	if final {
-		opts.Scale, name = rs.FinalScale, storydomain.ArtifactFinal
-	}
-	silent := filepath.Join(tmp, "silent.mp4")
-	meta, err := s.renderer.Video(ctx, dir, "composition.html", opts, silent)
-	if err != nil {
-		return nil, err
-	}
-	music := ""
-	if _, err := os.Stat(filepath.Join(dir, "music.js")); err == nil {
-		music = filepath.Join(tmp, "music.wav")
-		if _, err := s.renderer.Music(ctx, dir, meta.Duration, music); err != nil {
-			return nil, err
-		}
-	}
-	out := filepath.Join(tmp, name)
-	if err := s.renderer.Mix(ctx, silent, filepath.Join(dir, "narration", "speech.wav"), music, meta.Duration, out); err != nil {
-		return nil, err
-	}
-	poster := filepath.Join(tmp, storydomain.ArtifactPoster)
-	if err := s.renderer.Poster(ctx, out, math.Min(1.5, meta.Duration/3), poster); err != nil {
-		return nil, err
-	}
-	prefix := fmt.Sprintf("ws/%s/stories/%s/%s/r%d/", st.WorkspaceID(), st.ID(), d.ID(), d.Revision())
-	keys := map[string]string{}
-	for artifact, path := range map[string]string{name: out, storydomain.ArtifactPoster: poster} {
-		if err := s.putFile(ctx, prefix+artifact, path); err != nil {
-			return nil, err
-		}
-		keys[artifact] = prefix + artifact
-	}
-	return keys, nil
 }
 
 // Approve accepts a deliverable in review and queues what follows.
