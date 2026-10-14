@@ -12,9 +12,11 @@ import (
 
 	"kurgu/internal/adapter/claude"
 	"kurgu/internal/adapter/extract"
+	"kurgu/internal/adapter/github"
 	"kurgu/internal/adapter/openrouter"
 	"kurgu/internal/adapter/render"
 	"kurgu/internal/adapter/smtp"
+	"kurgu/internal/adapter/youtube"
 	"kurgu/internal/blob"
 	"kurgu/internal/config"
 	"kurgu/internal/db"
@@ -24,6 +26,7 @@ import (
 	knowledgerepo "kurgu/internal/repository/knowledge/v1"
 	notifyrepo "kurgu/internal/repository/notify/v1"
 	pipelinerepo "kurgu/internal/repository/pipeline/v1"
+	publishingrepo "kurgu/internal/repository/publishing/v1"
 	settingsrepo "kurgu/internal/repository/settings/v1"
 	storyrepo "kurgu/internal/repository/story/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
@@ -33,6 +36,7 @@ import (
 	notifysvc "kurgu/internal/service/notify/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	productionsvc "kurgu/internal/service/production/v1"
+	publishingsvc "kurgu/internal/service/publishing/v1"
 	settingssvc "kurgu/internal/service/settings/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	httptransport "kurgu/internal/transport/http"
@@ -41,6 +45,7 @@ import (
 	productionworker "kurgu/internal/transport/job/production/v1"
 	"kurgu/internal/transport/schedule"
 	"kurgu/pkg/password"
+	"kurgu/pkg/secretbox"
 	"kurgu/web"
 )
 
@@ -60,6 +65,7 @@ type App struct {
 	production *productionsvc.Service
 	settings   *settingssvc.Service
 	notify     *notifysvc.Service
+	publishing *publishingsvc.Service
 	version    string
 }
 
@@ -97,6 +103,15 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	})
 	notify := notifysvc.NewService(notifyrepo.NewSQLite(tx), directory{identity, workspaceSvc}, mailer, cfg.PublicURL,
 		log.With(slog.String("component", "notify")))
+	box, err := openSecretBox(cfg.Publishing)
+	if err != nil {
+		_ = d.Close()
+		return nil, err
+	}
+	publishing := publishingsvc.NewService(publishingrepo.NewSQLite(tx), box,
+		&youtube.Client{ClientID: cfg.Publishing.YouTubeClientID, ClientSecret: cfg.Publishing.YouTubeClientSecret,
+			RedirectURL: cfg.PublicURL + "/api/v1/oauth/youtube/callback"},
+		&github.Client{}, log.With(slog.String("component", "publishing")))
 	production, err := newProduction(cfg, settings, productionsvc.Deps{
 		Stories: storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs,
 		Notifier: notify,
@@ -107,6 +122,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		_ = d.Close()
 		return nil, err
 	}
+	production.AddPublisher(publishing.Video()).AddPublisher(publishing.Article())
 	return &App{
 		cfg:        cfg,
 		log:        log,
@@ -119,7 +135,15 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		production: production,
 		settings:   settings,
 		notify:     notify,
+		publishing: publishing,
 	}, nil
+}
+
+func openSecretBox(c config.Publishing) (*secretbox.Box, error) {
+	if c.SecretKey != "" {
+		return secretbox.New([]byte(c.SecretKey))
+	}
+	return secretbox.LoadOrCreate(c.SecretKeyFile)
 }
 
 // WithVersion records the build version for the system endpoint.
@@ -199,6 +223,7 @@ func (a *App) Serve(ctx context.Context) error {
 		Production: a.production,
 		Feed:       a.notify,
 		Inviter:    inviter{a.notify, a.workspaces},
+		Publishing: a.publishing,
 		System:     systemhandler.New(a.settings, a.cfg.Worker.Profile, a.version, a.checks),
 		PublicURL:  a.cfg.PublicURL,
 		UI:         web.Dist(),

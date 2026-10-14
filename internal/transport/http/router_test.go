@@ -517,7 +517,7 @@ func TestAccessRulesCoverSpec(t *testing.T) {
 		}
 	}
 	slices.Sort(public)
-	if want := []string{"AcceptInvitation", "GetInvitation", "Login"}; !slices.Equal(public, want) {
+	if want := []string{"AcceptInvitation", "GetInvitation", "Login", "YouTubeCallback"}; !slices.Equal(public, want) {
 		t.Fatalf("public operations = %v, want %v", public, want)
 	}
 	if len(unruled) > 0 {

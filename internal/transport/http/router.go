@@ -23,12 +23,14 @@ import (
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	productionsvc "kurgu/internal/service/production/v1"
+	publishingsvc "kurgu/internal/service/publishing/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	identityhandler "kurgu/internal/transport/http/identity/v1"
 	jobhandler "kurgu/internal/transport/http/job/v1"
 	knowledgehandler "kurgu/internal/transport/http/knowledge/v1"
 	pipelinehandler "kurgu/internal/transport/http/pipeline/v1"
 	"kurgu/internal/transport/http/principal"
+	publishinghandler "kurgu/internal/transport/http/publishing/v1"
 	storyhandler "kurgu/internal/transport/http/story/v1"
 	systemhandler "kurgu/internal/transport/http/system/v1"
 	workspacehandler "kurgu/internal/transport/http/workspace/v1"
@@ -52,6 +54,7 @@ type Deps struct {
 	Feed       storyhandler.Feed
 	Inviter    identityhandler.Inviter
 	System     *systemhandler.Handler
+	Publishing *publishingsvc.Service
 	// PublicURL is where browsers reach Kurgu, e.g. https://kurgu.example.com.
 	// It prefixes invitation links, is trusted for cross-origin writes, and
 	// an https scheme marks the session cookie Secure.
@@ -70,6 +73,7 @@ type (
 	documents  = knowledgehandler.Handler
 	stories    = storyhandler.Handler
 	system     = systemhandler.Handler
+	publishing = publishinghandler.Handler
 )
 
 // server stitches the per-context handlers into one StrictServerInterface.
@@ -81,6 +85,7 @@ type server struct {
 	*documents
 	*stories
 	*system
+	*publishing
 }
 
 var _ gen.StrictServerInterface = server{}
@@ -113,6 +118,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		documents:  knowledgehandler.New(d.Knowledge),
 		stories:    storyhandler.New(d.Production, d.Feed),
 		system:     d.System,
+		publishing: publishinghandler.New(d.Publishing),
 	}, []gen.StrictMiddlewareFunc{authenticate(d.Identity)}, gen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			writeErr(w, r, apperror.Wrap(apperror.BadRequest, err, "malformed request"))

@@ -20,6 +20,7 @@ tags:
   - name: knowledge
   - name: stories
   - name: system
+  - name: integrations
   - name: pipelines
   - name: jobs
 
@@ -584,6 +585,109 @@ paths:
                   notifications:
                     type: array
                     items: { $ref: "#/components/schemas/Notification" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/integrations:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: getIntegrations
+      tags: [integrations]
+      responses:
+        "200":
+          description: Publishing targets.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Integrations" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/integrations/youtube:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    post:
+      operationId: connectYouTube
+      tags: [integrations]
+      description: Returns the Google consent URL; the browser goes there and comes back to /oauth/youtube/callback.
+      responses:
+        "200":
+          description: Consent URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url: { type: string }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateYouTube
+      tags: [integrations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [privacy]
+              properties:
+                privacy: { $ref: "#/components/schemas/Privacy" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Integrations" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: disconnectYouTube
+      tags: [integrations]
+      responses:
+        "204":
+          description: Disconnected.
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/integrations/blog:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    put:
+      operationId: saveBlog
+      tags: [integrations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BlogInput" }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Integrations" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteBlog
+      tags: [integrations]
+      responses:
+        "204":
+          description: Removed.
+        default: { $ref: "#/components/responses/Error" }
+
+  /oauth/youtube/callback:
+    get:
+      operationId: youTubeCallback
+      tags: [integrations]
+      security: []
+      description: Google redirects here; Kurgu stores the channel and redirects back to the workspace settings.
+      parameters:
+        - { name: code, in: query, schema: { type: string } }
+        - { name: state, in: query, schema: { type: string } }
+        - { name: error, in: query, schema: { type: string } }
+      responses:
+        "302":
+          description: Back to the app.
+          headers:
+            Location:
+              schema: { type: string }
         default: { $ref: "#/components/responses/Error" }
 
   /workspaces/{workspaceId}/stories:
@@ -1305,6 +1409,70 @@ components:
         detail: { type: string }
         storyId: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
+
+    Privacy:
+      type: string
+      enum: [private, unlisted, public]
+
+    YouTubeIntegration:
+      type: object
+      required: [configured, connected]
+      properties:
+        configured:
+          type: boolean
+          description: The server has Google OAuth credentials.
+        connected: { type: boolean }
+        channelId: { type: string }
+        channelTitle: { type: string }
+        privacy: { $ref: "#/components/schemas/Privacy" }
+        connectedAt: { type: string, format: date-time }
+
+    BlogTarget:
+      type: object
+      required: [kind, contentDir, publicDir, siteUrl, pathTemplate, defaultLocale, author, draft, hasToken]
+      properties:
+        kind:
+          type: string
+          enum: [github, dir]
+        repo: { type: string, description: "owner/name (github)" }
+        branch: { type: string }
+        dir: { type: string, description: Absolute path of a local checkout (dir). }
+        contentDir: { type: string, description: "e.g. marketing/src/content/blog" }
+        publicDir: { type: string }
+        siteUrl: { type: string }
+        pathTemplate: { type: string, description: "{locale} is empty for the default locale, otherwise 'en/'" }
+        defaultLocale: { type: string }
+        author: { type: string }
+        draft: { type: boolean, description: Publish with draft true for a last manual pass. }
+        hasToken: { type: boolean }
+
+    BlogInput:
+      type: object
+      required: [kind, contentDir]
+      properties:
+        kind:
+          type: string
+          enum: [github, dir]
+        repo: { type: string }
+        branch: { type: string }
+        dir: { type: string }
+        contentDir: { type: string }
+        publicDir: { type: string }
+        siteUrl: { type: string }
+        pathTemplate: { type: string }
+        defaultLocale: { type: string }
+        author: { type: string }
+        draft: { type: boolean }
+        token:
+          type: string
+          description: GitHub token with contents write access. Omit to keep the stored one.
+
+    Integrations:
+      type: object
+      required: [youtube]
+      properties:
+        youtube: { $ref: "#/components/schemas/YouTubeIntegration" }
+        blog: { $ref: "#/components/schemas/BlogTarget" }
 
     WorkspaceInput:
       type: object

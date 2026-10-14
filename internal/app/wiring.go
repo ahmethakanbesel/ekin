@@ -129,6 +129,8 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 	add("Speech scripts", okErr == nil, p.SpeechDir)
 	add("Stock media (Pexels)", p.PexelsKey != "", map[bool]string{true: "API key set", false: "KURGU_PEXELS_API_KEY not set; compositions use no stock footage"}[p.PexelsKey != ""])
 	add("Email (SMTP)", a.cfg.Notify.SMTPHost != "" && a.cfg.Notify.SMTPFrom != "", map[bool]string{true: a.cfg.Notify.SMTPHost, false: "KURGU_SMTP_HOST / KURGU_SMTP_FROM not set; digests stay in the app"}[a.cfg.Notify.SMTPHost != ""])
+	yt := a.cfg.Publishing.YouTubeClientID != "" && a.cfg.Publishing.YouTubeClientSecret != ""
+	add("YouTube publishing", yt, map[bool]string{true: "OAuth client set; redirect URI " + a.cfg.PublicURL + "/api/v1/oauth/youtube/callback", false: "KURGU_YOUTUBE_CLIENT_ID / KURGU_YOUTUBE_CLIENT_SECRET not set"}[yt])
 	add("Duplicate checks (Jev)", a.cfg.Notify.OpenRouterKey != "", map[bool]string{true: a.cfg.Notify.DecisionModel, false: "KURGU_OPENROUTER_API_KEY not set; title similarity only"}[a.cfg.Notify.OpenRouterKey != ""])
 	checksAt, lastChecks = time.Now(), out
 	return out

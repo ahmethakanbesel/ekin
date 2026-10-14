@@ -33,6 +33,15 @@ type Config struct {
 	Tools          Tools
 	Production     Production
 	Notify         Notify
+	Publishing     Publishing
+}
+
+// Publishing configures YouTube OAuth and the secret key.
+type Publishing struct {
+	YouTubeClientID, YouTubeClientSecret string
+	// SecretKeyFile holds the key that seals stored tokens; created on
+	// first start. KURGU_SECRET_KEY overrides it.
+	SecretKeyFile, SecretKey string
 }
 
 // Notify configures email and decisions.
@@ -214,6 +223,10 @@ func load(getenv func(string) string) (Config, error) {
 		SMTPTLS: str("KURGU_SMTP_TLS", "starttls"), SMTPPort: int(number("KURGU_SMTP_PORT", 0, 0, 65535)),
 		Every:         duration("KURGU_NOTIFY_EVERY", 10*time.Minute),
 		OpenRouterKey: str("KURGU_OPENROUTER_API_KEY", ""), DecisionModel: str("KURGU_DECISION_MODEL", "typesafe/jev-1.13"),
+	}
+	cfg.Publishing = Publishing{
+		YouTubeClientID: str("KURGU_YOUTUBE_CLIENT_ID", ""), YouTubeClientSecret: str("KURGU_YOUTUBE_CLIENT_SECRET", ""),
+		SecretKeyFile: str("KURGU_SECRET_KEY_FILE", filepath.Join(dataDir, "secret.key")), SecretKey: str("KURGU_SECRET_KEY", ""),
 	}
 	if t := cfg.Notify.SMTPTLS; t != "starttls" && t != "tls" && t != "none" {
 		errs = append(errs, "KURGU_SMTP_TLS: must be starttls, tls or none")
