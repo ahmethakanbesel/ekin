@@ -106,20 +106,8 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 		out = append(out, systemhandler.Check{Name: name, OK: ok, Detail: detail})
 	}
 	tool := func(name, bin string, args ...string) {
-		path, err := exec.LookPath(bin)
-		if err != nil {
-			add(name, false, bin+" not found on PATH")
-			return
-		}
-		cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		defer cancel()
-		v, err := exec.CommandContext(cctx, path, args...).CombinedOutput() //nolint:gosec // fixed tools
-		if err != nil {
-			add(name, false, fmt.Sprintf("%s: %v", path, err))
-			return
-		}
-		line, _, _ := strings.Cut(strings.TrimSpace(string(v)), "\n")
-		add(name, true, line)
+		ok, detail := probeTool(ctx, bin, args...)
+		add(name, ok, detail)
 	}
 	tool("Claude Code", p.ClaudeBin, "--version")
 	tool("ffmpeg", p.FFmpeg, "-version")
@@ -135,7 +123,8 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 	add("Stock media (Pexels)", p.PexelsKey != "", map[bool]string{true: "API key set", false: "KURGU_PEXELS_API_KEY not set; compositions use no stock footage"}[p.PexelsKey != ""])
 	add("Email (SMTP)", a.cfg.Notify.SMTPHost != "" && a.cfg.Notify.SMTPFrom != "", map[bool]string{true: a.cfg.Notify.SMTPHost, false: "KURGU_SMTP_HOST / KURGU_SMTP_FROM not set; digests stay in the app"}[a.cfg.Notify.SMTPHost != ""])
 	yt := a.cfg.Publishing.YouTubeClientID != "" && a.cfg.Publishing.YouTubeClientSecret != ""
-	add("YouTube publishing", yt, map[bool]string{true: "OAuth client set; redirect URI " + a.cfg.PublicURL + "/api/v1/oauth/youtube/callback", false: "KURGU_YOUTUBE_CLIENT_ID / KURGU_YOUTUBE_CLIENT_SECRET not set"}[yt])
+	redirect := "redirect URI " + a.cfg.PublicURL + "/api/v1/oauth/youtube/callback"
+	add("YouTube publishing", yt, map[bool]string{true: "OAuth client set; " + redirect, false: "KURGU_YOUTUBE_CLIENT_ID / KURGU_YOUTUBE_CLIENT_SECRET not set; register the " + redirect}[yt])
 	add("Duplicate checks (Jev)", a.cfg.Notify.OpenRouterKey != "", map[bool]string{true: a.cfg.Notify.DecisionModel, false: "KURGU_OPENROUTER_API_KEY not set; title similarity only"}[a.cfg.Notify.OpenRouterKey != ""])
 	checksAt, lastChecks = time.Now(), out
 	return out
@@ -161,4 +150,23 @@ func WorkRemote(ctx context.Context, cfg config.Config, log *slog.Logger) error 
 	remoteworker.Register(runner, client, prod)
 	log.InfoContext(ctx, "remote worker started", slog.String("server", cfg.Remote.URL), slog.String("owner", w.Owner))
 	return runner.Run(ctx)
+}
+
+// probeTool runs bin with args and returns its first output line. It is
+// detached from the caller's context: the result is cached for every
+// later request, so a browser that gave up on one request must not turn
+// working tools into "context canceled" for a minute.
+func probeTool(ctx context.Context, bin string, args ...string) (bool, string) {
+	path, err := exec.LookPath(bin)
+	if err != nil {
+		return false, bin + " not found on PATH"
+	}
+	cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	v, err := exec.CommandContext(cctx, path, args...).CombinedOutput() //nolint:gosec // fixed tools
+	if err != nil {
+		return false, fmt.Sprintf("%s: %v", path, err)
+	}
+	line, _, _ := strings.Cut(strings.TrimSpace(string(v)), "\n")
+	return true, line
 }
