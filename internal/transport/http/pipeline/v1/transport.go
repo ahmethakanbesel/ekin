@@ -16,7 +16,7 @@ func parseDefinition(in gen.PipelineDefinition) (pipelinedomain.Definition, erro
 	if err != nil {
 		return pipelinedomain.Definition{}, err
 	}
-	outputs, err := parseOutputs(in.Outputs)
+	outputs, err := ParseOutputs(in.Outputs)
 	if err != nil {
 		return pipelinedomain.Definition{}, err
 	}
@@ -39,7 +39,8 @@ func parseDefinition(in gen.PipelineDefinition) (pipelinedomain.Definition, erro
 	return def, nil
 }
 
-func parseOutputs(in gen.Outputs) (pipelinedomain.Outputs, error) {
+// ParseOutputs parses wire outputs (shared with ad-hoc story requests).
+func ParseOutputs(in gen.Outputs) (pipelinedomain.Outputs, error) {
 	var video *pipelinedomain.VideoSpec
 	if in.Video != nil {
 		v, err := pipelinedomain.NewVideoSpec(
@@ -174,4 +175,22 @@ func deref(p *int) int {
 		return 0
 	}
 	return *p
+}
+
+// VideoToWire converts a video spec.
+func VideoToWire(v pipelinedomain.VideoSpec) *gen.VideoSpec {
+	return &gen.VideoSpec{
+		Format:          gen.VideoSpecFormat(v.Format()),
+		Orientation:     gen.VideoSpecOrientation(v.Orientation()),
+		DurationSeconds: int(v.Duration() / time.Second),
+	}
+}
+
+// ArticleToWire converts an article spec.
+func ArticleToWire(a pipelinedomain.ArticleSpec) *gen.ArticleSpec {
+	tr := make([]gen.Language, 0, len(a.Translations()))
+	for _, l := range a.Translations() {
+		tr = append(tr, gen.Language(l))
+	}
+	return &gen.ArticleSpec{Words: a.Words(), Translations: tr}
 }

@@ -31,6 +31,28 @@ type Config struct {
 	Worker         Worker
 	Blob           Blob
 	Tools          Tools
+	Production     Production
+}
+
+// Production configures the authoring agent, speech and rendering.
+type Production struct {
+	WorkDir      string
+	ClaudeBin    string
+	ClaudeModel  string
+	AgentTimeout time.Duration
+	SpeechDir    string
+	SpeechModels string
+	UV           string
+	PexelsKey    string
+	Chrome       string
+	FFmpeg       string
+	Encoder      string
+	Chunks       int
+	Duty         float64
+	Threads      int
+	PreviewScale float64
+	FinalScale   float64
+	GPU          bool
 }
 
 // Blob selects the blob store.
@@ -143,6 +165,41 @@ func load(getenv func(string) string) (Config, error) {
 		errs = append(errs, "KURGU_BLOB_DRIVER: must be fs or s3")
 	}
 	cfg.Tools = Tools{PDFToText: str("KURGU_PDFTOTEXT", "pdftotext")}
+	number := func(key string, def, lo, hi float64) float64 {
+		raw := strings.TrimSpace(getenv(key))
+		if raw == "" {
+			return def
+		}
+		v, err := strconv.ParseFloat(raw, 64)
+		if err != nil || v < lo || v > hi {
+			errs = append(errs, fmt.Sprintf("%s: must be a number from %g to %g", key, lo, hi))
+			return def
+		}
+		return v
+	}
+	speechDir, _ := filepath.Abs(str("KURGU_SPEECH_DIR", "tools/speech"))
+	cfg.Production = Production{
+		WorkDir:      str("KURGU_WORK_DIR", filepath.Join(dataDir, "work")),
+		ClaudeBin:    str("KURGU_CLAUDE_BIN", "claude"),
+		ClaudeModel:  str("KURGU_CLAUDE_MODEL", ""),
+		AgentTimeout: duration("KURGU_AGENT_TIMEOUT", 45*time.Minute),
+		SpeechDir:    speechDir,
+		SpeechModels: str("KURGU_SPEECH_MODELS", ""),
+		UV:           str("KURGU_UV", "uv"),
+		PexelsKey:    str("KURGU_PEXELS_API_KEY", ""),
+		Chrome:       str("KURGU_CHROME", ""),
+		FFmpeg:       str("KURGU_FFMPEG", "ffmpeg"),
+		Encoder:      str("KURGU_RENDER_ENCODER", "libx264"),
+		Chunks:       int(number("KURGU_RENDER_CHUNKS", 1, 1, 16)),
+		Duty:         number("KURGU_RENDER_DUTY", 1, 0.05, 1),
+		Threads:      int(number("KURGU_RENDER_THREADS", 0, 0, 64)),
+		PreviewScale: number("KURGU_RENDER_PREVIEW_SCALE", 0.5, 0.25, 1),
+		FinalScale:   number("KURGU_RENDER_FINAL_SCALE", 1, 0.25, 2),
+		GPU:          boolean("KURGU_RENDER_GPU", false),
+	}
+	if e := cfg.Production.Encoder; e != "libx264" && e != "h264_videotoolbox" {
+		errs = append(errs, "KURGU_RENDER_ENCODER: must be libx264 or h264_videotoolbox")
+	}
 	concurrency, err := ParseConcurrency(str("KURGU_QUEUE_CONCURRENCY", DefaultConcurrency))
 	if err != nil {
 		errs = append(errs, "KURGU_QUEUE_CONCURRENCY: "+err.Error())

@@ -38,6 +38,17 @@ var workspaceActions = map[string]identitydomain.Action{
 	"DeleteDocument":    identitydomain.ActionEdit,
 	"RetryDocument":     identitydomain.ActionEdit,
 
+	"ListStories":        identitydomain.ActionView,
+	"GetStory":           identitydomain.ActionView,
+	"ListRevisions":      identitydomain.ActionView,
+	"CreateStories":      identitydomain.ActionEdit,
+	"DeleteStory":        identitydomain.ActionEdit,
+	"ApproveDeliverable": identitydomain.ActionEdit,
+	"RequestChanges":     identitydomain.ActionEdit,
+	"RejectDeliverable":  identitydomain.ActionEdit,
+	"RetryDeliverable":   identitydomain.ActionEdit,
+	"PublishDeliverable": identitydomain.ActionEdit,
+
 	"ListPipelines":    identitydomain.ActionView,
 	"GetPipeline":      identitydomain.ActionView,
 	"CreatePipeline":   identitydomain.ActionEdit,

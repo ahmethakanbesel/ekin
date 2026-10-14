@@ -317,6 +317,171 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspaceId}/stories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listStories"];
+        put?: never;
+        /** @description Ad-hoc request: a free-text idea plus structured fields. Ideas are planned and produced in the background; no pipeline is needed. */
+        post: operations["createStories"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/stories/{storyId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getStory"];
+        put?: never;
+        post?: never;
+        /** @description Deletes the story and its files. Refused while a step is running. */
+        delete: operations["deleteStory"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        /** @description Every revision, oldest first. Artifacts are fetched from /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions/{number}/{artifact} (supports Range requests; not part of this spec). */
+        get: operations["listRevisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Accepts the deliverable. A video gets its final render; then it is published when a target is connected. */
+        post: operations["approveDeliverable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Sends the deliverable back to the agent with feedback. */
+        post: operations["requestChanges"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Drops the deliverable (and whatever waits on it). */
+        post: operations["rejectDeliverable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Resumes a failed deliverable at the step that failed. */
+        post: operations["retryDeliverable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Publishes an approved, ready deliverable now. */
+        post: operations["publishDeliverable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/pipelines": {
         parameters: {
             query?: never;
@@ -549,6 +714,94 @@ export interface components {
             words: number;
             tokens: number;
         };
+        /** @enum {string} */
+        DeliverableStatus: "waiting" | "queued" | "drafting" | "rendering" | "review" | "finalizing" | "ready" | "publishing" | "published" | "rejected" | "failed";
+        /** @enum {string} */
+        FeedbackScope: "all" | "script" | "voice" | "visuals" | "music" | "metadata";
+        FeedbackInput: {
+            text: string;
+            scope?: components["schemas"]["FeedbackScope"];
+            /** @description Video position the feedback refers to. */
+            atSeconds?: number;
+        };
+        Feedback: {
+            text: string;
+            scope: components["schemas"]["FeedbackScope"];
+            atSeconds?: number;
+            /** Format: date-time */
+            at: string;
+        };
+        Publication: {
+            url: string;
+            externalId: string;
+            /** Format: date-time */
+            at: string;
+        };
+        Deliverable: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["DeliverableKind"];
+            /** @enum {string} */
+            role: "lead" | "derived" | "translation";
+            /** Format: uuid */
+            sourceId?: string;
+            language: components["schemas"]["Language"];
+            status: components["schemas"]["DeliverableStatus"];
+            /** @description Latest revision number; 0 before the first draft. */
+            revision: number;
+            video?: components["schemas"]["VideoSpec"];
+            article?: components["schemas"]["ArticleSpec"];
+            pendingFeedback?: components["schemas"]["Feedback"];
+            failure?: string;
+            failedStep?: string;
+            /** Format: date-time */
+            approvedAt?: string;
+            publication?: components["schemas"]["Publication"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        Story: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            pipelineId?: string;
+            /** @enum {string} */
+            origin: "schedule" | "manual" | "adhoc";
+            language: components["schemas"]["Language"];
+            title: string;
+            angle: string;
+            keywords: string[];
+            instructions?: string;
+            refs?: components["schemas"]["KnowledgeRef"][];
+            status: components["schemas"]["DeliverableStatus"];
+            deliverables: components["schemas"]["Deliverable"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        Revision: {
+            number: number;
+            feedback?: components["schemas"]["Feedback"];
+            /** @description Artifact names, e.g. preview.mp4, final.mp4, poster.jpg, script.md, metadata.json, article.md. */
+            artifacts: string[];
+            /** @description The agent's summary of this revision. */
+            notes: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        AdHocInput: {
+            /** @description Free text — what you want made. */
+            idea: string;
+            count: number;
+            language: components["schemas"]["Language"];
+            outputs: components["schemas"]["Outputs"];
+            /** @description Tone, visual style, audience notes. */
+            style?: string;
+            refs?: components["schemas"]["KnowledgeRef"][];
+        };
         WorkspaceInput: {
             name: string;
             /** @description IANA timezone name, e.g. Europe/Istanbul. */
@@ -674,6 +927,8 @@ export interface components {
         };
     };
     parameters: {
+        StoryId: string;
+        DeliverableId: string;
         DocumentId: string;
         InvitationToken: string;
         WorkspaceId: string;
@@ -1330,6 +1585,264 @@ export interface operations {
                     "application/epub+zip": string;
                     /** @description TXT and MD originals; the pages endpoint has their text. */
                     "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listStories: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["DeliverableStatus"][];
+                pipelineId?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stories, newest first. `status` filters on the story's summary status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        stories: components["schemas"]["Story"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createStories: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdHocInput"];
+            };
+        };
+        responses: {
+            /** @description Planning queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getStory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The story with its deliverables. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Story"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteStory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listRevisions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revisions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        revisions: components["schemas"]["Revision"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    approveDeliverable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The updated story. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Story"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    requestChanges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackInput"];
+            };
+        };
+        responses: {
+            /** @description The updated story. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Story"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    rejectDeliverable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The updated story. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Story"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    retryDeliverable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The updated story. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Story"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    publishDeliverable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The updated story. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Story"];
                 };
             };
             default: components["responses"]["Error"];

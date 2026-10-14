@@ -30,6 +30,27 @@ const (
 	SessionScopes = "session.Scopes"
 )
 
+// Defines values for DeliverableRole.
+const (
+	DeliverableRoleDerived     DeliverableRole = "derived"
+	DeliverableRoleLead        DeliverableRole = "lead"
+	DeliverableRoleTranslation DeliverableRole = "translation"
+)
+
+// Valid indicates whether the value is a known member of the DeliverableRole enum.
+func (e DeliverableRole) Valid() bool {
+	switch e {
+	case DeliverableRoleDerived:
+		return true
+	case DeliverableRoleLead:
+		return true
+	case DeliverableRoleTranslation:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DeliverableKind.
 const (
 	DeliverableKindArticle DeliverableKind = "article"
@@ -42,6 +63,51 @@ func (e DeliverableKind) Valid() bool {
 	case DeliverableKindArticle:
 		return true
 	case DeliverableKindVideo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeliverableStatus.
+const (
+	DeliverableStatusDrafting   DeliverableStatus = "drafting"
+	DeliverableStatusFailed     DeliverableStatus = "failed"
+	DeliverableStatusFinalizing DeliverableStatus = "finalizing"
+	DeliverableStatusPublished  DeliverableStatus = "published"
+	DeliverableStatusPublishing DeliverableStatus = "publishing"
+	DeliverableStatusQueued     DeliverableStatus = "queued"
+	DeliverableStatusReady      DeliverableStatus = "ready"
+	DeliverableStatusRejected   DeliverableStatus = "rejected"
+	DeliverableStatusRendering  DeliverableStatus = "rendering"
+	DeliverableStatusReview     DeliverableStatus = "review"
+	DeliverableStatusWaiting    DeliverableStatus = "waiting"
+)
+
+// Valid indicates whether the value is a known member of the DeliverableStatus enum.
+func (e DeliverableStatus) Valid() bool {
+	switch e {
+	case DeliverableStatusDrafting:
+		return true
+	case DeliverableStatusFailed:
+		return true
+	case DeliverableStatusFinalizing:
+		return true
+	case DeliverableStatusPublished:
+		return true
+	case DeliverableStatusPublishing:
+		return true
+	case DeliverableStatusQueued:
+		return true
+	case DeliverableStatusReady:
+		return true
+	case DeliverableStatusRejected:
+		return true
+	case DeliverableStatusRendering:
+		return true
+	case DeliverableStatusReview:
+		return true
+	case DeliverableStatusWaiting:
 		return true
 	default:
 		return false
@@ -87,6 +153,36 @@ func (e DocumentStatus) Valid() bool {
 	case DocumentStatusPending:
 		return true
 	case DocumentStatusReady:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FeedbackScope.
+const (
+	FeedbackScopeAll      FeedbackScope = "all"
+	FeedbackScopeMetadata FeedbackScope = "metadata"
+	FeedbackScopeMusic    FeedbackScope = "music"
+	FeedbackScopeScript   FeedbackScope = "script"
+	FeedbackScopeVisuals  FeedbackScope = "visuals"
+	FeedbackScopeVoice    FeedbackScope = "voice"
+)
+
+// Valid indicates whether the value is a known member of the FeedbackScope enum.
+func (e FeedbackScope) Valid() bool {
+	switch e {
+	case FeedbackScopeAll:
+		return true
+	case FeedbackScopeMetadata:
+		return true
+	case FeedbackScopeMusic:
+		return true
+	case FeedbackScopeScript:
+		return true
+	case FeedbackScopeVisuals:
+		return true
+	case FeedbackScopeVoice:
 		return true
 	default:
 		return false
@@ -195,6 +291,27 @@ func (e SourceKind) Valid() bool {
 	}
 }
 
+// Defines values for StoryOrigin.
+const (
+	StoryOriginAdhoc    StoryOrigin = "adhoc"
+	StoryOriginManual   StoryOrigin = "manual"
+	StoryOriginSchedule StoryOrigin = "schedule"
+)
+
+// Valid indicates whether the value is a known member of the StoryOrigin enum.
+func (e StoryOrigin) Valid() bool {
+	switch e {
+	case StoryOriginAdhoc:
+		return true
+	case StoryOriginManual:
+		return true
+	case StoryOriginSchedule:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for VideoSpecFormat.
 const (
 	VideoSpecFormatLong  VideoSpecFormat = "long"
@@ -234,14 +351,58 @@ func (e VideoSpecOrientation) Valid() bool {
 	}
 }
 
+// AdHocInput defines model for AdHocInput.
+type AdHocInput struct {
+	Count int `json:"count"`
+
+	// Idea Free text — what you want made.
+	Idea     string   `json:"idea"`
+	Language Language `json:"language"`
+
+	// Outputs A video, an article, or both. With both, `lead` says which is produced first; the other is derived from it.
+	Outputs Outputs         `json:"outputs"`
+	Refs    *[]KnowledgeRef `json:"refs,omitempty"`
+
+	// Style Tone, visual style, audience notes.
+	Style *string `json:"style,omitempty"`
+}
+
 // ArticleSpec defines model for ArticleSpec.
 type ArticleSpec struct {
 	Translations []Language `json:"translations"`
 	Words        int        `json:"words"`
 }
 
+// Deliverable defines model for Deliverable.
+type Deliverable struct {
+	ApprovedAt      *time.Time         `json:"approvedAt,omitempty"`
+	Article         *ArticleSpec       `json:"article,omitempty"`
+	CreatedAt       time.Time          `json:"createdAt"`
+	FailedStep      *string            `json:"failedStep,omitempty"`
+	Failure         *string            `json:"failure,omitempty"`
+	Id              openapi_types.UUID `json:"id"`
+	Kind            DeliverableKind    `json:"kind"`
+	Language        Language           `json:"language"`
+	PendingFeedback *Feedback          `json:"pendingFeedback,omitempty"`
+	Publication     *Publication       `json:"publication,omitempty"`
+
+	// Revision Latest revision number; 0 before the first draft.
+	Revision  int                 `json:"revision"`
+	Role      DeliverableRole     `json:"role"`
+	SourceId  *openapi_types.UUID `json:"sourceId,omitempty"`
+	Status    DeliverableStatus   `json:"status"`
+	UpdatedAt time.Time           `json:"updatedAt"`
+	Video     *VideoSpec          `json:"video,omitempty"`
+}
+
+// DeliverableRole defines model for Deliverable.Role.
+type DeliverableRole string
+
 // DeliverableKind defines model for DeliverableKind.
 type DeliverableKind string
+
+// DeliverableStatus defines model for DeliverableStatus.
+type DeliverableStatus string
 
 // Document defines model for Document.
 type Document struct {
@@ -281,6 +442,25 @@ type Error struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
+
+// Feedback defines model for Feedback.
+type Feedback struct {
+	At        time.Time     `json:"at"`
+	AtSeconds *float32      `json:"atSeconds,omitempty"`
+	Scope     FeedbackScope `json:"scope"`
+	Text      string        `json:"text"`
+}
+
+// FeedbackInput defines model for FeedbackInput.
+type FeedbackInput struct {
+	// AtSeconds Video position the feedback refers to.
+	AtSeconds *float32       `json:"atSeconds,omitempty"`
+	Scope     *FeedbackScope `json:"scope,omitempty"`
+	Text      string         `json:"text"`
+}
+
+// FeedbackScope defines model for FeedbackScope.
+type FeedbackScope string
 
 // Invitation defines model for Invitation.
 type Invitation struct {
@@ -387,6 +567,25 @@ type PipelineDefinition struct {
 	Source   Source    `json:"source"`
 }
 
+// Publication defines model for Publication.
+type Publication struct {
+	At         time.Time `json:"at"`
+	ExternalId string    `json:"externalId"`
+	Url        string    `json:"url"`
+}
+
+// Revision defines model for Revision.
+type Revision struct {
+	// Artifacts Artifact names, e.g. preview.mp4, final.mp4, poster.jpg, script.md, metadata.json, article.md.
+	Artifacts []string  `json:"artifacts"`
+	CreatedAt time.Time `json:"createdAt"`
+	Feedback  *Feedback `json:"feedback,omitempty"`
+
+	// Notes The agent's summary of this revision.
+	Notes  string `json:"notes"`
+	Number int    `json:"number"`
+}
+
 // Role owner: everything, including settings and members. editor: pipelines, runs and review. viewer: read only.
 type Role string
 
@@ -412,6 +611,26 @@ type Source struct {
 
 // SourceKind defines model for Source.Kind.
 type SourceKind string
+
+// Story defines model for Story.
+type Story struct {
+	Angle        string              `json:"angle"`
+	CreatedAt    time.Time           `json:"createdAt"`
+	Deliverables []Deliverable       `json:"deliverables"`
+	Id           openapi_types.UUID  `json:"id"`
+	Instructions *string             `json:"instructions,omitempty"`
+	Keywords     []string            `json:"keywords"`
+	Language     Language            `json:"language"`
+	Origin       StoryOrigin         `json:"origin"`
+	PipelineId   *openapi_types.UUID `json:"pipelineId,omitempty"`
+	Refs         *[]KnowledgeRef     `json:"refs,omitempty"`
+	Status       DeliverableStatus   `json:"status"`
+	Title        string              `json:"title"`
+	UpdatedAt    time.Time           `json:"updatedAt"`
+}
+
+// StoryOrigin defines model for Story.Origin.
+type StoryOrigin string
 
 // User defines model for User.
 type User struct {
@@ -460,6 +679,9 @@ type WorkspacePatch struct {
 	Timezone *string `json:"timezone,omitempty"`
 }
 
+// DeliverableId defines model for DeliverableId.
+type DeliverableId = openapi_types.UUID
+
 // DocumentId defines model for DocumentId.
 type DocumentId = openapi_types.UUID
 
@@ -468,6 +690,9 @@ type InvitationToken = string
 
 // PipelineId defines model for PipelineId.
 type PipelineId = openapi_types.UUID
+
+// StoryId defines model for StoryId.
+type StoryId = openapi_types.UUID
 
 // WorkspaceId defines model for WorkspaceId.
 type WorkspaceId = openapi_types.UUID
@@ -539,6 +764,13 @@ type RunPipelineJSONBody struct {
 	Count int `json:"count"`
 }
 
+// ListStoriesParams defines parameters for ListStories.
+type ListStoriesParams struct {
+	Status     *[]DeliverableStatus `form:"status,omitempty" json:"status,omitempty"`
+	PipelineId *openapi_types.UUID  `form:"pipelineId,omitempty" json:"pipelineId,omitempty"`
+	Limit      *int                 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginInput
 
@@ -577,6 +809,12 @@ type RedefinePipelineJSONRequestBody RedefinePipelineJSONBody
 
 // RunPipelineJSONRequestBody defines body for RunPipeline for application/json ContentType.
 type RunPipelineJSONRequestBody RunPipelineJSONBody
+
+// CreateStoriesJSONRequestBody defines body for CreateStories for application/json ContentType.
+type CreateStoriesJSONRequestBody = AdHocInput
+
+// RequestChangesJSONRequestBody defines body for RequestChanges for application/json ContentType.
+type RequestChangesJSONRequestBody = FeedbackInput
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -688,6 +926,36 @@ type ServerInterface interface {
 
 	// (POST /workspaces/{workspaceId}/pipelines/{pipelineId}/runs)
 	RunPipeline(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, pipelineId PipelineId)
+
+	// (GET /workspaces/{workspaceId}/stories)
+	ListStories(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params ListStoriesParams)
+
+	// (POST /workspaces/{workspaceId}/stories)
+	CreateStories(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId)
+
+	// (DELETE /workspaces/{workspaceId}/stories/{storyId})
+	DeleteStory(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId)
+
+	// (GET /workspaces/{workspaceId}/stories/{storyId})
+	GetStory(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId)
+
+	// (POST /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/approve)
+	ApproveDeliverable(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId, deliverableId DeliverableId)
+
+	// (POST /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/changes)
+	RequestChanges(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId, deliverableId DeliverableId)
+
+	// (POST /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/publish)
+	PublishDeliverable(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId, deliverableId DeliverableId)
+
+	// (POST /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/reject)
+	RejectDeliverable(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId, deliverableId DeliverableId)
+
+	// (POST /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/retry)
+	RetryDeliverable(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId, deliverableId DeliverableId)
+
+	// (GET /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions)
+	ListRevisions(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId, deliverableId DeliverableId)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -1911,6 +2179,469 @@ func (siw *ServerInterfaceWrapper) RunPipeline(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// ListStories operation middleware
+func (siw *ServerInterfaceWrapper) ListStories(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListStoriesParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "pipelineId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "pipelineId", r.URL.Query(), &params.PipelineId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pipelineId", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListStories(w, r, workspaceId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateStories operation middleware
+func (siw *ServerInterfaceWrapper) CreateStories(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateStories(w, r, workspaceId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteStory operation middleware
+func (siw *ServerInterfaceWrapper) DeleteStory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "storyId" -------------
+	var storyId StoryId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storyId", r.PathValue("storyId"), &storyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storyId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteStory(w, r, workspaceId, storyId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetStory operation middleware
+func (siw *ServerInterfaceWrapper) GetStory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "storyId" -------------
+	var storyId StoryId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storyId", r.PathValue("storyId"), &storyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storyId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetStory(w, r, workspaceId, storyId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveDeliverable operation middleware
+func (siw *ServerInterfaceWrapper) ApproveDeliverable(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "storyId" -------------
+	var storyId StoryId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storyId", r.PathValue("storyId"), &storyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storyId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "deliverableId" -------------
+	var deliverableId DeliverableId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "deliverableId", r.PathValue("deliverableId"), &deliverableId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "deliverableId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveDeliverable(w, r, workspaceId, storyId, deliverableId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RequestChanges operation middleware
+func (siw *ServerInterfaceWrapper) RequestChanges(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "storyId" -------------
+	var storyId StoryId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storyId", r.PathValue("storyId"), &storyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storyId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "deliverableId" -------------
+	var deliverableId DeliverableId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "deliverableId", r.PathValue("deliverableId"), &deliverableId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "deliverableId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestChanges(w, r, workspaceId, storyId, deliverableId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PublishDeliverable operation middleware
+func (siw *ServerInterfaceWrapper) PublishDeliverable(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "storyId" -------------
+	var storyId StoryId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storyId", r.PathValue("storyId"), &storyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storyId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "deliverableId" -------------
+	var deliverableId DeliverableId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "deliverableId", r.PathValue("deliverableId"), &deliverableId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "deliverableId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PublishDeliverable(w, r, workspaceId, storyId, deliverableId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RejectDeliverable operation middleware
+func (siw *ServerInterfaceWrapper) RejectDeliverable(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "storyId" -------------
+	var storyId StoryId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storyId", r.PathValue("storyId"), &storyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storyId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "deliverableId" -------------
+	var deliverableId DeliverableId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "deliverableId", r.PathValue("deliverableId"), &deliverableId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "deliverableId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RejectDeliverable(w, r, workspaceId, storyId, deliverableId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RetryDeliverable operation middleware
+func (siw *ServerInterfaceWrapper) RetryDeliverable(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "storyId" -------------
+	var storyId StoryId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storyId", r.PathValue("storyId"), &storyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storyId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "deliverableId" -------------
+	var deliverableId DeliverableId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "deliverableId", r.PathValue("deliverableId"), &deliverableId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "deliverableId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RetryDeliverable(w, r, workspaceId, storyId, deliverableId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRevisions operation middleware
+func (siw *ServerInterfaceWrapper) ListRevisions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "workspaceId" -------------
+	var workspaceId WorkspaceId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "workspaceId", r.PathValue("workspaceId"), &workspaceId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "workspaceId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "storyId" -------------
+	var storyId StoryId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storyId", r.PathValue("storyId"), &storyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storyId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "deliverableId" -------------
+	var deliverableId DeliverableId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "deliverableId", r.PathValue("deliverableId"), &deliverableId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid"})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "deliverableId", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, SessionScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRevisions(w, r, workspaceId, storyId, deliverableId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -2067,6 +2798,16 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/pipelines/{pipelineId}/pause", wrapper.PausePipeline)
 	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/pipelines/{pipelineId}/resume", wrapper.ResumePipeline)
 	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/pipelines/{pipelineId}/runs", wrapper.RunPipeline)
+	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/stories", wrapper.ListStories)
+	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/stories", wrapper.CreateStories)
+	m.HandleFunc("DELETE "+options.BaseURL+"/workspaces/{workspaceId}/stories/{storyId}", wrapper.DeleteStory)
+	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/stories/{storyId}", wrapper.GetStory)
+	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/approve", wrapper.ApproveDeliverable)
+	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/changes", wrapper.RequestChanges)
+	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/publish", wrapper.PublishDeliverable)
+	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/reject", wrapper.RejectDeliverable)
+	m.HandleFunc("POST "+options.BaseURL+"/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/retry", wrapper.RetryDeliverable)
+	m.HandleFunc("GET "+options.BaseURL+"/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions", wrapper.ListRevisions)
 
 	return m
 }
@@ -3228,6 +3969,316 @@ func (response RunPipelinedefaultJSONResponse) VisitRunPipelineResponse(w http.R
 	return json.NewEncoder(w).Encode(response.Body)
 }
 
+type ListStoriesRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	Params      ListStoriesParams
+}
+
+type ListStoriesResponseObject interface {
+	VisitListStoriesResponse(w http.ResponseWriter) error
+}
+
+type ListStories200JSONResponse struct {
+	Stories []Story `json:"stories"`
+}
+
+func (response ListStories200JSONResponse) VisitListStoriesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListStoriesdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListStoriesdefaultJSONResponse) VisitListStoriesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type CreateStoriesRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	Body        *CreateStoriesJSONRequestBody
+}
+
+type CreateStoriesResponseObject interface {
+	VisitCreateStoriesResponse(w http.ResponseWriter) error
+}
+
+type CreateStories202JSONResponse Job
+
+func (response CreateStories202JSONResponse) VisitCreateStoriesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateStoriesdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response CreateStoriesdefaultJSONResponse) VisitCreateStoriesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type DeleteStoryRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	StoryId     StoryId     `json:"storyId"`
+}
+
+type DeleteStoryResponseObject interface {
+	VisitDeleteStoryResponse(w http.ResponseWriter) error
+}
+
+type DeleteStory204Response struct {
+}
+
+func (response DeleteStory204Response) VisitDeleteStoryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteStorydefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DeleteStorydefaultJSONResponse) VisitDeleteStoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type GetStoryRequestObject struct {
+	WorkspaceId WorkspaceId `json:"workspaceId"`
+	StoryId     StoryId     `json:"storyId"`
+}
+
+type GetStoryResponseObject interface {
+	VisitGetStoryResponse(w http.ResponseWriter) error
+}
+
+type GetStory200JSONResponse Story
+
+func (response GetStory200JSONResponse) VisitGetStoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetStorydefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetStorydefaultJSONResponse) VisitGetStoryResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ApproveDeliverableRequestObject struct {
+	WorkspaceId   WorkspaceId   `json:"workspaceId"`
+	StoryId       StoryId       `json:"storyId"`
+	DeliverableId DeliverableId `json:"deliverableId"`
+}
+
+type ApproveDeliverableResponseObject interface {
+	VisitApproveDeliverableResponse(w http.ResponseWriter) error
+}
+
+type ApproveDeliverable200JSONResponse Story
+
+func (response ApproveDeliverable200JSONResponse) VisitApproveDeliverableResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ApproveDeliverabledefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ApproveDeliverabledefaultJSONResponse) VisitApproveDeliverableResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type RequestChangesRequestObject struct {
+	WorkspaceId   WorkspaceId   `json:"workspaceId"`
+	StoryId       StoryId       `json:"storyId"`
+	DeliverableId DeliverableId `json:"deliverableId"`
+	Body          *RequestChangesJSONRequestBody
+}
+
+type RequestChangesResponseObject interface {
+	VisitRequestChangesResponse(w http.ResponseWriter) error
+}
+
+type RequestChanges200JSONResponse Story
+
+func (response RequestChanges200JSONResponse) VisitRequestChangesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RequestChangesdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RequestChangesdefaultJSONResponse) VisitRequestChangesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type PublishDeliverableRequestObject struct {
+	WorkspaceId   WorkspaceId   `json:"workspaceId"`
+	StoryId       StoryId       `json:"storyId"`
+	DeliverableId DeliverableId `json:"deliverableId"`
+}
+
+type PublishDeliverableResponseObject interface {
+	VisitPublishDeliverableResponse(w http.ResponseWriter) error
+}
+
+type PublishDeliverable200JSONResponse Story
+
+func (response PublishDeliverable200JSONResponse) VisitPublishDeliverableResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type PublishDeliverabledefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response PublishDeliverabledefaultJSONResponse) VisitPublishDeliverableResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type RejectDeliverableRequestObject struct {
+	WorkspaceId   WorkspaceId   `json:"workspaceId"`
+	StoryId       StoryId       `json:"storyId"`
+	DeliverableId DeliverableId `json:"deliverableId"`
+}
+
+type RejectDeliverableResponseObject interface {
+	VisitRejectDeliverableResponse(w http.ResponseWriter) error
+}
+
+type RejectDeliverable200JSONResponse Story
+
+func (response RejectDeliverable200JSONResponse) VisitRejectDeliverableResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RejectDeliverabledefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RejectDeliverabledefaultJSONResponse) VisitRejectDeliverableResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type RetryDeliverableRequestObject struct {
+	WorkspaceId   WorkspaceId   `json:"workspaceId"`
+	StoryId       StoryId       `json:"storyId"`
+	DeliverableId DeliverableId `json:"deliverableId"`
+}
+
+type RetryDeliverableResponseObject interface {
+	VisitRetryDeliverableResponse(w http.ResponseWriter) error
+}
+
+type RetryDeliverable200JSONResponse Story
+
+func (response RetryDeliverable200JSONResponse) VisitRetryDeliverableResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RetryDeliverabledefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RetryDeliverabledefaultJSONResponse) VisitRetryDeliverableResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
+type ListRevisionsRequestObject struct {
+	WorkspaceId   WorkspaceId   `json:"workspaceId"`
+	StoryId       StoryId       `json:"storyId"`
+	DeliverableId DeliverableId `json:"deliverableId"`
+}
+
+type ListRevisionsResponseObject interface {
+	VisitListRevisionsResponse(w http.ResponseWriter) error
+}
+
+type ListRevisions200JSONResponse struct {
+	Revisions []Revision `json:"revisions"`
+}
+
+func (response ListRevisions200JSONResponse) VisitListRevisionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type ListRevisionsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListRevisionsdefaultJSONResponse) VisitListRevisionsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+
+	return json.NewEncoder(w).Encode(response.Body)
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 
@@ -3338,6 +4389,36 @@ type StrictServerInterface interface {
 
 	// (POST /workspaces/{workspaceId}/pipelines/{pipelineId}/runs)
 	RunPipeline(ctx context.Context, request RunPipelineRequestObject) (RunPipelineResponseObject, error)
+
+	// (GET /workspaces/{workspaceId}/stories)
+	ListStories(ctx context.Context, request ListStoriesRequestObject) (ListStoriesResponseObject, error)
+
+	// (POST /workspaces/{workspaceId}/stories)
+	CreateStories(ctx context.Context, request CreateStoriesRequestObject) (CreateStoriesResponseObject, error)
+
+	// (DELETE /workspaces/{workspaceId}/stories/{storyId})
+	DeleteStory(ctx context.Context, request DeleteStoryRequestObject) (DeleteStoryResponseObject, error)
+
+	// (GET /workspaces/{workspaceId}/stories/{storyId})
+	GetStory(ctx context.Context, request GetStoryRequestObject) (GetStoryResponseObject, error)
+
+	// (POST /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/approve)
+	ApproveDeliverable(ctx context.Context, request ApproveDeliverableRequestObject) (ApproveDeliverableResponseObject, error)
+
+	// (POST /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/changes)
+	RequestChanges(ctx context.Context, request RequestChangesRequestObject) (RequestChangesResponseObject, error)
+
+	// (POST /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/publish)
+	PublishDeliverable(ctx context.Context, request PublishDeliverableRequestObject) (PublishDeliverableResponseObject, error)
+
+	// (POST /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/reject)
+	RejectDeliverable(ctx context.Context, request RejectDeliverableRequestObject) (RejectDeliverableResponseObject, error)
+
+	// (POST /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/retry)
+	RetryDeliverable(ctx context.Context, request RetryDeliverableRequestObject) (RetryDeliverableResponseObject, error)
+
+	// (GET /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions)
+	ListRevisions(ctx context.Context, request ListRevisionsRequestObject) (ListRevisionsResponseObject, error)
 }
 
 type StrictHandlerFunc = strictnethttp.StrictHTTPHandlerFunc
@@ -4401,81 +5482,392 @@ func (sh *strictHandler) RunPipeline(w http.ResponseWriter, r *http.Request, wor
 	}
 }
 
+// ListStories operation middleware
+func (sh *strictHandler) ListStories(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, params ListStoriesParams) {
+	var request ListStoriesRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListStories(ctx, request.(ListStoriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListStories")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListStoriesResponseObject); ok {
+		if err := validResponse.VisitListStoriesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateStories operation middleware
+func (sh *strictHandler) CreateStories(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId) {
+	var request CreateStoriesRequestObject
+
+	request.WorkspaceId = workspaceId
+
+	var body CreateStoriesJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateStories(ctx, request.(CreateStoriesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateStories")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateStoriesResponseObject); ok {
+		if err := validResponse.VisitCreateStoriesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteStory operation middleware
+func (sh *strictHandler) DeleteStory(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId) {
+	var request DeleteStoryRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.StoryId = storyId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteStory(ctx, request.(DeleteStoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteStory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteStoryResponseObject); ok {
+		if err := validResponse.VisitDeleteStoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetStory operation middleware
+func (sh *strictHandler) GetStory(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId) {
+	var request GetStoryRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.StoryId = storyId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetStory(ctx, request.(GetStoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetStory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetStoryResponseObject); ok {
+		if err := validResponse.VisitGetStoryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApproveDeliverable operation middleware
+func (sh *strictHandler) ApproveDeliverable(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId, deliverableId DeliverableId) {
+	var request ApproveDeliverableRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.StoryId = storyId
+	request.DeliverableId = deliverableId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApproveDeliverable(ctx, request.(ApproveDeliverableRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApproveDeliverable")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApproveDeliverableResponseObject); ok {
+		if err := validResponse.VisitApproveDeliverableResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RequestChanges operation middleware
+func (sh *strictHandler) RequestChanges(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId, deliverableId DeliverableId) {
+	var request RequestChangesRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.StoryId = storyId
+	request.DeliverableId = deliverableId
+
+	var body RequestChangesJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RequestChanges(ctx, request.(RequestChangesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RequestChanges")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RequestChangesResponseObject); ok {
+		if err := validResponse.VisitRequestChangesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PublishDeliverable operation middleware
+func (sh *strictHandler) PublishDeliverable(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId, deliverableId DeliverableId) {
+	var request PublishDeliverableRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.StoryId = storyId
+	request.DeliverableId = deliverableId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PublishDeliverable(ctx, request.(PublishDeliverableRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PublishDeliverable")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PublishDeliverableResponseObject); ok {
+		if err := validResponse.VisitPublishDeliverableResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RejectDeliverable operation middleware
+func (sh *strictHandler) RejectDeliverable(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId, deliverableId DeliverableId) {
+	var request RejectDeliverableRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.StoryId = storyId
+	request.DeliverableId = deliverableId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RejectDeliverable(ctx, request.(RejectDeliverableRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RejectDeliverable")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RejectDeliverableResponseObject); ok {
+		if err := validResponse.VisitRejectDeliverableResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RetryDeliverable operation middleware
+func (sh *strictHandler) RetryDeliverable(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId, deliverableId DeliverableId) {
+	var request RetryDeliverableRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.StoryId = storyId
+	request.DeliverableId = deliverableId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RetryDeliverable(ctx, request.(RetryDeliverableRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RetryDeliverable")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RetryDeliverableResponseObject); ok {
+		if err := validResponse.VisitRetryDeliverableResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListRevisions operation middleware
+func (sh *strictHandler) ListRevisions(w http.ResponseWriter, r *http.Request, workspaceId WorkspaceId, storyId StoryId, deliverableId DeliverableId) {
+	var request ListRevisionsRequestObject
+
+	request.WorkspaceId = workspaceId
+	request.StoryId = storyId
+	request.DeliverableId = deliverableId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRevisions(ctx, request.(ListRevisionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRevisions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListRevisionsResponseObject); ok {
+		if err := validResponse.VisitListRevisionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+Q9a3PbtpZ/5Qx3d5rOMpKc5nbutb+sm6R33ebhaztNZ7KZNUQeSYhJgAVAyarHP2r/",
-	"wv6yHTz4EiGJkmg7O/dLa4ogDs4D5w3kLoh4mnGGTMng+C6YIYlRmD8vUV2ilJQz/RSjjATNlHnU7yRw",
-	"AVGCREhQM4T/VCr7wJIlXN/kYpr/t7TfXkPE+Q3FQRAGMpphSvRsaplhcBxIJSibBvf392GQEUFSVA74",
-	"ax7lKTJ1FusnqmFmRM2CMGAk1Z/G1YAwEPhHTgXGwbESOdYBTbhIiQqOgzyneuQq4DA4Y3OqiMbrit8g",
-	"WwNOmXebIKXk9i2yqZoFx0cv/uqDdE4zTCjDtThl1YDDcPrExY3MSLQe1KI24hBY9/pjmXEm0fDtjRBc",
-	"6D8izhQypf8kWZbQyJB4+FVacaog/KvASXAc/MuwEsShfSuHdjYDpSl/pwxQvwthQdUMCEhFxglCxGOE",
-	"ieCpEUmSZWYUKHLLGU+XA0MdN7sGfioUjRK8zDDSj5ngGQpFLS5KECYTs27zTBWmctuS3xI2zckUg/uS",
-	"WEQIstTPCy5i6WSFpnkaHP84Go3CIKXMPv6gn9xXlCmcoggsiQv+fHaThM3VfSk/4+OvGCkN7TUmdI5C",
-	"0+VXyowgINNQPgdzGiMPwoBY9GufF4wNyx3YpkskkCiMT1VDQGKi8LmiKQaeySaEJrnAtiL5NFsC3ipB",
-	"Iv0D6HEYD7xT0ASt8N55XrpVVChm8UTPcquCMEi15GKWj72I0riDoGv9NMVXPLcEWeVRGEj6JzbmoUz9",
-	"+DIIfUMVUblsLBZZrMFoTpN4GViCYexdr6Iq8VPBKCnZJvIbqWiqWQZ2BPAJkCQBjZKEZ2TMcwX/+z8v",
-	"Rv/2/cC74jyLd+P4isxaipp11xhZss1Rr6RMndglVmFN7uor8oq+k91zvRFb8svydIzCz0aFt2oLbdsf",
-	"lft6y9Z1gB2UsNrKdm4fJqU+XdmCPPaLQIpSOqQ3s8TMUI33wa4sYy86AFNCE++i8TajAuUuk3XctILb",
-	"rbJJY1/oMV6JtSt2szTlr1ryZsqdC5xTXLQJSKJIy/ebWyqV9OlFZGCMMZAowkxRNgVFblA7W0SB+/w7",
-	"CRmRUgvSCXA1Q7GgEoGA3mBAWKz/xEU5qLa9x5wnSFjvnOlO8rDyQt77FXvb9NWGt/hTLTZcIa+PR7/w",
-	"sYcrSmGarVHx+9g9yqic7fZNR9G+cTa99SIhUpVqo60gyO2pRXKNMvsjx9yvW0TOTifKas5uqFSWbpM0",
-	"/MLHl3bgPqYmbPiyndzj1kZvesOWAo7CNaNUCEeTiDW67GKiKqRrfoCBHNspmXUIZB5FiLH51TkFYRAR",
-	"FmGyzkH4lfFFgvEULzTNV0U8bkRWW8VMO9OFGW2qqA8pVTDmaub8iIl2tGcIixlPEAowWuOU/u2Rz7lQ",
-	"vJh/07gVttWw8FG39MJrxFWaQci8JHvLp5SdsSz3uLuldqxFeC/+8tLrIlot2y0crKNTaLJyBh9S77Dw",
-	"W9YssLWgr5yy3fbSWg97F7WeSxT77EX3XaXYnZvo9HuJjY84H3KV5T5Legom2gmBMHDxTghcGMkdwCcd",
-	"Puo/Q7hOkMTXIMlSwmJGoxlQCZngcR5hDBMqpDoxAm7srH4Zo6Bz/U4HnFQN/otpFjYNiouwtlCuHodq",
-	"FY4k3vbJanh3H7qwbst3v+lBFtC9h45FkqIXly9GbQALD3LTqgqwr6svuptCbfEucraTnOPtrp+0wzYd",
-	"tM7RbNtcrlHGe9izOYoi69Yhmuzb+hXQa4avxsZdTJyHpy2hSmqKumtapdBRDRU78hCSVzph09yF6nCp",
-	"oTjfvl8vi3H6G56LaPsXdlQrJLQariRDtehyYh9pL5w2bqo6vmAojgHnKJZqRtk0BMqiJI918CBR6SBC",
-	"mqggNaZEDgBjqrg4hiL1KEMQObODbOgyAP1fPa9AEgNnydIqumIXGKj62UylJciM9+6Gyxp9m4IwJiqa",
-	"tVE6U5jWtHCGQq9vYH0w6yy8GG3zMCLhy2H/TOf4fEIxiUEPALzNhM1Za/NQjOUCZB7NgEj4j5jQZOlN",
-	"Tumt/CdnHp6cnb4/heK1MR81OFQCzkmSm9wMZYOt+9VgUgMXOrr5ZOSylMsmpSmTSuRRmdZsrvfCQTPu",
-	"XCZ4mimwgihDWMxQIFAdfiqpSaLxkUupMHVjT4CbmUgC05zG2k81M90UPmkxmZWhuks1Go1GG+KcMldm",
-	"4Gj3vJjSK2kCJ92Ttg2PuZW4XeGBCwsaZPTR/6P0OWu9Jk462kfWKbqmHs+rWq0Pw8qVaEcZuTD5j0uM",
-	"OFtJev/wYyPpfTTy7dl2RlfOuNB8TzibelnOBUVWJazKZLdeVUQ0VjMu6J+cKfMg/8iJ8AnPCl3KJGV9",
-	"/rCFoY9AZR2mFzk4jNu7ufB1hXa4T+OTNCdhNVXmSbNtdjCqMpc/cvM4Cn8dHaC99Xwh4GA6gDe5hjQ8",
-	"k4qwcZ5s19yr6G7E57wwhofj017VCljtwWCUC6qW2jqnFpSsKr+memiLuFX9sFHjrZAnGf0Vl7ZiR9mE",
-	"eyrHGUbPTTAFp+dn8OzVh/e/vXl/dfbh/eUgjb8fwNUM4e8c9IIjBRLFHIVxR7StuVpmeGlmgyjRuxGI",
-	"QJuEmCJDYQypq/9RCROa4ADeaH8IMqJMRCcwIdptB8XNlEOS0eH8CMZEIny8eGsNkyuyBL9qPPVKa57x",
-	"cTAaHA1GRuVkyEhGg+PgB/NTaMqshoJDkqvZMOFTat1eLpWHGooIbUnBUXIAp7AQnE3BKGKXwbW/FLkB",
-	"IEwu0OZaJEkRXo6OTkBghhZ7W2qz+RgttcVM5qOXL/5mXhAd4iZokdUyZnSZDiFsLsQVhVGqn3i87K2g",
-	"W8uz3Dd3iBI5rhaTX4xGvUE21thTSb6kU2acLxvbOz64pgUtLxJNDqvZGPH8ld0Pa4C6wcNaC4UDPSF5",
-	"otZ9ViJfFr6rvRkcf9Yqg0yliTxzNQu+6PelmHGnAZ2ctXiq37fo+9IjkpYgPFfrKGKaPmyV9qmo4qED",
-	"LWsucnhnKmr3esYpesjxd1S14tYDSl27EOQRwU+uoFNUeWYIFTKw4HkSQ8wHQZ8C5ALA4MtK581n/8TV",
-	"kOFqv8z9lzXUH1qUjFAeCCFcoz5/4ZTZIKTMYRiVKemUSR1Qga2jFRTFuNCGiSm0w4xIkxe01aIQrgsl",
-	"e60FvUOl7Vrbw2sDtPatdWFsD4r93KdoTw19VgRxP527n5+wf756Q566f7XeRC53YdV2ZX9gbswAas7h",
-	"x7Ytkxj/v7ImlTLQW9nKzjq9+Q6DJ7DS2imUxjA9pww0Z/ZVhyuWwzhs1tduovrRRB4O28fblL6o4TH2",
-	"2D5MsSSKe+KEFb1hXSf5lf6rGWFTtGq/5hMXWp/nymZAXZ2m8Kxb6tfOc17A64vPUS6EaT2q8PBUHxbn",
-	"G3RvSln5vFVEVuE1Z99Pdl6uo3qfzC4Vq1yrb95SqT5Vw3q1I03wndKEVTpnW46wNnkXm3FV92CsZEck",
-	"SWyVkbhsPfDJodSvL+t+nVP1yjgvGm7lVJku29qyiASqJJjUv2dnmRkqaj1MLLmS/ekk2Ef9Q/fx0xIg",
-	"7pVdzS0zvKv5JRsDnSYbHshEbKRGQ7r7FuGdIot6X7yJKjbZ/keTX5vte2SjvpFjPVn2zvI7LNp5NpuC",
-	"1+WoXi1BA3gnQ1D2xm+zA9XUXc1AVSgbE4khMFygVLb95FB+1Cpmh28dr+34mCWcxNp2nL/+OYSr369C",
-	"ePcauIA35x9/MvlYeEYUpFwqOBqN4N1P3w/g3PSPEYHFUQCTkDP2Zkyim6ngOYtPIONJYn4sqAo5UzQx",
-	"lsj2Ktj8rg7suSjOEngCb7vKkombtneaJ4pmRKihDh6fx0SRTaKkEWxEmmPKiFgGm9r4mzXQrdUomuwb",
-	"EbzoTXlU8u9JqCoudPxbO9Vh2xr7lN5uymR4V7UJ3lthTVChr+g9ySXG1s15OfqbTY4DKdsiQOAEBbLC",
-	"O6t3NzZl67UB0ZCtba61/cRB18Jsyha97vV1zsH6dY4eRViuGrT8RrRbuHV47XTiVjeik5rZxVztqTjs",
-	"Z0+dS9gkDBfmWNBT64lhocPdnmkLLBd0ShlJIDd2BJ6dv/5ZQkxllpAlUGYURmG/BF9IFN9J10X1fVtj",
-	"1LbhzzTZ0U3HLB//+580a3Jgq/m5Dxuz8Eihei6VQJJ6cP79yuRXjCG3qMsTl37RhhtZnHHKlMmmqxlS",
-	"AQpvVfPE765LyuLJrjh5tUv/uvTxNMs+0mtY0smLNl5X0MLHlPv/yNGQ2FX7J4KnDW5u7tRvdVGwKMkl",
-	"neMJ8JSq8qQAsngAp84bfDEaOXnKUJg8w8B0WbVXo3j3tXzpNVIoibtTlHDuPQ7cqqhMOyaL3pQ+siWX",
-	"zc3wG2SA7qCn/GeSeIFKLHevMh5o8r3hzz+0o6ujHxt7VIGKlviaQ0ymhHoy0hcak/Uu2eP47/94XGe9",
-	"VjjeqLXOauN63dMrC+i0s2s12237uj59l919bo+C1zoAZL9JgP0r/91SAIY2aMrqrtYexwKlHIB5o3Ej",
-	"rPjRldjr1XjIWhQAgVliMuNU2QaxhLIbHexzlixBoMoFwxhmKPDEJQUu312dQ0JYLEN7aGfBTDGIxXoW",
-	"/VMqMZkXjci+BPYDVOa7nyXb++Ry41Dsfu7+US/babdNlIukLUtvNZtdn57tJjE27wQiIgR1sbjESKCy",
-	"FnB7HyatM1UD7bIpe8rnN+vsXVTi8K56aOUwVo3HnN/gpraml77Eh/4o/kZ0Sui9qqZOgYPuqtnsXXzl",
-	"480W6Bc9oIUf3maJuYzBrsbnr5bnqKqldrIyjXPRq3fJSLU0Daoa6YpyK5ATmlIVrNxSZJ3lv4y2HJvp",
-	"2XUuyNsV862G1Uy4c3H1Own6w35Nql3KgfZ0q3AO777y8ZZinybcA2ZvDF/8FP7Kx98CGf0qxBDugXVH",
-	"wZ6hPZx/eEDyMHiEazqEX5lVP438vCquM+hJgjbyqrBVm1T9OzemVw1YA9xJCbrj/tv0YGl7O6hCh1do",
-	"vWFptZ/xjxmMl/CVUwYxUfitxBhdGDm8s9cGbCzwfLD4Ckz5HIGwJWd4ov9f9NakZFm8rUIDeJYgmaM7",
-	"lJIQqVwYERHGuALz1hc/XJiZHAO7+WH6g2/bDytvZzhM+/jP+ToGmdPFa6g9Rogx5cqePPD18lmCX/Ck",
-	"v67NvcOwA8Kv/vRtoUI8Krefdr6OEU15unyj1j0vR/WbtK0D76R5yzswtiZty6n3cURrZ+55EvfmjdYW",
-	"1VuKx5ceKan0MO1RvhtBHrfFrxKDB8sI1HnVbQcN76pbYjfmA2xXQYNJHRsR+hXAdaHK+pWNHoWDejcW",
-	"K/1mttz2OkTtEmGzQXPl8yZcutS0qpT7ZwDX7girO92E4J7rrb0CSXxirw1EAdJ085Tj7ClSaXpkLhVJ",
-	"8Df7wu8EGdB96ImVfr0DbxXa5X6dFYVfXY5TW8RTW/lNUt5TJ+eBempoLkh68Brd6t7wGq9zvZSnVj5m",
-	"EU/OFYEyT78RtlyYtTw1X+wq3Ok9hrcKRM4KZVlcDvWdtK8mVIc1T87EnMmnYuGaywxSwnKSGNIxvghh",
-	"MSMK58WVBY6KwIXr2vUUwnPWu9WIiru7O18c1boxWU/w1K23a1Jo/VTtG7LYPC5auxLk8xctA/ZmDits",
-	"pngXuJs0jIS4GYtjj/bclxa01X9/QNZ/LcLJ2k9VI0Htx2qdtR9N8u/+y/3/BQAA//+LjImV02IAAA==",
+	"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",
+	"h6au9Objzf8FAAD//zZiS1SIiAAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

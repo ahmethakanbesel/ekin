@@ -18,6 +18,7 @@ tags:
   - name: workspaces
   - name: members
   - name: knowledge
+  - name: stories
   - name: pipelines
   - name: jobs
 
@@ -497,6 +498,197 @@ paths:
               schema: { type: string, format: binary }
         default: { $ref: "#/components/responses/Error" }
 
+  /workspaces/{workspaceId}/stories:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listStories
+      tags: [stories]
+      parameters:
+        - name: status
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: "#/components/schemas/DeliverableStatus" }
+        - name: pipelineId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500 }
+      responses:
+        "200":
+          description: Stories, newest first. `status` filters on the story's summary status.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [stories]
+                properties:
+                  stories:
+                    type: array
+                    items: { $ref: "#/components/schemas/Story" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createStories
+      tags: [stories]
+      description: >
+        Ad-hoc request: a free-text idea plus structured fields. Ideas are
+        planned and produced in the background; no pipeline is needed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdHocInput" }
+      responses:
+        "202":
+          description: Planning queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/stories/{storyId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+    get:
+      operationId: getStory
+      tags: [stories]
+      responses:
+        "200":
+          description: The story with its deliverables.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Story" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteStory
+      tags: [stories]
+      description: Deletes the story and its files. Refused while a step is running.
+      responses:
+        "204":
+          description: Deleted.
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+      - $ref: "#/components/parameters/DeliverableId"
+    get:
+      operationId: listRevisions
+      tags: [stories]
+      description: >
+        Every revision, oldest first. Artifacts are fetched from
+        /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions/{number}/{artifact}
+        (supports Range requests; not part of this spec).
+      responses:
+        "200":
+          description: Revisions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [revisions]
+                properties:
+                  revisions:
+                    type: array
+                    items: { $ref: "#/components/schemas/Revision" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/approve:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+      - $ref: "#/components/parameters/DeliverableId"
+    post:
+      operationId: approveDeliverable
+      tags: [stories]
+      description: Accepts the deliverable. A video gets its final render; then it is published when a target is connected.
+      responses:
+        "200":
+          description: The updated story.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Story" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/changes:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+      - $ref: "#/components/parameters/DeliverableId"
+    post:
+      operationId: requestChanges
+      tags: [stories]
+      description: Sends the deliverable back to the agent with feedback.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FeedbackInput" }
+      responses:
+        "200":
+          description: The updated story.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Story" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/reject:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+      - $ref: "#/components/parameters/DeliverableId"
+    post:
+      operationId: rejectDeliverable
+      tags: [stories]
+      description: Drops the deliverable (and whatever waits on it).
+      responses:
+        "200":
+          description: The updated story.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Story" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/retry:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+      - $ref: "#/components/parameters/DeliverableId"
+    post:
+      operationId: retryDeliverable
+      tags: [stories]
+      description: Resumes a failed deliverable at the step that failed.
+      responses:
+        "200":
+          description: The updated story.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Story" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/publish:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+      - $ref: "#/components/parameters/DeliverableId"
+    post:
+      operationId: publishDeliverable
+      tags: [stories]
+      description: Publishes an approved, ready deliverable now.
+      responses:
+        "200":
+          description: The updated story.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Story" }
+        default: { $ref: "#/components/responses/Error" }
+
   /workspaces/{workspaceId}/pipelines:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"
@@ -714,6 +906,16 @@ components:
       schema: { type: string }
 
   parameters:
+    StoryId:
+      name: storyId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DeliverableId:
+      name: deliverableId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     DocumentId:
       name: documentId
       in: path
@@ -837,6 +1039,127 @@ components:
         text: { type: string }
         words: { type: integer }
         tokens: { type: integer }
+
+    DeliverableStatus:
+      type: string
+      enum: [waiting, queued, drafting, rendering, review, finalizing, ready, publishing, published, rejected, failed]
+
+    FeedbackScope:
+      type: string
+      enum: [all, script, voice, visuals, music, metadata]
+
+    FeedbackInput:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, maxLength: 5000 }
+        scope: { $ref: "#/components/schemas/FeedbackScope" }
+        atSeconds:
+          type: number
+          minimum: 0
+          description: Video position the feedback refers to.
+
+    Feedback:
+      type: object
+      required: [text, scope, at]
+      properties:
+        text: { type: string }
+        scope: { $ref: "#/components/schemas/FeedbackScope" }
+        atSeconds: { type: number }
+        at: { type: string, format: date-time }
+
+    Publication:
+      type: object
+      required: [url, externalId, at]
+      properties:
+        url: { type: string }
+        externalId: { type: string }
+        at: { type: string, format: date-time }
+
+    Deliverable:
+      type: object
+      required: [id, kind, role, language, status, revision, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/DeliverableKind" }
+        role:
+          type: string
+          enum: [lead, derived, translation]
+        sourceId: { type: string, format: uuid }
+        language: { $ref: "#/components/schemas/Language" }
+        status: { $ref: "#/components/schemas/DeliverableStatus" }
+        revision:
+          type: integer
+          description: Latest revision number; 0 before the first draft.
+        video: { $ref: "#/components/schemas/VideoSpec" }
+        article: { $ref: "#/components/schemas/ArticleSpec" }
+        pendingFeedback: { $ref: "#/components/schemas/Feedback" }
+        failure: { type: string }
+        failedStep: { type: string }
+        approvedAt: { type: string, format: date-time }
+        publication: { $ref: "#/components/schemas/Publication" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Story:
+      type: object
+      required: [id, origin, language, title, angle, keywords, status, deliverables, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        pipelineId: { type: string, format: uuid }
+        origin:
+          type: string
+          enum: [schedule, manual, adhoc]
+        language: { $ref: "#/components/schemas/Language" }
+        title: { type: string }
+        angle: { type: string }
+        keywords:
+          type: array
+          items: { type: string }
+        instructions: { type: string }
+        refs:
+          type: array
+          items: { $ref: "#/components/schemas/KnowledgeRef" }
+        status: { $ref: "#/components/schemas/DeliverableStatus" }
+        deliverables:
+          type: array
+          items: { $ref: "#/components/schemas/Deliverable" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Revision:
+      type: object
+      required: [number, artifacts, notes, createdAt]
+      properties:
+        number: { type: integer }
+        feedback: { $ref: "#/components/schemas/Feedback" }
+        artifacts:
+          type: array
+          description: Artifact names, e.g. preview.mp4, final.mp4, poster.jpg, script.md, metadata.json, article.md.
+          items: { type: string }
+        notes:
+          type: string
+          description: The agent's summary of this revision.
+        createdAt: { type: string, format: date-time }
+
+    AdHocInput:
+      type: object
+      required: [idea, count, language, outputs]
+      properties:
+        idea:
+          type: string
+          maxLength: 5000
+          description: Free text — what you want made.
+        count: { type: integer, minimum: 1, maximum: 10 }
+        language: { $ref: "#/components/schemas/Language" }
+        outputs: { $ref: "#/components/schemas/Outputs" }
+        style:
+          type: string
+          maxLength: 2000
+          description: Tone, visual style, audience notes.
+        refs:
+          type: array
+          items: { $ref: "#/components/schemas/KnowledgeRef" }
 
     WorkspaceInput:
       type: object

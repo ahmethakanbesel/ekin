@@ -22,12 +22,14 @@ import (
 	jobsvc "kurgu/internal/service/job/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
+	productionsvc "kurgu/internal/service/production/v1"
 	workspacesvc "kurgu/internal/service/workspace/v1"
 	identityhandler "kurgu/internal/transport/http/identity/v1"
 	jobhandler "kurgu/internal/transport/http/job/v1"
 	knowledgehandler "kurgu/internal/transport/http/knowledge/v1"
 	pipelinehandler "kurgu/internal/transport/http/pipeline/v1"
 	"kurgu/internal/transport/http/principal"
+	storyhandler "kurgu/internal/transport/http/story/v1"
 	workspacehandler "kurgu/internal/transport/http/workspace/v1"
 )
 
@@ -45,6 +47,7 @@ type Deps struct {
 	Pipelines  *pipelinesvc.Service
 	Jobs       *jobsvc.Service
 	Knowledge  *knowledgesvc.Service
+	Production *productionsvc.Service
 	// PublicURL is where browsers reach Kurgu, e.g. https://kurgu.example.com.
 	// It prefixes invitation links, is trusted for cross-origin writes, and
 	// an https scheme marks the session cookie Secure.
@@ -61,6 +64,7 @@ type (
 	pipelines  = pipelinehandler.Handler
 	jobs       = jobhandler.Handler
 	documents  = knowledgehandler.Handler
+	stories    = storyhandler.Handler
 )
 
 // server stitches the per-context handlers into one StrictServerInterface.
@@ -70,6 +74,7 @@ type server struct {
 	*pipelines
 	*jobs
 	*documents
+	*stories
 }
 
 var _ gen.StrictServerInterface = server{}
@@ -100,6 +105,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		pipelines:  pipelinehandler.New(d.Pipelines),
 		jobs:       jobhandler.New(d.Jobs),
 		documents:  knowledgehandler.New(d.Knowledge),
+		stories:    storyhandler.New(d.Production),
 	}, []gen.StrictMiddlewareFunc{authenticate(d.Identity)}, gen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			writeErr(w, r, apperror.Wrap(apperror.BadRequest, err, "malformed request"))
@@ -113,6 +119,8 @@ func NewRouter(d Deps) (http.Handler, error) {
 			writeErr(w, r, apperror.Wrap(apperror.BadRequest, err, "invalid request parameters"))
 		},
 	})
+	mux.Handle("GET /api/v1/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions/{number}/{artifact}",
+		media(d.Identity, d.Production, writeErr))
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte("ok"))
