@@ -7,6 +7,7 @@ import { PlusIcon, Trash2Icon } from "lucide-react"
 import type { Document } from "@/api/client"
 import { Button } from "@/components/ui/button"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
+import { SectionPicker } from "@/features/knowledge/contents"
 import { DocumentCombobox } from "@/features/knowledge/document-combobox"
 import {
   tokensLabel,
@@ -75,7 +76,8 @@ export const RefsFields = withFieldGroup({
           <Row label={label} hint={hint} error={shown(refsField.state.meta)}>
             <div className="grid gap-3">
               {refsField.state.value.map((_, i) => {
-                const pages = docsById.get(refs[i]?.documentId.toLowerCase() ?? "")?.pageCount
+                const doc = docsById.get(refs[i]?.documentId.toLowerCase() ?? "")
+                const pages = doc?.pageCount
                 const range = rangeError(i)
                 return (
                   <div
@@ -153,6 +155,19 @@ export const RefsFields = withFieldGroup({
                       <Trash2Icon />
                     </Button>
                     {range ? <FieldError className="sm:col-span-4">{range}</FieldError> : null}
+                    <SectionPicker
+                      id={`${idPrefix}-${i}-section`}
+                      workspaceId={workspaceId}
+                      doc={doc}
+                      from={toInt(refs[i]?.fromPage ?? "")}
+                      to={toInt(refs[i]?.toPage ?? "")}
+                      disabled={readOnly}
+                      className="sm:col-span-3"
+                      onPick={(s) => {
+                        group.setFieldValue(`refs[${i}].fromPage`, String(s.fromPage))
+                        group.setFieldValue(`refs[${i}].toPage`, String(s.toPage))
+                      }}
+                    />
                     <RefEstimate estimate={estimates[i]} />
                   </div>
                 )

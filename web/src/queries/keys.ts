@@ -34,6 +34,8 @@ export const keys = {
     ["workspaces", workspaceId, "documents", documentId] as const,
   documentPages: (workspaceId: string, documentId: string, chunk: number) =>
     ["workspaces", workspaceId, "documents", documentId, "pages", chunk] as const,
+  documentContents: (workspaceId: string, documentId: string, version: string) =>
+    ["workspaces", workspaceId, "documents", documentId, "contents", version] as const,
   jobs: (workspaceId: string) => ["workspaces", workspaceId, "jobs"] as const,
   jobList: (workspaceId: string, filter: { status: JobStatus[]; limit: number }) =>
     ["workspaces", workspaceId, "jobs", "list", filter] as const,

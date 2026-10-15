@@ -65,6 +65,26 @@ export const documentPagesQuery = (workspaceId: string, documentId: string, chun
     staleTime: Infinity,
   })
 
+/**
+ * A ready document's table of contents (empty when the file declares
+ * none). Keyed by the document's updatedAt, so extracting it again
+ * fetches the new one.
+ */
+export const documentContentsQuery = (workspaceId: string, doc: Pick<Document, "id" | "updatedAt">) =>
+  queryOptions({
+    queryKey: keys.documentContents(workspaceId, doc.id, doc.updatedAt),
+    queryFn: async ({ signal }) => {
+      const res = await call(
+        api.GET("/workspaces/{workspaceId}/documents/{documentId}/contents", {
+          params: { path: { workspaceId, documentId: doc.id } },
+          signal,
+        }),
+      )
+      return res.sections
+    },
+    staleTime: Infinity,
+  })
+
 /** Where the original file is served (same origin, session cookie). */
 export function documentFileUrl(workspaceId: string, documentId: string): string {
   return `${API_BASE}/workspaces/${encodeURIComponent(workspaceId)}/documents/${encodeURIComponent(documentId)}/file`

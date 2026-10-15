@@ -49,7 +49,8 @@ import { useDeleteDocument, useRenameDocument, useRetryDocument } from "@/querie
 const MAX_TITLE = 200
 
 /**
- * The "…" menu of a document: open, rename, retry a failed extraction,
+ * The "…" menu of a document: open, rename, extract again (a failed
+ * extraction, or a ready one to pick up extractor improvements),
  * delete. Only for editors; the caller decides whether to render it.
  */
 export function DocumentMenu({
@@ -104,12 +105,12 @@ export function DocumentMenu({
             <PencilIcon />
             {m.knowledge.rename}
           </DropdownMenuItem>
-          {doc.status === "failed" ? (
+          {doc.status === "pending" ? null : (
             <DropdownMenuItem disabled={retry.isPending} onClick={() => void doRetry()}>
               <RotateCwIcon />
-              {m.knowledge.retry}
+              {doc.status === "failed" ? m.knowledge.retry : m.knowledge.reextract}
             </DropdownMenuItem>
-          ) : null}
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={() => setDeleting(true)}>
             <Trash2Icon />

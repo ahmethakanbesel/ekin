@@ -12,7 +12,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-import { isApiError, type Document } from "@/api/client"
+import { isApiError, type Document, type DocumentSection } from "@/api/client"
 import { Banner, EmptyState, ErrorState, PageHeader } from "@/components/page"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -35,6 +35,7 @@ import {
   useRetryDocument,
 } from "@/queries/documents"
 import { FormatBadge, StatusBadge } from "./badges"
+import { indent, sectionFor, sectionsAt, useContents } from "./contents"
 import { DocumentMenu } from "./document-actions"
 import type { DocumentView as View } from "./search"
 import { tokensLabel, useTokenEstimates } from "./tokens"
@@ -198,6 +199,7 @@ function Reader({ doc }: { doc: Document }) {
 
   const chunk = chunkOf(page)
   const pages = useQuery(documentPagesQuery(workspace.id, doc.id, chunk))
+  const sections = useContents(workspace.id, doc)
   const current = pages.data?.find((p) => p.number === page)
 
   const from = toInt(range.from)
@@ -229,10 +231,13 @@ function Reader({ doc }: { doc: Document }) {
         valid={rangeValid}
         from={from}
         to={to}
+        sections={sections}
         onChange={setRange}
       />
       <div className="grid items-start gap-4 lg:grid-cols-[15rem_minmax(0,1fr)]">
         <PageNavigator
+          key={sections.length > 0 ? "contents" : "pages"}
+          sections={sections}
           total={total}
           page={page}
           chunk={chunk}
@@ -328,6 +333,7 @@ function RangeBar({
   valid,
   from,
   to,
+  sections,
   onChange,
 }: {
   doc: Document
@@ -336,6 +342,7 @@ function RangeBar({
   valid: boolean
   from: number | undefined
   to: number | undefined
+  sections: DocumentSection[]
   onChange: (r: Range) => void
 }) {
   const workspace = useWorkspace()
@@ -343,6 +350,10 @@ function RangeBar({
     valid ? { doc, from, to } : { doc: undefined },
   ])
   const t = m.knowledge.viewer
+  // The chapter and the innermost section around the page, as shortcuts.
+  const trail = sectionsAt(sections, page)
+  const shortcuts = trail.length > 1 ? [trail[0], trail[trail.length - 1]] : trail
+  const matched = valid ? sectionFor(sections, from, to) : undefined
 
   return (
     <section
@@ -401,6 +412,19 @@ function RangeBar({
         >
           {t.endHere(page)}
         </Button>
+        {shortcuts.map((s) => (
+          <Button
+            key={`${s.level}-${s.fromPage}-${s.title}`}
+            type="button"
+            size="xs"
+            variant="outline"
+            className="max-w-64"
+            title={m.knowledge.contents.rangeHint(t.rangeSummary(s.fromPage, s.toPage))}
+            onClick={() => onChange({ from: String(s.fromPage), to: String(s.toPage) })}
+          >
+            <span className="truncate">{m.knowledge.contents.apply(s.title)}</span>
+          </Button>
+        ))}
         <Button
           type="button"
           size="xs"
@@ -413,7 +437,8 @@ function RangeBar({
       <div className="min-w-48 flex-1 text-right" aria-live="polite">
         {estimate ? (
           <>
-            <p className="text-xs text-muted-foreground tabular">
+            <p className="truncate text-xs text-muted-foreground tabular">
+              {matched ? `${matched.title} · ` : null}
               {t.rangeSummary(estimate.from, estimate.to)} · {m.knowledge.pages(estimate.pages)}
             </p>
             <p className="font-heading text-lg font-semibold tabular">
@@ -429,6 +454,7 @@ function RangeBar({
 }
 
 function PageNavigator({
+  sections,
   total,
   page,
   chunk,
@@ -439,6 +465,7 @@ function PageNavigator({
   inRange,
   onSelect,
 }: {
+  sections: DocumentSection[]
   total: number
   page: number
   chunk: number
@@ -451,6 +478,7 @@ function PageNavigator({
 }) {
   const t = m.knowledge.viewer
   const list = useRef<HTMLUListElement>(null)
+  const [tab, setTab] = useState<"contents" | "pages">(sections.length > 0 ? "contents" : "pages")
   const first = chunk * PAGE_CHUNK + 1
   const last = Math.min(total, first + PAGE_CHUNK - 1)
   const chunks = Math.ceil(total / PAGE_CHUNK)
@@ -458,11 +486,11 @@ function PageNavigator({
   // Keep the selected page visible as it changes (buttons, URL), once
   // its chunk has loaded.
   useEffect(() => {
-    if (!pages) return
+    if (!pages || tab !== "pages") return
     list.current
       ?.querySelector<HTMLElement>(`[data-page="${page}"]`)
       ?.scrollIntoView({ block: "nearest" })
-  }, [page, pages])
+  }, [page, pages, tab])
 
   return (
     <nav
@@ -470,8 +498,17 @@ function PageNavigator({
       className="flex flex-col overflow-hidden rounded-3xl border lg:sticky lg:top-4 lg:max-h-[calc(100svh-2rem)]"
     >
       <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
-        <span className="text-sm font-medium">{t.pagesTitle}</span>
-        {chunks > 1 ? (
+        {sections.length > 0 ? (
+          <Tabs value={tab} onValueChange={(v) => setTab(v === "pages" ? "pages" : "contents")}>
+            <TabsList>
+              <TabsTrigger value="contents">{m.knowledge.contents.title}</TabsTrigger>
+              <TabsTrigger value="pages">{t.pagesTitle}</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        ) : (
+          <span className="text-sm font-medium">{t.pagesTitle}</span>
+        )}
+        {tab === "contents" ? null : chunks > 1 ? (
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
@@ -499,7 +536,9 @@ function PageNavigator({
           <span className="text-xs text-muted-foreground tabular">{m.knowledge.pages(total)}</span>
         )}
       </div>
-      {error ? (
+      {tab === "contents" ? (
+        <ContentsList sections={sections} page={page} onSelect={onSelect} />
+      ) : error ? (
         <div className="p-3">
           <ErrorState error={error} onRetry={onRetry} />
         </div>
@@ -541,6 +580,62 @@ function PageNavigator({
         </ul>
       )}
     </nav>
+  )
+}
+
+/**
+ * The document's chapters and sections, indented by level. The sections
+ * around the current page are marked; the innermost is the current one.
+ */
+function ContentsList({
+  sections,
+  page,
+  onSelect,
+}: {
+  sections: DocumentSection[]
+  page: number
+  onSelect: (n: number) => void
+}) {
+  const list = useRef<HTMLUListElement>(null)
+  const trail = sectionsAt(sections, page)
+  const current = trail[trail.length - 1]
+
+  useEffect(() => {
+    if (!current) return
+    list.current
+      ?.querySelector<HTMLElement>('[aria-current="location"]')
+      ?.scrollIntoView({ block: "nearest" })
+  }, [current])
+
+  return (
+    <ul ref={list} className="max-h-72 overflow-y-auto p-1.5 lg:max-h-none lg:flex-1">
+      {sections.map((s, i) => {
+        const selected = s === current
+        const around = trail.includes(s)
+        return (
+          <li key={i}>
+            <button
+              type="button"
+              aria-current={selected ? "location" : undefined}
+              title={`${s.title} · ${m.knowledge.viewer.rangeSummary(s.fromPage, s.toPage)}`}
+              onClick={() => onSelect(s.fromPage)}
+              style={{ paddingLeft: indent(s.level) }}
+              className={cn(
+                "flex w-full items-baseline gap-2 rounded-xl py-1.5 pr-3 text-left text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/30",
+                s.level === 1 ? "font-medium" : "text-muted-foreground",
+                around && "text-foreground",
+                selected && "bg-accent text-accent-foreground hover:bg-accent"
+              )}
+            >
+              <span className="min-w-0 flex-1 truncate">{s.title}</span>
+              <span className="shrink-0 text-xs font-normal text-muted-foreground tabular">
+                {s.fromPage}
+              </span>
+            </button>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 

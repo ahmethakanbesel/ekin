@@ -858,6 +858,15 @@ export const en = {
     renamed: "Document renamed",
     retry: "Retry extraction",
     retried: (title: string) => `Extracting “${title}” again`,
+    reextract: "Extract again",
+    contents: {
+      title: "Contents",
+      pick: (n: number) => `Pick a chapter or section (${n.toLocaleString("en-GB")})`,
+      search: "Search the contents",
+      noMatch: "No chapter or section matches.",
+      apply: (title: string) => `Use “${title}”`,
+      rangeHint: (pages: string) => `Set the range to this section: ${pages}`,
+    },
     deleteTitle: "Delete document?",
     deleteBody: (title: string) =>
       `“${title}”, its file and its extracted pages will be deleted. A document that a pipeline references cannot be deleted.`,
