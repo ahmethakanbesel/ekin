@@ -17,6 +17,7 @@ import (
 	settingsdomain "kurgu/internal/domain/settings/v1"
 	settingsrepo "kurgu/internal/repository/settings/v1"
 	jobsvc "kurgu/internal/service/job/v1"
+	"kurgu/pkg/broadcast"
 	"kurgu/pkg/secretbox"
 )
 
@@ -31,8 +32,9 @@ type Service struct {
 	log      *slog.Logger
 	now      func() time.Time
 
-	mu     sync.Mutex
-	cached map[string]cachedProfile
+	mu      sync.Mutex
+	cached  map[string]cachedProfile
+	changed broadcast.Signal // a profile was saved
 
 	box      *secretbox.Box
 	envCreds settingsdomain.Credentials
@@ -217,7 +219,14 @@ func (s *Service) SaveProfile(ctx context.Context, p settingsdomain.Profile, by 
 	s.mu.Lock()
 	delete(s.cached, p.Name)
 	s.mu.Unlock()
+	s.changed.Notify()
 	return p, nil
+}
+
+// Changed returns a channel closed when a profile is next saved, so this
+// process's workers apply it at once.
+func (s *Service) Changed() <-chan struct{} {
+	return s.changed.Wait()
 }
 
 // Cached returns the profile, re-reading it at most every cacheFor. A

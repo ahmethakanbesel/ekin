@@ -17,6 +17,7 @@ import (
 	jobrepo "kurgu/internal/repository/job/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
 	jobsvc "kurgu/internal/service/job/v1"
+	"kurgu/pkg/broadcast"
 	"kurgu/pkg/id"
 )
 
@@ -305,4 +306,50 @@ func TestRunnerJobsJoinTheirTrace(t *testing.T) {
 	if got.StartedAt().IsZero() || got.FinishedAt().Before(got.StartedAt()) {
 		t.Fatalf("started %v finished %v", got.StartedAt(), got.FinishedAt())
 	}
+}
+
+// A throttle change reaches slots that are waiting at once: an idle slot
+// polling once an hour, and a heavy slot resting an hour-long cooldown.
+func TestThrottleChangeWakesWaitingSlots(t *testing.T) {
+	f := newFixture(t)
+	var (
+		mu       sync.Mutex
+		throttle = jobsvc.Throttle{
+			Concurrency:    map[jobdomain.Queue]int{jobdomain.QueueAgent: 1},
+			HeavyExclusive: true, Cooldown: time.Hour, Paused: true,
+		}
+		changed broadcast.Signal
+	)
+	set := func(edit func(*jobsvc.Throttle)) {
+		mu.Lock()
+		edit(&throttle)
+		mu.Unlock()
+		changed.Notify()
+	}
+	r := jobsvc.NewRunner(f.svc, jobsvc.RunnerConfig{
+		Owner: "dyn", Poll: time.Hour, Lease: time.Minute,
+		ThrottleSource: func(context.Context) jobsvc.Throttle {
+			mu.Lock()
+			defer mu.Unlock()
+			return throttle
+		},
+		ThrottleChanged: changed.Wait,
+	}, quietLog())
+	r.Register("agent", func(context.Context, *jobdomain.Job) error { return nil })
+	first := f.enqueue(t, jobdomain.QueueAgent, "agent")
+	second := f.enqueue(t, jobdomain.QueueAgent, "agent")
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { _ = r.Run(ctx); close(done) }()
+	t.Cleanup(func() { cancel(); <-done })
+
+	time.Sleep(50 * time.Millisecond)
+	set(func(t *jobsvc.Throttle) { t.Paused = false }) // the paused slot sleeps an hour unless woken
+	f.waitFor(t, first, status(jobdomain.StatusSucceeded))
+	time.Sleep(50 * time.Millisecond)
+	if got, _ := f.svc.Get(context.Background(), f.ws, second.ID()); got.Status() != jobdomain.StatusQueued {
+		t.Fatalf("second job ran during the cooldown: %s", got.Status())
+	}
+	set(func(t *jobsvc.Throttle) { t.Cooldown = 0 })
+	f.waitFor(t, second, status(jobdomain.StatusSucceeded))
 }

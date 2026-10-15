@@ -338,9 +338,10 @@ func (a *App) sweep(ctx context.Context) {
 func (a *App) Work(ctx context.Context) error {
 	w := a.cfg.Worker
 	runner := jobsvc.NewRunner(a.jobs, jobsvc.RunnerConfig{
-		Owner:          w.Owner,
-		ThrottleSource: a.settings.ThrottleSource(w.Profile),
-		Lease:          w.Lease,
+		Owner:           w.Owner,
+		ThrottleSource:  a.settings.ThrottleSource(w.Profile),
+		ThrottleChanged: a.settings.Changed,
+		Lease:           w.Lease,
 	}, a.log.With(slog.String("component", "worker")))
 	knowledgeworker.Register(runner, a.knowledge)
 	productionworker.Register(runner, a.production)

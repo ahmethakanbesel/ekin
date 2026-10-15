@@ -45,9 +45,13 @@ type RunnerConfig struct {
 	// ThrottleSource, when set, is asked before every claim and overrides
 	// Throttle, so settings edited in the UI apply without a restart.
 	ThrottleSource func(ctx context.Context) Throttle
-	Lease          time.Duration // default 2m
-	Poll           time.Duration // idle wait between claims; default 2s
-	SweepEach      time.Duration // abandoned-job sweep period; default Lease
+	// ThrottleChanged, when set, returns a channel closed at the next
+	// throttle change: idle, cooling-down and heavy-waiting slots then
+	// re-read the throttle at once instead of finishing their wait.
+	ThrottleChanged func() <-chan struct{}
+	Lease           time.Duration // default 2m
+	Poll            time.Duration // idle wait between claims; default 2s
+	SweepEach       time.Duration // abandoned-job sweep period; default Lease
 }
 
 // Queue is where a runner gets jobs: the job service in process, or the
@@ -124,17 +128,29 @@ func (r *Runner) throttle(ctx context.Context) Throttle {
 	return r.cfg.Throttle
 }
 
+// changed returns the channel closed at the next throttle change; nil
+// (never ready) without a ThrottleChanged.
+func (r *Runner) changed() <-chan struct{} {
+	if r.cfg.ThrottleChanged == nil {
+		return nil
+	}
+	return r.cfg.ThrottleChanged()
+}
+
 func (r *Runner) loop(ctx context.Context, q jobdomain.Queue, slot int, kinds []string) {
 	for ctx.Err() == nil {
+		changed := r.changed() // before the read, so no change slips between
 		t := r.throttle(ctx)
 		if t.Paused || slot >= t.Concurrency[q] {
-			sleep(ctx, r.cfg.Poll)
+			wait(ctx, r.cfg.Poll, changed)
 			continue
 		}
 		exclusive := q.Heavy() && t.HeavyExclusive
 		if exclusive {
 			select {
 			case r.heavy <- struct{}{}:
+			case <-changed:
+				continue // exclusivity, the queue or a pause may have changed
 			case <-ctx.Done():
 				return
 			}
@@ -142,13 +158,28 @@ func (r *Runner) loop(ctx context.Context, q jobdomain.Queue, slot int, kinds []
 		ran := r.claimAndRun(ctx, q, kinds)
 		if exclusive {
 			if ran {
-				sleep(ctx, t.Cooldown)
+				r.cooldown(ctx, time.Now())
 			}
 			<-r.heavy
 		}
 		if !ran {
-			sleep(ctx, r.cfg.Poll)
+			wait(ctx, r.cfg.Poll, r.changed())
 		}
+	}
+}
+
+// cooldown rests after a heavy job that ended at since. A throttle
+// change shortens or lengthens the rest at once; turning exclusivity off
+// ends it.
+func (r *Runner) cooldown(ctx context.Context, since time.Time) {
+	for ctx.Err() == nil {
+		changed := r.changed()
+		t := r.throttle(ctx)
+		left := t.Cooldown - time.Since(since)
+		if left <= 0 || !t.HeavyExclusive {
+			return
+		}
+		wait(ctx, left, changed)
 	}
 }
 
@@ -261,7 +292,8 @@ func (r *Runner) sweep(ctx context.Context) {
 	}
 }
 
-func sleep(ctx context.Context, d time.Duration) {
+// wait returns after d, when ctx ends, or when changed closes.
+func wait(ctx context.Context, d time.Duration, changed <-chan struct{}) {
 	if d <= 0 {
 		return
 	}
@@ -270,5 +302,6 @@ func sleep(ctx context.Context, d time.Duration) {
 	select {
 	case <-ctx.Done():
 	case <-t.C:
+	case <-changed:
 	}
 }
