@@ -866,6 +866,10 @@ export const en = {
       noMatch: "No chapter or section matches.",
       apply: (title: string) => `Use “${title}”`,
       rangeHint: (pages: string) => `Set the range to this section: ${pages}`,
+      expand: (title: string) => `Expand “${title}”`,
+      collapse: (title: string) => `Collapse “${title}”`,
+      expandAll: "Expand all",
+      collapseAll: "Collapse all",
     },
     deleteTitle: "Delete document?",
     deleteBody: (title: string) =>

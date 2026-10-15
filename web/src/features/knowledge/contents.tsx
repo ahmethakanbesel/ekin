@@ -36,6 +36,24 @@ export function sectionsAt(sections: DocumentSection[], page: number): DocumentS
   return trail
 }
 
+/** Each section's parent (its index, or -1 at the top level) and whether it has children. */
+export function sectionTree(sections: DocumentSection[]): {
+  parent: number[]
+  hasChildren: boolean[]
+} {
+  const parent: number[] = []
+  const hasChildren = sections.map(() => false)
+  const open: number[] = [] // the sections enclosing the current one
+  sections.forEach((s, i) => {
+    while (open.length > 0 && sections[open[open.length - 1]].level >= s.level) open.pop()
+    const p = open.length > 0 ? open[open.length - 1] : -1
+    parent.push(p)
+    if (p >= 0) hasChildren[p] = true
+    open.push(i)
+  })
+  return { parent, hasChildren }
+}
+
 /** The outermost section spanning exactly from–to, if any. */
 export function sectionFor(
   sections: DocumentSection[],

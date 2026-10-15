@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import {
   ArrowLeftIcon,
+  ChevronsDownUpIcon,
+  ChevronsUpDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ExternalLinkIcon,
@@ -35,7 +37,7 @@ import {
   useRetryDocument,
 } from "@/queries/documents"
 import { FormatBadge, StatusBadge } from "./badges"
-import { indent, sectionFor, sectionsAt, useContents } from "./contents"
+import { sectionFor, sectionTree, sectionsAt, useContents } from "./contents"
 import { DocumentMenu } from "./document-actions"
 import type { DocumentView as View } from "./search"
 import { tokensLabel, useTokenEstimates } from "./tokens"
@@ -234,7 +236,7 @@ function Reader({ doc }: { doc: Document }) {
         sections={sections}
         onChange={setRange}
       />
-      <div className="grid items-start gap-4 lg:grid-cols-[15rem_minmax(0,1fr)]">
+      <div className="grid items-start gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
         <PageNavigator
           key={sections.length > 0 ? "contents" : "pages"}
           sections={sections}
@@ -479,6 +481,15 @@ function PageNavigator({
   const t = m.knowledge.viewer
   const list = useRef<HTMLUListElement>(null)
   const [tab, setTab] = useState<"contents" | "pages">(sections.length > 0 ? "contents" : "pages")
+  // Folding: the sections around the page start open, the rest closed;
+  // what the reader toggles overrides that.
+  const tree = useMemo(() => sectionTree(sections), [sections])
+  const [folds, setFolds] = useState<ReadonlyMap<number, boolean>>(new Map())
+  const around = new Set(sectionsAt(sections, page).map((s) => sections.indexOf(s)))
+  const isOpen = (i: number) => folds.get(i) ?? around.has(i)
+  const parents = sections.flatMap((_, i) => (tree.hasChildren[i] ? [i] : []))
+  const allOpen = parents.every(isOpen)
+  const foldAll = (open: boolean) => setFolds(new Map(parents.map((i) => [i, open])))
   const first = chunk * PAGE_CHUNK + 1
   const last = Math.min(total, first + PAGE_CHUNK - 1)
   const chunks = Math.ceil(total / PAGE_CHUNK)
@@ -508,7 +519,19 @@ function PageNavigator({
         ) : (
           <span className="text-sm font-medium">{t.pagesTitle}</span>
         )}
-        {tab === "contents" ? null : chunks > 1 ? (
+        {tab === "contents" ? (
+          parents.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              aria-label={allOpen ? m.knowledge.contents.collapseAll : m.knowledge.contents.expandAll}
+              title={allOpen ? m.knowledge.contents.collapseAll : m.knowledge.contents.expandAll}
+              onClick={() => foldAll(!allOpen)}
+            >
+              {allOpen ? <ChevronsDownUpIcon /> : <ChevronsUpDownIcon />}
+            </Button>
+          ) : null
+        ) : chunks > 1 ? (
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
@@ -537,7 +560,14 @@ function PageNavigator({
         )}
       </div>
       {tab === "contents" ? (
-        <ContentsList sections={sections} page={page} onSelect={onSelect} />
+        <ContentsList
+          sections={sections}
+          tree={tree}
+          page={page}
+          isOpen={isOpen}
+          onToggle={(i) => setFolds((f) => new Map(f).set(i, !isOpen(i)))}
+          onSelect={onSelect}
+        />
       ) : error ? (
         <div className="p-3">
           <ErrorState error={error} onRetry={onRetry} />
@@ -584,21 +614,29 @@ function PageNavigator({
 }
 
 /**
- * The document's chapters and sections, indented by level. The sections
- * around the current page are marked; the innermost is the current one.
+ * The document's chapters and sections, indented by level; a section with
+ * subsections folds them away. The sections around the current page are
+ * marked and open unless folded; the innermost is the current one.
  */
 function ContentsList({
   sections,
+  tree,
   page,
+  isOpen,
+  onToggle,
   onSelect,
 }: {
   sections: DocumentSection[]
+  tree: ReturnType<typeof sectionTree>
   page: number
+  isOpen: (i: number) => boolean
+  onToggle: (i: number) => void
   onSelect: (n: number) => void
 }) {
   const list = useRef<HTMLUListElement>(null)
   const trail = sectionsAt(sections, page)
   const current = trail[trail.length - 1]
+  const t = m.knowledge.contents
 
   useEffect(() => {
     if (!current) return
@@ -607,27 +645,54 @@ function ContentsList({
       ?.scrollIntoView({ block: "nearest" })
   }, [current])
 
+  // A section shows when every section above it is open.
+  const visible: boolean[] = []
+  sections.forEach((_, i) => {
+    const p = tree.parent[i]
+    visible.push(p < 0 || (visible[p] && isOpen(p)))
+  })
+
   return (
     <ul ref={list} className="max-h-72 overflow-y-auto p-1.5 lg:max-h-none lg:flex-1">
       {sections.map((s, i) => {
+        if (!visible[i]) return null
         const selected = s === current
         const around = trail.includes(s)
+        const open = isOpen(i)
         return (
-          <li key={i}>
+          <li
+            key={i}
+            className="flex items-center gap-0.5"
+            style={{ paddingLeft: `${(Math.min(s.level, 4) - 1) * 0.875}rem` }}
+          >
+            {tree.hasChildren[i] ? (
+              <button
+                type="button"
+                aria-expanded={open}
+                aria-label={open ? t.collapse(s.title) : t.expand(s.title)}
+                onClick={() => onToggle(i)}
+                className="grid size-6 shrink-0 place-items-center rounded-lg text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30"
+              >
+                <ChevronRightIcon
+                  className={cn("size-3.5 transition-transform", open && "rotate-90")}
+                />
+              </button>
+            ) : (
+              <span className="size-6 shrink-0" aria-hidden />
+            )}
             <button
               type="button"
               aria-current={selected ? "location" : undefined}
               title={`${s.title} · ${m.knowledge.viewer.rangeSummary(s.fromPage, s.toPage)}`}
               onClick={() => onSelect(s.fromPage)}
-              style={{ paddingLeft: indent(s.level) }}
               className={cn(
-                "flex w-full items-baseline gap-2 rounded-xl py-1.5 pr-3 text-left text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/30",
+                "flex min-w-0 flex-1 items-baseline gap-2 rounded-xl py-1.5 pr-3 pl-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/30",
                 s.level === 1 ? "font-medium" : "text-muted-foreground",
                 around && "text-foreground",
                 selected && "bg-accent text-accent-foreground hover:bg-accent"
               )}
             >
-              <span className="min-w-0 flex-1 truncate">{s.title}</span>
+              <span className="line-clamp-2 min-w-0 flex-1">{s.title}</span>
               <span className="shrink-0 text-xs font-normal text-muted-foreground tabular">
                 {s.fromPage}
               </span>
