@@ -3,6 +3,7 @@
 package job
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -119,12 +120,34 @@ type Spec struct {
 	UniqueKey   string
 	MaxAttempts int       // 0 means DefaultMaxAttempts
 	RunAfter    time.Time // zero means now
+	// TraceID joins the job to the request that caused it (the trace's
+	// first job). Nil starts a new trace: the job's own id.
+	TraceID uuid.UUID
+}
+
+type traceKey struct{}
+
+// WithTrace returns ctx carrying trace, so jobs enqueued under it join
+// that request: the runner sets it while a job runs, and a story's steps
+// set their story's.
+func WithTrace(ctx context.Context, trace uuid.UUID) context.Context {
+	if trace == uuid.Nil {
+		return ctx
+	}
+	return context.WithValue(ctx, traceKey{}, trace)
+}
+
+// TraceFrom returns the trace ctx carries, or Nil.
+func TraceFrom(ctx context.Context) uuid.UUID {
+	t, _ := ctx.Value(traceKey{}).(uuid.UUID)
+	return t
 }
 
 // Job is the aggregate root.
 type Job struct {
 	id          uuid.UUID
 	workspaceID uuid.UUID
+	traceID     uuid.UUID
 	queue       Queue
 	kind        string
 	payload     json.RawMessage
@@ -138,6 +161,7 @@ type Job struct {
 	lastError   string
 	createdAt   time.Time
 	updatedAt   time.Time
+	startedAt   time.Time // the latest attempt's start
 	finishedAt  time.Time
 }
 
@@ -172,9 +196,14 @@ func New(id uuid.UUID, spec Spec, now time.Time) (*Job, error) {
 	if runAfter.IsZero() {
 		runAfter = now
 	}
+	trace := spec.TraceID
+	if trace == uuid.Nil {
+		trace = id
+	}
 	return &Job{
 		id:          id,
 		workspaceID: spec.WorkspaceID,
+		traceID:     trace,
 		queue:       spec.Queue,
 		kind:        kind,
 		payload:     append(json.RawMessage(nil), payload...),
@@ -222,6 +251,7 @@ func (j *Job) Start(owner string, lease time.Duration, now time.Time) error {
 	j.attempt++
 	j.leaseOwner = owner
 	j.leaseUntil = now.Add(lease)
+	j.startedAt = now
 	j.updatedAt = now
 	return nil
 }
@@ -330,6 +360,7 @@ func truncate(s string, n int) string {
 
 func (j *Job) ID() uuid.UUID            { return j.id }
 func (j *Job) WorkspaceID() uuid.UUID   { return j.workspaceID }
+func (j *Job) TraceID() uuid.UUID       { return j.traceID }
 func (j *Job) Queue() Queue             { return j.queue }
 func (j *Job) Kind() string             { return j.kind }
 func (j *Job) Payload() json.RawMessage { return append(json.RawMessage(nil), j.payload...) }
@@ -343,12 +374,14 @@ func (j *Job) LeaseUntil() time.Time    { return j.leaseUntil }
 func (j *Job) LastError() string        { return j.lastError }
 func (j *Job) CreatedAt() time.Time     { return j.createdAt }
 func (j *Job) UpdatedAt() time.Time     { return j.updatedAt }
+func (j *Job) StartedAt() time.Time     { return j.startedAt }
 func (j *Job) FinishedAt() time.Time    { return j.finishedAt }
 
 // Snapshot is the persisted form of a Job.
 type Snapshot struct {
 	ID          uuid.UUID
 	WorkspaceID uuid.UUID
+	TraceID     uuid.UUID
 	Queue       string
 	Kind        string
 	Payload     json.RawMessage
@@ -362,6 +395,7 @@ type Snapshot struct {
 	LastError   string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	StartedAt   time.Time
 	FinishedAt  time.Time
 }
 
@@ -370,6 +404,7 @@ func (j *Job) Snapshot() Snapshot {
 	return Snapshot{
 		ID:          j.id,
 		WorkspaceID: j.workspaceID,
+		TraceID:     j.traceID,
 		Queue:       string(j.queue),
 		Kind:        j.kind,
 		Payload:     j.Payload(),
@@ -383,6 +418,7 @@ func (j *Job) Snapshot() Snapshot {
 		LastError:   j.lastError,
 		CreatedAt:   j.createdAt,
 		UpdatedAt:   j.updatedAt,
+		StartedAt:   j.startedAt,
 		FinishedAt:  j.finishedAt,
 	}
 }
@@ -403,9 +439,14 @@ func Rehydrate(s Snapshot) (*Job, error) {
 	if status == StatusRunning && s.LeaseOwner == "" {
 		return nil, apperror.New(apperror.InternalError, "stored running job has no lease owner")
 	}
+	trace := s.TraceID
+	if trace == uuid.Nil {
+		trace = s.ID
+	}
 	return &Job{
 		id:          s.ID,
 		workspaceID: s.WorkspaceID,
+		traceID:     trace,
 		queue:       queue,
 		kind:        s.Kind,
 		payload:     append(json.RawMessage(nil), s.Payload...),
@@ -419,6 +460,7 @@ func Rehydrate(s Snapshot) (*Job, error) {
 		lastError:   s.LastError,
 		createdAt:   timeutil.Normalize(s.CreatedAt),
 		updatedAt:   timeutil.Normalize(s.UpdatedAt),
+		startedAt:   timeutil.Normalize(s.StartedAt),
 		finishedAt:  timeutil.Normalize(s.FinishedAt),
 	}, nil
 }

@@ -283,3 +283,26 @@ func TestRunnerFollowsThrottleSource(t *testing.T) {
 	paused.Store(false)
 	f.waitFor(t, j, status(jobdomain.StatusSucceeded))
 }
+
+// Jobs enqueued while a job runs join its trace: one request, one trace.
+func TestRunnerJobsJoinTheirTrace(t *testing.T) {
+	f := newFixture(t)
+	parent := f.enqueue(t, jobdomain.QueueIO, "parent")
+	children := make(chan *jobdomain.Job, 1)
+	startRunner(t, f, one(jobdomain.QueueIO), time.Minute, func(r *jobsvc.Runner) {
+		r.Register("parent", func(ctx context.Context, _ *jobdomain.Job) error {
+			c, _, err := f.svc.Enqueue(ctx, jobdomain.Spec{WorkspaceID: f.ws, Queue: jobdomain.QueueControl, Kind: "child"})
+			children <- c
+			return err
+		})
+	})
+	f.waitFor(t, parent, status(jobdomain.StatusSucceeded))
+	child := <-children
+	if child.TraceID() != parent.ID() || parent.TraceID() != parent.ID() {
+		t.Fatalf("child trace %s, parent %s (id %s)", child.TraceID(), parent.TraceID(), parent.ID())
+	}
+	got, _ := f.svc.Get(context.Background(), f.ws, parent.ID())
+	if got.StartedAt().IsZero() || got.FinishedAt().Before(got.StartedAt()) {
+		t.Fatalf("started %v finished %v", got.StartedAt(), got.FinishedAt())
+	}
+}

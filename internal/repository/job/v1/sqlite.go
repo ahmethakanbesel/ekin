@@ -28,18 +28,18 @@ func NewSQLite(q db.QuerierSource) *SQLite {
 	return &SQLite{q: q}
 }
 
-const jobColumns = `id, workspace_id, queue, kind, payload, unique_key, status,
+const jobColumns = `id, workspace_id, trace_id, queue, kind, payload, unique_key, status,
 	attempt, max_attempts, run_after, lease_owner, lease_until, last_error,
-	created_at, updated_at, finished_at`
+	created_at, updated_at, started_at, finished_at`
 
 func (r *SQLite) Enqueue(ctx context.Context, j *jobdomain.Job) (bool, error) {
 	s := j.Snapshot()
 	res, err := r.q.W(ctx).ExecContext(ctx, `INSERT INTO jobs (`+jobColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (unique_key) WHERE unique_key IS NOT NULL DO NOTHING`,
-		s.ID.String(), s.WorkspaceID.String(), s.Queue, s.Kind, string(s.Payload), nullString(s.UniqueKey), s.Status,
+		s.ID.String(), s.WorkspaceID.String(), s.TraceID.String(), s.Queue, s.Kind, string(s.Payload), nullString(s.UniqueKey), s.Status,
 		s.Attempt, s.MaxAttempts, timeutil.ToMillis(s.RunAfter), nullString(s.LeaseOwner), nullMillis(s.LeaseUntil), s.LastError,
-		timeutil.ToMillis(s.CreatedAt), timeutil.ToMillis(s.UpdatedAt), nullMillis(s.FinishedAt))
+		timeutil.ToMillis(s.CreatedAt), timeutil.ToMillis(s.UpdatedAt), nullMillis(s.StartedAt), nullMillis(s.FinishedAt))
 	if err != nil {
 		return false, fmt.Errorf("insert job: %w", err)
 	}
@@ -54,10 +54,10 @@ func (r *SQLite) Save(ctx context.Context, j *jobdomain.Job) error {
 	s := j.Snapshot()
 	res, err := r.q.W(ctx).ExecContext(ctx, `UPDATE jobs SET
 			status = ?, attempt = ?, run_after = ?, lease_owner = ?, lease_until = ?,
-			last_error = ?, updated_at = ?, finished_at = ?
+			last_error = ?, updated_at = ?, started_at = ?, finished_at = ?
 		WHERE id = ?`,
 		s.Status, s.Attempt, timeutil.ToMillis(s.RunAfter), nullString(s.LeaseOwner), nullMillis(s.LeaseUntil),
-		s.LastError, timeutil.ToMillis(s.UpdatedAt), nullMillis(s.FinishedAt), s.ID.String())
+		s.LastError, timeutil.ToMillis(s.UpdatedAt), nullMillis(s.StartedAt), nullMillis(s.FinishedAt), s.ID.String())
 	if err != nil {
 		return fmt.Errorf("update job: %w", err)
 	}
@@ -84,10 +84,10 @@ func (r *SQLite) one(ctx context.Context, query string, args ...any) (*jobdomain
 }
 
 func (r *SQLite) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*jobdomain.Job, error) {
-	query := `SELECT ` + jobColumns + ` FROM jobs WHERE workspace_id = ?`
-	args := []any{workspaceID.String()}
+	traces := `SELECT trace_id FROM jobs WHERE workspace_id = ?`
+	args := []any{workspaceID.String(), workspaceID.String()}
 	if len(f.Statuses) > 0 {
-		query += ` AND status IN (` + placeholders(len(f.Statuses)) + `)`
+		traces += ` AND status IN (` + placeholders(len(f.Statuses)) + `)`
 		for _, s := range f.Statuses {
 			args = append(args, string(s))
 		}
@@ -96,9 +96,11 @@ func (r *SQLite) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*
 	if limit <= 0 {
 		limit = DefaultListLimit
 	}
-	query += ` ORDER BY created_at DESC, id DESC LIMIT ?`
+	traces += ` GROUP BY trace_id ORDER BY MAX(created_at) DESC, trace_id DESC LIMIT ?`
 	args = append(args, limit)
-	return r.many(ctx, query, args...)
+	return r.many(ctx, `SELECT `+jobColumns+` FROM jobs
+		WHERE workspace_id = ? AND trace_id IN (`+traces+`)
+		ORDER BY created_at DESC, id DESC`, args...)
 }
 
 func (r *SQLite) NextClaimable(ctx context.Context, queues []jobdomain.Queue, kinds []string, now time.Time) (*jobdomain.Job, error) {
@@ -158,15 +160,15 @@ type scanner interface {
 
 func scanJob(s scanner) (*jobdomain.Job, error) {
 	var (
-		id, workspaceID, payload       string
-		uniqueKey, leaseOwner          sql.NullString
-		runAfter, createdAt, updatedAt int64
-		leaseUntil, finishedAt         sql.NullInt64
-		snap                           jobdomain.Snapshot
+		id, workspaceID, traceID, payload string
+		uniqueKey, leaseOwner             sql.NullString
+		runAfter, createdAt, updatedAt    int64
+		leaseUntil, startedAt, finishedAt sql.NullInt64
+		snap                              jobdomain.Snapshot
 	)
-	err := s.Scan(&id, &workspaceID, &snap.Queue, &snap.Kind, &payload, &uniqueKey, &snap.Status,
+	err := s.Scan(&id, &workspaceID, &traceID, &snap.Queue, &snap.Kind, &payload, &uniqueKey, &snap.Status,
 		&snap.Attempt, &snap.MaxAttempts, &runAfter, &leaseOwner, &leaseUntil, &snap.LastError,
-		&createdAt, &updatedAt, &finishedAt)
+		&createdAt, &updatedAt, &startedAt, &finishedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -179,6 +181,11 @@ func scanJob(s scanner) (*jobdomain.Job, error) {
 	if snap.WorkspaceID, err = uuid.Parse(workspaceID); err != nil {
 		return nil, fmt.Errorf("parse workspace id: %w", err)
 	}
+	if traceID != "" {
+		if snap.TraceID, err = uuid.Parse(traceID); err != nil {
+			return nil, fmt.Errorf("parse trace id: %w", err)
+		}
+	}
 	snap.Payload = []byte(payload)
 	snap.UniqueKey = uniqueKey.String
 	snap.LeaseOwner = leaseOwner.String
@@ -186,6 +193,7 @@ func scanJob(s scanner) (*jobdomain.Job, error) {
 	snap.LeaseUntil = timeutil.FromMillis(leaseUntil.Int64)
 	snap.CreatedAt = timeutil.FromMillis(createdAt)
 	snap.UpdatedAt = timeutil.FromMillis(updatedAt)
+	snap.StartedAt = timeutil.FromMillis(startedAt.Int64)
 	snap.FinishedAt = timeutil.FromMillis(finishedAt.Int64)
 	return jobdomain.Rehydrate(snap)
 }

@@ -13,6 +13,7 @@ import (
 // Snapshot is the persisted form of a Story.
 type Snapshot struct {
 	ID, WorkspaceID, PipelineID, CreatedBy uuid.UUID
+	TraceID                                uuid.UUID
 	Origin, Language                       string
 	Idea                                   Idea
 	Brief                                  Brief
@@ -39,7 +40,7 @@ type DeliverableSnapshot struct {
 // Snapshot returns s's persisted form.
 func (s *Story) Snapshot() Snapshot {
 	out := Snapshot{
-		ID: s.id, WorkspaceID: s.workspaceID, PipelineID: s.pipelineID, CreatedBy: s.createdBy,
+		ID: s.id, WorkspaceID: s.workspaceID, PipelineID: s.pipelineID, CreatedBy: s.createdBy, TraceID: s.traceID,
 		Origin: string(s.origin), Language: string(s.language), Idea: s.idea, Brief: s.brief,
 		CreatedAt: s.createdAt, UpdatedAt: s.updatedAt, Version: s.version,
 	}
@@ -75,7 +76,7 @@ func Rehydrate(s Snapshot) (*Story, error) {
 		return nil, err
 	}
 	st := &Story{
-		id: s.ID, workspaceID: s.WorkspaceID, pipelineID: s.PipelineID, createdBy: s.CreatedBy,
+		id: s.ID, workspaceID: s.WorkspaceID, pipelineID: s.PipelineID, createdBy: s.CreatedBy, traceID: s.TraceID,
 		origin: origin, language: lang, idea: s.Idea, brief: s.Brief,
 		createdAt: timeutil.Normalize(s.CreatedAt), updatedAt: timeutil.Normalize(s.UpdatedAt), version: s.Version,
 	}

@@ -216,4 +216,37 @@ func runConformance(t *testing.T, newHarness func(t *testing.T) harness) {
 			t.Fatal("limit ignored")
 		}
 	})
+
+	t.Run("list whole requests", func(t *testing.T) {
+		h := newHarness(t)
+		ws := h.workspace(t)
+		a := newJob(t, ws, jobdomain.QueueControl, "plan", "", t0)
+		b := newJob(t, ws, jobdomain.QueueIO, "other", "", t0.Add(time.Minute))
+		step, err := jobdomain.New(id.New(), jobdomain.Spec{WorkspaceID: ws, Queue: jobdomain.QueueAgent, Kind: "draft", TraceID: a.ID()}, t0.Add(2*time.Minute))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, j := range []*jobdomain.Job{a, b, step} {
+			_, _ = h.repo.Enqueue(ctx, j)
+		}
+		_ = step.Start("w", time.Minute, t0.Add(3*time.Minute))
+		_ = h.repo.Save(ctx, step)
+
+		// a's request is the newest (its step came last) and comes whole.
+		latest, _ := h.repo.List(ctx, ws, jobrepo.Filter{Limit: 1})
+		if len(latest) != 2 || latest[0].ID() != step.ID() || latest[1].ID() != a.ID() {
+			t.Fatalf("latest request = %d jobs", len(latest))
+		}
+		if !latest[0].StartedAt().Equal(t0.Add(3*time.Minute)) || latest[0].TraceID() != a.ID() {
+			t.Fatalf("step = %+v", latest[0].Snapshot())
+		}
+		// A status keeps the requests with a job in it, with all their jobs.
+		running, _ := h.repo.List(ctx, ws, jobrepo.Filter{Statuses: []jobdomain.Status{jobdomain.StatusRunning}})
+		if len(running) != 2 {
+			t.Fatalf("running requests = %d jobs, want 2", len(running))
+		}
+		if all, _ := h.repo.List(ctx, ws, jobrepo.Filter{}); len(all) != 3 {
+			t.Fatalf("all = %d", len(all))
+		}
+	})
 }

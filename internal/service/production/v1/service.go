@@ -262,7 +262,7 @@ func (s *Service) enqueueStep(ctx context.Context, st *storydomain.Story, d *sto
 	// One attempt: a failed step marks the deliverable failed and a
 	// person retries it, rather than spending another agent run blindly.
 	_, _, err := s.jobs.Enqueue(ctx, jobdomain.Spec{
-		WorkspaceID: st.WorkspaceID(), Queue: queue, Kind: kind, Payload: payload, MaxAttempts: 1,
+		WorkspaceID: st.WorkspaceID(), Queue: queue, Kind: kind, Payload: payload, MaxAttempts: 1, TraceID: st.TraceID(),
 	})
 	return err
 }
@@ -271,6 +271,7 @@ func (s *Service) enqueuePublish(ctx context.Context, st *storydomain.Story, d *
 	payload, _ := json.Marshal(DeliverablePayload{StoryID: st.ID(), DeliverableID: d.ID()})
 	_, _, err := s.jobs.Enqueue(ctx, jobdomain.Spec{
 		WorkspaceID: st.WorkspaceID(), Queue: jobdomain.QueueIO, Kind: KindPublish, Payload: payload, MaxAttempts: 3,
+		TraceID: st.TraceID(),
 	})
 	return err
 }

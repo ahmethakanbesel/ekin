@@ -12,8 +12,8 @@ import (
 
 // Filter narrows List.
 type Filter struct {
-	Statuses []jobdomain.Status // empty means all
-	Limit    int                // 0 means DefaultListLimit
+	Statuses []jobdomain.Status // keep requests with a job in one; empty means all
+	Limit    int                // requests; 0 means DefaultListLimit
 }
 
 // DefaultListLimit caps an unbounded List.
@@ -30,7 +30,8 @@ type Repository interface {
 	Get(ctx context.Context, workspaceID, id uuid.UUID) (*jobdomain.Job, error)
 	// GetByID is for workers, which serve every workspace.
 	GetByID(ctx context.Context, id uuid.UUID) (*jobdomain.Job, error)
-	// List returns a workspace's jobs, newest first.
+	// List returns every job of a workspace's latest requests (traces,
+	// ordered by their newest job), the jobs newest first.
 	List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*jobdomain.Job, error)
 	// NextClaimable returns the oldest-due job on one of queues whose kind
 	// is in kinds and that jobdomain.Job.Claimable would accept at now, or

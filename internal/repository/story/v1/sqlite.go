@@ -27,15 +27,15 @@ var _ Repository = (*SQLite)(nil)
 // NewSQLite returns a Repository over q.
 func NewSQLite(q db.QuerierSource) *SQLite { return &SQLite{q: q} }
 
-const storyColumns = `id, workspace_id, pipeline_id, origin, language, title, angle, keywords, fingerprint, brief, status, created_by, created_at, updated_at, version`
+const storyColumns = `id, workspace_id, pipeline_id, trace_id, origin, language, title, angle, keywords, fingerprint, brief, status, created_by, created_at, updated_at, version`
 
 func (r *SQLite) Create(ctx context.Context, s *storydomain.Story) error {
 	snap := s.Snapshot()
 	keywords, _ := json.Marshal(nonNil(snap.Idea.Keywords))
 	brief, _ := json.Marshal(snap.Brief)
 	q := r.q.W(ctx)
-	_, err := q.ExecContext(ctx, `INSERT INTO stories (`+storyColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		snap.ID.String(), snap.WorkspaceID.String(), nullID(snap.PipelineID), snap.Origin, snap.Language,
+	_, err := q.ExecContext(ctx, `INSERT INTO stories (`+storyColumns+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		snap.ID.String(), snap.WorkspaceID.String(), nullID(snap.PipelineID), nullID(snap.TraceID), snap.Origin, snap.Language,
 		snap.Idea.Title, snap.Idea.Angle, string(keywords), s.Idea().Fingerprint(), string(brief), string(s.Status()),
 		nullID(snap.CreatedBy), timeutil.ToMillis(snap.CreatedAt), timeutil.ToMillis(snap.UpdatedAt), snap.Version)
 	if err != nil {
@@ -148,10 +148,10 @@ func (r *SQLite) query(ctx context.Context, query string, args ...any) ([]*story
 			s                                   storydomain.Snapshot
 			rawID, rawWS, keywords, brief, stat string
 			fingerprint                         string
-			pipelineID, createdBy               sql.NullString
+			pipelineID, traceID, createdBy      sql.NullString
 			created, updated                    int64
 		)
-		if err := rows.Scan(&rawID, &rawWS, &pipelineID, &s.Origin, &s.Language, &s.Idea.Title, &s.Idea.Angle,
+		if err := rows.Scan(&rawID, &rawWS, &pipelineID, &traceID, &s.Origin, &s.Language, &s.Idea.Title, &s.Idea.Angle,
 			&keywords, &fingerprint, &brief, &stat, &createdBy, &created, &updated, &s.Version); err != nil {
 			_ = rows.Close()
 			return nil, fmt.Errorf("scan story: %w", err)
@@ -159,6 +159,7 @@ func (r *SQLite) query(ctx context.Context, query string, args ...any) ([]*story
 		s.ID, _ = uuid.Parse(rawID)
 		s.WorkspaceID, _ = uuid.Parse(rawWS)
 		s.PipelineID = parseNullID(pipelineID)
+		s.TraceID = parseNullID(traceID)
 		s.CreatedBy = parseNullID(createdBy)
 		_ = json.Unmarshal([]byte(keywords), &s.Idea.Keywords)
 		_ = json.Unmarshal([]byte(brief), &s.Brief)

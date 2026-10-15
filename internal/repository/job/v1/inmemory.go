@@ -78,14 +78,47 @@ func (r *InMemory) List(_ context.Context, workspaceID uuid.UUID, f Filter) ([]*
 	if limit <= 0 {
 		limit = DefaultListLimit
 	}
-	return r.collect(func(j *jobdomain.Job) bool {
-		return j.WorkspaceID() == workspaceID && (len(f.Statuses) == 0 || slices.Contains(f.Statuses, j.Status()))
-	}, func(a, b *jobdomain.Job) bool {
+	newest := func(a, b *jobdomain.Job) bool {
 		if !a.CreatedAt().Equal(b.CreatedAt()) {
 			return a.CreatedAt().After(b.CreatedAt())
 		}
 		return a.ID().String() > b.ID().String()
-	}, limit)
+	}
+	all, err := r.collect(func(j *jobdomain.Job) bool { return j.WorkspaceID() == workspaceID }, newest, 0)
+	if err != nil {
+		return nil, err
+	}
+	// The latest limit traces with a matching job, by their newest one.
+	type trace struct {
+		id     uuid.UUID
+		latest time.Time
+	}
+	var traces []trace
+	seen := map[uuid.UUID]int{}
+	for _, j := range all {
+		if len(f.Statuses) > 0 && !slices.Contains(f.Statuses, j.Status()) {
+			continue
+		}
+		if i, ok := seen[j.TraceID()]; ok {
+			if j.CreatedAt().After(traces[i].latest) {
+				traces[i].latest = j.CreatedAt()
+			}
+			continue
+		}
+		seen[j.TraceID()] = len(traces)
+		traces = append(traces, trace{j.TraceID(), j.CreatedAt()})
+	}
+	sort.SliceStable(traces, func(i, k int) bool {
+		if !traces[i].latest.Equal(traces[k].latest) {
+			return traces[i].latest.After(traces[k].latest)
+		}
+		return traces[i].id.String() > traces[k].id.String()
+	})
+	keep := map[uuid.UUID]bool{}
+	for _, t := range traces[:min(len(traces), limit)] {
+		keep[t.id] = true
+	}
+	return slices.DeleteFunc(all, func(j *jobdomain.Job) bool { return !keep[j.TraceID()] }), nil
 }
 
 func (r *InMemory) NextClaimable(_ context.Context, queues []jobdomain.Queue, kinds []string, now time.Time) (*jobdomain.Job, error) {

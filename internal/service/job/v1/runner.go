@@ -170,7 +170,7 @@ func (r *Runner) claimAndRun(ctx context.Context, q jobdomain.Queue, kinds []str
 
 func (r *Runner) execute(ctx context.Context, j *jobdomain.Job) {
 	log := r.log.With(slog.String("job_id", j.ID().String()), slog.String("kind", j.Kind()), slog.Int("attempt", j.Attempt()))
-	jobCtx, cancel := context.WithCancel(ctx)
+	jobCtx, cancel := context.WithCancel(jobdomain.WithTrace(ctx, j.TraceID()))
 	defer cancel()
 
 	lost := make(chan struct{})

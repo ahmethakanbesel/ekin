@@ -167,6 +167,7 @@ type Story struct {
 	id           uuid.UUID
 	workspaceID  uuid.UUID
 	pipelineID   uuid.UUID // Nil for ad-hoc stories
+	traceID      uuid.UUID // the request (job trace) that made it; Nil if unknown
 	origin       Origin
 	language     pipelinedomain.Language
 	idea         Idea
@@ -182,6 +183,7 @@ type Story struct {
 type Plan struct {
 	WorkspaceID uuid.UUID
 	PipelineID  uuid.UUID
+	TraceID     uuid.UUID // the request planning it, so its steps join it
 	Origin      Origin
 	Language    pipelinedomain.Language
 	Idea        Idea
@@ -208,7 +210,7 @@ func New(id uuid.UUID, p Plan, ids func() uuid.UUID, now time.Time) (*Story, err
 	}
 	now = timeutil.Normalize(now)
 	s := &Story{
-		id: id, workspaceID: p.WorkspaceID, pipelineID: p.PipelineID, origin: p.Origin,
+		id: id, workspaceID: p.WorkspaceID, pipelineID: p.PipelineID, traceID: p.TraceID, origin: p.Origin,
 		language: p.Language, idea: p.Idea, brief: p.Brief, createdBy: p.CreatedBy,
 		createdAt: now, updatedAt: now, version: 1,
 	}
@@ -279,6 +281,7 @@ func (s *Story) touch(now time.Time) { s.updatedAt = timeutil.Normalize(now) }
 func (s *Story) ID() uuid.UUID                     { return s.id }
 func (s *Story) WorkspaceID() uuid.UUID            { return s.workspaceID }
 func (s *Story) PipelineID() uuid.UUID             { return s.pipelineID }
+func (s *Story) TraceID() uuid.UUID                { return s.traceID }
 func (s *Story) Origin() Origin                    { return s.origin }
 func (s *Story) Language() pipelinedomain.Language { return s.language }
 func (s *Story) Idea() Idea                        { return s.idea }

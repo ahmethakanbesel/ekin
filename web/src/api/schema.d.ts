@@ -1732,6 +1732,11 @@ export interface components {
             id: string;
             /** Format: uuid */
             workspaceId: string;
+            /**
+             * Format: uuid
+             * @description The request this job belongs to (its first job's id); every job a request causes shares it.
+             */
+            traceId: string;
             queue: string;
             kind: string;
             status: components["schemas"]["JobStatus"];
@@ -1744,8 +1749,27 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+            /**
+             * Format: date-time
+             * @description When the latest attempt began; absent until the job first runs.
+             */
+            startedAt?: string;
             /** Format: date-time */
             finishedAt?: string;
+            subject: components["schemas"]["JobSubject"];
+        };
+        /** @description What the job works on, as named in its payload. */
+        JobSubject: {
+            /** Format: uuid */
+            storyId?: string;
+            /** Format: uuid */
+            deliverableId?: string;
+            /** Format: uuid */
+            pipelineId?: string;
+            /** Format: uuid */
+            documentId?: string;
+            /** @description A final (not preview) render. */
+            final?: boolean;
         };
     };
     responses: {
@@ -3839,7 +3863,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The workspace's jobs, newest first. */
+            /** @description Every job of the workspace's latest requests (traces, ordered by their newest job), newest first. A status keeps the requests with a job in one of them; limit counts requests. */
             200: {
                 headers: {
                     [name: string]: unknown;

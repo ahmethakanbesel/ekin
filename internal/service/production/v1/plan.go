@@ -295,6 +295,7 @@ func (s *Service) createStories(ctx context.Context, plans []storydomain.Plan, l
 	var created []*storydomain.Story
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		for _, plan := range plans {
+			plan.TraceID = jobdomain.TraceFrom(ctx) // the planning job's request
 			st, err := storydomain.New(id.New(), plan, id.New, s.now())
 			if err != nil {
 				return err

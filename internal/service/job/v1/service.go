@@ -37,7 +37,11 @@ func (s *Service) WithClock(now func() time.Time) *Service {
 }
 
 // Enqueue adds a job, reporting false when spec's unique key was taken.
+// Unless spec names a trace, the job joins the one ctx carries.
 func (s *Service) Enqueue(ctx context.Context, spec jobdomain.Spec) (*jobdomain.Job, bool, error) {
+	if spec.TraceID == uuid.Nil {
+		spec.TraceID = jobdomain.TraceFrom(ctx)
+	}
 	j, err := jobdomain.New(id.New(), spec, s.now())
 	if err != nil {
 		return nil, false, err
@@ -141,7 +145,7 @@ func (s *Service) Get(ctx context.Context, workspaceID, jobID uuid.UUID) (*jobdo
 	return s.repo.Get(ctx, workspaceID, jobID)
 }
 
-// List returns a workspace's jobs, newest first.
+// List returns every job of a workspace's latest requests, newest first.
 func (s *Service) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*jobdomain.Job, error) {
 	return s.repo.List(ctx, workspaceID, f)
 }

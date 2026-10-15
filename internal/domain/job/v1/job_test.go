@@ -1,6 +1,7 @@
 package job_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"reflect"
@@ -193,5 +194,37 @@ func TestSnapshotRoundTrip(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got.Snapshot(), j.Snapshot()) {
 		t.Fatalf("got %+v\nwant %+v", got.Snapshot(), j.Snapshot())
+	}
+}
+
+func TestTrace(t *testing.T) {
+	j := newJob(t, 1)
+	if j.TraceID() != j.ID() {
+		t.Fatalf("a job without a trace starts its own: %s", j.TraceID())
+	}
+	parent := uuid.New()
+	child, err := job.New(uuid.New(), job.Spec{WorkspaceID: uuid.New(), Queue: job.QueueIO, Kind: "k", TraceID: parent}, t0)
+	if err != nil || child.TraceID() != parent {
+		t.Fatalf("child trace = %s, %v", child.TraceID(), err)
+	}
+	if got := job.TraceFrom(job.WithTrace(context.Background(), parent)); got != parent {
+		t.Fatalf("trace from ctx = %s", got)
+	}
+	if got := job.TraceFrom(job.WithTrace(context.Background(), uuid.Nil)); got != uuid.Nil {
+		t.Fatalf("nil trace stored: %s", got)
+	}
+}
+
+func TestStartRecordsTheAttemptStart(t *testing.T) {
+	j := newJob(t, 2)
+	if !j.StartedAt().IsZero() {
+		t.Fatal("queued job has a start")
+	}
+	_ = j.Start("w", lease, t0)
+	_ = j.Fail("w", errors.New("x"), t0.Add(time.Minute))
+	retry := t0.Add(time.Hour)
+	_ = j.Start("w", lease, retry)
+	if !j.StartedAt().Equal(retry) {
+		t.Fatalf("started at %v, want the latest attempt's %v", j.StartedAt(), retry)
 	}
 }

@@ -205,6 +205,7 @@ func (f fixture) drainOn(t *testing.T, svc *production.Service) {
 		if j == nil {
 			return
 		}
+		ctx := jobdomain.WithTrace(ctx, j.TraceID()) // as the runner does
 		var runErr error
 		switch j.Kind() {
 		case pipelinesvc.KindRun:
@@ -609,6 +610,31 @@ func TestInterruptedDraftRunsAgain(t *testing.T) {
 	f.drain(t)
 	if d := f.story(t).Lead(); d.Status() != storydomain.StatusReview || d.Revision() != 1 {
 		t.Fatalf("after the rerun: %s r%d", d.Status(), d.Revision())
+	}
+}
+
+// Every step of a story joins the request that planned it, also those a
+// reviewer queues later, outside any job.
+func TestStepsJoinTheirRequest(t *testing.T) {
+	ctx := context.Background()
+	f, st := articleFixture(t)
+	fb, _ := storydomain.NewFeedback("Girişi kısalt", storydomain.ScopeAll, nil, id.New(), time.Now())
+	if _, err := f.svc.RequestChanges(ctx, f.ws, st.ID(), st.Lead().ID(), fb); err != nil {
+		t.Fatal(err)
+	}
+	f.drain(t)
+	jobs, err := f.jobs.List(ctx, f.ws, jobsvc.Filter{})
+	if err != nil || len(jobs) != 3 {
+		t.Fatalf("jobs = %d, %v", len(jobs), err)
+	}
+	root := jobs[len(jobs)-1]
+	if root.Kind() != pipelinesvc.KindRun || root.TraceID() != root.ID() {
+		t.Fatalf("root = %s trace %s", root.Kind(), root.TraceID())
+	}
+	for _, j := range jobs {
+		if j.TraceID() != root.ID() {
+			t.Errorf("%s is in trace %s, want %s", j.Kind(), j.TraceID(), root.ID())
+		}
 	}
 }
 

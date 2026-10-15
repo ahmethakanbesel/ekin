@@ -4,6 +4,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 
 	jobdomain "kurgu/internal/domain/job/v1"
 	"kurgu/internal/gen"
@@ -67,6 +68,7 @@ func ToWire(j *jobdomain.Job) gen.Job {
 	out := gen.Job{
 		Id:          j.ID(),
 		WorkspaceId: j.WorkspaceID(),
+		TraceId:     j.TraceID(),
 		Queue:       string(j.Queue()),
 		Kind:        j.Kind(),
 		Status:      gen.JobStatus(j.Status()),
@@ -79,8 +81,14 @@ func ToWire(j *jobdomain.Job) gen.Job {
 	if e := j.LastError(); e != "" {
 		out.LastError = &e
 	}
+	if t := j.StartedAt(); !t.IsZero() {
+		out.StartedAt = &t
+	}
 	if f := j.FinishedAt(); !f.IsZero() {
 		out.FinishedAt = &f
 	}
+	// Payloads name their subject with these keys by convention; a job
+	// without them has an empty subject.
+	_ = json.Unmarshal(j.Payload(), &out.Subject)
 	return out
 }
