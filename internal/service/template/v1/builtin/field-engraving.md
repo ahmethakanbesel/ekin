@@ -3,7 +3,7 @@ name: Field engraving
 description: Olive and sage brand boards, stippled engravings and mono spec labels; grounded, unhurried and built to last.
 inspiration: Arc Studio's identity for Anything, an insurance brand for the people who build things
 kinds: [video, article]
-palette: ["#1E1E1C", "#5A5E4B", "#7E8670", "#DCE3DC", "#B9C1CB", "#C5C890", "#5DAF78", "#F2EFE7"]
+palette: ["#5A5E4B", "#1E1E1C", "#7E8670", "#DCE3DC", "#B9C1CB", "#C5C890", "#5DAF78", "#F2EFE7"]
 headingFont: Inter
 bodyFont: JetBrains Mono
 musicMood: Low, steady felt piano over a soft analogue drone; patient, like early morning on a site.

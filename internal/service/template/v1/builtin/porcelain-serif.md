@@ -3,7 +3,7 @@ name: Porcelain serif
 description: Fine serif titles on porcelain white, soft blue light, frosted notifications and lines that come into focus as they are spoken.
 inspiration: Arc Studio's site for Orchid, a personal assistant that lives in your messages
 kinds: [video, article]
-palette: ["#0E1630", "#FAFAF8", "#F2F4F7", "#8A8F98", "#3E5BD8", "#9DB6F2", "#E7ECF7", "#141B2E"]
+palette: ["#FAFAF8", "#0E1630", "#F2F4F7", "#8A8F98", "#3E5BD8", "#9DB6F2", "#E7ECF7", "#141B2E"]
 headingFont: Instrument Serif
 bodyFont: Inter
 musicMood: Airy, slow electric piano and soft sub warmth; unhurried, expensive, like a quiet hotel lobby at night.
