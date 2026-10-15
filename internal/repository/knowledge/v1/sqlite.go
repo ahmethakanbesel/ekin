@@ -137,6 +137,39 @@ func (r *SQLite) Pages(ctx context.Context, documentID uuid.UUID, from, to int) 
 	return out, rows.Err()
 }
 
+func (r *SQLite) ReplaceHeadings(ctx context.Context, documentID uuid.UUID, hs []knowledgedomain.Heading) error {
+	q := r.q.W(ctx)
+	if _, err := q.ExecContext(ctx, `DELETE FROM document_headings WHERE document_id = ?`, documentID.String()); err != nil {
+		return fmt.Errorf("clear headings: %w", err)
+	}
+	for i, h := range hs {
+		if _, err := q.ExecContext(ctx,
+			`INSERT INTO document_headings (document_id, position, level, title, page) VALUES (?, ?, ?, ?, ?)`,
+			documentID.String(), i, h.Level, h.Title, h.Page); err != nil {
+			return fmt.Errorf("insert heading %d: %w", i, err)
+		}
+	}
+	return nil
+}
+
+func (r *SQLite) Headings(ctx context.Context, documentID uuid.UUID) ([]knowledgedomain.Heading, error) {
+	rows, err := r.q.R(ctx).QueryContext(ctx,
+		`SELECT level, title, page FROM document_headings WHERE document_id = ? ORDER BY position`, documentID.String())
+	if err != nil {
+		return nil, fmt.Errorf("list headings: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []knowledgedomain.Heading
+	for rows.Next() {
+		var h knowledgedomain.Heading
+		if err := rows.Scan(&h.Level, &h.Title, &h.Page); err != nil {
+			return nil, fmt.Errorf("scan heading: %w", err)
+		}
+		out = append(out, h)
+	}
+	return out, rows.Err()
+}
+
 type scanner interface{ Scan(dest ...any) error }
 
 func scan(s scanner) (*knowledgedomain.Document, error) {

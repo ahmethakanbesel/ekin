@@ -1,6 +1,8 @@
 // Package extract pulls text out of uploaded documents: PDF through
 // poppler's pdftotext (page by page), EPUB by walking the spine, and
-// plain text / Markdown as they are.
+// plain text / Markdown as they are. It also reads the table of contents
+// a file declares: PDF bookmarks (poppler's pdftohtml), the EPUB
+// navigation document or NCX, and Markdown headings.
 package extract
 
 import (
@@ -22,40 +24,47 @@ import (
 	knowledgedomain "kurgu/internal/domain/knowledge/v1"
 )
 
-// Extractor runs the tools. PDFToText is the pdftotext binary.
+// Extractor runs the tools. PDFToText and PDFToHTML are the poppler
+// binaries.
 type Extractor struct {
 	PDFToText string
+	PDFToHTML string
 }
 
-// New returns an Extractor using pdftotext from PATH.
-func New() *Extractor { return &Extractor{PDFToText: "pdftotext"} }
+// New returns an Extractor using the poppler tools from PATH.
+func New() *Extractor { return &Extractor{PDFToText: "pdftotext", PDFToHTML: "pdftohtml"} }
 
-// Extract returns the pages of the file at p.
-func (e *Extractor) Extract(ctx context.Context, format knowledgedomain.Format, p string) ([]knowledgedomain.Page, error) {
+// Extract returns the pages of the file at p and its table of contents,
+// if it has one. A table of contents that cannot be read is left out
+// rather than failing the extraction.
+func (e *Extractor) Extract(ctx context.Context, format knowledgedomain.Format, p string) (knowledgedomain.Extraction, error) {
+	var out knowledgedomain.Extraction
 	switch format {
 	case knowledgedomain.FormatPDF:
 		texts, err := e.pdf(ctx, p)
 		if err != nil {
-			return nil, err
+			return out, err
 		}
-		return knowledgedomain.FromPrinted(texts), nil
+		out.Pages = knowledgedomain.FromPrinted(texts)
+		out.Headings = e.pdfOutline(ctx, p)
+		return out, nil
 	case knowledgedomain.FormatEPUB:
-		sections, err := epub(p)
-		if err != nil {
-			return nil, err
-		}
-		return knowledgedomain.FromSections(sections), nil
+		return epub(p)
 	case knowledgedomain.FormatText, knowledgedomain.FormatMarkdown:
 		b, err := os.ReadFile(p) //nolint:gosec // a temp file the worker wrote
 		if err != nil {
-			return nil, err
+			return out, err
 		}
 		if !utf8.Valid(b) {
-			return nil, errors.New("the file is not UTF-8 text")
+			return out, errors.New("the file is not UTF-8 text")
 		}
-		return knowledgedomain.FromSections([]string{string(bytes.TrimPrefix(b, []byte("\xef\xbb\xbf")))}), nil
+		out.Pages = knowledgedomain.FromSections([]string{string(bytes.TrimPrefix(b, []byte("\xef\xbb\xbf")))})
+		if format == knowledgedomain.FormatMarkdown {
+			out.Headings = markdownHeadings(out.Pages)
+		}
+		return out, nil
 	}
-	return nil, fmt.Errorf("unsupported format %q", format)
+	return out, fmt.Errorf("unsupported format %q", format)
 }
 
 // pdf runs pdftotext once; pages come back separated by form feeds.
@@ -104,20 +113,25 @@ type container struct {
 
 type opf struct {
 	Manifest []struct {
-		ID   string `xml:"id,attr"`
-		Href string `xml:"href,attr"`
+		ID         string `xml:"id,attr"`
+		Href       string `xml:"href,attr"`
+		Properties string `xml:"properties,attr"`
 	} `xml:"manifest>item"`
-	Spine []struct {
-		IDRef string `xml:"idref,attr"`
-	} `xml:"spine>itemref"`
+	Spine struct {
+		TOC   string `xml:"toc,attr"` // the NCX's manifest id (EPUB 2)
+		Items []struct {
+			IDRef string `xml:"idref,attr"`
+		} `xml:"itemref"`
+	} `xml:"spine"`
 }
 
 const maxEPUBEntry = 20 << 20
 
-func epub(p string) ([]string, error) {
+func epub(p string) (knowledgedomain.Extraction, error) {
+	var out knowledgedomain.Extraction
 	z, err := zip.OpenReader(p)
 	if err != nil {
-		return nil, fmt.Errorf("not a valid EPUB: %w", err)
+		return out, fmt.Errorf("not a valid EPUB: %w", err)
 	}
 	defer func() { _ = z.Close() }()
 	files := map[string]*zip.File{}
@@ -138,42 +152,51 @@ func epub(p string) ([]string, error) {
 	}
 	raw, err := read("META-INF/container.xml")
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 	var c container
 	if err := xml.Unmarshal(raw, &c); err != nil || len(c.Rootfiles) == 0 {
-		return nil, errors.New("EPUB container.xml has no rootfile")
+		return out, errors.New("EPUB container.xml has no rootfile")
 	}
 	opfPath := c.Rootfiles[0].FullPath
 	raw, err = read(opfPath)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 	var pkg opf
 	if err := xml.Unmarshal(raw, &pkg); err != nil {
-		return nil, fmt.Errorf("EPUB package: %w", err)
+		return out, fmt.Errorf("EPUB package: %w", err)
 	}
 	hrefs := map[string]string{}
 	for _, it := range pkg.Manifest {
 		hrefs[it.ID] = it.Href
 	}
 	base := path.Dir(opfPath)
-	var sections []string
-	for _, ref := range pkg.Spine {
+	var (
+		sections []string
+		names    []string // the file of each section
+	)
+	for _, ref := range pkg.Spine.Items {
 		href, ok := hrefs[ref.IDRef]
 		if !ok {
 			continue
 		}
-		name := path.Clean(path.Join(base, strings.SplitN(href, "#", 2)[0]))
+		name := resolve(base, href)
 		doc, err := read(name)
 		if err != nil {
-			return nil, err
+			return out, err
 		}
-		if text := htmlText(doc); text != "" {
-			sections = append(sections, text)
-		}
+		sections = append(sections, htmlText(doc))
+		names = append(names, name)
 	}
-	return sections, nil
+	pages, starts := knowledgedomain.PaginateSections(sections)
+	out.Pages = pages
+	startOf := make(map[string]int, len(names))
+	for i, name := range names {
+		startOf[name] = starts[i]
+	}
+	out.Headings = epubContents(pkg, base, read, startOf)
+	return out, nil
 }
 
 // htmlText flattens XHTML to paragraphs separated by blank lines.

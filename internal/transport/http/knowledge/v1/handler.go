@@ -126,6 +126,18 @@ func (h *Handler) ListDocumentPages(ctx context.Context, req gen.ListDocumentPag
 	return gen.ListDocumentPages200JSONResponse{Pages: out}, nil
 }
 
+func (h *Handler) GetDocumentContents(ctx context.Context, req gen.GetDocumentContentsRequestObject) (gen.GetDocumentContentsResponseObject, error) {
+	sections, err := h.svc.Contents(ctx, req.WorkspaceId, req.DocumentId)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]gen.DocumentSection, 0, len(sections))
+	for _, sec := range sections {
+		out = append(out, gen.DocumentSection{Level: sec.Level, Title: sec.Title, FromPage: sec.From, ToPage: sec.To})
+	}
+	return gen.GetDocumentContents200JSONResponse{Sections: out}, nil
+}
+
 func (h *Handler) GetDocumentFile(ctx context.Context, req gen.GetDocumentFileRequestObject) (gen.GetDocumentFileResponseObject, error) {
 	d, rc, size, err := h.svc.Open(ctx, req.WorkspaceId, req.DocumentId)
 	if err != nil {

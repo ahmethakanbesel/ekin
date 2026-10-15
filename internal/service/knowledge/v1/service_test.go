@@ -106,8 +106,8 @@ func TestUploadExtractExcerpt(t *testing.T) {
 
 type failing struct{}
 
-func (failing) Extract(context.Context, knowledgedomain.Format, string) ([]knowledgedomain.Page, error) {
-	return nil, errors.New("encrypted PDF")
+func (failing) Extract(context.Context, knowledgedomain.Format, string) (knowledgedomain.Extraction, error) {
+	return knowledgedomain.Extraction{}, errors.New("encrypted PDF")
 }
 
 func TestExtractionFailureAndRetry(t *testing.T) {
@@ -125,6 +125,47 @@ func TestExtractionFailureAndRetry(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = f.runExtract(t) // a second job was queued
+}
+
+func TestContentsAndReextraction(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t, extract.New(), usage{})
+	long := strings.Repeat("Uzun bir paragraf. ", 200)
+	text := "# Kaygı\n\n" + long + "\n\n## Belirtiler\n\n" + long + "\n\n# Uyku\n\nKısa."
+	d, _ := f.svc.Upload(ctx, f.ws, id.New(), "", "notlar.md", strings.NewReader(text))
+	if err := f.runExtract(t); err != nil {
+		t.Fatal(err)
+	}
+	d, _ = f.svc.Get(ctx, f.ws, d.ID())
+	contents, err := f.svc.Contents(ctx, f.ws, d.ID())
+	if err != nil || len(contents) != 3 {
+		t.Fatalf("contents = %+v, %v", contents, err)
+	}
+	last := d.PageCount()
+	if c := contents[0]; c.Title != "Kaygı" || c.Level != 1 || c.From != 1 || c.To != contents[2].From-1 {
+		t.Fatalf("chapter = %+v of %d pages", c, last)
+	}
+	if c := contents[2]; c.Title != "Uyku" || c.To != last {
+		t.Fatalf("last chapter = %+v of %d pages", c, last)
+	}
+	if _, err := f.svc.Contents(ctx, id.New(), d.ID()); !apperror.Is(err, apperror.DocumentNotFound) {
+		t.Fatalf("other workspace = %v", err)
+	}
+
+	// A ready document can be extracted again (to pick up its contents
+	// after an extractor change); it keeps its pages meanwhile.
+	if _, err := f.svc.Retry(ctx, f.ws, d.ID()); err != nil {
+		t.Fatal(err)
+	}
+	if _, pages, _ := f.svc.Pages(ctx, f.ws, d.ID(), 1, 0); len(pages) != last {
+		t.Fatalf("pages while re-extracting = %d", len(pages))
+	}
+	if err := f.runExtract(t); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := f.svc.Contents(ctx, f.ws, d.ID()); len(again) != 3 {
+		t.Fatalf("contents after re-extraction = %+v", again)
+	}
 }
 
 func TestDeleteChecksUsage(t *testing.T) {

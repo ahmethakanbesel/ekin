@@ -186,10 +186,11 @@ func (d *Document) Failed(reason string, now time.Time) error {
 	return nil
 }
 
-// Retry puts a failed document back to pending.
+// Retry puts a failed or ready document back to pending, to extract it
+// again (a ready one keeps its pages until the new ones replace them).
 func (d *Document) Retry(now time.Time) error {
-	if d.status != StatusFailed {
-		return apperror.New(apperror.InvalidTransition, "only a failed document can be extracted again")
+	if d.status == StatusPending {
+		return apperror.New(apperror.InvalidTransition, "the document is already being extracted")
 	}
 	d.status, d.failure = StatusPending, ""
 	d.updatedAt = timeutil.Normalize(now)

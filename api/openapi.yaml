@@ -449,7 +449,9 @@ paths:
     post:
       operationId: retryDocument
       tags: [knowledge]
-      description: Queues a failed document for extraction again.
+      description: >-
+        Queues a failed or ready document for extraction again (a ready one keeps its pages
+        until the new ones replace them).
       responses:
         "202":
           description: Queued.
@@ -485,6 +487,30 @@ paths:
                   pages:
                     type: array
                     items: { $ref: "#/components/schemas/DocumentPage" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/documents/{documentId}/contents:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/DocumentId"
+    get:
+      operationId: getDocumentContents
+      tags: [knowledge]
+      description: >-
+        The table of contents the file declares (PDF bookmarks, the EPUB navigation, Markdown
+        headings), in document order; empty when it declares none.
+      responses:
+        "200":
+          description: Sections with their page ranges.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sections]
+                properties:
+                  sections:
+                    type: array
+                    items: { $ref: "#/components/schemas/DocumentSection" }
         default: { $ref: "#/components/responses/Error" }
 
   /workspaces/{workspaceId}/documents/{documentId}/file:
@@ -1728,6 +1754,19 @@ components:
         text: { type: string }
         words: { type: integer }
         tokens: { type: integer }
+
+    DocumentSection:
+      type: object
+      required: [level, title, fromPage, toPage]
+      properties:
+        level:
+          type: integer
+          description: 1 for a top-level entry (a chapter), deeper entries count up.
+        title: { type: string }
+        fromPage: { type: integer }
+        toPage:
+          type: integer
+          description: The page before the next entry at this level or above, or the last page.
 
     DeliverableStatus:
       type: string

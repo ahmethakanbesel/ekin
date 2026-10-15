@@ -270,7 +270,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Queues a failed document for extraction again. */
+        /** @description Queues a failed or ready document for extraction again (a ready one keeps its pages until the new ones replace them). */
         post: operations["retryDocument"];
         delete?: never;
         options?: never;
@@ -289,6 +289,26 @@ export interface paths {
             cookie?: never;
         };
         get: operations["listDocumentPages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/documents/{documentId}/contents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        /** @description The table of contents the file declares (PDF bookmarks, the EPUB navigation, Markdown headings), in document order; empty when it declares none. */
+        get: operations["getDocumentContents"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1162,6 +1182,14 @@ export interface components {
             text: string;
             words: number;
             tokens: number;
+        };
+        DocumentSection: {
+            /** @description 1 for a top-level entry (a chapter), deeper entries count up. */
+            level: number;
+            title: string;
+            fromPage: number;
+            /** @description The page before the next entry at this level or above, or the last page. */
+            toPage: number;
         };
         /** @enum {string} */
         DeliverableStatus: "waiting" | "queued" | "drafting" | "rendering" | "review" | "finalizing" | "ready" | "publishing" | "published" | "rejected" | "failed";
@@ -2366,6 +2394,32 @@ export interface operations {
                 content: {
                     "application/json": {
                         pages: components["schemas"]["DocumentPage"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getDocumentContents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sections with their page ranges. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sections: components["schemas"]["DocumentSection"][];
                     };
                 };
             };

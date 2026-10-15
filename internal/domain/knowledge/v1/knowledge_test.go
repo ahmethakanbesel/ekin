@@ -55,8 +55,11 @@ func TestDocumentLifecycle(t *testing.T) {
 			t.Errorf("range %d-%d err = %v", tt.from, tt.to, err)
 		}
 	}
-	if err := d.Retry(now); !apperror.Is(err, apperror.InvalidTransition) {
+	if err := d.Retry(now); err != nil || d.Status() != knowledge.StatusPending {
 		t.Fatalf("retry ready = %v", err)
+	}
+	if err := d.Retry(now); !apperror.Is(err, apperror.InvalidTransition) {
+		t.Fatalf("retry pending = %v", err)
 	}
 	_ = d.Extracted(nil, now)
 	if d.Status() != knowledge.StatusFailed || d.Failure() == "" {

@@ -35,9 +35,10 @@ type ExtractPayload struct {
 	DocumentID uuid.UUID `json:"documentId"`
 }
 
-// Extractor turns a file into pages (internal/adapter/extract).
+// Extractor turns a file into pages and its table of contents
+// (internal/adapter/extract).
 type Extractor interface {
-	Extract(ctx context.Context, format knowledgedomain.Format, path string) ([]knowledgedomain.Page, error)
+	Extract(ctx context.Context, format knowledgedomain.Format, path string) (knowledgedomain.Extraction, error)
 }
 
 // Enqueuer is the part of the job service this package needs.
@@ -149,7 +150,7 @@ func (s *Service) Extract(ctx context.Context, documentID uuid.UUID) error {
 		return err
 	}
 	defer cleanup()
-	pages, extractErr := s.extractor.Extract(ctx, d.Format(), path)
+	ex, extractErr := s.extractor.Extract(ctx, d.Format(), path)
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -158,11 +159,14 @@ func (s *Service) Extract(ctx context.Context, documentID uuid.UUID) error {
 			_ = d.Failed(extractErr.Error(), s.now())
 			return s.repo.Update(ctx, d)
 		}
-		if err := d.Extracted(pages, s.now()); err != nil {
+		if err := d.Extracted(ex.Pages, s.now()); err != nil {
 			return err
 		}
 		if d.Status() == knowledgedomain.StatusReady {
-			if err := s.repo.ReplacePages(ctx, d.ID(), pages); err != nil {
+			if err := s.repo.ReplacePages(ctx, d.ID(), ex.Pages); err != nil {
+				return err
+			}
+			if err := s.repo.ReplaceHeadings(ctx, d.ID(), knowledgedomain.NormalizeHeadings(ex.Headings, d.PageCount())); err != nil {
 				return err
 			}
 		}
@@ -193,7 +197,7 @@ func (s *Service) download(ctx context.Context, d *knowledgedomain.Document) (st
 	return tmp.Name(), cleanup, nil
 }
 
-// Retry queues a failed document for extraction again.
+// Retry queues a failed or ready document for extraction again.
 func (s *Service) Retry(ctx context.Context, workspaceID, documentID uuid.UUID) (*knowledgedomain.Document, error) {
 	var out *knowledgedomain.Document
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
@@ -269,6 +273,20 @@ func (s *Service) Pages(ctx context.Context, workspaceID, documentID uuid.UUID, 
 	}
 	pages, err := s.repo.Pages(ctx, documentID, from, to)
 	return d, pages, err
+}
+
+// Contents returns the document's table of contents as sections with
+// page ranges; empty when the file declares none.
+func (s *Service) Contents(ctx context.Context, workspaceID, documentID uuid.UUID) ([]knowledgedomain.Section, error) {
+	d, err := s.repo.Get(ctx, workspaceID, documentID)
+	if err != nil {
+		return nil, err
+	}
+	hs, err := s.repo.Headings(ctx, documentID)
+	if err != nil {
+		return nil, err
+	}
+	return knowledgedomain.Contents(hs, d.PageCount()), nil
 }
 
 // Open returns the original file.

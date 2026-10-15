@@ -13,16 +13,21 @@ import (
 
 // InMemory is a Repository for service tests.
 type InMemory struct {
-	mu    sync.RWMutex
-	docs  map[uuid.UUID]knowledgedomain.Snapshot
-	pages map[uuid.UUID][]knowledgedomain.Page
+	mu       sync.RWMutex
+	docs     map[uuid.UUID]knowledgedomain.Snapshot
+	pages    map[uuid.UUID][]knowledgedomain.Page
+	headings map[uuid.UUID][]knowledgedomain.Heading
 }
 
 var _ Repository = (*InMemory)(nil)
 
 // NewInMemory returns an empty InMemory repository.
 func NewInMemory() *InMemory {
-	return &InMemory{docs: map[uuid.UUID]knowledgedomain.Snapshot{}, pages: map[uuid.UUID][]knowledgedomain.Page{}}
+	return &InMemory{
+		docs:     map[uuid.UUID]knowledgedomain.Snapshot{},
+		pages:    map[uuid.UUID][]knowledgedomain.Page{},
+		headings: map[uuid.UUID][]knowledgedomain.Heading{},
+	}
 }
 
 func (r *InMemory) Create(_ context.Context, d *knowledgedomain.Document) error {
@@ -95,6 +100,7 @@ func (r *InMemory) Delete(_ context.Context, workspaceID, id uuid.UUID) error {
 	}
 	delete(r.docs, id)
 	delete(r.pages, id)
+	delete(r.headings, id)
 	return nil
 }
 
@@ -115,4 +121,17 @@ func (r *InMemory) Pages(_ context.Context, documentID uuid.UUID, from, to int) 
 		}
 	}
 	return out, nil
+}
+
+func (r *InMemory) ReplaceHeadings(_ context.Context, documentID uuid.UUID, hs []knowledgedomain.Heading) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.headings[documentID] = slices.Clone(hs)
+	return nil
+}
+
+func (r *InMemory) Headings(_ context.Context, documentID uuid.UUID) ([]knowledgedomain.Heading, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return slices.Clone(r.headings[documentID]), nil
 }

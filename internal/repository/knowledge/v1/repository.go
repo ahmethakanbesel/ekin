@@ -25,4 +25,8 @@ type Repository interface {
 	ReplacePages(ctx context.Context, documentID uuid.UUID, pages []knowledgedomain.Page) error
 	// Pages returns pages from..to inclusive (1-based); to 0 means to the end.
 	Pages(ctx context.Context, documentID uuid.UUID, from, to int) ([]knowledgedomain.Page, error)
+	// ReplaceHeadings swaps the document's table of contents for hs.
+	ReplaceHeadings(ctx context.Context, documentID uuid.UUID, hs []knowledgedomain.Heading) error
+	// Headings returns the table of contents in document order.
+	Headings(ctx context.Context, documentID uuid.UUID) ([]knowledgedomain.Heading, error)
 }

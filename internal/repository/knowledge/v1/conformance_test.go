@@ -2,6 +2,7 @@ package knowledge_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -65,11 +66,24 @@ func TestConformance(t *testing.T) {
 			if len(mid) != 2 || mid[0].Text != "iki" || len(all) != 3 {
 				t.Fatalf("pages = %+v / %d", mid, len(all))
 			}
+			hs := []knowledgedomain.Heading{{Level: 1, Title: "Giriş", Page: 1}, {Level: 2, Title: "Kaygı", Page: 2}}
+			if err := repo.ReplaceHeadings(ctx, d.ID(), hs); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.ReplaceHeadings(ctx, d.ID(), hs[1:]); err != nil {
+				t.Fatal(err)
+			}
+			if got, err := repo.Headings(ctx, d.ID()); err != nil || !reflect.DeepEqual(got, hs[1:]) {
+				t.Fatalf("headings = %+v, %v", got, err)
+			}
 			if err := repo.Delete(ctx, ws, d.ID()); err != nil {
 				t.Fatal(err)
 			}
 			if gone, _ := repo.Pages(ctx, d.ID(), 1, 0); len(gone) != 0 {
 				t.Fatalf("pages survived delete: %d", len(gone))
+			}
+			if gone, _ := repo.Headings(ctx, d.ID()); len(gone) != 0 {
+				t.Fatalf("headings survived delete: %d", len(gone))
 			}
 			if err := repo.Delete(ctx, ws, d.ID()); !apperror.Is(err, apperror.DocumentNotFound) {
 				t.Fatalf("double delete = %v", err)

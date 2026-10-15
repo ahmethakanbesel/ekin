@@ -77,18 +77,33 @@ func FromPrinted(texts []string) []Page {
 	return pages
 }
 
+// Extraction is what a file yields: its pages and, when the file
+// declares one, its table of contents.
+type Extraction struct {
+	Pages    []Page
+	Headings []Heading
+}
+
 // FromSections paginates each section (an EPUB chapter, a whole text
 // file) and numbers the pages continuously, so pages never straddle a
 // chapter.
 func FromSections(sections []string) []Page {
-	var pages []Page
-	for _, sec := range sections {
+	pages, _ := PaginateSections(sections)
+	return pages
+}
+
+// PaginateSections is FromSections that also returns the page each
+// section starts on (for an empty section, the page after it).
+func PaginateSections(sections []string) (pages []Page, starts []int) {
+	starts = make([]int, len(sections))
+	for i, sec := range sections {
+		starts[i] = len(pages) + 1
 		for _, p := range Paginate(sec) {
 			p.Number = len(pages) + 1
 			pages = append(pages, p)
 		}
 	}
-	return pages
+	return pages, starts
 }
 
 // Paginate splits continuous text into synthetic pages at paragraph
