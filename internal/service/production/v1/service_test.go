@@ -266,10 +266,14 @@ func TestVideoWithDerivedArticleAndTranslation(t *testing.T) {
 	}
 	// A Turkish short is scripted for a brisk pace and the Shorts layout.
 	instructions, _ := os.ReadFile(filepath.Join(brief.Dir, "INSTRUCTIONS.md"))
-	for _, want := range []string{"about\n   2.0 words per second", "**Layout:**", "**Rhythm:**"} {
+	for _, want := range []string{"about\n   2.0 words per second", "**Layout:**", "**Rhythm:**", "`WRITING.md`", "read-aloud pass"} {
 		if !strings.Contains(string(instructions), want) {
 			t.Fatalf("video instructions lack %q:\n%s", want, instructions)
 		}
+	}
+	// It is written in Turkish from the start, following the writing guide.
+	if guide, err := os.ReadFile(filepath.Join(brief.Dir, "WRITING.md")); err != nil || !strings.Contains(string(guide), "Çeviri kokan kalıplar") {
+		t.Fatalf("WRITING.md = %.80s %v", guide, err)
 	}
 
 	// Changes resume the agent session with the feedback.
@@ -319,6 +323,10 @@ func TestVideoWithDerivedArticleAndTranslation(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(f.agent.prompts[len(f.agent.prompts)-1].Dir, "source.md")); err != nil {
 		t.Fatal("translation did not get the source article")
+	}
+	// English has no writing guide.
+	if _, err := os.Stat(filepath.Join(f.agent.prompts[len(f.agent.prompts)-1].Dir, "WRITING.md")); err == nil {
+		t.Fatal("the English translation got the Turkish writing guide")
 	}
 }
 

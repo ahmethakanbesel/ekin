@@ -11,6 +11,11 @@ YouTube{{if not .Long}} Shorts{{end}}. Everything you need is in this directory:
 - `KIT.md`: how compositions work. Read it before writing any code.
 - `STYLE.md` (when present): the house style. It overrides your own visual taste —
   use its palette, fonts, motion, structure and narration voice.
+{{- if .HasWriting}}
+- `WRITING.md`: how to write natural, spoken {{.LanguageName}}. Read it before the
+  script. Every word the viewer hears or reads follows it; it wins over the
+  English examples in these instructions and in `STYLE.md`.
+{{- end}}
 
 Work in this order and do not stop until `kurgu tool check` passes.
 
@@ -39,7 +44,8 @@ Work in this order and do not stop until `kurgu tool check` passes.
 {{- end}}
 2. **Narration.** Put only the spoken text (no scene labels, no markdown) in
    `narration/narration.txt`, paragraphs separated by blank lines. Write numbers
-   the way they should be read. Run `{{.Tool}} tts`. If it warns about the length,
+   the way they should be read.{{if .HasWriting}} First do the read-aloud pass in `WRITING.md`
+   and rewrite every sentence a native speaker would not say that way.{{end}} Run `{{.Tool}} tts`. If it warns about the length,
    edit the text and run it again.
 3. **Visuals.** Write `composition.html` ({{.Width}}×{{.Height}}) following `KIT.md`. Use
    the narration timings for every cue: scene changes on segment or word

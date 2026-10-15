@@ -346,6 +346,19 @@ func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydo
 		"LanguageName": languageName(d.Language()), "HasSources": sources != "" || source.text != "",
 		"Tool": toolCmd,
 	}
+	// A language with a writing guide (writing-<code>.md) gets it as
+	// WRITING.md: how its native speakers would say it, not a translation.
+	_ = os.Remove(filepath.Join(dir, "WRITING.md"))
+	if prompts.Lookup("writing-"+string(d.Language())+".md") != nil {
+		guide, err := execute("writing-"+string(d.Language())+".md", data)
+		if err != nil {
+			return t, err
+		}
+		if err := write("WRITING.md", guide); err != nil {
+			return t, err
+		}
+		data["HasWriting"] = true
+	}
 	switch {
 	case d.IsVideo():
 		v := *d.Video()
