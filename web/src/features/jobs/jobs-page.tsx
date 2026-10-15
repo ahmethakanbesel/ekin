@@ -417,7 +417,7 @@ function Steps({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="pl-4">{t.step}</TableHead>
+            <TableHead className="min-w-52 pl-4">{t.step}</TableHead>
             <TableHead>{m.jobs.columns.status}</TableHead>
             <TableHead className="text-right">{m.jobs.columns.attempt}</TableHead>
             <TableHead className="text-right">{t.waited}</TableHead>
