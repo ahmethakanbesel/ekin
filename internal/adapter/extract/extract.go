@@ -46,7 +46,7 @@ func (e *Extractor) Extract(ctx context.Context, format knowledgedomain.Format, 
 			return out, err
 		}
 		out.Pages = knowledgedomain.FromPrinted(texts)
-		out.Headings = e.pdfOutline(ctx, p)
+		out.Headings = e.pdfContents(ctx, p, len(out.Pages))
 		return out, nil
 	case knowledgedomain.FormatEPUB:
 		return epub(p)

@@ -2,95 +2,16 @@ package extract
 
 import (
 	"bytes"
-	"context"
 	"encoding/xml"
 	"net/url"
-	"os"
-	"os/exec"
 	"path"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"golang.org/x/net/html"
 
 	knowledgedomain "kurgu/internal/domain/knowledge/v1"
 )
-
-// pdfOutline reads the PDF's bookmarks. pdftohtml's XML output lists
-// them after the first page as nested <outline> elements of
-// <item page="N">title</item>; the nesting depth is the level. A PDF
-// without bookmarks, or a missing tool, yields none.
-func (e *Extractor) pdfOutline(ctx context.Context, p string) []knowledgedomain.Heading {
-	if e.PDFToHTML == "" {
-		return nil
-	}
-	dir, err := os.MkdirTemp("", "kurgu-outline-*")
-	if err != nil {
-		return nil
-	}
-	defer func() { _ = os.RemoveAll(dir) }()
-	cmd := exec.CommandContext(ctx, e.PDFToHTML, "-xml", "-i", "-q", "-stdout", "-f", "1", "-l", "1", p) //nolint:gosec // fixed binary, temp path
-	cmd.Dir = dir
-	out, err := cmd.Output()
-	if err != nil {
-		return nil
-	}
-	return parsePDFOutline(out)
-}
-
-func parsePDFOutline(doc []byte) []knowledgedomain.Heading {
-	dec := xml.NewDecoder(bytes.NewReader(doc))
-	dec.Strict = false
-	dec.AutoClose = xml.HTMLAutoClose
-	dec.Entity = xml.HTMLEntity
-	var (
-		out   []knowledgedomain.Heading
-		depth int
-		item  *knowledgedomain.Heading
-		title strings.Builder
-	)
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			return out // io.EOF, or a broken tail: keep what was read
-		}
-		switch t := tok.(type) {
-		case xml.StartElement:
-			switch t.Name.Local {
-			case "outline":
-				depth++
-			case "item":
-				if depth == 0 {
-					continue
-				}
-				page := 0
-				for _, a := range t.Attr {
-					if a.Name.Local == "page" {
-						page, _ = strconv.Atoi(a.Value)
-					}
-				}
-				item = &knowledgedomain.Heading{Level: depth, Page: page}
-				title.Reset()
-			}
-		case xml.CharData:
-			if item != nil {
-				title.Write(t)
-			}
-		case xml.EndElement:
-			switch t.Name.Local {
-			case "outline":
-				depth = max(0, depth-1)
-			case "item":
-				if item != nil && item.Page > 0 {
-					item.Title = title.String()
-					out = append(out, *item)
-				}
-				item = nil
-			}
-		}
-	}
-}
 
 // epubContents reads the EPUB 3 navigation document, or else the EPUB 2
 // NCX, and places each entry on the page its file starts on (startOf,

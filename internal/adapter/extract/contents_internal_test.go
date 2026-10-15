@@ -2,6 +2,7 @@ package extract
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	knowledgedomain "kurgu/internal/domain/knowledge/v1"
@@ -35,10 +36,15 @@ func TestParsePDFOutline(t *testing.T) {
 		{Level: 2, Title: "Big O & you", Page: 36},
 		{Level: 1, Title: "2 selection sort", Page: 47},
 	}
-	if got := parsePDFOutline([]byte(pdfXML)); !reflect.DeepEqual(got, want) {
+	if got := outlineOf(pdfXML); !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v", got)
 	}
-	if got := parsePDFOutline([]byte(`<pdf2xml><page number="1"></page></pdf2xml>`)); len(got) != 0 {
+	if got := outlineOf(`<pdf2xml><page number="1"></page></pdf2xml>`); len(got) != 0 {
 		t.Fatalf("no outline gave %+v", got)
 	}
+}
+
+func outlineOf(doc string) []knowledgedomain.Heading {
+	outline, _ := parsePDFXML(strings.NewReader(doc))
+	return outline
 }
