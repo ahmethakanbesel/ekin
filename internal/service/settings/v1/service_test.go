@@ -44,7 +44,6 @@ func TestProfiles(t *testing.T) {
 	default:
 		t.Fatal("a save did not signal the change")
 	}
-	changed = svc.Changed()
 	got := svc.ThrottleSource("vps")(ctx)
 	if !got.Paused || got.Concurrency[jobdomain.QueueRender] != 1 || got.Concurrency[jobdomain.QueueIO] != 0 {
 		t.Fatalf("throttle = %+v", got)
@@ -58,6 +57,22 @@ func TestProfiles(t *testing.T) {
 	if _, err := svc.SaveProfile(ctx, bad, id.New()); !apperror.Is(err, apperror.ValidationFailed) {
 		t.Fatalf("bad duty = %v", err)
 	}
+	for _, pct := range []int{5, 101, -1} {
+		bad = p
+		bad.CPULimit = pct
+		if _, err := svc.SaveProfile(ctx, bad, id.New()); !apperror.Is(err, apperror.ValidationFailed) {
+			t.Fatalf("cpu limit %d = %v", pct, err)
+		}
+	}
+	limited := p
+	limited.CPULimit = 50
+	if _, err := svc.SaveProfile(ctx, limited, id.New()); err != nil {
+		t.Fatalf("cpu limit 50 = %v", err)
+	}
+	if got, _ := svc.Profile(ctx, "vps"); got.CPULimit != 50 {
+		t.Fatalf("stored cpu limit = %d", got.CPULimit)
+	}
+	changed = svc.Changed()
 	bad = p
 	bad.Concurrency = map[jobdomain.Queue]int{"gpu": 1}
 	if _, err := svc.SaveProfile(ctx, bad, id.New()); !apperror.Is(err, apperror.ValidationFailed) {

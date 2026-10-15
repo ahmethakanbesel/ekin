@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"kurgu/internal/adapter/claude"
+	"kurgu/internal/adapter/cpulimit"
 	"kurgu/internal/adapter/elevenlabs"
 	"kurgu/internal/adapter/extract"
 	"kurgu/internal/adapter/github"
@@ -186,7 +187,7 @@ func (a *App) WithVersion(v string) *App {
 func defaultProfile(cfg config.Config) settingsdomain.Profile {
 	return settingsdomain.Profile{
 		Name: cfg.Worker.Profile, Concurrency: cfg.Worker.Concurrency, HeavyExclusive: cfg.Worker.HeavyExclusive,
-		Cooldown: cfg.Worker.Cooldown, Paused: cfg.Worker.Paused,
+		Cooldown: cfg.Worker.Cooldown, Paused: cfg.Worker.Paused, CPULimit: cfg.Worker.CPULimit,
 		RenderDuty: cfg.Production.Duty, RenderChunks: cfg.Production.Chunks,
 		PreviewScale: cfg.Production.PreviewScale, FinalScale: cfg.Production.FinalScale,
 	}
@@ -355,6 +356,11 @@ func (a *App) Work(ctx context.Context) error {
 	seoworker.Register(runner, a.seo)
 	templateworker.Register(runner, a.templates)
 	voiceworker.Register(runner, a.voices)
+	limiter := &cpulimit.Limiter{
+		Percent: func(ctx context.Context) int { return a.settings.Cached(ctx, w.Profile).CPULimit },
+		Changed: a.settings.Changed, Log: a.log.With(slog.String("component", "cpulimit")),
+	}
+	go limiter.Run(ctx)
 	a.log.InfoContext(ctx, "worker started", slog.String("owner", w.Owner), slog.String("profile", w.Profile))
 	return runner.Run(ctx)
 }

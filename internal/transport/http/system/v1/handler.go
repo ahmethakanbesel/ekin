@@ -77,7 +77,7 @@ func (h *Handler) SaveProfile(ctx context.Context, req gen.SaveProfileRequestObj
 	b := req.Body
 	in := settingsdomain.Profile{
 		Name: req.Name, Concurrency: map[jobdomain.Queue]int{}, HeavyExclusive: b.HeavyExclusive,
-		Cooldown: time.Duration(b.CooldownSeconds) * time.Second, Paused: b.Paused,
+		Cooldown: time.Duration(b.CooldownSeconds) * time.Second, Paused: b.Paused, CPULimit: b.CpuLimit,
 		RenderDuty: float64(b.RenderDuty), RenderChunks: b.RenderChunks,
 		PreviewScale: float64(b.PreviewScale), FinalScale: float64(b.FinalScale),
 	}
@@ -159,7 +159,7 @@ func profileToWire(p settingsdomain.Profile) gen.HostProfile {
 	}
 	return gen.HostProfile{
 		Name: p.Name, Concurrency: c, HeavyExclusive: p.HeavyExclusive, CooldownSeconds: int(p.Cooldown / time.Second),
-		Paused: p.Paused, RenderDuty: float32(p.RenderDuty), RenderChunks: p.RenderChunks,
+		Paused: p.Paused, CpuLimit: p.CPULimit, RenderDuty: float32(p.RenderDuty), RenderChunks: p.RenderChunks,
 		PreviewScale: float32(p.PreviewScale), FinalScale: float32(p.FinalScale),
 	}
 }

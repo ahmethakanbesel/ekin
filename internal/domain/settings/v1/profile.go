@@ -19,6 +19,9 @@ type Profile struct {
 	HeavyExclusive bool                    `json:"heavyExclusive"`
 	Cooldown       time.Duration           `json:"cooldown"`
 	Paused         bool                    `json:"paused"`
+	// CPULimit caps the job processes (agent, browser, encoder, speech)
+	// at this percent of the host's CPUs; 0 means no cap. Linux only.
+	CPULimit int `json:"cpuLimit"`
 	// RenderDuty is the share of wall time spent rendering (0.25 sleeps
 	// three frame-times after every frame).
 	RenderDuty   float64 `json:"renderDuty"`
@@ -26,6 +29,10 @@ type Profile struct {
 	PreviewScale float64 `json:"previewScale"`
 	FinalScale   float64 `json:"finalScale"`
 }
+
+// MinCPULimit is the lowest CPU limit, in percent: below it jobs barely
+// move and their timeouts start to bite.
+const MinCPULimit = 10
 
 var profileName = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,31}$`)
 
@@ -46,6 +53,8 @@ func (p Profile) Validate() error {
 	switch {
 	case p.Cooldown < 0 || p.Cooldown > time.Hour:
 		return fail("cooldown must be between 0 and 1 hour")
+	case p.CPULimit != 0 && (p.CPULimit < MinCPULimit || p.CPULimit > 100):
+		return fail("CPU limit must be 0 (none) or 10 to 100 percent")
 	case p.RenderDuty < 0.05 || p.RenderDuty > 1:
 		return fail("render duty must be between 0.05 and 1")
 	case p.RenderChunks < 1 || p.RenderChunks > 16:

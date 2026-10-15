@@ -1348,6 +1348,8 @@ export interface components {
             heavyExclusive: boolean;
             cooldownSeconds: number;
             paused: boolean;
+            /** @description Percent of the host's CPUs that job processes (agent, browser, encoder, speech) may use together; 0 means no limit, otherwise 10 to 100. Applied live on Linux hosts; the Kurgu server itself is never limited. */
+            cpuLimit: number;
             /** @description Share of time spent rendering; 0.25 renders four times slower to spare the CPU. */
             renderDuty: number;
             renderChunks: number;

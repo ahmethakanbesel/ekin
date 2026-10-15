@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 
 	"kurgu/internal/adapter/claude"
+	"kurgu/internal/adapter/cpulimit"
 	"kurgu/internal/adapter/openrouter"
 	"kurgu/internal/adapter/remote"
 	"kurgu/internal/adapter/render"
@@ -140,6 +141,10 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 	add("Chrome", chrome != "", map[bool]string{true: chrome, false: "not found; set KURGU_CHROME"}[chrome != ""])
 	_, okErr := os.Stat(filepath.Join(p.SpeechDir, "ema_say.py"))
 	add("Speech scripts", okErr == nil, p.SpeechDir)
+	add("CPU limit", cpulimit.Supported(), map[bool]string{
+		true:  "available: job processes follow the host profile's CPU limit",
+		false: "Linux only: the host profile's CPU limit has no effect on this OS",
+	}[cpulimit.Supported()])
 	add("Stock media (Pexels)", creds.PexelsAPIKey != "", map[bool]string{true: "API key set", false: "no Pexels key; compositions use no stock footage"}[creds.PexelsAPIKey != ""])
 	smtpOK := creds.SMTPHost != "" && creds.SMTPFrom != ""
 	add("Email (SMTP)", smtpOK, map[bool]string{true: creds.SMTPHost, false: "SMTP host / from not set; digests stay in the app"}[smtpOK])
@@ -197,6 +202,11 @@ func WorkRemote(ctx context.Context, cfg config.Config, log *slog.Logger) error 
 	profile.Refresh(ctx)
 	go profile.Run(ctx)
 	prod, err := newProduction(cfg, nil, profile.Profile, productionsvc.Deps{Log: log.With(slog.String("component", "production"))})
+	limiter := &cpulimit.Limiter{
+		Percent: func(ctx context.Context) int { return profile.Profile(ctx).CPULimit },
+		Changed: profile.Changed, Log: log.With(slog.String("component", "cpulimit")),
+	}
+	go limiter.Run(ctx)
 	if err != nil {
 		return err
 	}

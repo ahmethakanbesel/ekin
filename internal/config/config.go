@@ -111,6 +111,7 @@ type Worker struct {
 	HeavyExclusive bool
 	Cooldown       time.Duration
 	Paused         bool
+	CPULimit       int // percent of the host's CPUs for job processes; 0 = none
 	Lease          time.Duration
 }
 
@@ -237,6 +238,7 @@ func load(getenv func(string) string) (Config, error) {
 		FinalScale:    number("KURGU_RENDER_FINAL_SCALE", 1, 0.25, 2),
 		GPU:           boolean("KURGU_RENDER_GPU", false),
 	}
+	cfg.Worker.CPULimit = int(number("KURGU_CPU_LIMIT", 0, 0, 100))
 	cfg.Notify = Notify{
 		SMTPHost: str("KURGU_SMTP_HOST", ""), SMTPUser: str("KURGU_SMTP_USERNAME", ""),
 		SMTPPassword: str("KURGU_SMTP_PASSWORD", ""), SMTPFrom: str("KURGU_SMTP_FROM", ""),

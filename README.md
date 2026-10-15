@@ -36,7 +36,7 @@ its default.
 | Command | Runs |
 |---|---|
 | `kurgu serve` | API under `/api/v1`, embedded web UI, cron scheduler |
-| `kurgu worker` | Job runner, throttled by `KURGU_QUEUE_CONCURRENCY`, `KURGU_HEAVY_EXCLUSIVE`, `KURGU_HEAVY_COOLDOWN` |
+| `kurgu worker` | Job runner, throttled by `KURGU_QUEUE_CONCURRENCY`, `KURGU_HEAVY_EXCLUSIVE`, `KURGU_HEAVY_COOLDOWN`, `KURGU_CPU_LIMIT` |
 | `kurgu all` | Both, for a single machine |
 | `kurgu migrate up\|down\|status` | Schema migrations (also applied at start unless `KURGU_MIGRATE_ON_START=false`) |
 | `kurgu user create\|reset-password` | Accounts; the password comes from `KURGU_PASSWORD`, a prompt or stdin |
@@ -108,8 +108,10 @@ environment variables below, which remain the fallback.
 | Hybrid worker | Server: `KURGU_WORKER_TOKEN`. Mac: `KURGU_REMOTE_URL=… KURGU_WORKER_TOKEN=… kurgu worker` |
 
 Throttling lives in **host profiles** (System page, admins; the Jobs page has quick
-controls): per-queue concurrency, heavy exclusivity, cooldown, pause, render duty cycle,
-chunks and scales. A worker uses the profile named by `KURGU_WORKER_PROFILE`. The server's
+controls): per-queue concurrency, heavy exclusivity, cooldown, pause, CPU limit, render
+duty cycle, chunks and scales. The CPU limit (Linux) keeps the job processes (Claude Code,
+Chrome, ffmpeg, speech) under a percent of the host's CPUs by pausing them with SIGSTOP
+whenever they run over, as cpulimit(1) does; the Kurgu server itself is never paused. A worker uses the profile named by `KURGU_WORKER_PROFILE`. The server's
 own worker applies a save at once, waking slots that are idle or cooling down; a hybrid
 worker fetches its profile from the server every few seconds and keeps its own `KURGU_*`
 values until a profile of its name is saved. Running jobs finish; a pause stops new ones.

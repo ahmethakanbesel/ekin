@@ -1966,7 +1966,7 @@ components:
 
     HostProfile:
       type: object
-      required: [name, concurrency, heavyExclusive, cooldownSeconds, paused, renderDuty, renderChunks, previewScale, finalScale]
+      required: [name, concurrency, heavyExclusive, cooldownSeconds, paused, cpuLimit, renderDuty, renderChunks, previewScale, finalScale]
       properties:
         name: { type: string }
         concurrency:
@@ -1978,6 +1978,14 @@ components:
           description: Only one heavy job (agent, tts, render) at a time.
         cooldownSeconds: { type: integer, minimum: 0, maximum: 3600 }
         paused: { type: boolean }
+        cpuLimit:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: >-
+            Percent of the host's CPUs that job processes (agent, browser, encoder,
+            speech) may use together; 0 means no limit, otherwise 10 to 100. Applied
+            live on Linux hosts; the Kurgu server itself is never limited.
         renderDuty:
           type: number
           minimum: 0.05
