@@ -53,6 +53,7 @@ import {
   type Step,
 } from "./requests"
 import { JOB_STATUSES, parseStatusFilter, serializeStatusFilter } from "./search"
+import { PausedBanners, ThrottleControl, useThrottle } from "./throttle"
 
 const statusTone: Record<JobStatus, string> = {
   queued: "bg-secondary text-secondary-foreground",
@@ -103,6 +104,7 @@ export function JobsPage() {
   const documents = useQuery(documentsQuery(workspace.id))
   const now = useNow(5_000)
   const [cancelling, setCancelling] = useState<Job | null>(null)
+  const throttle = useThrottle() // admins only
   // Requests the viewer opened or closed; the rest are open while at work.
   const [folds, setFolds] = useState<Record<string, boolean>>({})
 
@@ -165,7 +167,12 @@ export function JobsPage() {
 
   return (
     <>
-      <PageHeader title={m.jobs.title} description={m.jobs.description} />
+      <PageHeader
+        title={m.jobs.title}
+        description={m.jobs.description}
+        actions={throttle ? <ThrottleControl throttle={throttle} /> : null}
+      />
+      {throttle ? <PausedBanners throttle={throttle} /> : null}
       <div className="mb-4 flex flex-wrap items-center gap-1.5">
         <div className="flex flex-wrap gap-1.5" role="group" aria-label={m.jobs.columns.status}>
           <Chip active={status.length === 0} onClick={() => setStatus([])}>

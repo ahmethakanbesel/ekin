@@ -107,9 +107,12 @@ environment variables below, which remain the fallback.
 | OpenSEO | An API key (`oseo_…`, from OpenSEO) under System → Credentials or `KURGU_OPENSEO_API_KEY`: refreshes call OpenSEO's endpoint directly (`research_keywords` per seed, `get_domain_keyword_suggestions` per competitor) and Kurgu ranks the results itself. Without a key, the worker host's Claude Code with the OpenSEO plugin connected does the refresh. |
 | Hybrid worker | Server: `KURGU_WORKER_TOKEN`. Mac: `KURGU_REMOTE_URL=… KURGU_WORKER_TOKEN=… kurgu worker` |
 
-Throttling lives in **host profiles** (System page, admins): per-queue concurrency, heavy
-exclusivity, cooldown, pause, render duty cycle, chunks and scales. A worker uses the
-profile named by `KURGU_WORKER_PROFILE` and picks up edits within 10 seconds.
+Throttling lives in **host profiles** (System page, admins; the Jobs page has quick
+controls): per-queue concurrency, heavy exclusivity, cooldown, pause, render duty cycle,
+chunks and scales. A worker uses the profile named by `KURGU_WORKER_PROFILE`. The server's
+own worker applies a save at once, waking slots that are idle or cooling down; a hybrid
+worker fetches its profile from the server every few seconds and keeps its own `KURGU_*`
+values until a profile of its name is saved. Running jobs finish; a pause stops new ones.
 
 ## Accounts
 
