@@ -13,10 +13,10 @@ func TestNormalizeHeadings(t *testing.T) {
 	got := knowledge.NormalizeHeadings([]knowledge.Heading{
 		{Level: 2, Title: "  1   Introduction ", Page: 3},
 		{Level: 3, Title: "Binary search", Page: 5},
-		{Level: 2, Title: "", Page: 9},            // no title
-		{Level: 2, Title: "Index", Page: 400},     // off the document
-		{Level: 2, Title: "Cover", Page: 0},       // no page
-		{Level: 9, Title: "Deep", Page: 6},        // capped
+		{Level: 2, Title: "", Page: 9},        // no title
+		{Level: 2, Title: "Index", Page: 400}, // off the document
+		{Level: 2, Title: "Cover", Page: 0},   // no page
+		{Level: 9, Title: "Deep", Page: 6},    // capped
 		{Level: 2, Title: "2 Sorting", Page: 12},
 	}, 100)
 	want := []knowledge.Heading{
