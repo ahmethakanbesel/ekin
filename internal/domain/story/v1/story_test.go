@@ -78,6 +78,9 @@ func TestVideoLifecycle(t *testing.T) {
 	if fb, err := s.StartDrafting(video.ID(), now); err != nil || fb != nil {
 		t.Fatalf("start = %v, %v", fb, err)
 	}
+	if _, err := s.StartDrafting(video.ID(), now); err != nil || video.Status() != story.StatusDrafting {
+		t.Fatalf("restart an interrupted draft = %s, %v", video.Status(), err)
+	}
 	rev, err := s.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k1"}, "sess-1", "", now)
 	if err != nil || rev.Number != 1 || video.Status() != story.StatusRendering || video.Session() != "sess-1" {
 		t.Fatalf("drafted = %+v %s %v", rev, video.Status(), err)

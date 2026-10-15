@@ -194,9 +194,11 @@ func (d *Deliverable) set(st Status, now time.Time) {
 }
 
 // StartDrafting hands a queued deliverable to the agent and returns the
-// feedback to address (nil for a first draft).
+// feedback to address (nil for a first draft). A deliverable already
+// drafting starts over: its draft was interrupted (the worker stopped)
+// and the job runs again.
 func (s *Story) StartDrafting(id uuid.UUID, now time.Time) (*Feedback, error) {
-	d, err := s.find(id, StatusQueued)
+	d, err := s.find(id, StatusQueued, StatusDrafting)
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@ package production_test
 
 import (
 	"context"
+	"errors"
 	"encoding/json"
 	"io"
 	"kurgu/internal/apperror"
@@ -52,12 +53,23 @@ type fakeAgent struct {
 	// seen holds article.md or narration/narration.txt as each draft
 	// found them, before writing.
 	seen []string
+	// stop, when set, is called by the next draft, which then fails as
+	// cut short: the worker stopping mid-draft.
+	stop func()
 }
 
-func (a *fakeAgent) Run(_ context.Context, req claude.Request) (claude.Result, error) {
+func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result, error) {
 	a.mu.Lock()
 	a.prompts = append(a.prompts, req)
+	stop := a.stop
+	if len(req.JSONSchema) == 0 {
+		a.stop = nil
+	}
 	a.mu.Unlock()
+	if stop != nil && len(req.JSONSchema) == 0 {
+		stop()
+		return claude.Result{}, ctx.Err()
+	}
 	if len(req.JSONSchema) > 0 {
 		var ideas []map[string]any
 		for _, t := range a.titles {
@@ -547,6 +559,56 @@ func TestEditArticleInPlace(t *testing.T) {
 	}
 	if _, err := f.svc.EditContent(ctx, f.ws, st.ID(), d.ID(), editor, production.Edit{Revision: 1, Article: &edited}); !apperror.Is(err, apperror.Conflict) {
 		t.Fatalf("stale edit: %v", err)
+	}
+}
+
+// A draft cut short by the worker stopping goes back to the runner as an
+// error, which releases the job; the next claim drafts again instead of
+// leaving the deliverable drafting with no job.
+func TestInterruptedDraftRunsAgain(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	article, _ := pipelinedomain.NewArticleSpec(900, nil)
+	outputs, _ := pipelinedomain.NewOutputs(nil, &article, "")
+	source, _ := pipelinedomain.NewPromptSource("Kaygı üzerine.")
+	p, err := f.pipelines.Create(ctx, f.ws, pipelinedomain.Definition{Name: "A", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.pipelines.RunNow(ctx, f.ws, p.ID(), 1)
+	claim := func(kind string) *jobdomain.Job {
+		j, err := f.jobs.Claim(ctx, jobdomain.Queues, []string{kind}, "test", time.Minute)
+		if err != nil || j == nil {
+			t.Fatalf("claim %s = %v, %v", kind, j, err)
+		}
+		return j
+	}
+	run := claim(pipelinesvc.KindRun)
+	var rp pipelinesvc.RunPayload
+	_ = json.Unmarshal(run.Payload(), &rp)
+	if err := f.svc.PlanRun(ctx, rp); err != nil {
+		t.Fatal(err)
+	}
+	_ = f.jobs.Complete(ctx, run.ID(), "test", nil)
+
+	draft := claim(production.KindDraft)
+	var dp production.DeliverablePayload
+	_ = json.Unmarshal(draft.Payload(), &dp)
+	jobCtx, stop := context.WithCancel(ctx)
+	defer stop()
+	f.agent.stop = stop
+	if err := f.svc.Draft(jobCtx, dp); !errors.Is(err, context.Canceled) {
+		t.Fatalf("interrupted draft returned %v, want the cancellation", err)
+	}
+	if d := f.story(t).Lead(); d.Status() != storydomain.StatusDrafting {
+		t.Fatalf("after the interruption the %s is %s", d.Kind(), d.Status())
+	}
+	if err := f.jobs.Release(ctx, draft.ID(), "test"); err != nil {
+		t.Fatal(err)
+	}
+	f.drain(t)
+	if d := f.story(t).Lead(); d.Status() != storydomain.StatusReview || d.Revision() != 1 {
+		t.Fatalf("after the rerun: %s r%d", d.Status(), d.Revision())
 	}
 }
 

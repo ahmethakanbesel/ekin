@@ -93,8 +93,7 @@ func (s *Service) Draft(ctx context.Context, p DeliverablePayload) error {
 	}
 	res, err := s.RunDraft(ctx, task, dir)
 	if err != nil {
-		s.FailStep(ctx, p, err)
-		return nil
+		return s.stepFailed(ctx, p, err)
 	}
 	return s.FinishDraft(ctx, task, dir, res)
 }
@@ -118,13 +117,11 @@ func (s *Service) BeginDraft(ctx context.Context, p DeliverablePayload) (DraftTa
 	d, _ := st.Deliverable(p.DeliverableID)
 	dir := s.workDir(d)
 	if err := s.ensureWorkDir(ctx, d, dir); err != nil {
-		s.FailStep(ctx, p, err)
-		return DraftTask{}, "", nil
+		return DraftTask{}, "", s.stepFailed(ctx, p, err)
 	}
 	t, err := s.prepare(ctx, st, d, dir)
 	if err != nil {
-		s.FailStep(ctx, p, err)
-		return DraftTask{}, "", nil
+		return DraftTask{}, "", s.stepFailed(ctx, p, err)
 	}
 	task := DraftTask{
 		Payload: p, Spec: t.spec, Video: d.IsVideo(), Translation: d.Role() == storydomain.RoleTranslation,
@@ -208,8 +205,7 @@ func (s *Service) FinishDraft(ctx context.Context, task DraftTask, dir string, r
 	}
 	artifacts, err := s.archive(ctx, st, d, dir)
 	if err != nil {
-		s.FailStep(ctx, p, err)
-		return nil
+		return s.stepFailed(ctx, p, err)
 	}
 	var rev storydomain.Revision
 	st, err = s.mutate(ctx, p.StoryID, func(ctx context.Context, st *storydomain.Story) error {
@@ -231,6 +227,18 @@ func (s *Service) FinishDraft(ctx context.Context, task DraftTask, dir string, r
 		s.notify(ctx, Event{WorkspaceID: st.WorkspaceID(), StoryID: st.ID(), Kind: "review", Title: st.Idea().Title,
 			Detail: fmt.Sprintf("%s revision %d is ready for review", d.Kind(), rev.Number)})
 	}
+	return nil
+}
+
+// stepFailed ends a job whose step failed. When ctx ended (the worker
+// is stopping) the step did not fail, it was cut short: the error goes
+// back to the runner, which releases the job to run again. Otherwise the
+// deliverable is marked failed and the job is done.
+func (s *Service) stepFailed(ctx context.Context, p DeliverablePayload, cause error) error {
+	if ctx.Err() != nil {
+		return cause
+	}
+	s.FailStep(ctx, p, cause)
 	return nil
 }
 

@@ -41,8 +41,7 @@ func (s *Service) Render(ctx context.Context, p DeliverablePayload) error {
 	defer func() { _ = os.RemoveAll(out) }()
 	files, err := s.RunRender(ctx, task, dir, out)
 	if err != nil {
-		s.FailStep(ctx, p, err)
-		return nil
+		return s.stepFailed(ctx, p, err)
 	}
 	return s.FinishRender(ctx, task, files)
 }
@@ -70,8 +69,7 @@ func (s *Service) BeginRender(ctx context.Context, p DeliverablePayload) (Render
 	}
 	dir := s.workDir(d)
 	if err := s.ensureWorkDir(ctx, d, dir); err != nil {
-		s.FailStep(ctx, p, err)
-		return RenderTask{}, "", nil
+		return RenderTask{}, "", s.stepFailed(ctx, p, err)
 	}
 	return RenderTask{Payload: p, Revision: d.Revision()}, dir, nil
 }
