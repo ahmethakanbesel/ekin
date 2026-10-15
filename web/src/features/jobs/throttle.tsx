@@ -211,7 +211,7 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
         ) : null}
 
         <CpuLimit
-          key={`${profile.name}:${profile.cpuLimit}`}
+          key={`cpu:${profile.name}:${profile.cpuLimit}`}
           percent={profile.cpuLimit}
           onChange={(pct) => set((p) => ({ ...p, cpuLimit: pct }))}
         />
@@ -237,7 +237,7 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
         </div>
 
         <Cooldown
-          key={`${profile.name}:${profile.cooldownSeconds}`}
+          key={`cooldown:${profile.name}:${profile.cooldownSeconds}`}
           seconds={profile.cooldownSeconds}
           disabled={!profile.heavyExclusive}
           onChange={(s) => set((p) => ({ ...p, cooldownSeconds: s }))}
