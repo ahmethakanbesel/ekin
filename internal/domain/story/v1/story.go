@@ -135,6 +135,9 @@ type Brief struct {
 	// Keyword is the search term an SEO-sourced story targets.
 	Keyword       string    `json:"keyword,omitempty"`
 	OpportunityID uuid.UUID `json:"opportunityId,omitempty"`
+	// SelfReview is the most rounds a fresh agent reviews each draft and
+	// the author fixes what it found; 0 for none.
+	SelfReview int `json:"selfReview,omitempty"`
 }
 
 // TemplateStyle is a copy of a template's style.

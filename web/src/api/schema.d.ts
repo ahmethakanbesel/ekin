@@ -1317,6 +1317,8 @@ export interface components {
              */
             templateId?: string;
             voice?: components["schemas"]["VoiceOverride"];
+            /** @description Rounds of self-review per draft, at most: a fresh agent reviews the draft and the author fixes what it reports, until it passes or the rounds run out. 0 turns it off; omitted means 1. */
+            selfReviewRounds?: number;
         };
         SystemCheck: {
             name: string;
@@ -1707,6 +1709,8 @@ export interface components {
              */
             templateId?: string;
             voice?: components["schemas"]["VoiceOverride"];
+            /** @description Rounds of self-review per draft, at most: a fresh agent reviews the draft and the author fixes what it reports, until it passes or the rounds run out. 0 turns it off; omitted means 1. */
+            selfReviewRounds?: number;
         };
         Pipeline: {
             /** Format: uuid */

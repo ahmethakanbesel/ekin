@@ -56,6 +56,11 @@ type fakeAgent struct {
 	// stop, when set, is called by the next draft, which then fails as
 	// cut short: the worker stopping mid-draft.
 	stop func()
+	// verdicts are the editor's answers to self-review requests, in
+	// order; when they run out the editor passes. reviewErr fails them.
+	verdicts  []string
+	reviewErr error
+	reviews   []claude.Request
 }
 
 func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result, error) {
@@ -69,6 +74,19 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 	if stop != nil && len(req.JSONSchema) == 0 {
 		stop()
 		return claude.Result{}, ctx.Err()
+	}
+	if strings.Contains(string(req.JSONSchema), `"verdict"`) {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		a.reviews = append(a.reviews, req)
+		if a.reviewErr != nil {
+			return claude.Result{}, a.reviewErr
+		}
+		answer := `{"verdict":"pass","issues":[]}`
+		if len(a.verdicts) > 0 {
+			answer, a.verdicts = a.verdicts[0], a.verdicts[1:]
+		}
+		return claude.Result{SessionID: "editor", Structured: json.RawMessage(answer)}, nil
 	}
 	if len(req.JSONSchema) > 0 {
 		var ideas []map[string]any
@@ -635,6 +653,101 @@ func TestStepsJoinTheirRequest(t *testing.T) {
 		if j.TraceID() != root.ID() {
 			t.Errorf("%s is in trace %s, want %s", j.Kind(), j.TraceID(), root.ID())
 		}
+	}
+}
+
+// selfReviewFixture runs an article pipeline with the given rounds and
+// returns the story's lead after drafting.
+func selfReviewFixture(t *testing.T, rounds int, setup func(*fakeAgent)) (fixture, *storydomain.Story) {
+	t.Helper()
+	ctx := context.Background()
+	f := newFixture(t)
+	setup(f.agent)
+	article, _ := pipelinedomain.NewArticleSpec(900, nil)
+	outputs, _ := pipelinedomain.NewOutputs(nil, &article, "")
+	source, _ := pipelinedomain.NewPromptSource("Kaygı üzerine.")
+	p, err := f.pipelines.Create(ctx, f.ws, pipelinedomain.Definition{
+		Name: "A", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source, SelfReview: rounds,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.pipelines.RunNow(ctx, f.ws, p.ID(), 1)
+	f.drain(t)
+	return f, f.story(t)
+}
+
+func lastNotes(t *testing.T, f fixture, st *storydomain.Story) string {
+	t.Helper()
+	revs, err := f.svc.Revisions(context.Background(), f.ws, st.ID(), st.Lead().ID())
+	if err != nil || len(revs) == 0 {
+		t.Fatalf("revisions = %d, %v", len(revs), err)
+	}
+	return revs[len(revs)-1].Notes
+}
+
+const reviseOnce = `{"verdict":"revise","summary":"Giriş uzun.","issues":[` +
+	`{"file":"article.md","passage":"Kaygı ile ilgili","problem":"The opening repeats itself.","fix":"Cut the second sentence."}]}`
+
+// A fresh, read-only editor reviews the draft; the author fixes what it
+// reports and the next round passes.
+func TestSelfReviewSendsIssuesBackToTheAuthor(t *testing.T) {
+	f, st := selfReviewFixture(t, 2, func(a *fakeAgent) { a.verdicts = []string{reviseOnce} })
+	if d := st.Lead(); d.Status() != storydomain.StatusReview || d.Revision() != 1 {
+		t.Fatalf("lead = %s r%d", d.Status(), d.Revision())
+	}
+	if len(f.agent.reviews) != 2 {
+		t.Fatalf("editor ran %d times, want 2", len(f.agent.reviews))
+	}
+	for _, r := range f.agent.reviews {
+		if r.Resume != "" || strings.Join(r.Tools, ",") != "Read,Glob,Grep" || !strings.Contains(r.Prompt, "WRITING.md") {
+			t.Fatalf("editor request = resume %q tools %v", r.Resume, r.Tools)
+		}
+	}
+	var fix *claude.Request
+	for i := range f.agent.prompts {
+		if strings.Contains(f.agent.prompts[i].Prompt, "self-review round 1") {
+			fix = &f.agent.prompts[i]
+		}
+	}
+	if fix == nil || fix.Resume == "" || !strings.Contains(fix.Prompt, "Cut the second sentence.") {
+		t.Fatalf("fix turn = %+v", fix)
+	}
+	notes := lastNotes(t, f, st)
+	for _, want := range []string{"Round 1: 1 to fix. Giriş uzun.", "article.md: The opening repeats itself.", "Round 2: passed."} {
+		if !strings.Contains(notes, want) {
+			t.Errorf("notes lack %q:\n%s", want, notes)
+		}
+	}
+}
+
+// The rounds are a limit: an editor that never passes gets one review
+// per round, and the notes say the last fixes went unreviewed.
+func TestSelfReviewStopsAtTheRoundLimit(t *testing.T) {
+	f, st := selfReviewFixture(t, 1, func(a *fakeAgent) { a.verdicts = []string{reviseOnce, reviseOnce, reviseOnce} })
+	if len(f.agent.reviews) != 1 {
+		t.Fatalf("editor ran %d times, want 1", len(f.agent.reviews))
+	}
+	if notes := lastNotes(t, f, st); !strings.Contains(notes, "Round limit reached") {
+		t.Fatalf("notes = %s", notes)
+	}
+	if st.Lead().Status() != storydomain.StatusReview {
+		t.Fatalf("lead = %s", st.Lead().Status())
+	}
+}
+
+func TestSelfReviewOffAndFailing(t *testing.T) {
+	f, _ := selfReviewFixture(t, 0, func(*fakeAgent) {})
+	if len(f.agent.reviews) != 0 {
+		t.Fatalf("editor ran %d times with self-review off", len(f.agent.reviews))
+	}
+	// An editor that cannot run does not fail the draft.
+	f, st := selfReviewFixture(t, 2, func(a *fakeAgent) { a.reviewErr = errors.New("rate limited") })
+	if st.Lead().Status() != storydomain.StatusReview {
+		t.Fatalf("lead = %s: %s", st.Lead().Status(), st.Lead().Failure())
+	}
+	if notes := lastNotes(t, f, st); !strings.Contains(notes, "Round 1 could not run: rate limited") {
+		t.Fatalf("notes = %s", notes)
 	}
 }
 

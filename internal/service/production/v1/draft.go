@@ -77,6 +77,8 @@ type DraftTask struct {
 	Revision    int                   `json:"revision"` // before this draft
 	Resume      string                `json:"resume,omitempty"`
 	Feedback    *storydomain.Feedback `json:"feedback,omitempty"`
+	// SelfReview is the most self-review rounds (story brief); 0 for none.
+	SelfReview int `json:"selfReview,omitempty"`
 }
 
 // DraftResult is what the agent produced besides files.
@@ -125,7 +127,7 @@ func (s *Service) BeginDraft(ctx context.Context, p DeliverablePayload) (DraftTa
 	}
 	task := DraftTask{
 		Payload: p, Spec: t.spec, Video: d.IsVideo(), Translation: d.Role() == storydomain.RoleTranslation,
-		Revision: d.Revision(), Feedback: feedback,
+		Revision: d.Revision(), Feedback: feedback, SelfReview: st.Brief().SelfReview,
 	}
 	if t.article != nil {
 		task.TargetWords = t.article.Words()
@@ -167,28 +169,57 @@ func (s *Service) RunDraft(ctx context.Context, task DraftTask, dir string) (Dra
 	if err != nil {
 		return DraftResult{}, err
 	}
-	session := res.SessionID
+	a := author{req: req, session: res.SessionID, reply: res.Text}
+	if err := s.settle(ctx, task, dir, &a); err != nil {
+		return DraftResult{}, err
+	}
+	notes := strings.TrimSpace(a.reply)
+	review, err := s.selfReview(ctx, task, dir, &a)
+	if err != nil {
+		return DraftResult{}, err
+	}
+	return DraftResult{Session: a.session, Notes: strings.TrimSpace(notes + review)}, nil
+}
+
+// author is the drafting session, which later turns resume.
+type author struct {
+	req     claude.Request // the first turn's tools and environment
+	session string
+	reply   string // the latest reply
+}
+
+// turn resumes the author with prompt.
+func (s *Service) turn(ctx context.Context, a *author, prompt string) error {
+	res, err := s.agent.Run(ctx, claude.Request{
+		Dir: a.req.Dir, Tools: a.req.Tools, Allowed: a.req.Allowed, Timeout: s.cfg.AgentTimeout, Resume: a.session,
+		Env: a.req.Env, Prompt: prompt,
+	})
+	if err != nil {
+		return err
+	}
+	if res.SessionID != "" {
+		a.session = res.SessionID
+	}
+	a.reply = res.Text
+	return nil
+}
+
+// settle sends Kurgu's own check failures back to the author until the
+// output passes, at most FixAttempts times.
+func (s *Service) settle(ctx context.Context, task DraftTask, dir string, a *author) error {
 	for attempt := 0; ; attempt++ {
 		problems := s.validate(ctx, task, dir)
 		if len(problems) == 0 {
-			break
+			return nil
 		}
 		if attempt >= s.cfg.FixAttempts {
-			return DraftResult{}, fmt.Errorf("output still invalid after %d fixes: %s", attempt, strings.Join(problems, "; "))
+			return fmt.Errorf("output still invalid after %d fixes: %s", attempt, strings.Join(problems, "; "))
 		}
-		res, err = s.agent.Run(ctx, claude.Request{
-			Dir: dir, Tools: req.Tools, Allowed: req.Allowed, Timeout: s.cfg.AgentTimeout, Resume: session, Env: req.Env,
-			Prompt: "Kurgu's own check of your output failed:\n\n- " + strings.Join(problems, "\n- ") +
-				"\n\nFix every item, check again, and reply when done.",
-		})
-		if err != nil {
-			return DraftResult{}, err
-		}
-		if res.SessionID != "" {
-			session = res.SessionID
+		if err := s.turn(ctx, a, "Kurgu's own check of your output failed:\n\n- "+strings.Join(problems, "\n- ")+
+			"\n\nFix every item, check again, and reply when done."); err != nil {
+			return err
 		}
 	}
-	return DraftResult{Session: session, Notes: strings.TrimSpace(res.Text)}, nil
 }
 
 // FinishDraft archives dir as the next revision and moves the

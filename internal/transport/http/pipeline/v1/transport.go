@@ -33,6 +33,7 @@ func parseDefinition(in gen.PipelineDefinition) (pipelinedomain.Definition, erro
 		def.TemplateID = *in.TemplateId
 	}
 	def.Voice = voicehandler.OverrideOf(in.Voice)
+	def.SelfReview = SelfReviewOf(in.SelfReviewRounds)
 	if in.Schedule != nil {
 		loc, err := workspacedomain.ParseTimezone(in.Schedule.Timezone)
 		if err != nil {
@@ -177,7 +178,17 @@ func definitionToWire(p *pipelinedomain.Pipeline) gen.PipelineDefinition {
 		def.TemplateId = &tid
 	}
 	def.Voice = voicehandler.OverrideToWire(p.Voice())
+	rounds := p.SelfReview()
+	def.SelfReviewRounds = &rounds
 	return def
+}
+
+// SelfReviewOf reads selfReviewRounds, which defaults to one round.
+func SelfReviewOf(rounds *int) int {
+	if rounds == nil {
+		return pipelinedomain.DefaultSelfReview
+	}
+	return *rounds
 }
 
 func optTime(t time.Time) *time.Time {

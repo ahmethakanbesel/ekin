@@ -105,6 +105,7 @@ func (h *Handler) CreateStories(ctx context.Context, req gen.CreateStoriesReques
 		in.TemplateID = *req.Body.TemplateId
 	}
 	in.Voice = voicehandler.OverrideOf(req.Body.Voice)
+	in.SelfReview = pipelinehandler.SelfReviewOf(req.Body.SelfReviewRounds)
 	if req.Body.Style != nil {
 		in.Style = *req.Body.Style
 	}

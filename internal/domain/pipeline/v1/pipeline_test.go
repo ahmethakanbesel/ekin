@@ -79,6 +79,8 @@ func TestDefinitionRules(t *testing.T) {
 			a, _ := pipeline.NewArticleSpec(1000, []pipeline.Language{pipeline.Turkish})
 			d.Outputs, _ = pipeline.NewOutputs(nil, &a, "")
 		}},
+		{"too many self-review rounds", func(d *pipeline.Definition) { d.SelfReview = pipeline.MaxSelfReview + 1 }},
+		{"negative self-review rounds", func(d *pipeline.Definition) { d.SelfReview = -1 }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -241,6 +243,7 @@ func TestSnapshotRoundTrip(t *testing.T) {
 	def := definition(t, nightly(t, 3))
 	def.Source = source
 	def.Outputs = outputs
+	def.SelfReview = 3
 	p, err := pipeline.New(uuid.New(), uuid.New(), def, t0)
 	if err != nil {
 		t.Fatal(err)

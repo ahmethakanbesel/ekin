@@ -1931,6 +1931,14 @@ components:
           format: uuid
           description: House style for the stories.
         voice: { $ref: "#/components/schemas/VoiceOverride" }
+        selfReviewRounds:
+          type: integer
+          minimum: 0
+          maximum: 5
+          description: >-
+            Rounds of self-review per draft, at most: a fresh agent reviews the
+            draft and the author fixes what it reports, until it passes or the
+            rounds run out. 0 turns it off; omitted means 1.
 
     SystemCheck:
       type: object
@@ -2463,6 +2471,14 @@ components:
           format: uuid
           description: House style for this pipeline's stories.
         voice: { $ref: "#/components/schemas/VoiceOverride" }
+        selfReviewRounds:
+          type: integer
+          minimum: 0
+          maximum: 5
+          description: >-
+            Rounds of self-review per draft, at most: a fresh agent reviews the
+            draft and the author fixes what it reports, until it passes or the
+            rounds run out. 0 turns it off; omitted means 1.
 
     Pipeline:
       type: object
