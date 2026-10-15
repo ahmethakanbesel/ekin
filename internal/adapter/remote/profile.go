@@ -87,7 +87,7 @@ func (w *ProfileWatcher) Profile(context.Context) settingsdomain.Profile {
 // Throttle adapts the profile to the job runner.
 func (w *ProfileWatcher) Throttle(ctx context.Context) jobsvc.Throttle {
 	p := w.Profile(ctx)
-	return jobsvc.Throttle{Concurrency: p.Concurrency, HeavyExclusive: p.HeavyExclusive, Cooldown: p.Cooldown, Paused: p.Paused}
+	return jobsvc.Throttle{Concurrency: p.Concurrency, HeavyExclusive: p.HeavyExclusive, Heavy: p.HeavyQueues, Cooldown: p.Cooldown, Paused: p.Paused}
 }
 
 // Changed returns a channel closed at the next change.

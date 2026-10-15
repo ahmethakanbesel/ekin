@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -43,11 +44,13 @@ func ParseQueue(s string) (Queue, error) {
 	return "", apperror.New(apperror.ValidationFailed, "unknown queue")
 }
 
-// Heavy reports whether jobs on q load the CPU enough that a host may
-// run only one heavy job at a time.
-func (q Queue) Heavy() bool {
-	return q == QueueAgent || q == QueueTTS || q == QueueRender
-}
+// DefaultHeavy lists the queues whose jobs load the CPU enough that a
+// host may run only one of them at a time, unless its profile says
+// otherwise.
+var DefaultHeavy = []Queue{QueueAgent, QueueTTS, QueueRender}
+
+// Heavy reports whether q is heavy by default.
+func (q Queue) Heavy() bool { return slices.Contains(DefaultHeavy, q) }
 
 // Status is a job's lifecycle state.
 type Status string

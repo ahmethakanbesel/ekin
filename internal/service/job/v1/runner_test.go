@@ -127,10 +127,14 @@ func TestRunnerHeavyExclusivity(t *testing.T) {
 	tests := []struct {
 		name      string
 		exclusive bool
+		heavy     []jobdomain.Queue
 		wantMax   int32
 	}{
-		{"exclusive runs one heavy job at a time", true, 1},
-		{"non-exclusive overlaps heavy queues", false, 2},
+		{"exclusive runs one heavy job at a time", true, nil, 1},
+		{"non-exclusive overlaps heavy queues", false, nil, 2},
+		{"a draft runs beside a render when agent is not heavy", true, []jobdomain.Queue{jobdomain.QueueTTS, jobdomain.QueueRender}, 2},
+		{"listed heavy queues stay exclusive", true, []jobdomain.Queue{jobdomain.QueueAgent, jobdomain.QueueRender}, 1},
+		{"no heavy queue overlaps everything", true, []jobdomain.Queue{}, 2},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -161,7 +165,7 @@ func TestRunnerHeavyExclusivity(t *testing.T) {
 			render := f.enqueue(t, jobdomain.QueueRender, "render")
 			throttle := jobsvc.Throttle{
 				Concurrency:    map[jobdomain.Queue]int{jobdomain.QueueAgent: 1, jobdomain.QueueRender: 1},
-				HeavyExclusive: tt.exclusive,
+				HeavyExclusive: tt.exclusive, Heavy: tt.heavy,
 			}
 			startRunner(t, f, throttle, time.Minute, func(r *jobsvc.Runner) {
 				r.Register("agent", work)

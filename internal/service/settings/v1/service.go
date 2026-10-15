@@ -264,6 +264,6 @@ func (s *Service) Cached(ctx context.Context, name string) settingsdomain.Profil
 func (s *Service) ThrottleSource(name string) func(ctx context.Context) jobsvc.Throttle {
 	return func(ctx context.Context) jobsvc.Throttle {
 		p := s.Cached(ctx, name)
-		return jobsvc.Throttle{Concurrency: p.Concurrency, HeavyExclusive: p.HeavyExclusive, Cooldown: p.Cooldown, Paused: p.Paused}
+		return jobsvc.Throttle{Concurrency: p.Concurrency, HeavyExclusive: p.HeavyExclusive, Heavy: p.HeavyQueues, Cooldown: p.Cooldown, Paused: p.Paused}
 	}
 }

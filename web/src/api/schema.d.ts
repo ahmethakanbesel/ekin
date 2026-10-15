@@ -1346,8 +1346,12 @@ export interface components {
             concurrency: {
                 [key: string]: number;
             };
-            /** @description Only one heavy job (agent, tts, render) at a time. */
+            /** @description Only one job of the heavy queues at a time. */
             heavyExclusive: boolean;
+            /** @description The queues heavyExclusive covers. Always set in responses; omitted on save means the default (agent, tts, render). */
+            heavyQueues?: ("control" | "agent" | "tts" | "render" | "extract" | "io")[];
+            /** @description Scheduling priority of the job processes, 0 (normal) to 19 (lowest), so the host's own work comes first. Applied live; the Kurgu server keeps its priority. */
+            nice?: number;
             cooldownSeconds: number;
             paused: boolean;
             /** @description Percent of the host's CPUs that job processes (agent, browser, encoder, speech) may use together; 0 means no limit, otherwise 10 to 100. Applied live on Linux hosts; the Kurgu server itself is never limited. */

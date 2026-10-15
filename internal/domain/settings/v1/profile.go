@@ -6,6 +6,7 @@ package settings
 
 import (
 	"regexp"
+	"slices"
 	"time"
 
 	"kurgu/internal/apperror"
@@ -17,17 +18,36 @@ type Profile struct {
 	Name           string                  `json:"name"`
 	Concurrency    map[jobdomain.Queue]int `json:"concurrency"`
 	HeavyExclusive bool                    `json:"heavyExclusive"`
-	Cooldown       time.Duration           `json:"cooldown"`
-	Paused         bool                    `json:"paused"`
+	// HeavyQueues are the queues HeavyExclusive runs one job at a time
+	// across; nil means jobdomain.DefaultHeavy. A Mac can drop agent:
+	// a draft mostly waits on Claude and barely uses the CPU.
+	HeavyQueues []jobdomain.Queue `json:"heavyQueues"`
+	Cooldown    time.Duration     `json:"cooldown"`
+	Paused      bool              `json:"paused"`
 	// CPULimit caps the job processes (agent, browser, encoder, speech)
 	// at this percent of the host's CPUs; 0 means no cap. Linux only.
 	CPULimit int `json:"cpuLimit"`
+	// Nice is the scheduling priority (0 normal to 19 lowest) of the job
+	// processes, so the host's own work comes first; the Kurgu server
+	// keeps its priority.
+	Nice int `json:"nice"`
 	// RenderDuty is the share of wall time spent rendering (0.25 sleeps
 	// three frame-times after every frame).
 	RenderDuty   float64 `json:"renderDuty"`
 	RenderChunks int     `json:"renderChunks"`
 	PreviewScale float64 `json:"previewScale"`
 	FinalScale   float64 `json:"finalScale"`
+}
+
+// MaxNice is the lowest scheduling priority.
+const MaxNice = 19
+
+// Heavy returns the heavy queues in effect.
+func (p Profile) Heavy() []jobdomain.Queue {
+	if p.HeavyQueues == nil {
+		return slices.Clone(jobdomain.DefaultHeavy)
+	}
+	return slices.Clone(p.HeavyQueues)
 }
 
 // MinCPULimit is the lowest CPU limit, in percent: below it jobs barely
@@ -50,7 +70,14 @@ func (p Profile) Validate() error {
 			return fail("queue concurrency must be 0 to 8")
 		}
 	}
+	for _, q := range p.HeavyQueues {
+		if _, err := jobdomain.ParseQueue(string(q)); err != nil {
+			return fail("unknown heavy queue " + string(q))
+		}
+	}
 	switch {
+	case p.Nice < 0 || p.Nice > MaxNice:
+		return fail("priority (nice) must be 0 to 19")
 	case p.Cooldown < 0 || p.Cooldown > time.Hour:
 		return fail("cooldown must be between 0 and 1 hour")
 	case p.CPULimit != 0 && (p.CPULimit < MinCPULimit || p.CPULimit > 100):

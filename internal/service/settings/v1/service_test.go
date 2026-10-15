@@ -3,6 +3,7 @@ package settings_test
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -71,6 +72,35 @@ func TestProfiles(t *testing.T) {
 	}
 	if got, _ := svc.Profile(ctx, "vps"); got.CPULimit != 50 {
 		t.Fatalf("stored cpu limit = %d", got.CPULimit)
+	}
+	if got, _ := svc.Profile(ctx, "vps"); got.HeavyQueues != nil || !slices.Equal(got.Heavy(), jobdomain.DefaultHeavy) {
+		t.Fatalf("unset heavy queues = %v, effective %v", got.HeavyQueues, got.Heavy())
+	}
+	for _, n := range []int{-1, 20} {
+		bad = p
+		bad.Nice = n
+		if _, err := svc.SaveProfile(ctx, bad, id.New()); !apperror.Is(err, apperror.ValidationFailed) {
+			t.Fatalf("nice %d = %v", n, err)
+		}
+	}
+	bad = p
+	bad.HeavyQueues = []jobdomain.Queue{"gpu"}
+	if _, err := svc.SaveProfile(ctx, bad, id.New()); !apperror.Is(err, apperror.ValidationFailed) {
+		t.Fatalf("bad heavy queue = %v", err)
+	}
+	for _, heavy := range [][]jobdomain.Queue{{jobdomain.QueueTTS, jobdomain.QueueRender}, {}} {
+		tuned := limited
+		tuned.HeavyQueues, tuned.Nice = heavy, 10
+		if _, err := svc.SaveProfile(ctx, tuned, id.New()); err != nil {
+			t.Fatalf("heavy %v = %v", heavy, err)
+		}
+		got, _ := svc.Profile(ctx, "vps")
+		if got.Nice != 10 || got.HeavyQueues == nil || !slices.Equal(got.HeavyQueues, heavy) {
+			t.Fatalf("stored nice %d, heavy %v; want 10, %v", got.Nice, got.HeavyQueues, heavy)
+		}
+		if th := svc.ThrottleSource("vps")(ctx); th.Heavy == nil || !slices.Equal(th.Heavy, heavy) {
+			t.Fatalf("throttle heavy = %v, want %v", th.Heavy, heavy)
+		}
 	}
 	changed = svc.Changed()
 	bad = p

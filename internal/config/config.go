@@ -111,7 +111,9 @@ type Worker struct {
 	HeavyExclusive bool
 	Cooldown       time.Duration
 	Paused         bool
-	CPULimit       int // percent of the host's CPUs for job processes; 0 = none
+	CPULimit       int               // percent of the host's CPUs for job processes; 0 = none
+	HeavyQueues    []jobdomain.Queue // nil = jobdomain.DefaultHeavy
+	Nice           int               // job processes' priority, 0 (normal) to 19
 	Lease          time.Duration
 }
 
@@ -239,6 +241,7 @@ func load(getenv func(string) string) (Config, error) {
 		GPU:           boolean("KURGU_RENDER_GPU", false),
 	}
 	cfg.Worker.CPULimit = int(number("KURGU_CPU_LIMIT", 0, 0, 100))
+	cfg.Worker.Nice = int(number("KURGU_NICE", 0, 0, 19))
 	cfg.Notify = Notify{
 		SMTPHost: str("KURGU_SMTP_HOST", ""), SMTPUser: str("KURGU_SMTP_USERNAME", ""),
 		SMTPPassword: str("KURGU_SMTP_PASSWORD", ""), SMTPFrom: str("KURGU_SMTP_FROM", ""),
@@ -268,6 +271,13 @@ func load(getenv func(string) string) (Config, error) {
 		errs = append(errs, "KURGU_QUEUE_CONCURRENCY: "+err.Error())
 	}
 	cfg.Worker.Concurrency = concurrency
+	if raw := strings.TrimSpace(getenv("KURGU_HEAVY_QUEUES")); raw != "" {
+		heavy, err := ParseQueues(raw)
+		if err != nil {
+			errs = append(errs, "KURGU_HEAVY_QUEUES: "+err.Error())
+		}
+		cfg.Worker.HeavyQueues = heavy
+	}
 	if cfg.SchedulerTick < time.Second {
 		errs = append(errs, "KURGU_SCHEDULER_TICK: must be at least 1s")
 	}
@@ -284,6 +294,25 @@ func load(getenv func(string) string) (Config, error) {
 		return Config{}, fmt.Errorf("invalid configuration:\n  %s", strings.Join(errs, "\n  "))
 	}
 	return cfg, nil
+}
+
+// ParseQueues parses "queue,queue"; "none" is no queue.
+func ParseQueues(raw string) ([]jobdomain.Queue, error) {
+	out := []jobdomain.Queue{}
+	if strings.TrimSpace(raw) == "none" {
+		return out, nil
+	}
+	for part := range strings.SplitSeq(raw, ",") {
+		if part = strings.TrimSpace(part); part == "" {
+			continue
+		}
+		q, err := jobdomain.ParseQueue(part)
+		if err != nil {
+			return nil, fmt.Errorf("%q: unknown queue", part)
+		}
+		out = append(out, q)
+	}
+	return out, nil
 }
 
 // ParseConcurrency parses "queue=n,queue=n". Queues not listed get 0, so

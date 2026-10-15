@@ -5,6 +5,7 @@ package cpulimit
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"syscall"
 )
 
@@ -26,7 +27,10 @@ func newSampler() *sampler {
 	return &sampler{self: os.Getpid(), last: map[int]uint64{}, stopped: map[int]bool{}}
 }
 
-func (s *sampler) procs() []procStat {
+func (s *sampler) procs() []procStat { return jobProcs(s.self) }
+
+// jobProcs returns the processes below root, with their CPU time.
+func jobProcs(root int) []procStat {
 	paths, _ := filepath.Glob("/proc/[0-9]*/stat")
 	out := make([]procStat, 0, len(paths))
 	for _, p := range paths {
@@ -38,8 +42,22 @@ func (s *sampler) procs() []procStat {
 			out = append(out, st)
 		}
 	}
-	return descendants(out, s.self)
+	return descendants(out, root)
 }
+
+// renice sets every thread of pid to nice n: on Linux the priority is
+// per thread, and threads started before keep theirs.
+func renice(pid, n int) {
+	tids, _ := filepath.Glob("/proc/" + strconv.Itoa(pid) + "/task/[0-9]*")
+	for _, t := range tids {
+		if tid, err := strconv.Atoi(filepath.Base(t)); err == nil {
+			_ = syscall.Setpriority(syscall.PRIO_PROCESS, tid, n) // fails only for a higher priority or a gone thread
+		}
+	}
+}
+
+// NiceSupported reports whether this OS can lower job processes' priority.
+func NiceSupported() bool { return true }
 
 // sample returns the CPU seconds the job processes used since the last
 // sample. A process first seen counts its whole run so far: it started

@@ -25,13 +25,23 @@ type Throttle struct {
 	// Concurrency per queue; a missing or zero entry means this host does
 	// not serve that queue.
 	Concurrency map[jobdomain.Queue]int
-	// HeavyExclusive lets only one heavy job (agent, tts, render) run at a
-	// time on this host, whatever the per-queue concurrency.
+	// HeavyExclusive lets only one heavy job run at a time on this host,
+	// whatever the per-queue concurrency.
 	HeavyExclusive bool
+	// Heavy lists the heavy queues; nil means jobdomain.DefaultHeavy
+	// (agent, tts, render).
+	Heavy []jobdomain.Queue
 	// Cooldown is the pause after each heavy job before the next starts.
 	Cooldown time.Duration
 	// Paused stops claiming new jobs.
 	Paused bool
+}
+
+func (t Throttle) heavy(q jobdomain.Queue) bool {
+	if t.Heavy == nil {
+		return q.Heavy()
+	}
+	return slices.Contains(t.Heavy, q)
 }
 
 // MaxSlotsPerQueue bounds per-queue concurrency, so throttle changes at
@@ -145,7 +155,7 @@ func (r *Runner) loop(ctx context.Context, q jobdomain.Queue, slot int, kinds []
 			wait(ctx, r.cfg.Poll, changed)
 			continue
 		}
-		exclusive := q.Heavy() && t.HeavyExclusive
+		exclusive := t.HeavyExclusive && t.heavy(q)
 		if exclusive {
 			select {
 			case r.heavy <- struct{}{}:

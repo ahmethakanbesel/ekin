@@ -1,11 +1,14 @@
-// Package cpulimit keeps the job processes under a share of the host's
-// CPUs. The job processes are this process's descendants (Claude Code,
-// Chrome, ffmpeg, the speech scripts, pdftotext); when together they use
-// more than their share they are paused (SIGSTOP) until the share has
-// caught up, then continued (SIGCONT), the way cpulimit(1) works. The
-// Kurgu process itself is never paused, so the web UI and job leases stay
-// responsive. Supported on Linux, where the VPS runs; elsewhere Run
-// returns at once.
+// Package cpulimit governs the job processes' use of the CPU. The job
+// processes are this process's descendants (Claude Code, Chrome, ffmpeg,
+// the speech scripts, pdftotext); the Kurgu process itself is never
+// touched, so the web UI and job leases stay responsive.
+//
+// Limiter keeps them under a share of the host's CPUs: when together they
+// use more than their share they are paused (SIGSTOP) until the share
+// has caught up, then continued (SIGCONT), the way cpulimit(1) works.
+// Supported on Linux, where the VPS runs; elsewhere Run returns at once.
+//
+// Nicer (nice.go) lowers their scheduling priority, on Linux and macOS.
 package cpulimit
 
 import (

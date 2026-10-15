@@ -1983,7 +1983,22 @@ components:
           additionalProperties: { type: integer, minimum: 0, maximum: 8 }
         heavyExclusive:
           type: boolean
-          description: Only one heavy job (agent, tts, render) at a time.
+          description: Only one job of the heavy queues at a time.
+        heavyQueues:
+          type: array
+          description: >-
+            The queues heavyExclusive covers. Always set in responses; omitted on save
+            means the default (agent, tts, render).
+          items:
+            type: string
+            enum: [control, agent, tts, render, extract, io]
+        nice:
+          type: integer
+          minimum: 0
+          maximum: 19
+          description: >-
+            Scheduling priority of the job processes, 0 (normal) to 19 (lowest), so the
+            host's own work comes first. Applied live; the Kurgu server keeps its priority.
         cooldownSeconds: { type: integer, minimum: 0, maximum: 3600 }
         paused: { type: boolean }
         cpuLimit:

@@ -145,6 +145,10 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 		true:  "available: job processes follow the host profile's CPU limit",
 		false: "Linux only: the host profile's CPU limit has no effect on this OS",
 	}[cpulimit.Supported()])
+	add("Job priority", cpulimit.NiceSupported(), map[bool]string{
+		true:  "available: job processes run at the host profile's priority (nice)",
+		false: "not supported on this OS: the host profile's priority has no effect",
+	}[cpulimit.NiceSupported()])
 	add("Stock media (Pexels)", creds.PexelsAPIKey != "", map[bool]string{true: "API key set", false: "no Pexels key; compositions use no stock footage"}[creds.PexelsAPIKey != ""])
 	smtpOK := creds.SMTPHost != "" && creds.SMTPFrom != ""
 	add("Email (SMTP)", smtpOK, map[bool]string{true: creds.SMTPHost, false: "SMTP host / from not set; digests stay in the app"}[smtpOK])
@@ -207,6 +211,11 @@ func WorkRemote(ctx context.Context, cfg config.Config, log *slog.Logger) error 
 		Changed: profile.Changed, Log: log.With(slog.String("component", "cpulimit")),
 	}
 	go limiter.Run(ctx)
+	nicer := &cpulimit.Nicer{
+		Nice:    func(ctx context.Context) int { return profile.Profile(ctx).Nice },
+		Changed: profile.Changed, Log: log.With(slog.String("component", "nice")),
+	}
+	go nicer.Run(ctx)
 	if err != nil {
 		return err
 	}

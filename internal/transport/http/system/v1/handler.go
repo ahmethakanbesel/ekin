@@ -84,6 +84,15 @@ func (h *Handler) SaveProfile(ctx context.Context, req gen.SaveProfileRequestObj
 	for q, n := range b.Concurrency {
 		in.Concurrency[jobdomain.Queue(q)] = n
 	}
+	if b.HeavyQueues != nil {
+		in.HeavyQueues = make([]jobdomain.Queue, 0, len(*b.HeavyQueues))
+		for _, q := range *b.HeavyQueues {
+			in.HeavyQueues = append(in.HeavyQueues, jobdomain.Queue(q))
+		}
+	}
+	if b.Nice != nil {
+		in.Nice = *b.Nice
+	}
 	saved, err := h.settings.SaveProfile(ctx, in, p.User.ID())
 	if err != nil {
 		return nil, err
@@ -157,8 +166,12 @@ func profileToWire(p settingsdomain.Profile) gen.HostProfile {
 	for q, n := range p.Concurrency {
 		c[string(q)] = n
 	}
+	heavy := []gen.HostProfileHeavyQueues{}
+	for _, q := range p.Heavy() {
+		heavy = append(heavy, gen.HostProfileHeavyQueues(q))
+	}
 	return gen.HostProfile{
-		Name: p.Name, Concurrency: c, HeavyExclusive: p.HeavyExclusive, CooldownSeconds: int(p.Cooldown / time.Second),
+		Name: p.Name, Concurrency: c, HeavyQueues: &heavy, Nice: &p.Nice, HeavyExclusive: p.HeavyExclusive, CooldownSeconds: int(p.Cooldown / time.Second),
 		Paused: p.Paused, CpuLimit: p.CPULimit, RenderDuty: float32(p.RenderDuty), RenderChunks: p.RenderChunks,
 		PreviewScale: float32(p.PreviewScale), FinalScale: float32(p.FinalScale),
 	}

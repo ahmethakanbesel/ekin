@@ -188,6 +188,7 @@ func defaultProfile(cfg config.Config) settingsdomain.Profile {
 	return settingsdomain.Profile{
 		Name: cfg.Worker.Profile, Concurrency: cfg.Worker.Concurrency, HeavyExclusive: cfg.Worker.HeavyExclusive,
 		Cooldown: cfg.Worker.Cooldown, Paused: cfg.Worker.Paused, CPULimit: cfg.Worker.CPULimit,
+		HeavyQueues: cfg.Worker.HeavyQueues, Nice: cfg.Worker.Nice,
 		RenderDuty: cfg.Production.Duty, RenderChunks: cfg.Production.Chunks,
 		PreviewScale: cfg.Production.PreviewScale, FinalScale: cfg.Production.FinalScale,
 	}
@@ -361,6 +362,11 @@ func (a *App) Work(ctx context.Context) error {
 		Changed: a.settings.Changed, Log: a.log.With(slog.String("component", "cpulimit")),
 	}
 	go limiter.Run(ctx)
+	nicer := &cpulimit.Nicer{
+		Nice:    func(ctx context.Context) int { return a.settings.Cached(ctx, w.Profile).Nice },
+		Changed: a.settings.Changed, Log: a.log.With(slog.String("component", "nice")),
+	}
+	go nicer.Run(ctx)
 	a.log.InfoContext(ctx, "worker started", slog.String("owner", w.Owner), slog.String("profile", w.Profile))
 	return runner.Run(ctx)
 }

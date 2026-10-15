@@ -1,6 +1,7 @@
 package config
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -23,8 +24,27 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Worker.Concurrency[jobdomain.QueueIO] != 2 || cfg.Worker.Concurrency[jobdomain.QueueRender] != 1 {
 		t.Fatalf("default concurrency = %v", cfg.Worker.Concurrency)
 	}
-	if !cfg.Worker.HeavyExclusive || cfg.Worker.Cooldown != 30*time.Second {
+	if !cfg.Worker.HeavyExclusive || cfg.Worker.Cooldown != 30*time.Second || cfg.Worker.HeavyQueues != nil || cfg.Worker.Nice != 0 {
 		t.Fatalf("default throttle = %+v", cfg.Worker)
+	}
+}
+
+func TestLoadHeavyQueuesAndNice(t *testing.T) {
+	tests := []struct {
+		raw  string
+		want []jobdomain.Queue
+	}{
+		{"tts, render", []jobdomain.Queue{jobdomain.QueueTTS, jobdomain.QueueRender}},
+		{"none", []jobdomain.Queue{}},
+	}
+	for _, tt := range tests {
+		cfg, err := load(env(map[string]string{"KURGU_HEAVY_QUEUES": tt.raw, "KURGU_NICE": "10"}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Worker.HeavyQueues == nil || !slices.Equal(cfg.Worker.HeavyQueues, tt.want) || cfg.Worker.Nice != 10 {
+			t.Fatalf("%q: heavy %v, nice %d", tt.raw, cfg.Worker.HeavyQueues, cfg.Worker.Nice)
+		}
 	}
 }
 
@@ -39,6 +59,8 @@ func TestLoadRejectsBadValues(t *testing.T) {
 		{"tiny tick", map[string]string{"KURGU_SCHEDULER_TICK": "10ms"}, "KURGU_SCHEDULER_TICK"},
 		{"bad log format", map[string]string{"KURGU_LOG_FORMAT": "xml"}, "KURGU_LOG_FORMAT"},
 		{"bad concurrency", map[string]string{"KURGU_QUEUE_CONCURRENCY": "gpu=1"}, "KURGU_QUEUE_CONCURRENCY"},
+		{"bad heavy queue", map[string]string{"KURGU_HEAVY_QUEUES": "render,gpu"}, "KURGU_HEAVY_QUEUES"},
+		{"nice too low", map[string]string{"KURGU_NICE": "20"}, "KURGU_NICE"},
 		{"unknown blob driver", map[string]string{"KURGU_BLOB_DRIVER": "gcs"}, "KURGU_BLOB_DRIVER"},
 		{"s3 without bucket", map[string]string{"KURGU_BLOB_DRIVER": "s3", "KURGU_S3_ENDPOINT": "https://x"}, "KURGU_S3_BUCKET"},
 		{"relative public url", map[string]string{"KURGU_PUBLIC_URL": "kurgu.example.com"}, "KURGU_PUBLIC_URL"},
