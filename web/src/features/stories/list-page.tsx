@@ -154,7 +154,11 @@ export function StoriesPage() {
 function usePlanningJobs(workspaceId: string): Job[] {
   const jobs = useQuery({
     ...jobsQuery(workspaceId, ["queued", "running"]),
-    select: (all) => all.filter((j) => PLANNING_KINDS.has(j.kind)),
+    // The list holds whole requests: keep their planning jobs still at work.
+    select: (all) =>
+      all.filter(
+        (j) => PLANNING_KINDS.has(j.kind) && (j.status === "queued" || j.status === "running")
+      ),
     refetchInterval: (q) =>
       q.state.data?.some((j) => PLANNING_KINDS.has(j.kind)) ? POLL_PLANNING_MS : false,
   })

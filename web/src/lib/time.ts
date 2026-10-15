@@ -98,6 +98,18 @@ export function formatDuration(totalSeconds: number): string {
   return `${minutes}:${String(seconds).padStart(2, "0")}`
 }
 
+const pad2 = (n: number) => String(n).padStart(2, "0")
+
+/** An elapsed time, at two units' precision: "<1s", "42s", "3m 05s", "2h 05m", "3d 4h". */
+export function formatSpan(ms: number): string {
+  const s = Math.floor(ms / 1000)
+  if (s < 1) return "<1s"
+  if (s < 60) return `${s}s`
+  if (s < 3600) return `${Math.floor(s / 60)}m ${pad2(s % 60)}s`
+  if (s < 86_400) return `${Math.floor(s / 3600)}h ${pad2(Math.floor(s / 60) % 60)}m`
+  return `${Math.floor(s / 86_400)}d ${Math.floor(s / 3600) % 24}h`
+}
+
 /** The current time, refreshed every intervalMs, for relative labels. */
 export function useNow(intervalMs = 30_000): number {
   const [now, setNow] = useState(() => Date.now())

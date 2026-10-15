@@ -3,7 +3,8 @@ import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query
 import { api, call, type JobStatus } from "@/api/client"
 import { keys } from "./keys"
 
-export const JOB_LIST_LIMIT = 200
+/** Requests (traces), not jobs. */
+export const JOB_LIST_LIMIT = 50
 
 export const jobsQuery = (workspaceId: string, status: JobStatus[]) =>
   queryOptions({
