@@ -9,6 +9,7 @@
 package worker
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
@@ -25,6 +26,7 @@ import (
 
 	"kurgu/internal/apperror"
 	jobdomain "kurgu/internal/domain/job/v1"
+	settingsdomain "kurgu/internal/domain/settings/v1"
 	storydomain "kurgu/internal/domain/story/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	productionsvc "kurgu/internal/service/production/v1"
@@ -63,23 +65,31 @@ type RenderFinish struct {
 	Task  productionsvc.RenderTask `json:"task"`
 }
 
+// Profiles serves saved host profiles (the settings service).
+type Profiles interface {
+	// SavedProfile returns NotFound for a profile nobody saved.
+	SavedProfile(ctx context.Context, name string) (settingsdomain.Profile, error)
+}
+
 // API serves the routes.
 type API struct {
 	token      string
 	jobs       *jobsvc.Service
 	production *productionsvc.Service
+	profiles   Profiles
 	log        *slog.Logger
 	writeErr   func(http.ResponseWriter, *http.Request, error)
 }
 
 // Register adds the worker routes to mux. With an empty token the API is
 // off.
-func Register(mux *http.ServeMux, token string, jobs *jobsvc.Service, production *productionsvc.Service, log *slog.Logger,
-	writeErr func(http.ResponseWriter, *http.Request, error)) {
+func Register(mux *http.ServeMux, token string, jobs *jobsvc.Service, production *productionsvc.Service, profiles Profiles,
+	log *slog.Logger, writeErr func(http.ResponseWriter, *http.Request, error)) {
 	if token == "" {
 		return
 	}
-	a := &API{token: token, jobs: jobs, production: production, log: log, writeErr: writeErr}
+	a := &API{token: token, jobs: jobs, production: production, profiles: profiles, log: log, writeErr: writeErr}
+	mux.Handle("GET /api/v1/worker/profiles/{name}", a.auth(a.profile))
 	mux.Handle("POST /api/v1/worker/claim", a.auth(a.claim))
 	mux.Handle("POST /api/v1/worker/jobs/{id}/heartbeat", a.auth(a.heartbeat))
 	mux.Handle("POST /api/v1/worker/jobs/{id}/complete", a.auth(a.complete))
@@ -122,6 +132,19 @@ func lease(seconds int) time.Duration {
 		return 2 * time.Minute
 	}
 	return time.Duration(seconds) * time.Second
+}
+
+// profile returns a saved host profile, so a remote worker follows what
+// admins set in the UI; 404 when it was never saved.
+func (a *API) profile(w http.ResponseWriter, r *http.Request) error {
+	if a.profiles == nil {
+		return apperror.New(apperror.NotFound, "host profiles are not served")
+	}
+	p, err := a.profiles.SavedProfile(r.Context(), r.PathValue("name"))
+	if err != nil {
+		return err
+	}
+	return writeJSON(w, p)
 }
 
 func (a *API) claim(w http.ResponseWriter, r *http.Request) error {

@@ -399,7 +399,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** @description Saves a host profile; workers using it pick it up within 10 seconds. Admins only. */
+        /** @description Saves a host profile. This server's worker applies it at once, remote workers within a few seconds. Admins only. */
         put: operations["saveProfile"];
         post?: never;
         delete?: never;

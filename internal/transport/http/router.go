@@ -67,6 +67,8 @@ type Deps struct {
 	Voices     *voicesvc.Service
 	// WorkerToken enables the hybrid-worker API when set.
 	WorkerToken string
+	// Profiles serves remote workers their host profile.
+	Profiles workerapi.Profiles
 	// PublicURL is where browsers reach Kurgu, e.g. https://kurgu.example.com.
 	// It prefixes invitation links, is trusted for cross-origin writes, and
 	// an https scheme marks the session cookie Secure.
@@ -155,7 +157,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 	})
 	mux.Handle("GET /api/v1/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions/{number}/{artifact}",
 		media(d.Identity, d.Production, writeErr))
-	workerapi.Register(mux, d.WorkerToken, d.Jobs, d.Production, d.Log, writeErr)
+	workerapi.Register(mux, d.WorkerToken, d.Jobs, d.Production, d.Profiles, d.Log, writeErr)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		_, _ = w.Write([]byte("ok"))

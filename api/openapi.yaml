@@ -629,7 +629,7 @@ paths:
     put:
       operationId: saveProfile
       tags: [system]
-      description: Saves a host profile; workers using it pick it up within 10 seconds. Admins only.
+      description: Saves a host profile. This server's worker applies it at once, remote workers within a few seconds. Admins only.
       requestBody:
         required: true
         content:

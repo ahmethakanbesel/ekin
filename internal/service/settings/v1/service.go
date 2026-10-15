@@ -183,6 +183,14 @@ func (s *Service) Profile(ctx context.Context, name string) (settingsdomain.Prof
 	return p, err
 }
 
+// SavedProfile returns the profile an admin saved under name, or
+// NotFound: a remote worker then keeps its own environment's settings.
+func (s *Service) SavedProfile(ctx context.Context, name string) (settingsdomain.Profile, error) {
+	var p settingsdomain.Profile
+	err := s.repo.Get(ctx, "profile:"+name, &p)
+	return p, err
+}
+
 // Profiles lists saved profiles, plus the defaults when unsaved.
 func (s *Service) Profiles(ctx context.Context, current string) ([]settingsdomain.Profile, error) {
 	keys, err := s.repo.Keys(ctx, "profile:")

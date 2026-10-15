@@ -96,7 +96,7 @@ func TestRemoteWorkerDraftsAndRenders(t *testing.T) {
 
 	const token = "a-worker-token-of-enough-length"
 	mux := http.NewServeMux()
-	workerapi.Register(mux, token, jobs, server, log, func(w http.ResponseWriter, _ *http.Request, err error) {
+	workerapi.Register(mux, token, jobs, server, nil, log, func(w http.ResponseWriter, _ *http.Request, err error) {
 		code, _ := apperror.GetCode(err)
 		w.WriteHeader(apperror.StatusFor(code))
 		_ = json.NewEncoder(w).Encode(map[string]string{"code": string(code), "message": err.Error()})

@@ -12,6 +12,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/google/uuid"
 
 	jobdomain "kurgu/internal/domain/job/v1"
+	settingsdomain "kurgu/internal/domain/settings/v1"
 	productionsvc "kurgu/internal/service/production/v1"
 	workerapi "kurgu/internal/transport/http/worker"
 	"kurgu/pkg/archive"
@@ -74,6 +76,20 @@ func (c *Client) do(req *http.Request, out any) (int, error) {
 		return res.StatusCode, json.NewDecoder(res.Body).Decode(out)
 	}
 	return res.StatusCode, nil
+}
+
+// Profile fetches the host profile an admin saved on the server under
+// name; ok is false when none was saved.
+func (c *Client) Profile(ctx context.Context, name string) (p settingsdomain.Profile, ok bool, err error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.url("/profiles/"+url.PathEscape(name)), nil)
+	if err != nil {
+		return p, false, err
+	}
+	code, err := c.do(req, &p)
+	if code == http.StatusNotFound {
+		return p, false, nil
+	}
+	return p, err == nil, err
 }
 
 // Claim implements jobsvc.Queue.

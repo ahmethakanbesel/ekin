@@ -191,20 +191,25 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 // no database.
 func WorkRemote(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	client := &remote.Client{BaseURL: cfg.Remote.URL, Token: cfg.Remote.Token, Owner: cfg.Worker.Owner}
-	prod, err := newProduction(cfg, nil, productionsvc.Deps{Log: log.With(slog.String("component", "production"))})
+	// The host profile saved on the server (System, or the Jobs page)
+	// wins over this machine's KURGU_* settings, and changes apply live.
+	profile := remote.NewProfileWatcher(client, defaultProfile(cfg), 0, log.With(slog.String("component", "remote-profile")))
+	profile.Refresh(ctx)
+	go profile.Run(ctx)
+	prod, err := newProduction(cfg, nil, profile.Profile, productionsvc.Deps{Log: log.With(slog.String("component", "production"))})
 	if err != nil {
 		return err
 	}
 	w := cfg.Worker
 	runner := jobsvc.NewRunner(client, jobsvc.RunnerConfig{
-		Owner: w.Owner,
-		Throttle: jobsvc.Throttle{
-			Concurrency: w.Concurrency, HeavyExclusive: w.HeavyExclusive, Cooldown: w.Cooldown, Paused: w.Paused,
-		},
-		Lease: w.Lease,
+		Owner:           w.Owner,
+		ThrottleSource:  profile.Throttle,
+		ThrottleChanged: profile.Changed,
+		Lease:           w.Lease,
 	}, log.With(slog.String("component", "remote-worker")))
 	remoteworker.Register(runner, client, prod)
-	log.InfoContext(ctx, "remote worker started", slog.String("server", cfg.Remote.URL), slog.String("owner", w.Owner))
+	log.InfoContext(ctx, "remote worker started", slog.String("server", cfg.Remote.URL), slog.String("owner", w.Owner),
+		slog.String("profile", w.Profile))
 	return runner.Run(ctx)
 }
 

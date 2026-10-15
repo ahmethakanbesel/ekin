@@ -1429,7 +1429,7 @@ export const en = {
       "With an API key, SEO refreshes call OpenSEO directly. Without one they go through the worker host's Claude Code OpenSEO plugin. The endpoint only needs changing for a self-hosted OpenSEO.",
     profilesTitle: "Host profiles",
     profilesDescription:
-      "How hard workers may work. Each worker uses the profile named by KURGU_WORKER_PROFILE and picks up changes within 10 seconds.",
+      "How hard workers may work. Each worker uses the profile named by KURGU_WORKER_PROFILE. Changes apply at once on this server and within a few seconds on remote workers; a remote worker keeps its own KURGU_* settings until a profile of its name is saved here.",
     current: "Used by this server",
     newProfile: "New profile",
     newProfileTitle: "New host profile",

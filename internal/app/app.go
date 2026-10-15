@@ -133,7 +133,8 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		&speech.Synth{UV: p.UV, ScriptDir: p.SpeechDir, ModelDir: p.SpeechModels, ElevenLabsKey: elevenLabsKey}, blobs).
 		WithElevenLabs(func(ctx context.Context) *elevenlabs.Client { return &elevenlabs.Client{APIKey: elevenLabsKey(ctx)} })
 	pipelines.WithTemplates(templates).WithVoices(voices)
-	production, err := newProduction(cfg, settings, productionsvc.Deps{
+	hostProfile := func(ctx context.Context) settingsdomain.Profile { return settings.Cached(ctx, cfg.Worker.Profile) }
+	production, err := newProduction(cfg, settings, hostProfile, productionsvc.Deps{
 		SEO:       seo,
 		Templates: templates,
 		Voices:    voices,
@@ -191,7 +192,11 @@ func defaultProfile(cfg config.Config) settingsdomain.Profile {
 	}
 }
 
-func newProduction(cfg config.Config, settings *settingssvc.Service, deps productionsvc.Deps) (*productionsvc.Service, error) {
+// newProduction builds the production service. settings supplies the
+// credentials and hostProfile the render settings; either may be nil,
+// leaving the environment's values.
+func newProduction(cfg config.Config, settings *settingssvc.Service, hostProfile func(context.Context) settingsdomain.Profile,
+	deps productionsvc.Deps) (*productionsvc.Service, error) {
 	p := cfg.Production
 	bin, err := os.Executable()
 	if err != nil {
@@ -212,7 +217,6 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, deps produc
 	if err := os.MkdirAll(p.WorkDir, 0o750); err != nil {
 		return nil, err
 	}
-	profile := cfg.Worker.Profile
 	pc := productionsvc.Config{
 		WorkRoot: p.WorkDir, KurguBin: bin, ToolEnv: toolEnv, AgentTimeout: p.AgentTimeout,
 		PreviewScale: p.PreviewScale, FinalScale: p.FinalScale,
@@ -225,8 +229,10 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, deps produc
 			c := settings.Credentials(ctx)
 			return []string{"KURGU_PEXELS_API_KEY=" + c.PexelsAPIKey, "KURGU_ELEVENLABS_API_KEY=" + c.ElevenLabsAPIKey}
 		}
+	}
+	if hostProfile != nil {
 		pc.Render = func(ctx context.Context) productionsvc.RenderSettings {
-			hp := settings.Cached(ctx, profile)
+			hp := hostProfile(ctx)
 			return productionsvc.RenderSettings{Duty: hp.RenderDuty, Chunks: hp.RenderChunks, PreviewScale: hp.PreviewScale, FinalScale: hp.FinalScale}
 		}
 	} else {
@@ -272,6 +278,7 @@ func (a *App) Router() (http.Handler, error) {
 		Templates:   a.templates,
 		Voices:      a.voices,
 		WorkerToken: a.cfg.Remote.Token,
+		Profiles:    a.settings,
 		System:      systemhandler.New(a.settings, a.cfg.Worker.Profile, a.version, a.checks).OnCredentialsChange(resetChecks),
 		PublicURL:   a.cfg.PublicURL,
 		UI:          web.Dist(),
