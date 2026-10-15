@@ -4,7 +4,16 @@ import { m } from "@/i18n"
 // ---- Fonts ----
 
 /** The families the composition kit bundles (see ./fonts.css). */
-export const FONTS: TemplateFont[] = ["Inter", "Lora", "Nunito", "Oswald", "Caveat", "JetBrains Mono"]
+export const FONTS: TemplateFont[] = [
+  "Inter",
+  "Lora",
+  "Nunito",
+  "Oswald",
+  "Caveat",
+  "JetBrains Mono",
+  "Fraunces",
+  "Instrument Serif",
+]
 
 const generic: Record<TemplateFont, string> = {
   Inter: "sans-serif",
@@ -13,6 +22,8 @@ const generic: Record<TemplateFont, string> = {
   Oswald: "sans-serif",
   Caveat: "cursive",
   "JetBrains Mono": "monospace",
+  Fraunces: "serif",
+  "Instrument Serif": "serif",
 }
 
 /** The weight a render sets titles in — the heaviest the kit ships. */
@@ -23,6 +34,8 @@ export const HEADING_WEIGHT: Record<TemplateFont, number> = {
   Oswald: 600,
   Caveat: 600,
   "JetBrains Mono": 500,
+  Fraunces: 700,
+  "Instrument Serif": 400,
 }
 
 /** The weight for running text — the lightest the kit ships. */
@@ -33,6 +46,8 @@ export const BODY_WEIGHT: Record<TemplateFont, number> = {
   Oswald: 600,
   Caveat: 600,
   "JetBrains Mono": 500,
+  Fraunces: 400,
+  "Instrument Serif": 400,
 }
 
 export function fontStack(font: TemplateFont): string {

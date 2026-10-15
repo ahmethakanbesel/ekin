@@ -22,6 +22,8 @@ page, disables CSS animations and transitions, and styles captions. Use only the
 | Oswald | 600 | condensed, punchy headlines |
 | Caveat | 600 | handwriting, for annotations |
 | JetBrains Mono | 500 | monospace, for numbers and code-like labels |
+| Fraunces | 400–700 (variable) | soft, rounded display serif; friendly headlines |
+| Instrument Serif | 400, 400 italic | fine, high-contrast editorial serif for large titles; too light for small text |
 
 ## Declaring the composition
 

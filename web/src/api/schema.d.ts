@@ -1530,7 +1530,7 @@ export interface components {
             speed?: number;
         };
         /** @enum {string} */
-        TemplateFont: "Inter" | "Lora" | "Nunito" | "Oswald" | "Caveat" | "JetBrains Mono";
+        TemplateFont: "Inter" | "Lora" | "Nunito" | "Oswald" | "Caveat" | "JetBrains Mono" | "Fraunces" | "Instrument Serif";
         TemplateInput: {
             name: string;
             description?: string;

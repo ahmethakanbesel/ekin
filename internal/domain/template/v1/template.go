@@ -29,7 +29,7 @@ const (
 )
 
 // Fonts are the families the composition kit bundles.
-var Fonts = []string{"Inter", "Lora", "Nunito", "Oswald", "Caveat", "JetBrains Mono"}
+var Fonts = []string{"Inter", "Lora", "Nunito", "Oswald", "Caveat", "JetBrains Mono", "Fraunces", "Instrument Serif"}
 
 // Limits.
 const (

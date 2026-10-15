@@ -2214,7 +2214,7 @@ components:
 
     TemplateFont:
       type: string
-      enum: [Inter, Lora, Nunito, Oswald, Caveat, JetBrains Mono]
+      enum: [Inter, Lora, Nunito, Oswald, Caveat, JetBrains Mono, Fraunces, Instrument Serif]
 
     TemplateInput:
       type: object

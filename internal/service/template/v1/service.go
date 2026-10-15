@@ -226,8 +226,8 @@ var generateSchema = json.RawMessage(`{
     "description": {"type": "string", "description": "one sentence"},
     "guide": {"type": "string", "description": "Markdown style guide with sections: Look, Typography, Motion, Structure and pacing, Narration voice, Captions (and Articles if relevant)"},
     "palette": {"type": "array", "items": {"type": "string", "description": "#RRGGBB"}, "maxItems": 8},
-    "headingFont": {"type": "string", "enum": ["Inter", "Lora", "Nunito", "Oswald", "Caveat", "JetBrains Mono"]},
-    "bodyFont": {"type": "string", "enum": ["Inter", "Lora", "Nunito", "Oswald", "Caveat", "JetBrains Mono"]},
+    "headingFont": {"type": "string", "enum": ["Inter", "Lora", "Nunito", "Oswald", "Caveat", "JetBrains Mono", "Fraunces", "Instrument Serif"]},
+    "bodyFont": {"type": "string", "enum": ["Inter", "Lora", "Nunito", "Oswald", "Caveat", "JetBrains Mono", "Fraunces", "Instrument Serif"]},
     "musicMood": {"type": "string"}
   }
 }`)
@@ -242,7 +242,7 @@ func (s *Service) Generate(ctx context.Context, p GeneratePayload) error {
 %s
 Research the channel with web search: how its videos look (palette, shapes, illustration vs. footage, textures), typography, motion and transitions, how episodes are structured and paced, the narrator's voice, and how it uses music. Rely on several sources; do not guess.
 
-The template drives an AI that builds videos as animated HTML/CSS/SVG compositions (no footage of people speaking, no 3D) with fonts limited to Inter, Lora, Nunito, Oswald, Caveat and JetBrains Mono, and karaoke captions. Translate the channel's style into what can be built that way.
+The template drives an AI that builds videos as animated HTML/CSS/SVG compositions (no footage of people speaking, no 3D) with fonts limited to Inter, Lora, Nunito, Oswald, Caveat, JetBrains Mono, Fraunces and Instrument Serif, and karaoke captions. Translate the channel's style into what can be built that way.
 
 Describe the style, never copy it: the guide must tell the AI not to use the channel's name, logo, mascots, characters, catchphrases, music or title cards, and the template name must not contain the channel's name.
 
