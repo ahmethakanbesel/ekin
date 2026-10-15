@@ -985,6 +985,11 @@ export const en = {
       oneMore: (queue: string) => `One more ${queue} job at once`,
       cooldown: "Cooldown (seconds)",
       cooldownHint: "Rest after each heavy job. 0–3600.",
+      cpuLimit: "CPU limit",
+      cpuLimitHint: "Share of the host's CPUs for job processes. Linux hosts.",
+      noLimit: "No limit",
+      cpuLimitValue: (pct: number) => `${pct}%`,
+      cpuLimitAria: "CPU limit in percent",
       more: "Render and other settings",
       pausedHere: (name: string) =>
         `This server’s worker (profile “${name}”) is paused: no new jobs start. Running ones finish.`,
@@ -1477,6 +1482,10 @@ export const en = {
     heavyExclusiveHint: "Agent, speech and render jobs never run side by side.",
     cooldown: "Cooldown (seconds)",
     cooldownHint: "Rest after each heavy job. 0–3600.",
+    cpuLimit: "CPU limit (%)",
+    cpuLimitHint:
+      "Share of this host's CPUs that job processes (agent, browser, encoder, speech) may use together. 0 = no limit, or 10–100. Linux hosts only; the Kurgu server itself is never limited.",
+    cpuLimitRange: "Use 0 for no limit, or 10 to 100.",
     paused: "Paused",
     pausedHint: "Workers using this profile take no new jobs.",
     renderDuty: "Render duty",

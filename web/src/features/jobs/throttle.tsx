@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import type { HostProfile } from "@/api/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Slider } from "@/components/ui/slider"
 import {
   Popover,
   PopoverContent,
@@ -25,6 +26,9 @@ import { profilesQuery, useSaveProfile } from "@/queries/system"
 
 const MAX_SLOTS = 8
 const MAX_COOLDOWN = 3600
+const MIN_CPU = 10
+/** Where the CPU limit starts when switched on. */
+const DEFAULT_CPU = 50
 
 export type Throttle = {
   profiles: HostProfile[]
@@ -192,6 +196,12 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
           />
         </label>
 
+        <CpuLimit
+          key={`${profile.name}:${profile.cpuLimit}`}
+          percent={profile.cpuLimit}
+          onChange={(pct) => set((p) => ({ ...p, cpuLimit: pct }))}
+        />
+
         <Cooldown
           key={`${profile.name}:${profile.cooldownSeconds}`}
           seconds={profile.cooldownSeconds}
@@ -295,5 +305,40 @@ function Cooldown({
         }}
       />
     </label>
+  )
+}
+
+/** A switch for the CPU limit and, when on, its share (saved on release). */
+function CpuLimit({ percent, onChange }: { percent: number; onChange: (pct: number) => void }) {
+  const t = m.jobs.throttle
+  const on = percent > 0 && percent < 100
+  const [drag, setDrag] = useState(on ? percent : DEFAULT_CPU)
+  return (
+    <div className="grid gap-2">
+      <label className="flex items-center justify-between gap-3">
+        <span className="flex flex-col">
+          <span>{t.cpuLimit}</span>
+          <span className="text-xs text-muted-foreground">{t.cpuLimitHint}</span>
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="tabular text-sm text-muted-foreground">
+            {on ? t.cpuLimitValue(drag) : t.noLimit}
+          </span>
+          <Switch checked={on} onCheckedChange={(next) => onChange(next ? drag : 0)} />
+        </span>
+      </label>
+      {on ? (
+        <Slider
+          thumbLabel={t.cpuLimitAria}
+          valueText={t.cpuLimitValue(drag)}
+          min={MIN_CPU}
+          max={100}
+          step={5}
+          value={drag}
+          onValueChange={(v) => setDrag(Array.isArray(v) ? v[0] : v)}
+          onValueCommitted={(v) => onChange(Array.isArray(v) ? v[0] : v)}
+        />
+      ) : null}
+    </div>
   )
 }

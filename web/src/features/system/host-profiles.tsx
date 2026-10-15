@@ -100,6 +100,7 @@ type Values = {
   heavyExclusive: boolean
   paused: boolean
   cooldownSeconds: string
+  cpuLimit: string
   renderDuty: string
   renderChunks: string
   previewScale: string
@@ -114,6 +115,7 @@ function toValues(p: HostProfile): Values {
     heavyExclusive: p.heavyExclusive,
     paused: p.paused,
     cooldownSeconds: String(p.cooldownSeconds),
+    cpuLimit: String(p.cpuLimit),
     renderDuty: String(p.renderDuty),
     renderChunks: String(p.renderChunks),
     previewScale: String(p.previewScale),
@@ -131,6 +133,7 @@ function toProfile(name: string, v: Values, base: HostProfile): HostProfile {
     heavyExclusive: v.heavyExclusive,
     paused: v.paused,
     cooldownSeconds: Number(v.cooldownSeconds),
+    cpuLimit: Number(v.cpuLimit),
     renderDuty: Number(v.renderDuty),
     renderChunks: Number(v.renderChunks),
     previewScale: Number(v.previewScale),
@@ -154,6 +157,12 @@ const numberIn = (min: number, max: number) => (s: string) => {
 
 const queueError = wholeIn(0, 8)
 
+/** 0 (no limit) or 10–100 percent. */
+export function cpuLimitError(s: string): string | undefined {
+  const t = s.trim()
+  return t === "0" || wholeIn(10, 100)(t) === undefined ? undefined : m.system.cpuLimitRange
+}
+
 const NUMBER_FIELDS = [
   {
     name: "cooldownSeconds",
@@ -161,6 +170,13 @@ const NUMBER_FIELDS = [
     hint: m.system.cooldownHint,
     check: wholeIn(0, 3600),
     step: 1,
+  },
+  {
+    name: "cpuLimit",
+    label: m.system.cpuLimit,
+    hint: m.system.cpuLimitHint,
+    check: cpuLimitError,
+    step: 5,
   },
   {
     name: "renderDuty",
@@ -312,7 +328,7 @@ function ProfileCard({ profile, current }: { profile: HostProfile; current: bool
                       <Input
                         id={id(f.name)}
                         type="number"
-                        inputMode={f.step === 1 ? "numeric" : "decimal"}
+                        inputMode={Number.isInteger(f.step) ? "numeric" : "decimal"}
                         step={f.step}
                         className="max-w-36 tabular"
                         value={field.state.value}
