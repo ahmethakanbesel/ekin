@@ -348,6 +348,18 @@ export const en = {
     notScheduled: "Not scheduled",
   },
   pipelineForm: {
+    selfReview: {
+      title: "Self-review",
+      description:
+        "Before you see a draft, a fresh agent reviews it like an editor (accuracy, the brief, natural language, structure) and the author fixes what it finds.",
+      off: "Off",
+      rounds: (n: number) => (n === 1 ? "1 round" : `${n} rounds`),
+      offHint: "Drafts come to you as the author finished them.",
+      hint: (n: number) =>
+        n === 1
+          ? "One review; its fixes are not reviewed again. Each round adds an agent run."
+          : `Up to ${n} reviews, stopping as soon as one passes. Each round adds an agent run.`,
+    },
     createTitle: "New pipeline",
     editTitle: "Edit pipeline",
     created: "Pipeline created",

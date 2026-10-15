@@ -3,6 +3,7 @@ import type { Document, Language, PipelineDefinition, Schemas } from "@/api/clie
 type Outputs = Schemas["Outputs"]
 type KnowledgeRef = Schemas["KnowledgeRef"]
 import { emptyOverride, fromOverride, toOverride, type VoiceOverrideValues } from "@/features/voice/model"
+import { DEFAULT_SELF_REVIEW } from "./self-review-section"
 import { m } from "@/i18n"
 
 // The editable shape of a pipeline. Both output sections are always
@@ -56,6 +57,8 @@ export type PipelineFormValues = OutputsValues & {
   templateId: string
   /** Narration voice or speed for this pipeline; "" for the workspace's. */
   voice: VoiceOverrideValues
+  /** Self-review rounds per draft; 0 for none. */
+  selfReview: number
 }
 
 export function emptyRef(): RefValues {
@@ -82,6 +85,7 @@ export function defaultValues(workspaceTimezone: string): PipelineFormValues {
     schedule: { cron: "0 2 * * *", timezone: workspaceTimezone, batch: "1" },
     templateId: "",
     voice: emptyOverride(),
+    selfReview: DEFAULT_SELF_REVIEW,
   }
 }
 
@@ -126,6 +130,7 @@ export function fromDefinition(
       : base.schedule,
     templateId: def.templateId ?? "",
     voice: fromOverride(def.voice),
+    selfReview: def.selfReviewRounds ?? DEFAULT_SELF_REVIEW,
   }
 }
 
@@ -182,6 +187,7 @@ export function toDefinition(v: PipelineFormValues): PipelineDefinition {
       : undefined,
     templateId: v.templateId || undefined,
     voice: toOverride(v.voice),
+    selfReviewRounds: v.selfReview,
   }
   return def
 }

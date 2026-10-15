@@ -22,6 +22,7 @@ import { OutputsFields, outputsFieldMap } from "@/features/pipelines/outputs-fie
 import { RefsFields } from "@/features/pipelines/refs-fields"
 import { TemplateSelect } from "@/features/templates/template-select"
 import { emptyOverride } from "@/features/voice/model"
+import { SelfReviewSection } from "@/features/pipelines/self-review-section"
 import { VoiceOverrideSection } from "@/features/voice/override-section"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
@@ -248,6 +249,10 @@ function RequestForm({ workspaceId }: { workspaceId: string }) {
             onChange={field.handleChange}
           />
         )}
+      </form.Field>
+
+      <form.Field name="selfReview">
+        {(field) => <SelfReviewSection value={field.state.value} onChange={field.handleChange} />}
       </form.Field>
 
       <Section title={m.request.sections.extras} description={m.request.extrasHint}>

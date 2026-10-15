@@ -31,6 +31,7 @@ import { m } from "@/i18n"
 import { useAppForm } from "@/lib/form"
 import { documentsQuery } from "@/queries/documents"
 import { NumberInput, Row, Section, shownError } from "./form-parts"
+import { SelfReviewSection } from "./self-review-section"
 import {
   LANGUAGES,
   LIMITS,
@@ -232,6 +233,16 @@ export function PipelineForm({
           <VoiceOverrideSection
             idPrefix="pl-voice"
             language={language}
+            value={field.state.value}
+            onChange={field.handleChange}
+            readOnly={readOnly}
+          />
+        )}
+      </form.Field>
+
+      <form.Field name="selfReview">
+        {(field) => (
+          <SelfReviewSection
             value={field.state.value}
             onChange={field.handleChange}
             readOnly={readOnly}
