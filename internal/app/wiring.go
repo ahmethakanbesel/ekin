@@ -132,6 +132,7 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 	tool("ffmpeg", p.FFmpeg, "-version")
 	tool("uv (speech)", p.UV, "--version")
 	tool("pdftotext", a.cfg.Tools.PDFToText, "-v")
+	tool("pdftohtml (PDF contents)", a.cfg.Tools.PDFToHTML, "-v")
 	chrome := p.Chrome
 	if chrome == "" {
 		chrome = render.FindChrome()

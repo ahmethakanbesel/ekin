@@ -100,6 +100,7 @@ type S3 struct {
 // Tools are external binaries the worker runs.
 type Tools struct {
 	PDFToText string
+	PDFToHTML string // reads PDF bookmarks as a table of contents
 }
 
 // Worker configures the job runner (PLAN.md §4).
@@ -202,7 +203,7 @@ func load(getenv func(string) string) (Config, error) {
 	default:
 		errs = append(errs, "KURGU_BLOB_DRIVER: must be fs or s3")
 	}
-	cfg.Tools = Tools{PDFToText: str("KURGU_PDFTOTEXT", "pdftotext")}
+	cfg.Tools = Tools{PDFToText: str("KURGU_PDFTOTEXT", "pdftotext"), PDFToHTML: str("KURGU_PDFTOHTML", "pdftohtml")}
 	number := func(key string, def, lo, hi float64) float64 {
 		raw := strings.TrimSpace(getenv(key))
 		if raw == "" {
