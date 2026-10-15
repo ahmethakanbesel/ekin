@@ -17,7 +17,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
-import { QUEUES } from "@/features/system/host-profiles"
+import {
+  HeavyQueuesPicker,
+  PRIORITIES,
+  QUEUES,
+  heavyOf,
+} from "@/features/system/host-profiles"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { cn } from "@/lib/utils"
@@ -195,12 +200,41 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
             onCheckedChange={(on) => set((p) => ({ ...p, heavyExclusive: on }))}
           />
         </label>
+        {profile.heavyExclusive ? (
+          <div className="grid gap-1.5">
+            <span className="text-xs text-muted-foreground">{t.heavyQueues}</span>
+            <HeavyQueuesPicker
+              value={heavyOf(profile)}
+              onChange={(next) => set((p) => ({ ...p, heavyQueues: next }))}
+            />
+          </div>
+        ) : null}
 
         <CpuLimit
           key={`${profile.name}:${profile.cpuLimit}`}
           percent={profile.cpuLimit}
           onChange={(pct) => set((p) => ({ ...p, cpuLimit: pct }))}
         />
+
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <span className="flex flex-col">
+            <span>{t.priority}</span>
+            <span className="text-xs text-muted-foreground">{t.priorityHint}</span>
+          </span>
+          <div role="group" aria-label={t.priority} className="flex gap-1">
+            {PRIORITIES.map((pr) => (
+              <Button
+                key={pr.nice}
+                size="xs"
+                variant={(profile.nice ?? 0) === pr.nice ? "default" : "outline"}
+                aria-pressed={(profile.nice ?? 0) === pr.nice}
+                onClick={() => set((p) => ({ ...p, nice: pr.nice }))}
+              >
+                {pr.label}
+              </Button>
+            ))}
+          </div>
+        </div>
 
         <Cooldown
           key={`${profile.name}:${profile.cooldownSeconds}`}

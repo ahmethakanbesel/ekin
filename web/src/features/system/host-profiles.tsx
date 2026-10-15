@@ -36,6 +36,49 @@ import { cn } from "@/lib/utils"
 import { profilesQuery, useSaveProfile } from "@/queries/system"
 
 export const QUEUES = ["control", "agent", "tts", "render", "extract", "io"] as const
+type Queue = (typeof QUEUES)[number]
+/** What heavy exclusivity covers when a profile does not say. */
+const DEFAULT_HEAVY: Queue[] = ["agent", "tts", "render"]
+
+export function heavyOf(p: HostProfile): Queue[] {
+  return p.heavyQueues ?? DEFAULT_HEAVY
+}
+
+/** Named job priorities, as nice values. */
+export const PRIORITIES = [
+  { nice: 0, label: m.system.priorities.normal },
+  { nice: 10, label: m.system.priorities.low },
+  { nice: 19, label: m.system.priorities.lowest },
+] as const
+
+/** Toggles for the queues heavy exclusivity covers, in queue order. */
+export function HeavyQueuesPicker({
+  value,
+  onChange,
+}: {
+  value: Queue[]
+  onChange: (next: Queue[]) => void
+}) {
+  return (
+    <div role="group" aria-label={m.system.heavyQueues} className="flex flex-wrap gap-1.5">
+      {QUEUES.map((q) => {
+        const on = value.includes(q)
+        return (
+          <Button
+            key={q}
+            type="button"
+            size="xs"
+            variant={on ? "default" : "outline"}
+            aria-pressed={on}
+            onClick={() => onChange(QUEUES.filter((x) => (x === q ? !on : value.includes(x))))}
+          >
+            {m.system.queues[q]}
+          </Button>
+        )
+      })}
+    </div>
+  )
+}
 const PROFILE_NAME = /^[a-z0-9][a-z0-9-]{0,31}$/
 
 /** Admins: how hard the workers using each profile may work. */
@@ -98,9 +141,11 @@ export function HostProfiles() {
 type Values = {
   concurrency: Record<string, string>
   heavyExclusive: boolean
+  heavyQueues: Queue[]
   paused: boolean
   cooldownSeconds: string
   cpuLimit: string
+  nice: string
   renderDuty: string
   renderChunks: string
   previewScale: string
@@ -113,9 +158,11 @@ function toValues(p: HostProfile): Values {
   return {
     concurrency,
     heavyExclusive: p.heavyExclusive,
+    heavyQueues: heavyOf(p),
     paused: p.paused,
     cooldownSeconds: String(p.cooldownSeconds),
     cpuLimit: String(p.cpuLimit),
+    nice: String(p.nice ?? 0),
     renderDuty: String(p.renderDuty),
     renderChunks: String(p.renderChunks),
     previewScale: String(p.previewScale),
@@ -131,9 +178,11 @@ function toProfile(name: string, v: Values, base: HostProfile): HostProfile {
     name,
     concurrency,
     heavyExclusive: v.heavyExclusive,
+    heavyQueues: v.heavyQueues,
     paused: v.paused,
     cooldownSeconds: Number(v.cooldownSeconds),
     cpuLimit: Number(v.cpuLimit),
+    nice: Number(v.nice),
     renderDuty: Number(v.renderDuty),
     renderChunks: Number(v.renderChunks),
     previewScale: Number(v.previewScale),
@@ -177,6 +226,13 @@ const NUMBER_FIELDS = [
     hint: m.system.cpuLimitHint,
     check: cpuLimitError,
     step: 5,
+  },
+  {
+    name: "nice",
+    label: m.system.nice,
+    hint: m.system.niceHint,
+    check: wholeIn(0, 19),
+    step: 1,
   },
   {
     name: "renderDuty",
@@ -310,6 +366,21 @@ function ProfileCard({ profile, current }: { profile: HostProfile; current: bool
               </form.Field>
             ))}
           </div>
+
+          <form.Field name="heavyQueues">
+            {(field) => (
+              <FieldSet className="gap-2">
+                <FieldLegend variant="label" className="mb-0">
+                  {m.system.heavyQueues}
+                </FieldLegend>
+                <HeavyQueuesPicker
+                  value={field.state.value}
+                  onChange={(next) => field.handleChange(next)}
+                />
+                <FieldDescription>{m.system.heavyQueuesHint}</FieldDescription>
+              </FieldSet>
+            )}
+          </form.Field>
 
           <div className="grid gap-5 sm:grid-cols-2">
             {NUMBER_FIELDS.map((f) => (

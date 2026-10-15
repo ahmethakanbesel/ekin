@@ -1002,6 +1002,9 @@ export const en = {
       noLimit: "No limit",
       cpuLimitValue: (pct: number) => `${pct}%`,
       cpuLimitAria: "CPU limit in percent",
+      heavyQueues: "Counted as heavy",
+      priority: "Priority",
+      priorityHint: "Low lets your own apps go first.",
       more: "Render and other settings",
       pausedHere: (name: string) =>
         `This server’s worker (profile “${name}”) is paused: no new jobs start. Running ones finish.`,
@@ -1491,7 +1494,14 @@ export const en = {
       io: "I/O",
     } as Record<string, string>,
     heavyExclusive: "One heavy job at a time",
-    heavyExclusiveHint: "Agent, speech and render jobs never run side by side.",
+    heavyExclusiveHint: "Jobs of the heavy queues never run side by side.",
+    heavyQueues: "Heavy queues",
+    heavyQueuesHint:
+      "The queues “One heavy job at a time” covers. A draft (Agent) mostly waits on Claude: leave Agent out to draft beside a render.",
+    nice: "Job priority (nice)",
+    niceHint:
+      "0 normal to 19 lowest. Job processes give way to this host's own work; the Kurgu server keeps its priority. Linux and macOS.",
+    priorities: { normal: "Normal", low: "Low", lowest: "Lowest" },
     cooldown: "Cooldown (seconds)",
     cooldownHint: "Rest after each heavy job. 0–3600.",
     cpuLimit: "CPU limit (%)",
