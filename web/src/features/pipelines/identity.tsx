@@ -22,14 +22,18 @@ export function PipelineSwatch({
   )
 }
 
-/** Active pipelines run on schedule (success); paused ones sit idle (neutral). */
+/**
+ * Both states are neutral: green means a draft is done, and an active
+ * pipeline is only running as expected. Active is a stone fill with a check,
+ * paused an outline with a pause sign; the word carries the state.
+ */
 export function PipelineStatusBadge({ status }: { status: Pipeline["status"] }) {
   const active = status === "active"
   const Icon = active ? CircleCheckIcon : CirclePauseIcon
   return (
     <Badge
       variant={active ? "secondary" : "outline"}
-      className={badgeTone[active ? "success" : "neutral"]}
+      className={active ? undefined : badgeTone.neutral}
     >
       <Icon data-icon="inline-start" />
       {m.pipelines.status[status]}

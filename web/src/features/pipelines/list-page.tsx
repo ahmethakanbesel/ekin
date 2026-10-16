@@ -249,9 +249,8 @@ function PipelineRow({
             <span className="text-xs text-muted-foreground">{formatRelative(p.nextRunAt, now)}</span>
           </div>
         ) : (
-          <span className="text-sm text-muted-foreground">
-            {schedule && p.status === "paused" ? m.pipelines.status.paused : m.common.none}
-          </span>
+          // Paused is said once, in the Status column.
+          <span className="text-sm text-muted-foreground">{m.common.none}</span>
         )}
       </TableCell>
       <TableCell className="pr-4 align-top">

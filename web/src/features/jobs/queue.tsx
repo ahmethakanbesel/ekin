@@ -19,16 +19,15 @@ export function QueueDot({
   )
 }
 
-/** The queue a job runs on, by its id (as workers and logs name it). */
+/**
+ * The queue a job runs on, by the name the throttle and filters use; the
+ * id workers and logs print is its tooltip.
+ */
 export function QueueBadge({ queue }: { queue: string }) {
   return (
-    <Badge
-      variant="outline"
-      className="rounded-md font-mono font-normal"
-      title={m.system.queues[queue] ?? queue}
-    >
+    <Badge variant="outline" className="rounded-md font-normal" title={queue}>
       <QueueDot queue={queue} className="size-1.5" />
-      {queue}
+      {m.system.queues[queue] ?? queue}
     </Badge>
   )
 }

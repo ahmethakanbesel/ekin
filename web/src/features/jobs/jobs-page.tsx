@@ -305,13 +305,9 @@ export function JobsPage() {
                 >
                   <ToggleGroupItem value={ALL}>{m.jobs.all}</ToggleGroupItem>
                   {QUEUE_ORDER.map((q) => (
-                    <ToggleGroupItem
-                      key={q}
-                      value={q}
-                      title={m.system.queues[q]}
-                    >
+                    <ToggleGroupItem key={q} value={q}>
                       <QueueDot queue={q} />
-                      {q}
+                      {m.system.queues[q]}
                     </ToggleGroupItem>
                   ))}
                 </ToggleGroup>

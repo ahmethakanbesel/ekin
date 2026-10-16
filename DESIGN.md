@@ -226,13 +226,13 @@ A warm off-white desk with a single cornflower signal, three status tones, and t
 
 ### Status
 - **Working Violet** (working-violet / -dark): the system is working: drafting, rendering, finalizing, publishing, running jobs, the planning banner.
-- **Ready Green** (ready-green / -dark): done and good: ready, approved, published, succeeded, an active pipeline, the approve button.
+- **Ready Green** (ready-green / -dark): done and good: ready, approved, published, succeeded, the approve button. Not an active pipeline: running as expected is not done.
 - **Failed Red** (failed-red / -dark): failed and the reject action.
 
 Badges lay a status tone over a tint of itself (working and done at 15%, failed at 10% light / 15% dark); banners use a 5% tint with a 30% edge and a tone-coloured leading icon.
 
 ### Categorical
-- **Queue hues** (queue-agent, queue-tts, queue-render, queue-extract, queue-io; theme chart-1..5): one hue per worker queue, used as dots, queue badges and the segments of a job's time bar. The control queue is plumbing and takes Stone Text. A job phase takes its queue's hue (plan and other on control, draft/seo/template on agent, voice on tts, render and final on render, publish on io). Queued time is a Stone Text hatch, idle time Stone Text at 10%.
+- **Queue hues** (queue-agent, queue-tts, queue-render, queue-extract, queue-io; theme chart-1..5): one hue per worker queue, always beside the queue's human name (Control, Agent, Speech, Render, Extract, I/O) in the filter, the job's queue badge and the throttle alike; the id workers log (`tts`, `io`) is only a tooltip. The hues appear as dots, queue badges and the segments of a job's time bar. The control queue is plumbing and takes Stone Text. A job phase takes its queue's hue (plan and other on control, draft/seo/template on agent, voice on tts, render and final on render, publish on io). Queued time is a Stone Text hatch, idle time Stone Text at 10%.
 - **Pipeline hues** (pipeline-1..5): a pipeline's identity, hashed from its id (31-multiplier string hash, modulo 5); there is no colour field. Shown as a small square swatch beside the pipeline name and, darkened into a radial gradient, as the backdrop of that pipeline's video posters. Ad-hoc stories take Stone Text.
 
 Every queue and pipeline hue clears 3:1 against the page in both themes (lowest: 3.5:1 light, 4.7:1 dark).
@@ -327,7 +327,7 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 - **Style:** fully round, 20px tall, 12px medium label.
 - **Tones:** attention is solid Cornflower with the ink boundary (only for "In review", and only where status varies around it); working, done and failed are tinted; waiting and queued are outlined with Ink text; rejected and cancelled are outlined with Stone Text, and a rejected output is also struck through.
 - **Said once:** where something nearby already says "in review", the badge keeps its words and drops the cornflower. On the Needs review tab a poster shows a neutral outline revision label ("r3") instead of "r3 · In review"; in the story feed the caption's and the article header's status badge is neutral for "In review", because the deliverable switcher, the panel's banner and the action rail carry it. The All and In progress tabs, the switcher's status text and the panel's other-outputs list keep the attention tone.
-- **Mapping:** waiting, queued: neutral. drafting, rendering, finalizing, publishing, running: working. review: attention. ready, published, succeeded: done. failed: failed. rejected, cancelled: muted. Pipelines: active is done with a check icon, paused is neutral with a pause icon. Running jobs spin their icon.
+- **Mapping:** waiting, queued: neutral. drafting, rendering, finalizing, publishing, running: working. review: attention. ready, published, succeeded: done. failed: failed. rejected, cancelled: muted. Pipelines: both neutral, active a stone-filled badge with a check icon, paused an outline with a pause icon. The Next run column shows a dash for a paused pipeline; Status says it once. Running jobs spin their icon.
 
 ### Banners
 - **Style:** a bordered callout with a leading icon in the tone colour: working (5% violet tint, 30% violet edge), attention (10% cornflower tint, 40% Cornflower Ink edge), done, failed, muted.
