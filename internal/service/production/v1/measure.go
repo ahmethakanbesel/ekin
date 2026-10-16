@@ -1,6 +1,7 @@
 package production
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -35,6 +36,24 @@ func wordsIn(d *storydomain.Deliverable, dir string) int {
 		return 0
 	}
 	return countWords(stripMarkdownNoise(a.Body))
+}
+
+// narrationTimings is where `kurgu tool tts` says what it read and who
+// read it.
+const narrationTimings = "narration/timings.json"
+
+// narratorIn reads which voice read a video's narration in dir; zero
+// for an article or a video never narrated.
+func narratorIn(d *storydomain.Deliverable, dir string) storydomain.Narrator {
+	var n storydomain.Narrator
+	if !d.IsVideo() {
+		return n
+	}
+	b, err := os.ReadFile(filepath.Join(dir, narrationTimings)) //nolint:gosec // our own work dir
+	if err != nil || json.Unmarshal(b, &n) != nil {
+		return storydomain.Narrator{}
+	}
+	return n
 }
 
 // stripMarkdownNoise keeps a link's text and drops its target, images

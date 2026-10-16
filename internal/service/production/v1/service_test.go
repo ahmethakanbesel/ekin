@@ -114,7 +114,7 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 	case strings.Contains(string(instructions), "produce a"):
 		write("script.md", "Sahne 1: Kaygı nedir?")
 		write("narration/narration.txt", "Kaygı nedir?")
-		write("narration/timings.json", `{"duration": 20, "words": [{"text":"Kaygı","start":0,"end":0.5}]}`)
+		write("narration/timings.json", `{"engine": "ema", "voice": "ema", "duration": 20, "words": [{"text":"Kaygı","start":0,"end":0.5}]}`)
 		write("narration/speech.wav", "RIFF")
 		write("composition.html", `<script src="/kit/kurgu.js"></script>`)
 		write("metadata.json", `{"title":"Kaygı nedir?","description":"Kısa açıklama.","tags":["kaygı"]}`)
@@ -302,8 +302,9 @@ func TestVideoWithDerivedArticleAndTranslation(t *testing.T) {
 			t.Fatalf("revision 1 lacks %s: %v", name, revs[0].Artifacts)
 		}
 	}
-	// The narration's words and the rendered preview's length.
-	if want := (storydomain.Measures{Duration: 21 * time.Second, Words: 2}); revs[0].Measures != want || lead.Measures() != want {
+	// The narration's words and voice, and the rendered preview's length.
+	ema := storydomain.Narrator{Engine: "ema", Voice: "ema"}
+	if want := (storydomain.Measures{Duration: 21 * time.Second, Words: 2, Narrator: ema}); revs[0].Measures != want || lead.Measures() != want {
 		t.Fatalf("measures = %+v / %+v, want %+v", revs[0].Measures, lead.Measures(), want)
 	}
 	brief := f.agent.prompts[1]
@@ -843,7 +844,7 @@ func TestEditVideoInPlace(t *testing.T) {
 	if revs[1].Artifacts[storydomain.ArtifactPreview] != revs[0].Artifacts[storydomain.ArtifactPreview] || revs[1].Artifacts[storydomain.ArtifactPreview] == "" {
 		t.Fatalf("preview not kept: %v", revs[1].Artifacts)
 	}
-	if want := (storydomain.Measures{Duration: 21 * time.Second, Words: 2}); revs[1].Measures != want {
+	if want := (storydomain.Measures{Duration: 21 * time.Second, Words: 2, Narrator: storydomain.Narrator{Engine: "ema", Voice: "ema"}}); revs[1].Measures != want {
 		t.Fatalf("kept preview measures = %+v, want %+v", revs[1].Measures, want)
 	}
 	c, _ = f.svc.Content(ctx, f.ws, st.ID(), d.ID())
@@ -859,8 +860,8 @@ func TestEditVideoInPlace(t *testing.T) {
 	if d = f.story(t).Lead(); d.Status() != storydomain.StatusQueued || d.Revision() != 3 {
 		t.Fatalf("after narration edit: r%d %s", d.Revision(), d.Status())
 	}
-	// Not rendered yet: the edited words, but no length.
-	if m := d.Measures(); m != (storydomain.Measures{Words: 7}) {
+	// Not rendered yet: the edited words, but no length; the voice stays.
+	if m := d.Measures(); m != (storydomain.Measures{Words: 7, Narrator: storydomain.Narrator{Engine: "ema", Voice: "ema"}}) {
 		t.Fatalf("after narration edit measures = %+v, want 7 words", m)
 	}
 	f.drain(t)

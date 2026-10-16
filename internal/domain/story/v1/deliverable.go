@@ -176,11 +176,21 @@ func (f *Feedback) UnmarshalJSON(b []byte) error {
 }
 
 // Measures are what a revision came out as, not what was asked for:
-// the rendered video's length and the words spoken or written. Zero
-// means not measured (yet).
+// the rendered video's length, the words spoken or written and the
+// voice that spoke them. Zero means not measured (yet).
 type Measures struct {
 	Duration time.Duration
 	Words    int
+	Narrator Narrator
+}
+
+// Narrator is the voice that read a video's narration: the TTS engine,
+// its voice ("" for the engine's default) and, for ElevenLabs, the
+// model. Zero when nothing was narrated or it is not known.
+type Narrator struct {
+	Engine string `json:"engine"`
+	Voice  string `json:"voice,omitempty"`
+	Model  string `json:"model,omitempty"`
 }
 
 // Publication is where a deliverable went live.
@@ -293,16 +303,16 @@ func (s *Story) StartDrafting(id uuid.UUID, now time.Time) (*Feedback, error) {
 	return d.pending, nil
 }
 
-// Drafted records the agent's output, of words words, as the next
-// revision. Videos go on to the preview render; articles straight to
-// review.
-func (s *Story) Drafted(id uuid.UUID, artifacts map[string]string, session, notes string, words int, now time.Time) (Revision, error) {
+// Drafted records the agent's output as the next revision, measured
+// as m (its words and narrator; the length comes from the render).
+// Videos go on to the preview render; articles straight to review.
+func (s *Story) Drafted(id uuid.UUID, artifacts map[string]string, session, notes string, m Measures, now time.Time) (Revision, error) {
 	d, err := s.find(id, StatusDrafting)
 	if err != nil {
 		return Revision{}, err
 	}
 	d.revision++
-	d.measures = Measures{Words: max(words, 0)}
+	d.measures = Measures{Words: max(m.Words, 0), Narrator: m.Narrator}
 	rev := Revision{
 		DeliverableID: d.id, Number: d.revision, Feedback: d.pending,
 		Artifacts: maps.Clone(artifacts), Notes: notes, Measures: d.measures, CreatedAt: timeutil.Normalize(now),

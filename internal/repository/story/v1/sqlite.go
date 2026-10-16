@@ -80,17 +80,17 @@ func (r *SQLite) writeDeliverables(ctx context.Context, snap storydomain.Snapsho
 		}
 		_, err := q.ExecContext(ctx, `INSERT INTO deliverables
 			(id, story_id, position, kind, role, source_id, language, video, article, status, revision, pending,
-			 failure, failed_step, session, approved_by, approved_at, published, duration_ms, words, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			 failure, failed_step, session, approved_by, approved_at, published, duration_ms, words, narrator, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (id) DO UPDATE SET
 			  status = excluded.status, revision = excluded.revision, pending = excluded.pending,
 			  failure = excluded.failure, failed_step = excluded.failed_step, session = excluded.session,
 			  approved_by = excluded.approved_by, approved_at = excluded.approved_at,
 			  published = excluded.published, duration_ms = excluded.duration_ms, words = excluded.words,
-			  updated_at = excluded.updated_at`,
+			  narrator = excluded.narrator, updated_at = excluded.updated_at`,
 			d.ID.String(), snap.ID.String(), i, d.Kind, d.Role, nullID(d.SourceID), d.Language, video, article,
 			d.Status, d.Revision, pending, d.Failure, d.FailedStep, d.Session, nullID(d.ApprovedBy), approvedAt,
-			published, nullMillis(d.Measures.Duration), nullPositive(d.Measures.Words),
+			published, nullMillis(d.Measures.Duration), nullPositive(d.Measures.Words), nullNarrator(d.Measures.Narrator),
 			timeutil.ToMillis(d.CreatedAt), timeutil.ToMillis(d.UpdatedAt))
 		if err != nil {
 			return fmt.Errorf("write deliverable: %w", err)
@@ -194,7 +194,7 @@ func (r *SQLite) query(ctx context.Context, query string, args ...any) ([]*story
 func (r *SQLite) deliverables(ctx context.Context, storyID uuid.UUID) ([]storydomain.DeliverableSnapshot, error) {
 	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT id, kind, role, source_id, language, video, article, status,
 		revision, pending, failure, failed_step, session, approved_by, approved_at, published, duration_ms, words,
-		created_at, updated_at
+		narrator, created_at, updated_at
 		FROM deliverables WHERE story_id = ? ORDER BY position`, storyID.String())
 	if err != nil {
 		return nil, fmt.Errorf("query deliverables: %w", err)
@@ -207,12 +207,13 @@ func (r *SQLite) deliverables(ctx context.Context, storyID uuid.UUID) ([]storydo
 			rawID                              string
 			sourceID, approvedBy               sql.NullString
 			video, article, pending, published sql.NullString
+			narrator                           sql.NullString
 			approvedAt, durationMS, words      sql.NullInt64
 			created, updated                   int64
 		)
 		if err := rows.Scan(&rawID, &d.Kind, &d.Role, &sourceID, &d.Language, &video, &article, &d.Status,
 			&d.Revision, &pending, &d.Failure, &d.FailedStep, &d.Session, &approvedBy, &approvedAt, &published,
-			&durationMS, &words, &created, &updated); err != nil {
+			&durationMS, &words, &narrator, &created, &updated); err != nil {
 			return nil, fmt.Errorf("scan deliverable: %w", err)
 		}
 		d.ID, _ = uuid.Parse(rawID)
@@ -236,7 +237,7 @@ func (r *SQLite) deliverables(ctx context.Context, storyID uuid.UUID) ([]storydo
 		if approvedAt.Valid {
 			d.ApprovedAt = timeutil.FromMillis(approvedAt.Int64)
 		}
-		d.Measures = measures(durationMS, words)
+		d.Measures = measures(durationMS, words, narrator)
 		d.CreatedAt, d.UpdatedAt = timeutil.FromMillis(created), timeutil.FromMillis(updated)
 		out = append(out, d)
 	}
@@ -259,12 +260,13 @@ func (r *SQLite) Delete(ctx context.Context, workspaceID, id uuid.UUID) error {
 func (r *SQLite) PutRevision(ctx context.Context, rev storydomain.Revision) error {
 	artifacts, _ := json.Marshal(nonNilMap(rev.Artifacts))
 	_, err := r.q.W(ctx).ExecContext(ctx, `INSERT INTO revisions
-		(deliverable_id, number, feedback, artifacts, notes, edited_by, duration_ms, words, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		(deliverable_id, number, feedback, artifacts, notes, edited_by, duration_ms, words, narrator, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (deliverable_id, number) DO UPDATE SET artifacts = excluded.artifacts, notes = excluded.notes,
-		  duration_ms = excluded.duration_ms, words = excluded.words`,
+		  duration_ms = excluded.duration_ms, words = excluded.words, narrator = excluded.narrator`,
 		rev.DeliverableID.String(), rev.Number, jsonOrNull(rev.Feedback), string(artifacts), rev.Notes, nullID(rev.EditedBy),
-		nullMillis(rev.Measures.Duration), nullPositive(rev.Measures.Words), timeutil.ToMillis(rev.CreatedAt))
+		nullMillis(rev.Measures.Duration), nullPositive(rev.Measures.Words), nullNarrator(rev.Measures.Narrator),
+		timeutil.ToMillis(rev.CreatedAt))
 	if err != nil {
 		return fmt.Errorf("write revision: %w", err)
 	}
@@ -287,7 +289,7 @@ func (r *SQLite) Revision(ctx context.Context, deliverableID uuid.UUID, number i
 }
 
 func (r *SQLite) revisions(ctx context.Context, where string, args ...any) ([]storydomain.Revision, error) {
-	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT deliverable_id, number, feedback, artifacts, notes, edited_by, duration_ms, words, created_at
+	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT deliverable_id, number, feedback, artifacts, notes, edited_by, duration_ms, words, narrator, created_at
 		FROM revisions WHERE `+where, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query revisions: %w", err)
@@ -303,9 +305,10 @@ func (r *SQLite) revisions(ctx context.Context, where string, args ...any) ([]st
 			editedBy  sql.NullString
 			duration  sql.NullInt64
 			words     sql.NullInt64
+			narrator  sql.NullString
 			created   int64
 		)
-		if err := rows.Scan(&rawID, &rev.Number, &feedback, &artifacts, &rev.Notes, &editedBy, &duration, &words, &created); err != nil {
+		if err := rows.Scan(&rawID, &rev.Number, &feedback, &artifacts, &rev.Notes, &editedBy, &duration, &words, &narrator, &created); err != nil {
 			return nil, fmt.Errorf("scan revision: %w", err)
 		}
 		rev.DeliverableID, _ = uuid.Parse(rawID)
@@ -317,7 +320,7 @@ func (r *SQLite) revisions(ctx context.Context, where string, args ...any) ([]st
 			_ = json.Unmarshal([]byte(feedback.String), rev.Feedback)
 		}
 		_ = json.Unmarshal([]byte(artifacts), &rev.Artifacts)
-		rev.Measures = measures(duration, words)
+		rev.Measures = measures(duration, words, narrator)
 		rev.CreatedAt = timeutil.FromMillis(created)
 		out = append(out, rev)
 	}
@@ -429,9 +432,21 @@ func nullPositive(n int) sql.NullInt64 {
 	return sql.NullInt64{Int64: int64(n), Valid: n > 0}
 }
 
-func measures(durationMS, words sql.NullInt64) storydomain.Measures {
-	return storydomain.Measures{
+// nullNarrator stores the voice that read a narration; none is NULL.
+func nullNarrator(n storydomain.Narrator) sql.NullString {
+	if n.Engine == "" {
+		return sql.NullString{}
+	}
+	return jsonOrNull(&n)
+}
+
+func measures(durationMS, words sql.NullInt64, narrator sql.NullString) storydomain.Measures {
+	m := storydomain.Measures{
 		Duration: time.Duration(durationMS.Int64) * time.Millisecond,
 		Words:    int(words.Int64),
 	}
+	if narrator.Valid {
+		_ = json.Unmarshal([]byte(narrator.String), &m.Narrator)
+	}
+	return m
 }

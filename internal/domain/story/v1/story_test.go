@@ -84,7 +84,7 @@ func TestVideoLifecycle(t *testing.T) {
 	if _, err := s.StartDrafting(video.ID(), now); err != nil || video.Status() != story.StatusDrafting {
 		t.Fatalf("restart an interrupted draft = %s, %v", video.Status(), err)
 	}
-	rev, err := s.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k1"}, "sess-1", "", 0, now)
+	rev, err := s.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k1"}, "sess-1", "", story.Measures{}, now)
 	if err != nil || rev.Number != 1 || video.Status() != story.StatusRendering || video.Session() != "sess-1" {
 		t.Fatalf("drafted = %+v %s %v", rev, video.Status(), err)
 	}
@@ -101,7 +101,7 @@ func TestVideoLifecycle(t *testing.T) {
 	if got == nil || len(got.Notes) != 1 || got.Notes[0].Text != "Make the hook faster" {
 		t.Fatalf("feedback lost: %v", got)
 	}
-	rev, _ = s.Drafted(video.ID(), nil, "", "", 0, now)
+	rev, _ = s.Drafted(video.ID(), nil, "", "", story.Measures{}, now)
 	if rev.Number != 2 || rev.Feedback == nil || video.PendingFeedback() != nil || video.Session() != "sess-1" {
 		t.Fatalf("revision 2 = %+v", rev)
 	}
@@ -131,7 +131,7 @@ func TestVideoLifecycle(t *testing.T) {
 
 	// The derived article: approval adds its English translation.
 	_, _ = s.StartDrafting(article.ID(), now)
-	_, _ = s.Drafted(article.ID(), nil, "", "", 0, now)
+	_, _ = s.Drafted(article.ID(), nil, "", "", story.Measures{}, now)
 	if article.Status() != story.StatusReview {
 		t.Fatalf("article skips rendering: %s", article.Status())
 	}
@@ -141,7 +141,7 @@ func TestVideoLifecycle(t *testing.T) {
 	}
 	tr := queued[0]
 	_, _ = s.StartDrafting(tr.ID(), now)
-	_, _ = s.Drafted(tr.ID(), nil, "", "", 0, now)
+	_, _ = s.Drafted(tr.ID(), nil, "", "", story.Measures{}, now)
 	if more, _ := s.Approve(tr.ID(), id.New(), id.New, now); len(more) != 0 {
 		t.Fatalf("a translation spawned translations: %d", len(more))
 	}
@@ -159,7 +159,7 @@ func TestFailRetryAndReject(t *testing.T) {
 	s := newStory(t, outputs(t, true, true, pipelinedomain.KindVideo))
 	video := s.Lead()
 	_, _ = s.StartDrafting(video.ID(), now)
-	_, _ = s.Drafted(video.ID(), nil, "", "", 0, now)
+	_, _ = s.Drafted(video.ID(), nil, "", "", story.Measures{}, now)
 	if err := s.Fail(video.ID(), "chrome crashed", now); err != nil {
 		t.Fatal(err)
 	}
@@ -196,33 +196,35 @@ func TestMeasuresFollowTheLatestRevision(t *testing.T) {
 	}
 
 	_, _ = s.StartDrafting(video.ID(), now)
-	rev, _ := s.Drafted(video.ID(), nil, "", "", 112, now)
-	check("drafted", rev, story.Measures{Words: 112})
-	_ = s.Rendered(video.ID(), 0, now) // not measured: nothing changes
-	check("unmeasured render", rev, story.Measures{Words: 112})
+	ema := story.Narrator{Engine: "ema", Voice: "ema"}
+	rev, _ := s.Drafted(video.ID(), nil, "", "", story.Measures{Duration: time.Hour, Words: 112, Narrator: ema}, now)
+	check("drafted", rev, story.Measures{Words: 112, Narrator: ema}) // the length comes from the render
+	_ = s.Rendered(video.ID(), 0, now)                               // not measured: nothing changes
+	check("unmeasured render", rev, story.Measures{Words: 112, Narrator: ema})
 
 	fb, _ := story.NewFeedback([]story.Note{{Text: "Shorter", Scope: story.ScopeScript}}, editor, now)
 	_ = s.RequestChanges(video.ID(), fb, now)
 	_, _ = s.StartDrafting(video.ID(), now)
-	rev, _ = s.Drafted(video.ID(), nil, "", "", 120, now)
-	check("redrafted", rev, story.Measures{Words: 120})
+	eleven := story.Narrator{Engine: "elevenlabs", Voice: "JBFqnCBsd6RMkjVDRZzb", Model: "eleven_multilingual_v2"}
+	rev, _ = s.Drafted(video.ID(), nil, "", "", story.Measures{Words: 120, Narrator: eleven}, now)
+	check("redrafted", rev, story.Measures{Words: 120, Narrator: eleven})
 	_ = s.Rendered(video.ID(), 47*time.Second, now)
-	if want := (story.Measures{Duration: 47 * time.Second, Words: 120}); video.Measures() != want {
+	if want := (story.Measures{Duration: 47 * time.Second, Words: 120, Narrator: eleven}); video.Measures() != want {
 		t.Fatalf("rendered = %+v, want %+v", video.Measures(), want)
 	}
 
 	// A metadata edit keeps the picture, so the length carries over.
 	rev, _ = s.Edited(video.ID(), nil, editor, nil, 120, now)
-	check("metadata edit", rev, story.Measures{Duration: 47 * time.Second, Words: 120})
+	check("metadata edit", rev, story.Measures{Duration: 47 * time.Second, Words: 120, Narrator: eleven})
 
 	// A narration edit goes back to the agent: the length is unknown
-	// until the next render.
+	// until the next render; the voice stays until it reads it again.
 	retime, _ := story.NewFeedback([]story.Note{{Text: "re-time", Scope: story.ScopeScript}}, editor, now)
 	rev, _ = s.Edited(video.ID(), nil, editor, &retime, 98, now)
-	check("narration edit", rev, story.Measures{Words: 98})
+	check("narration edit", rev, story.Measures{Words: 98, Narrator: eleven})
 
 	back, err := story.Rehydrate(s.Snapshot())
-	if err != nil || back.Lead().Measures() != (story.Measures{Words: 98}) {
+	if err != nil || back.Lead().Measures() != (story.Measures{Words: 98, Narrator: eleven}) {
 		t.Fatalf("rehydrated measures = %+v, %v", back.Lead().Measures(), err)
 	}
 }

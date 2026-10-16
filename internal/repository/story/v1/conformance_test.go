@@ -66,8 +66,9 @@ func TestConformance(t *testing.T) {
 			}
 
 			video := got.Lead()
+			narrated := storydomain.Measures{Words: 140, Narrator: storydomain.Narrator{Engine: "elevenlabs", Voice: "v1", Model: "eleven_v3"}}
 			_, _ = got.StartDrafting(video.ID(), now)
-			rev, _ := got.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k"}, "sess", "notes", 140, now)
+			rev, _ := got.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k"}, "sess", "notes", narrated, now)
 			if err := repo.Save(ctx, got); err != nil {
 				t.Fatal(err)
 			}
@@ -79,7 +80,7 @@ func TestConformance(t *testing.T) {
 			_ = repo.PutRevision(ctx, rev)
 			back, _ := repo.Revision(ctx, video.ID(), 1)
 			if back.Artifacts["preview.mp4"] != "p" || back.Artifacts["workdir.tar.gz"] != "k" || back.Notes != "notes" ||
-				back.Measures != (storydomain.Measures{Duration: 47500 * time.Millisecond, Words: 140}) {
+				back.Measures != (storydomain.Measures{Duration: 47500 * time.Millisecond, Words: 140, Narrator: narrated.Narrator}) {
 				t.Fatalf("revision = %+v", back)
 			}
 			if _, err := repo.Revision(ctx, video.ID(), 2); !apperror.Is(err, apperror.NotFound) {
@@ -95,7 +96,7 @@ func TestConformance(t *testing.T) {
 				t.Fatal(err)
 			}
 			rendered, _ := repo.Get(ctx, ws, s.ID())
-			if m := rendered.Lead().Measures(); m != (storydomain.Measures{Duration: 47500 * time.Millisecond, Words: 140}) {
+			if m := rendered.Lead().Measures(); m != (storydomain.Measures{Duration: 47500 * time.Millisecond, Words: 140, Narrator: narrated.Narrator}) {
 				t.Fatalf("deliverable measures = %+v", m)
 			}
 			_ = stale.Rendered(video.ID(), 0, now)
@@ -123,7 +124,7 @@ func TestConformance(t *testing.T) {
 				t.Fatalf("pending notes = %v, want %v", got, wantNotes)
 			}
 			_, _ = queued.StartDrafting(video.ID(), now)
-			rev2, _ := queued.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k2"}, "sess", "", 0, now)
+			rev2, _ := queued.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k2"}, "sess", "", storydomain.Measures{}, now)
 			_ = queued.Rendered(video.ID(), 0, now)
 			if err := repo.Save(ctx, queued); err != nil {
 				t.Fatal(err)
@@ -192,7 +193,7 @@ func TestSQLiteReadsSingleNoteFeedback(t *testing.T) {
 	}
 	video := s.Lead()
 	_, _ = s.StartDrafting(video.ID(), now)
-	rev, _ := s.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k"}, "sess", "", 0, now)
+	rev, _ := s.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k"}, "sess", "", storydomain.Measures{}, now)
 	rev.Number = 2
 	if err := repo.PutRevision(ctx, rev); err != nil {
 		t.Fatal(err)
