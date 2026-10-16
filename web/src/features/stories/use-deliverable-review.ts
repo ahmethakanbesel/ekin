@@ -11,7 +11,7 @@ import type { ArtifactRef } from "./previews"
 /**
  * The state of reviewing one deliverable: its revisions and the one being
  * looked at, the player, and the approve / retry / publish actions with the
- * request-changes, reject and edit flows they open.
+ * reject and edit flows they open.
  */
 export function useDeliverableReview({
   workspaceId,
@@ -33,9 +33,6 @@ export function useDeliverableReview({
   // null: follow the latest revision.
   const [picked, setPicked] = useState<number | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [changing, setChanging] = useState<{ atSeconds?: number } | null>(
-    null
-  )
   const [rejecting, setRejecting] = useState(false)
   const [editing, setEditing] = useState(false)
   // Another story or deliverable starts afresh (the feed keeps this mounted).
@@ -44,7 +41,6 @@ export function useDeliverableReview({
   if (shown !== key) {
     setShown(key)
     setPicked(null)
-    setChanging(null)
     setRejecting(false)
     setEditing(false)
   }
@@ -101,17 +97,6 @@ export function useDeliverableReview({
     return el.currentTime
   }
 
-  const openChanges = () => {
-    const el = videoRef.current
-    let atSeconds: number | undefined
-    if (d.kind === "video" && el && !viewingOld) {
-      // Pause where the reviewer is, so the position they pin is the one they see.
-      el.pause()
-      atSeconds = el.currentTime
-    }
-    setChanging({ atSeconds })
-  }
-
   const busy = approve.isPending || retry.isPending || publish.isPending
 
   const artifacts: ArtifactRef | undefined = current && {
@@ -134,9 +119,6 @@ export function useDeliverableReview({
     videoRef,
     playhead,
     pause,
-    changing,
-    openChanges,
-    closeChanges: () => setChanging(null),
     rejecting,
     setRejecting,
     editing: showEditor,

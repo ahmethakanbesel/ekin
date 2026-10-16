@@ -344,6 +344,15 @@
   font-size: 1.1em;
   margin-top: 1.4em;
 }
+/* Scripts beside the feed: headings mark scenes, not sections. */
+.markdown.markdown-compact h1 {
+  font-size: 1.1em;
+}
+.markdown.markdown-compact h2,
+.markdown.markdown-compact h3 {
+  font-size: 1em;
+  margin-top: 1.4em;
+}
 .markdown a {
   color: var(--primary-ink);
   text-decoration: underline;

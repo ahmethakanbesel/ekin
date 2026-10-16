@@ -12,82 +12,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { useRetained } from "@/lib/use-retained"
 import { useDeleteStory, useDeliverableAction } from "@/queries/stories"
-import { FeedbackForm } from "./feedback-form"
-
-/**
- * Sends a deliverable in review back to the agent. For videos, `atSeconds`
- * is the player's position when the dialog opened; the note is pinned to
- * it unless the reviewer clears the time.
- */
-export function RequestChangesDialog({
-  workspaceId,
-  storyId,
-  deliverable,
-  atSeconds,
-  onOpenChange,
-}: {
-  workspaceId: string
-  storyId: string
-  /** The deliverable to revise; null closes the dialog. */
-  deliverable: Deliverable | null
-  atSeconds?: number
-  onOpenChange: (open: boolean) => void
-}) {
-  return (
-    <Dialog open={!!deliverable} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        {/* Mounted only while open, so each opening starts empty. */}
-        {deliverable ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>{m.review.changes.title}</DialogTitle>
-              <DialogDescription>
-                {m.review.changes.description(deliverable.revision)}
-              </DialogDescription>
-            </DialogHeader>
-            <FeedbackForm
-              workspaceId={workspaceId}
-              storyId={storyId}
-              deliverable={deliverable}
-              revisions={[]}
-              focus={{ at: atSeconds, n: 0 }}
-              onSent={() => onOpenChange(false)}
-              renderFooter={(submitting) => (
-                <DialogFooter className="mt-6">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => onOpenChange(false)}
-                  >
-                    {m.common.cancel}
-                  </Button>
-                  <Button type="submit" disabled={submitting}>
-                    {submitting
-                      ? m.review.changes.sending
-                      : m.review.changes.submit}
-                  </Button>
-                </DialogFooter>
-              )}
-            />
-          </>
-        ) : null}
-      </DialogContent>
-    </Dialog>
-  )
-}
 
 /** Confirms rejecting a deliverable; the server's refusal stays in the dialog. */
 export function RejectDialog({

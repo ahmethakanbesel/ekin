@@ -733,6 +733,20 @@ export const en = {
     feedback: "Feedback",
     feedbackToggle: "Feedback for the agent",
   },
+  history: {
+    title: "History",
+    entries: (n: number) => (n === 1 ? "1 entry" : `${n} entries`),
+    written: "Written by the agent",
+    askedOn: (n: number) => `Note on r${n}`,
+    addressedIn: (n: number) => `Addressed in r${n}`,
+  },
+  panel: {
+    revision: "Revision",
+    latest: (label: string) => `${label} · latest`,
+    script: "Script",
+    narration: (language: string) => `Narration · ${language}`,
+    details: "Details",
+  },
   feedbackSheet: {
     title: "Feedback",
     description: (n: number) =>

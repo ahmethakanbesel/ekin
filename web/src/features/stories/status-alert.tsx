@@ -15,20 +15,18 @@ import { iconClass, toneClass, type BannerTone } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { formatTimestamp, scopeLabel, sourceOf } from "./model"
 
-/** What is happening to the deliverable, in plain words, with what can be done about it. */
+/** What is happening to the deliverable, in plain words. */
 export function StatusBanner({
   story,
   deliverable: d,
   canEdit,
   timezone,
-  actions,
   className,
 }: {
   story: Story
   deliverable: Deliverable
   canEdit: boolean
   timezone: string
-  actions?: ReactNode
   className?: string
 }) {
   const now = useNow()
@@ -162,9 +160,6 @@ export function StatusBanner({
           ) : null}
         </div>
       </div>
-      {actions ? (
-        <div className="flex flex-wrap items-center gap-2">{actions}</div>
-      ) : null}
     </div>
   )
 }

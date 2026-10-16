@@ -13,6 +13,7 @@ import { Banner, ErrorState, ReadOnlyNote } from "@/components/page"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { formatDateTime, formatRelative, useNow } from "@/lib/time"
@@ -21,8 +22,8 @@ import { cn } from "@/lib/utils"
 import { documentsQuery } from "@/queries/documents"
 import { StatusBadge } from "./badges"
 import { deliverableLabel } from "./model"
-import { FilesList, VideoDetails } from "./previews"
-import { RevisionList } from "./revision-history"
+import { FilesList, ScriptText, VideoDetails } from "./previews"
+import { RevisionHistory, historyCount } from "./revision-history"
 import { StatusBanner } from "./status-alert"
 import type { DeliverableReview } from "./use-deliverable-review"
 
@@ -54,6 +55,8 @@ export function ReviewPanel({
   onDelete: () => void
 }) {
   const { current, latest, artifacts } = review
+  const language = m.values.language[story.language] ?? story.language
+  const hasScript = !!current?.artifacts.includes("script.md")
 
   return (
     <div className="grid">
@@ -92,6 +95,40 @@ export function ReviewPanel({
         {canEdit ? null : (
           <ReadOnlyNote className="mb-0">{m.story.readOnlyHint}</ReadOnlyNote>
         )}
+        {review.list.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <span id="panel-revision" className="text-sm font-medium">
+              {m.panel.revision}
+            </span>
+            <ToggleGroup
+              aria-labelledby="panel-revision"
+              variant="outline"
+              size="sm"
+              spacing={0}
+              className="max-w-full flex-wrap"
+              value={current ? [String(current.number)] : []}
+              onValueChange={(next) =>
+                next[0] && review.pick(Number(next[0]))
+              }
+            >
+              {review.list.map((r) => {
+                const label = m.stories.revisionShort(r.number)
+                return (
+                  <ToggleGroupItem
+                    key={r.number}
+                    value={String(r.number)}
+                    aria-label={m.feed.revisionItem(r.number)}
+                    className="tabular aria-pressed:border-primary-ink aria-pressed:bg-primary/10 aria-pressed:text-primary-ink"
+                  >
+                    {r.number === latest?.number
+                      ? m.panel.latest(label)
+                      : label}
+                  </ToggleGroupItem>
+                )
+              })}
+            </ToggleGroup>
+          </div>
+        ) : null}
         {review.viewingOld && current && latest ? (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed px-4 py-2.5 text-sm">
             <span className="text-muted-foreground">
@@ -102,39 +139,64 @@ export function ReviewPanel({
             </Button>
           </div>
         ) : null}
-      </Section>
-      <Separator />
-      <Section>
         {review.revisions.isError && !review.revisions.data ? (
           <ErrorState
             error={review.revisions.error}
             onRetry={() => void review.revisions.refetch()}
           />
-        ) : (
-          <RevisionList
-            workspaceId={workspaceId}
-            deliverable={d}
-            revisions={review.list}
-            loading={review.revisions.isPending && d.revision > 0}
-            current={current?.number}
-            latest={latest?.number}
-            timezone={timezone}
-            onPick={review.pick}
-          />
-        )}
+        ) : null}
       </Section>
+      {d.kind === "video" && current && artifacts && hasScript ? (
+        <>
+          <Separator />
+          <Section
+            title={m.panel.script}
+            aside={
+              current.artifacts.includes("narration.wav")
+                ? m.panel.narration(language)
+                : language
+            }
+          >
+            <ScriptText artifacts={artifacts} revision={current} />
+          </Section>
+        </>
+      ) : null}
+      {d.revision > 0 ? (
+        <>
+          <Separator />
+          <Section
+            title={m.history.title}
+            aside={
+              review.revisions.data
+                ? m.history.entries(historyCount(d, review.list))
+                : undefined
+            }
+          >
+            <RevisionHistory
+              workspaceId={workspaceId}
+              deliverable={d}
+              revisions={review.list}
+              loading={review.revisions.isPending}
+              shown={current?.number}
+              timezone={timezone}
+            />
+          </Section>
+        </>
+      ) : null}
       {current && artifacts ? (
         <>
           <Separator />
-          <Section className="grid gap-6">
-            {d.kind === "video" ? (
-              <VideoDetails
-                artifacts={artifacts}
-                revision={current}
-                videoRef={review.videoRef}
-              />
-            ) : null}
-            <FilesList artifacts={artifacts} revision={current} />
+          <Section title={m.panel.details}>
+            <div className="grid gap-6">
+              {d.kind === "video" ? (
+                <VideoDetails
+                  artifacts={artifacts}
+                  revision={current}
+                  videoRef={review.videoRef}
+                />
+              ) : null}
+              <FilesList artifacts={artifacts} revision={current} />
+            </div>
           </Section>
         </>
       ) : null}
