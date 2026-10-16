@@ -74,7 +74,10 @@ export function DocumentPage() {
     )
   }
   if (query.isError) {
-    if (isApiError(query.error) && (query.error.status === 404 || query.error.status === 400)) {
+    if (
+      isApiError(query.error) &&
+      (query.error.status === 404 || query.error.status === 400)
+    ) {
       return (
         <div className="max-w-5xl">
           <BackLink workspaceId={workspace.id} />
@@ -82,7 +85,9 @@ export function DocumentPage() {
         </div>
       )
     }
-    return <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+    return (
+      <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+    )
   }
   return <DocumentView doc={query.data} />
 }
@@ -96,8 +101,12 @@ function DocumentView({ doc }: { doc: Document }) {
   const meta = (
     <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
       <FormatBadge format={doc.format} />
-      {ready ? <span className="tabular">{m.knowledge.pages(doc.pageCount)}</span> : null}
-      {ready ? <span className="tabular">{tokensLabel(doc.tokens)}</span> : null}
+      {ready ? (
+        <span className="tabular">{m.knowledge.pages(doc.pageCount)}</span>
+      ) : null}
+      {ready ? (
+        <span className="tabular">{tokensLabel(doc.tokens)}</span>
+      ) : null}
       <span className="tabular">{formatBytes(doc.size)}</span>
       <span className="truncate">{doc.filename}</span>
       {ready ? null : <StatusBadge status={doc.status} />}
@@ -140,8 +149,12 @@ function DocumentView({ doc }: { doc: Document }) {
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-14 text-center">
           <Loader2Icon className="size-6 animate-spin text-muted-foreground" />
           <div className="max-w-md space-y-1">
-            <h2 className="font-heading text-base font-medium">{m.knowledge.pendingTitle}</h2>
-            <p className="text-sm text-muted-foreground">{m.knowledge.pendingBody}</p>
+            <h2 className="font-heading text-base font-medium">
+              {m.knowledge.pendingTitle}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {m.knowledge.pendingBody}
+            </p>
           </div>
         </div>
       ) : doc.status === "failed" ? (
@@ -182,7 +195,9 @@ function FailedBanner({ doc, canEdit }: { doc: Document; canEdit: boolean }) {
         ) : null
       }
     >
-      <p className="whitespace-pre-wrap">{doc.failure || m.knowledge.noFailureReason}</p>
+      <p className="whitespace-pre-wrap">
+        {doc.failure || m.knowledge.noFailureReason}
+      </p>
     </Banner>
   )
 }
@@ -196,7 +211,8 @@ function Reader({ doc }: { doc: Document }) {
   const navigate = useNavigate({ from: ROUTE })
   const total = doc.pageCount
   const page = Math.min(Math.max(search.page ?? 1, 1), Math.max(total, 1))
-  const view: View = doc.format === "pdf" && search.view === "pdf" ? "pdf" : "text"
+  const view: View =
+    doc.format === "pdf" && search.view === "pdf" ? "pdf" : "text"
   const [range, setRange] = useState<Range>({ from: "1", to: String(total) })
 
   const chunk = chunkOf(page)
@@ -206,7 +222,12 @@ function Reader({ doc }: { doc: Document }) {
 
   const from = toInt(range.from)
   const to = toInt(range.to)
-  const rangeValid = from !== undefined && to !== undefined && from >= 1 && from <= to && to <= total
+  const rangeValid =
+    from !== undefined &&
+    to !== undefined &&
+    from >= 1 &&
+    from <= to &&
+    to <= total
 
   const setPage = (n: number) =>
     void navigate({
@@ -220,7 +241,12 @@ function Reader({ doc }: { doc: Document }) {
     })
 
   if (total === 0) {
-    return <EmptyState icon={<FileTextIcon />} title={m.knowledge.viewer.emptyPage} />
+    return (
+      <EmptyState
+        icon={<FileTextIcon />}
+        title={m.knowledge.viewer.emptyPage}
+      />
+    )
   }
 
   const t = m.knowledge.viewer
@@ -263,8 +289,10 @@ function Reader({ doc }: { doc: Document }) {
               </TabsList>
             ) : null}
             <div className="min-w-0">
-              <p className="text-sm font-medium tabular">{t.pageOf(page, total)}</p>
-              <p className="text-xs text-muted-foreground tabular">
+              <p className="tabular text-sm font-medium">
+                {t.pageOf(page, total)}
+              </p>
+              <p className="tabular text-xs text-muted-foreground">
                 {current
                   ? `${m.knowledge.words(current.words)} · ${tokensLabel(current.tokens)}`
                   : " "}
@@ -301,7 +329,10 @@ function Reader({ doc }: { doc: Document }) {
                 ))}
               </div>
             ) : pages.isError ? (
-              <ErrorState error={pages.error} onRetry={() => void pages.refetch()} />
+              <ErrorState
+                error={pages.error}
+                onRetry={() => void pages.refetch()}
+              />
             ) : current?.text.trim() ? (
               <div
                 className={cn(
@@ -354,7 +385,8 @@ function RangeBar({
   const t = m.knowledge.viewer
   // The chapter and the innermost section around the page, as shortcuts.
   const trail = sectionsAt(sections, page)
-  const shortcuts = trail.length > 1 ? [trail[0], trail[trail.length - 1]] : trail
+  const shortcuts =
+    trail.length > 1 ? [trail[0], trail[trail.length - 1]] : trail
   const matched = valid ? sectionFor(sections, from, to) : undefined
 
   return (
@@ -373,7 +405,7 @@ function RangeBar({
             inputMode="numeric"
             min={1}
             max={doc.pageCount}
-            className="w-24 tabular"
+            className="tabular w-24"
             value={range.from}
             onChange={(e) => onChange({ ...range, from: e.target.value })}
             aria-invalid={!valid || undefined}
@@ -390,7 +422,7 @@ function RangeBar({
             inputMode="numeric"
             min={1}
             max={doc.pageCount}
-            className="w-24 tabular"
+            className="tabular w-24"
             value={range.to}
             onChange={(e) => onChange({ ...range, to: e.target.value })}
             aria-invalid={!valid || undefined}
@@ -421,10 +453,16 @@ function RangeBar({
             size="xs"
             variant="outline"
             className="max-w-64"
-            title={m.knowledge.contents.rangeHint(t.rangeSummary(s.fromPage, s.toPage))}
-            onClick={() => onChange({ from: String(s.fromPage), to: String(s.toPage) })}
+            title={m.knowledge.contents.rangeHint(
+              t.rangeSummary(s.fromPage, s.toPage)
+            )}
+            onClick={() =>
+              onChange({ from: String(s.fromPage), to: String(s.toPage) })
+            }
           >
-            <span className="truncate">{m.knowledge.contents.apply(s.title)}</span>
+            <span className="truncate">
+              {m.knowledge.contents.apply(s.title)}
+            </span>
           </Button>
         ))}
         <Button
@@ -439,16 +477,19 @@ function RangeBar({
       <div className="min-w-48 flex-1 text-right" aria-live="polite">
         {estimate ? (
           <>
-            <p className="truncate text-xs text-muted-foreground tabular">
+            <p className="tabular truncate text-xs text-muted-foreground">
               {matched ? `${matched.title} · ` : null}
-              {t.rangeSummary(estimate.from, estimate.to)} · {m.knowledge.pages(estimate.pages)}
+              {t.rangeSummary(estimate.from, estimate.to)} ·{" "}
+              {m.knowledge.pages(estimate.pages)}
             </p>
-            <p className="font-heading text-lg font-semibold tabular">
+            <p className="tabular font-heading text-lg font-semibold">
               {tokensLabel(estimate.tokens, estimate.approximate)}
             </p>
           </>
         ) : (
-          <p className="text-sm text-destructive">{t.rangeInvalid(doc.pageCount)}</p>
+          <p className="text-sm text-destructive">
+            {t.rangeInvalid(doc.pageCount)}
+          </p>
         )}
       </div>
     </section>
@@ -480,16 +521,21 @@ function PageNavigator({
 }) {
   const t = m.knowledge.viewer
   const list = useRef<HTMLUListElement>(null)
-  const [tab, setTab] = useState<"contents" | "pages">(sections.length > 0 ? "contents" : "pages")
+  const [tab, setTab] = useState<"contents" | "pages">(
+    sections.length > 0 ? "contents" : "pages"
+  )
   // Folding: the sections around the page start open, the rest closed;
   // what the reader toggles overrides that.
   const tree = useMemo(() => sectionTree(sections), [sections])
   const [folds, setFolds] = useState<ReadonlyMap<number, boolean>>(new Map())
-  const around = new Set(sectionsAt(sections, page).map((s) => sections.indexOf(s)))
+  const around = new Set(
+    sectionsAt(sections, page).map((s) => sections.indexOf(s))
+  )
   const isOpen = (i: number) => folds.get(i) ?? around.has(i)
   const parents = sections.flatMap((_, i) => (tree.hasChildren[i] ? [i] : []))
   const allOpen = parents.every(isOpen)
-  const foldAll = (open: boolean) => setFolds(new Map(parents.map((i) => [i, open])))
+  const foldAll = (open: boolean) =>
+    setFolds(new Map(parents.map((i) => [i, open])))
   const first = chunk * PAGE_CHUNK + 1
   const last = Math.min(total, first + PAGE_CHUNK - 1)
   const chunks = Math.ceil(total / PAGE_CHUNK)
@@ -510,9 +556,14 @@ function PageNavigator({
     >
       <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
         {sections.length > 0 ? (
-          <Tabs value={tab} onValueChange={(v) => setTab(v === "pages" ? "pages" : "contents")}>
+          <Tabs
+            value={tab}
+            onValueChange={(v) => setTab(v === "pages" ? "pages" : "contents")}
+          >
             <TabsList>
-              <TabsTrigger value="contents">{m.knowledge.contents.title}</TabsTrigger>
+              <TabsTrigger value="contents">
+                {m.knowledge.contents.title}
+              </TabsTrigger>
               <TabsTrigger value="pages">{t.pagesTitle}</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -524,8 +575,16 @@ function PageNavigator({
             <Button
               variant="ghost"
               size="icon-xs"
-              aria-label={allOpen ? m.knowledge.contents.collapseAll : m.knowledge.contents.expandAll}
-              title={allOpen ? m.knowledge.contents.collapseAll : m.knowledge.contents.expandAll}
+              aria-label={
+                allOpen
+                  ? m.knowledge.contents.collapseAll
+                  : m.knowledge.contents.expandAll
+              }
+              title={
+                allOpen
+                  ? m.knowledge.contents.collapseAll
+                  : m.knowledge.contents.expandAll
+              }
               onClick={() => foldAll(!allOpen)}
             >
               {allOpen ? <ChevronsDownUpIcon /> : <ChevronsUpDownIcon />}
@@ -543,7 +602,9 @@ function PageNavigator({
             >
               <ChevronLeftIcon />
             </Button>
-            <span className="text-xs text-muted-foreground tabular">{t.chunk(first, last)}</span>
+            <span className="tabular text-xs text-muted-foreground">
+              {t.chunk(first, last)}
+            </span>
             <Button
               variant="ghost"
               size="icon-xs"
@@ -556,7 +617,9 @@ function PageNavigator({
             </Button>
           </div>
         ) : (
-          <span className="text-xs text-muted-foreground tabular">{m.knowledge.pages(total)}</span>
+          <span className="tabular text-xs text-muted-foreground">
+            {m.knowledge.pages(total)}
+          </span>
         )}
       </div>
       {tab === "contents" ? (
@@ -573,7 +636,10 @@ function PageNavigator({
           <ErrorState error={error} onRetry={onRetry} />
         </div>
       ) : (
-        <ul ref={list} className="max-h-72 overflow-y-auto p-1.5 lg:max-h-none lg:flex-1">
+        <ul
+          ref={list}
+          className="max-h-72 overflow-y-auto p-1.5 lg:max-h-none lg:flex-1"
+        >
           {loading || !pages
             ? Array.from({ length: Math.min(12, last - first + 1) }, (_, i) => (
                 <li key={i} className="px-1 py-1">
@@ -594,13 +660,14 @@ function PageNavigator({
                       onClick={() => onSelect(p.number)}
                       className={cn(
                         "relative flex w-full items-center gap-2 rounded-xl px-3 py-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring",
-                        selected && "bg-accent text-accent-foreground hover:bg-accent",
+                        selected &&
+                          "bg-accent text-accent-foreground hover:bg-accent",
                         marked &&
-                          "before:absolute before:inset-y-1 before:left-0.5 before:w-0.5 before:rounded-full before:bg-primary/60"
+                          "before:absolute before:inset-y-1 before:left-0.5 before:w-0.5 before:rounded-full before:bg-primary-ink"
                       )}
                     >
-                      <span className="w-12 tabular">{p.number}</span>
-                      <span className="ml-auto text-xs text-muted-foreground tabular">
+                      <span className="tabular w-12">{p.number}</span>
+                      <span className="tabular ml-auto text-xs text-muted-foreground">
                         {formatCompact(p.tokens)}
                       </span>
                     </button>
@@ -653,7 +720,10 @@ function ContentsList({
   })
 
   return (
-    <ul ref={list} className="max-h-72 overflow-y-auto p-1.5 lg:max-h-none lg:flex-1">
+    <ul
+      ref={list}
+      className="max-h-72 overflow-y-auto p-1.5 lg:max-h-none lg:flex-1"
+    >
       {sections.map((s, i) => {
         if (!visible[i]) return null
         const selected = s === current
@@ -674,7 +744,10 @@ function ContentsList({
                 className="grid size-6 shrink-0 place-items-center rounded-lg text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring"
               >
                 <ChevronRightIcon
-                  className={cn("size-3.5 transition-transform", open && "rotate-90")}
+                  className={cn(
+                    "size-3.5 transition-transform",
+                    open && "rotate-90"
+                  )}
                 />
               </button>
             ) : (
@@ -693,7 +766,7 @@ function ContentsList({
               )}
             >
               <span className="line-clamp-2 min-w-0 flex-1">{s.title}</span>
-              <span className="shrink-0 text-xs font-normal text-muted-foreground tabular">
+              <span className="tabular shrink-0 text-xs font-normal text-muted-foreground">
                 {s.fromPage}
               </span>
             </button>
@@ -728,7 +801,13 @@ function PdfFrame({ doc, page }: { doc: Document; page: number }) {
       </div>
     )
   }
-  return <PdfObject blob={file.data} page={page} title={m.knowledge.viewer.pdfTitle(doc.title)} />
+  return (
+    <PdfObject
+      blob={file.data}
+      page={page}
+      title={m.knowledge.viewer.pdfTitle(doc.title)}
+    />
+  )
 }
 
 /**
@@ -738,7 +817,15 @@ function PdfFrame({ doc, page }: { doc: Document; page: number }) {
  * already local). An <embed> rather than an iframe, since Chrome refuses
  * PDFs in sandboxed frames.
  */
-function PdfObject({ blob, page, title }: { blob: Blob; page: number; title: string }) {
+function PdfObject({
+  blob,
+  page,
+  title,
+}: {
+  blob: Blob
+  page: number
+  title: string
+}) {
   const embed = useRef<HTMLEmbedElement>(null)
   const url = useRef<string | null>(null)
   const currentPage = useRef(page)
@@ -769,7 +856,11 @@ function PdfObject({ blob, page, title }: { blob: Blob; page: number; title: str
   )
 }
 
-function showPage(el: HTMLEmbedElement | null, url: string | null, page: number) {
+function showPage(
+  el: HTMLEmbedElement | null,
+  url: string | null,
+  page: number
+) {
   if (!el || !url) return
   const src = `${url}#page=${page}`
   if (el.getAttribute("src") !== src) el.setAttribute("src", src)

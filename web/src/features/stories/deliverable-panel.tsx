@@ -17,7 +17,13 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-import { isApiError, type Deliverable, type Feedback, type Revision, type Story } from "@/api/client"
+import {
+  isApiError,
+  type Deliverable,
+  type Feedback,
+  type Revision,
+  type Story,
+} from "@/api/client"
 import { Banner, ErrorState } from "@/components/page"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -29,11 +35,18 @@ import { cn } from "@/lib/utils"
 import { membersQuery } from "@/queries/members"
 import { revisionsQuery, useDeliverableAction } from "@/queries/stories"
 import { formatTimestamp, scopeLabel, sourceOf } from "./model"
-import { ArticlePreview, FilesList, VideoPreview, type ArtifactRef } from "./previews"
+import {
+  ArticlePreview,
+  FilesList,
+  VideoPreview,
+  type ArtifactRef,
+} from "./previews"
 import { RejectDialog, RequestChangesDialog } from "./review-dialogs"
 
 // Only reviewers who edit need the editor; load it on first use.
-const ContentEditor = lazy(() => import("./content-editor").then((mod) => ({ default: mod.ContentEditor })))
+const ContentEditor = lazy(() =>
+  import("./content-editor").then((mod) => ({ default: mod.ContentEditor }))
+)
 
 export function DeliverablePanel({
   workspaceId,
@@ -66,14 +79,17 @@ export function DeliverablePanel({
   const [rejecting, setRejecting] = useState(false)
   const [editing, setEditing] = useState(false)
   // Editing applies to the latest revision of a deliverable in review only.
-  const showEditor = editing && canEdit && d.status === "review" && d.revision > 0
+  const showEditor =
+    editing && canEdit && d.status === "review" && d.revision > 0
   const approve = useDeliverableAction(workspaceId, story.id, "approve")
   const retry = useDeliverableAction(workspaceId, story.id, "retry")
   const publish = useDeliverableAction(workspaceId, story.id, "publish")
 
   const list = revisions.data ?? []
   const latest = list.at(-1)
-  const current = (picked !== null ? list.find((r) => r.number === picked) : undefined) ?? latest
+  const current =
+    (picked !== null ? list.find((r) => r.number === picked) : undefined) ??
+    latest
   const viewingOld = !!current && !!latest && current.number !== latest.number
 
   const run = async (
@@ -110,7 +126,10 @@ export function DeliverablePanel({
         <Button
           disabled={busy}
           onClick={() =>
-            void run(approve, d.kind === "video" ? m.review.approvedVideo : m.review.approved)
+            void run(
+              approve,
+              d.kind === "video" ? m.review.approvedVideo : m.review.approved
+            )
           }
         >
           <CheckIcon data-icon="inline-start" />
@@ -121,12 +140,20 @@ export function DeliverablePanel({
           {m.review.requestChanges}
         </Button>
         {d.revision > 0 ? (
-          <Button variant="outline" disabled={busy} onClick={() => setEditing(true)}>
+          <Button
+            variant="outline"
+            disabled={busy}
+            onClick={() => setEditing(true)}
+          >
             <PencilIcon data-icon="inline-start" />
             {m.review.edit}
           </Button>
         ) : null}
-        <Button variant="ghost" disabled={busy} onClick={() => setRejecting(true)}>
+        <Button
+          variant="ghost"
+          disabled={busy}
+          onClick={() => setRejecting(true)}
+        >
           <XIcon data-icon="inline-start" />
           {m.review.reject}
         </Button>
@@ -134,7 +161,10 @@ export function DeliverablePanel({
     )
   } else if (canEdit && d.status === "ready") {
     actions = (
-      <Button disabled={busy} onClick={() => void run(publish, m.review.publishQueued)}>
+      <Button
+        disabled={busy}
+        onClick={() => void run(publish, m.review.publishQueued)}
+      >
         <SendIcon data-icon="inline-start" />
         {m.review.publish}
       </Button>
@@ -142,11 +172,18 @@ export function DeliverablePanel({
   } else if (canEdit && d.status === "failed") {
     actions = (
       <>
-        <Button disabled={busy} onClick={() => void run(retry, m.review.retried)}>
+        <Button
+          disabled={busy}
+          onClick={() => void run(retry, m.review.retried)}
+        >
           <RotateCwIcon data-icon="inline-start" />
           {m.review.retry}
         </Button>
-        <Button variant="ghost" disabled={busy} onClick={() => setRejecting(true)}>
+        <Button
+          variant="ghost"
+          disabled={busy}
+          onClick={() => setRejecting(true)}
+        >
           <XIcon data-icon="inline-start" />
           {m.review.reject}
         </Button>
@@ -181,13 +218,23 @@ export function DeliverablePanel({
   if (d.revision === 0) preview = <NoRevisionYet deliverable={d} />
   else if (revisions.isPending) preview = <PreviewSkeleton />
   else if (revisions.isError && !revisions.data)
-    preview = <ErrorState error={revisions.error} onRetry={() => void revisions.refetch()} />
+    preview = (
+      <ErrorState
+        error={revisions.error}
+        onRetry={() => void revisions.refetch()}
+      />
+    )
   else if (!current || !artifacts) preview = <NoRevisionYet deliverable={d} />
   else
     preview = (
       <div className="grid gap-6">
         {d.kind === "video" ? (
-          <VideoPreview artifacts={artifacts} revision={current} deliverable={d} videoRef={videoRef} />
+          <VideoPreview
+            artifacts={artifacts}
+            revision={current}
+            deliverable={d}
+            videoRef={videoRef}
+          />
         ) : (
           <ArticlePreview artifacts={artifacts} revision={current} />
         )}
@@ -197,7 +244,13 @@ export function DeliverablePanel({
 
   return (
     <div className="grid gap-5">
-      <StatusBanner story={story} deliverable={d} canEdit={canEdit} timezone={timezone} actions={actions} />
+      <StatusBanner
+        story={story}
+        deliverable={d}
+        canEdit={canEdit}
+        timezone={timezone}
+        actions={actions}
+      />
       {publish.error ? (
         <Banner
           title={m.review.publishFailed}
@@ -206,7 +259,12 @@ export function DeliverablePanel({
               <Button
                 size="sm"
                 variant="outline"
-                render={<Link to="/w/$workspaceId/settings" params={{ workspaceId }} />}
+                render={
+                  <Link
+                    to="/w/$workspaceId/settings"
+                    params={{ workspaceId }}
+                  />
+                }
                 nativeButton={false}
               >
                 {m.review.openSettings}
@@ -331,8 +389,13 @@ function StatusBanner({
     }
     case "queued":
       tone = "working"
-      title = d.revision === 0 ? t.queuedFirst : t.queuedRevision(d.revision + 1)
-      body = d.pendingFeedback ? <FeedbackLine feedback={d.pendingFeedback} kind={d.kind} /> : t.updates
+      title =
+        d.revision === 0 ? t.queuedFirst : t.queuedRevision(d.revision + 1)
+      body = d.pendingFeedback ? (
+        <FeedbackLine feedback={d.pendingFeedback} kind={d.kind} />
+      ) : (
+        t.updates
+      )
       break
     case "drafting":
       tone = "working"
@@ -423,25 +486,43 @@ function StatusBanner({
       )}
     >
       <div className="flex min-w-0 flex-1 basis-72 gap-3">
-        <Icon className={cn("mt-0.5 size-5 shrink-0", iconClass[tone], working && "animate-spin")} />
+        <Icon
+          className={cn(
+            "mt-0.5 size-5 shrink-0",
+            iconClass[tone],
+            working && "animate-spin"
+          )}
+        />
         <div className="min-w-0 space-y-0.5">
           <p className="font-medium">{title}</p>
-          {body ? <div className="text-sm text-muted-foreground">{body}</div> : null}
+          {body ? (
+            <div className="text-sm text-muted-foreground">{body}</div>
+          ) : null}
         </div>
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="flex flex-wrap items-center gap-2">{actions}</div>
+      ) : null}
     </div>
   )
 }
 
-function FeedbackLine({ feedback: f, kind }: { feedback: Feedback; kind: Deliverable["kind"] }) {
+function FeedbackLine({
+  feedback: f,
+  kind,
+}: {
+  feedback: Feedback
+  kind: Deliverable["kind"]
+}) {
   return (
     <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
       <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
         {scopeLabel(f.scope, kind)}
       </Badge>
       {f.atSeconds !== undefined ? (
-        <span className="font-mono text-xs tabular">@{formatTimestamp(f.atSeconds)}</span>
+        <span className="tabular font-mono text-xs">
+          @{formatTimestamp(f.atSeconds)}
+        </span>
       ) : null}
       <span className="whitespace-pre-wrap text-foreground/90">“{f.text}”</span>
     </span>
@@ -477,9 +558,13 @@ function RevisionList({
     enabled: revisions.some((r) => r.editedBy),
   })
   const editorName = (userId: string) =>
-    members.data?.find((x) => x.userId.toLowerCase() === userId.toLowerCase())?.name
+    members.data?.find((x) => x.userId.toLowerCase() === userId.toLowerCase())
+      ?.name
   return (
-    <aside className="grid gap-3 lg:sticky lg:top-4" aria-label={m.revisions.title}>
+    <aside
+      className="grid gap-3 lg:sticky lg:top-4"
+      aria-label={m.revisions.title}
+    >
       <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         {m.revisions.title}
       </h3>
@@ -514,13 +599,19 @@ function RevisionList({
                   onClick={() => onPick(r.number)}
                   className={cn(
                     "grid w-full gap-2 rounded-xl border p-3.5 text-left text-sm transition-colors outline-none hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-ring",
-                    selected && "border-primary/50 bg-primary/[0.04] hover:bg-primary/[0.06]"
+                    selected &&
+                      "border-primary-ink/60 bg-primary/[0.06] hover:bg-primary/[0.06]"
                   )}
                 >
                   <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span className="font-medium">{m.revisions.revision(r.number)}</span>
+                    <span className="font-medium">
+                      {m.revisions.revision(r.number)}
+                    </span>
                     {r.number === latest ? (
-                      <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+                      <Badge
+                        variant="secondary"
+                        className="h-4 px-1.5 text-[10px]"
+                      >
                         {m.revisions.latest}
                       </Badge>
                     ) : null}
@@ -533,18 +624,24 @@ function RevisionList({
                   </span>
                   {r.feedback ? (
                     <span className="grid gap-1 rounded-lg bg-muted/60 px-3 py-2 text-xs">
-                      <span className="font-medium text-muted-foreground">{m.revisions.feedback}</span>
+                      <span className="font-medium text-muted-foreground">
+                        {m.revisions.feedback}
+                      </span>
                       <FeedbackLine feedback={r.feedback} kind={d.kind} />
                     </span>
                   ) : null}
                   {r.editedBy ? (
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <PencilIcon className="size-3.5" />
-                      {editor ? m.revisions.editedBy(editor) : m.revisions.editedInPlace}
+                      {editor
+                        ? m.revisions.editedBy(editor)
+                        : m.revisions.editedInPlace}
                     </span>
                   ) : (
                     <span className="grid gap-0.5 text-xs">
-                      <span className="font-medium text-muted-foreground">{m.revisions.notes}</span>
+                      <span className="font-medium text-muted-foreground">
+                        {m.revisions.notes}
+                      </span>
                       <span
                         className={cn(
                           "whitespace-pre-wrap text-foreground/85",

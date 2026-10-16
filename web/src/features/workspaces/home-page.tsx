@@ -19,7 +19,10 @@ export function HomePage() {
   const [creating, setCreating] = useState(false)
   const search = useSearch({ from: "/" })
   const navigate = useNavigate({ from: "/" })
-  const clear = useCallback(() => void navigate({ search: {}, replace: true }), [navigate])
+  const clear = useCallback(
+    () => void navigate({ search: {}, replace: true }),
+    [navigate]
+  )
   useYouTubeReturn(search, clear)
 
   const newButton = (
@@ -32,7 +35,11 @@ export function HomePage() {
   let body
   if (isPending) {
     body = (
-      <div className="grid gap-2" aria-busy="true" aria-label={m.common.loading}>
+      <div
+        className="grid gap-2"
+        aria-busy="true"
+        aria-label={m.common.loading}
+      >
         <Skeleton className="h-16 w-full rounded-xl" />
         <Skeleton className="h-16 w-full rounded-xl" />
       </div>
@@ -59,12 +66,14 @@ export function HomePage() {
               aria-label={m.workspace.open(w.name)}
               className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 outline-none hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-ring"
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground uppercase">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground uppercase inset-ring inset-ring-primary-ink">
                 {[...w.name][0] ?? "?"}
               </span>
               <span className="grid min-w-0 flex-1 leading-tight">
                 <span className="truncate font-medium">{w.name}</span>
-                <span className="truncate text-xs text-muted-foreground">{w.timezone}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {w.timezone}
+                </span>
               </span>
               <Badge variant={w.role === "owner" ? "default" : "secondary"}>
                 {m.roles[w.role]}

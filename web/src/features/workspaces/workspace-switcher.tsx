@@ -44,7 +44,10 @@ export function WorkspaceSwitcher({ current }: { current: Workspace }) {
 
   const go = (workspaceId: string) => {
     if (workspaceId === current.id) return
-    void navigate({ to: sectionRoutes[currentSection(pathname)], params: { workspaceId } })
+    void navigate({
+      to: sectionRoutes[currentSection(pathname)],
+      params: { workspaceId },
+    })
   }
 
   return (
@@ -54,7 +57,7 @@ export function WorkspaceSwitcher({ current }: { current: Workspace }) {
           className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-[3px] focus-visible:ring-ring aria-expanded:bg-sidebar-accent"
           aria-label={m.nav.switchWorkspace}
         >
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground uppercase">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground uppercase inset-ring inset-ring-primary-ink">
             {[...current.name][0] ?? "?"}
           </span>
           <span className="grid min-w-0 flex-1 leading-tight">
@@ -68,7 +71,10 @@ export function WorkspaceSwitcher({ current }: { current: Workspace }) {
         <DropdownMenuContent className="min-w-60">
           <DropdownMenuGroup>
             <DropdownMenuLabel>{m.nav.workspace}</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={current.id} onValueChange={(v: string) => go(v)}>
+            <DropdownMenuRadioGroup
+              value={current.id}
+              onValueChange={(v: string) => go(v)}
+            >
               {(workspaces ?? [current]).map((w) => (
                 <DropdownMenuRadioItem key={w.id} value={w.id}>
                   <span className="truncate">{w.name}</span>

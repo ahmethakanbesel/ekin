@@ -4,7 +4,13 @@ import { Link } from "@tanstack/react-router"
 import { AlertCircleIcon, LibraryIcon, UploadIcon, XIcon } from "lucide-react"
 
 import type { Document } from "@/api/client"
-import { EmptyState, ErrorState, PageHeader, ReadOnlyNote, TableSkeleton } from "@/components/page"
+import {
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  ReadOnlyNote,
+  TableSkeleton,
+} from "@/components/page"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import {
@@ -43,7 +49,8 @@ export function KnowledgePage() {
 
   let body
   if (list.isPending) body = <TableSkeleton />
-  else if (list.isError) body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />
+  else if (list.isError)
+    body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />
   else if (list.data.length === 0)
     body = (
       <EmptyState
@@ -54,7 +61,9 @@ export function KnowledgePage() {
           canEdit ? (
             <div className="flex flex-col items-center gap-2">
               {uploadButton}
-              <p className="text-xs text-muted-foreground">{m.knowledge.dropHint}</p>
+              <p className="text-xs text-muted-foreground">
+                {m.knowledge.dropHint}
+              </p>
             </div>
           ) : null
         }
@@ -66,11 +75,19 @@ export function KnowledgePage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="pl-4">{m.knowledge.columns.title}</TableHead>
+              <TableHead className="pl-4">
+                {m.knowledge.columns.title}
+              </TableHead>
               <TableHead>{m.knowledge.columns.format}</TableHead>
-              <TableHead className="text-right">{m.knowledge.columns.pages}</TableHead>
-              <TableHead className="text-right">{m.knowledge.columns.tokens}</TableHead>
-              <TableHead className="text-right">{m.knowledge.columns.size}</TableHead>
+              <TableHead className="text-right">
+                {m.knowledge.columns.pages}
+              </TableHead>
+              <TableHead className="text-right">
+                {m.knowledge.columns.tokens}
+              </TableHead>
+              <TableHead className="text-right">
+                {m.knowledge.columns.size}
+              </TableHead>
               <TableHead>{m.knowledge.columns.status}</TableHead>
               <TableHead>{m.knowledge.columns.uploaded}</TableHead>
               <TableHead className="w-12 pr-4">
@@ -115,13 +132,19 @@ export function KnowledgePage() {
       ) : (
         <ReadOnlyNote>{m.knowledge.readOnlyHint}</ReadOnlyNote>
       )}
-      <UploadQueue items={uploads.items} onCancel={uploads.cancel} onDismiss={uploads.dismiss} />
+      <UploadQueue
+        items={uploads.items}
+        onCancel={uploads.cancel}
+        onDismiss={uploads.dismiss}
+      />
       {body}
       {drop.over ? (
-        <div className="pointer-events-none absolute -inset-2 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/85 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-2 text-primary">
+        <div className="pointer-events-none absolute -inset-2 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-primary-ink bg-background/85 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-2 text-primary-ink">
             <UploadIcon className="size-8" />
-            <p className="font-heading text-base font-medium">{m.knowledge.dropTitle}</p>
+            <p className="font-heading text-base font-medium">
+              {m.knowledge.dropTitle}
+            </p>
           </div>
         </div>
       ) : null}
@@ -197,14 +220,16 @@ function UploadQueue({
           <div className="grid min-w-0 flex-1 gap-1.5">
             <div className="flex min-w-0 items-baseline gap-2">
               <span className="truncate font-medium">{it.name}</span>
-              <span className="shrink-0 text-xs text-muted-foreground tabular">
+              <span className="tabular shrink-0 text-xs text-muted-foreground">
                 {formatBytes(it.size)}
               </span>
             </div>
             {it.state === "failed" ? (
               <p className="text-xs text-destructive">{it.error}</p>
             ) : it.state === "waiting" ? (
-              <p className="text-xs text-muted-foreground">{m.knowledge.waiting}</p>
+              <p className="text-xs text-muted-foreground">
+                {m.knowledge.waiting}
+              </p>
             ) : (
               <div className="flex items-center gap-3">
                 <Progress
@@ -212,7 +237,7 @@ function UploadQueue({
                   aria-label={it.name}
                   className="flex-1 [&_[data-slot=progress-track]]:h-1.5"
                 />
-                <span className="w-32 shrink-0 text-right text-xs text-muted-foreground tabular">
+                <span className="tabular w-32 shrink-0 text-right text-xs text-muted-foreground">
                   {it.progress >= 1
                     ? m.knowledge.processing
                     : m.knowledge.uploading(Math.round(it.progress * 100))}
@@ -223,9 +248,19 @@ function UploadQueue({
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={it.state === "failed" ? m.knowledge.dismiss : m.knowledge.cancelUpload}
-            title={it.state === "failed" ? m.knowledge.dismiss : m.knowledge.cancelUpload}
-            onClick={() => (it.state === "failed" ? onDismiss(it.key) : onCancel(it.key))}
+            aria-label={
+              it.state === "failed"
+                ? m.knowledge.dismiss
+                : m.knowledge.cancelUpload
+            }
+            title={
+              it.state === "failed"
+                ? m.knowledge.dismiss
+                : m.knowledge.cancelUpload
+            }
+            onClick={() =>
+              it.state === "failed" ? onDismiss(it.key) : onCancel(it.key)
+            }
           >
             <XIcon />
           </Button>
@@ -258,9 +293,14 @@ function DocumentRow({
           >
             {d.title}
           </Link>
-          <span className="truncate text-xs text-muted-foreground">{d.filename}</span>
+          <span className="truncate text-xs text-muted-foreground">
+            {d.filename}
+          </span>
           {d.status === "failed" && d.failure ? (
-            <span className="line-clamp-2 text-xs whitespace-normal text-destructive" title={d.failure}>
+            <span
+              className="line-clamp-2 text-xs whitespace-normal text-destructive"
+              title={d.failure}
+            >
               {d.failure}
             </span>
           ) : null}
@@ -269,19 +309,19 @@ function DocumentRow({
       <TableCell className="align-top">
         <FormatBadge format={d.format} />
       </TableCell>
-      <TableCell className="text-right align-top tabular">
+      <TableCell className="tabular text-right align-top">
         {ready ? formatInteger(d.pageCount) : m.common.none}
       </TableCell>
-      <TableCell className="text-right align-top whitespace-nowrap tabular">
+      <TableCell className="tabular text-right align-top whitespace-nowrap">
         {ready ? tokensLabel(d.tokens) : m.common.none}
       </TableCell>
-      <TableCell className="text-right align-top whitespace-nowrap tabular">
+      <TableCell className="tabular text-right align-top whitespace-nowrap">
         {formatBytes(d.size)}
       </TableCell>
       <TableCell className="align-top">
         <StatusBadge status={d.status} />
       </TableCell>
-      <TableCell className="align-top text-sm whitespace-nowrap tabular">
+      <TableCell className="tabular align-top text-sm whitespace-nowrap">
         {formatDateTime(d.createdAt, timezone)}
       </TableCell>
       <TableCell className="pr-4 align-top">

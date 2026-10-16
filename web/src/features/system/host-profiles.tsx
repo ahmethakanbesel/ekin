@@ -35,7 +35,14 @@ import { errorMessage } from "@/lib/errors"
 import { cn } from "@/lib/utils"
 import { profilesQuery, useSaveProfile } from "@/queries/system"
 
-export const QUEUES = ["control", "agent", "tts", "render", "extract", "io"] as const
+export const QUEUES = [
+  "control",
+  "agent",
+  "tts",
+  "render",
+  "extract",
+  "io",
+] as const
 type Queue = (typeof QUEUES)[number]
 /** What heavy exclusivity covers when a profile does not say. */
 const DEFAULT_HEAVY: Queue[] = ["agent", "tts", "render"]
@@ -60,7 +67,11 @@ export function HeavyQueuesPicker({
   onChange: (next: Queue[]) => void
 }) {
   return (
-    <div role="group" aria-label={m.system.heavyQueues} className="flex flex-wrap gap-1.5">
+    <div
+      role="group"
+      aria-label={m.system.heavyQueues}
+      className="flex flex-wrap gap-1.5"
+    >
       {QUEUES.map((q) => {
         const on = value.includes(q)
         return (
@@ -70,7 +81,11 @@ export function HeavyQueuesPicker({
             size="xs"
             variant={on ? "default" : "outline"}
             aria-pressed={on}
-            onClick={() => onChange(QUEUES.filter((x) => (x === q ? !on : value.includes(x))))}
+            onClick={() =>
+              onChange(
+                QUEUES.filter((x) => (x === q ? !on : value.includes(x)))
+              )
+            }
           >
             {m.system.queues[q]}
           </Button>
@@ -89,25 +104,36 @@ export function HostProfiles() {
   let body
   if (query.isPending) body = <Skeleton className="h-96 w-full rounded-xl" />
   else if (query.isError)
-    body = <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+    body = (
+      <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+    )
   else {
     const { profiles, current } = query.data
     // The server's own profile first, the rest by name.
     const ordered = profiles.toSorted((a, b) =>
-      a.name === current ? -1 : b.name === current ? 1 : a.name.localeCompare(b.name)
+      a.name === current
+        ? -1
+        : b.name === current
+          ? 1
+          : a.name.localeCompare(b.name)
     )
     body = (
       <div className="grid gap-6">
         {ordered.map((p) => (
           // Re-mount the form when the stored profile changes underneath it.
-          <ProfileCard key={JSON.stringify(p)} profile={p} current={p.name === current} />
+          <ProfileCard
+            key={JSON.stringify(p)}
+            profile={p}
+            current={p.name === current}
+          />
         ))}
       </div>
     )
   }
 
   const template =
-    query.data?.profiles.find((p) => p.name === query.data.current) ?? query.data?.profiles[0]
+    query.data?.profiles.find((p) => p.name === query.data.current) ??
+    query.data?.profiles[0]
 
   return (
     <section>
@@ -116,7 +142,9 @@ export function HostProfiles() {
           <h2 className="font-heading text-lg font-semibold tracking-tight">
             {m.system.profilesTitle}
           </h2>
-          <p className="text-sm text-muted-foreground">{m.system.profilesDescription}</p>
+          <p className="text-sm text-muted-foreground">
+            {m.system.profilesDescription}
+          </p>
         </div>
         {query.data ? (
           <Button variant="outline" onClick={() => setCreating(true)}>
@@ -209,7 +237,9 @@ const queueError = wholeIn(0, 8)
 /** 0 (no limit) or 10–100 percent. */
 export function cpuLimitError(s: string): string | undefined {
   const t = s.trim()
-  return t === "0" || wholeIn(10, 100)(t) === undefined ? undefined : m.system.cpuLimitRange
+  return t === "0" || wholeIn(10, 100)(t) === undefined
+    ? undefined
+    : m.system.cpuLimitRange
 }
 
 const NUMBER_FIELDS = [
@@ -264,7 +294,13 @@ const NUMBER_FIELDS = [
   },
 ] as const
 
-function ProfileCard({ profile, current }: { profile: HostProfile; current: boolean }) {
+function ProfileCard({
+  profile,
+  current,
+}: {
+  profile: HostProfile
+  current: boolean
+}) {
   const save = useSaveProfile()
   const form = useForm({
     defaultValues: toValues(profile),
@@ -281,12 +317,14 @@ function ProfileCard({ profile, current }: { profile: HostProfile; current: bool
   const id = (field: string) => `profile-${profile.name}-${field}`
 
   return (
-    <Card className={cn(current && "ring-2 ring-primary/40 dark:ring-primary/50")}>
+    <Card className={cn(current && "ring-2 ring-primary-ink")}>
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-2">
           <span className="font-mono">{profile.name}</span>
           {current ? <Badge>{m.system.current}</Badge> : null}
-          {profile.paused ? <Badge variant="outline">{m.system.paused}</Badge> : null}
+          {profile.paused ? (
+            <Badge variant="outline">{m.system.paused}</Badge>
+          ) : null}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -315,8 +353,14 @@ function ProfileCard({ profile, current }: { profile: HostProfile; current: bool
                   {(field) => {
                     const error = shownError(field.state.meta, submitted())
                     return (
-                      <Field data-invalid={!!error || undefined} className="gap-1.5">
-                        <FieldLabel htmlFor={id(q)} className="text-xs text-muted-foreground">
+                      <Field
+                        data-invalid={!!error || undefined}
+                        className="gap-1.5"
+                      >
+                        <FieldLabel
+                          htmlFor={id(q)}
+                          className="text-xs text-muted-foreground"
+                        >
                           {m.system.queues[q]}
                         </FieldLabel>
                         <Input
@@ -345,13 +389,20 @@ function ProfileCard({ profile, current }: { profile: HostProfile; current: bool
           <div className="grid gap-4 sm:grid-cols-2">
             {(
               [
-                ["heavyExclusive", m.system.heavyExclusive, m.system.heavyExclusiveHint],
+                [
+                  "heavyExclusive",
+                  m.system.heavyExclusive,
+                  m.system.heavyExclusiveHint,
+                ],
                 ["paused", m.system.paused, m.system.pausedHint],
               ] as const
             ).map(([name, label, hint]) => (
               <form.Field key={name} name={name}>
                 {(field) => (
-                  <Field orientation="horizontal" className="rounded-xl border px-4 py-3">
+                  <Field
+                    orientation="horizontal"
+                    className="rounded-xl border px-4 py-3"
+                  >
                     <FieldContent>
                       <FieldLabel htmlFor={id(name)}>{label}</FieldLabel>
                       <FieldDescription>{hint}</FieldDescription>
@@ -395,13 +446,20 @@ function ProfileCard({ profile, current }: { profile: HostProfile; current: bool
                 {(field) => {
                   const error = shownError(field.state.meta, submitted())
                   return (
-                    <Row label={f.label} htmlFor={id(f.name)} hint={f.hint} error={error}>
+                    <Row
+                      label={f.label}
+                      htmlFor={id(f.name)}
+                      hint={f.hint}
+                      error={error}
+                    >
                       <Input
                         id={id(f.name)}
                         type="number"
-                        inputMode={Number.isInteger(f.step) ? "numeric" : "decimal"}
+                        inputMode={
+                          Number.isInteger(f.step) ? "numeric" : "decimal"
+                        }
                         step={f.step}
-                        className="max-w-36 tabular"
+                        className="tabular max-w-36"
                         value={field.state.value}
                         onChange={(e) => field.handleChange(e.target.value)}
                         onBlur={field.handleBlur}
@@ -416,7 +474,9 @@ function ProfileCard({ profile, current }: { profile: HostProfile; current: bool
 
           {save.error ? <Banner title={errorMessage(save.error)} /> : null}
           <div className="flex justify-end">
-            <form.Subscribe selector={(s) => [s.isSubmitting, s.isDirty] as const}>
+            <form.Subscribe
+              selector={(s) => [s.isSubmitting, s.isDirty] as const}
+            >
               {([submitting, dirty]) => (
                 <Button type="submit" disabled={submitting || !dirty}>
                   {submitting ? m.common.saving : m.common.save}
@@ -445,7 +505,11 @@ function NewProfileDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         {open ? (
-          <NewProfileForm template={template} taken={taken} onDone={() => onOpenChange(false)} />
+          <NewProfileForm
+            template={template}
+            taken={taken}
+            onDone={() => onOpenChange(false)}
+          />
         ) : null}
       </DialogContent>
     </Dialog>
@@ -493,7 +557,9 @@ function NewProfileForm({
     >
       <DialogHeader>
         <DialogTitle>{m.system.newProfileTitle}</DialogTitle>
-        <DialogDescription>{m.system.newProfileDescription(template.name)}</DialogDescription>
+        <DialogDescription>
+          {m.system.newProfileDescription(template.name)}
+        </DialogDescription>
       </DialogHeader>
       <Field data-invalid={!!shown || undefined}>
         <FieldLabel htmlFor="new-profile-name">{m.system.name}</FieldLabel>

@@ -1,7 +1,18 @@
 import type { ReactNode } from "react"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 
@@ -12,7 +23,9 @@ export function shownError(
   meta: { isTouched: boolean; errors: unknown[] },
   submitted: boolean
 ): string | undefined {
-  return (meta.isTouched || submitted) && meta.errors.length > 0 ? String(meta.errors[0]) : undefined
+  return (meta.isTouched || submitted) && meta.errors.length > 0
+    ? String(meta.errors[0])
+    : undefined
 }
 
 export function Section({
@@ -30,7 +43,9 @@ export function Section({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-heading text-base font-medium">{title}</CardTitle>
+        <CardTitle className="font-heading text-base font-medium">
+          {title}
+        </CardTitle>
         {description ? <CardDescription>{description}</CardDescription> : null}
       </CardHeader>
       <CardContent>
@@ -58,10 +73,17 @@ export function Row({
   children: ReactNode
 }) {
   return (
-    <Field data-invalid={!!error || undefined} className={cn("gap-2", className)}>
+    <Field
+      data-invalid={!!error || undefined}
+      className={cn("gap-2", className)}
+    >
       <FieldLabel htmlFor={htmlFor}>{label}</FieldLabel>
       {children}
-      {error ? <FieldError>{error}</FieldError> : hint ? <FieldDescription>{hint}</FieldDescription> : null}
+      {error ? (
+        <FieldError>{error}</FieldError>
+      ) : hint ? (
+        <FieldDescription>{hint}</FieldDescription>
+      ) : null}
     </Field>
   )
 }
@@ -85,11 +107,13 @@ export function OutputPanel({
     <div
       className={cn(
         "rounded-xl border p-4 transition-colors",
-        enabled ? "border-primary/40 bg-primary/[0.03]" : "bg-muted/30"
+        enabled ? "border-primary-ink/50 bg-primary/[0.04]" : "bg-muted/30"
       )}
     >
       <div className="flex items-start gap-3">
-        <span className="mt-0.5 text-muted-foreground [&_svg]:size-5">{icon}</span>
+        <span className="mt-0.5 text-muted-foreground [&_svg]:size-5">
+          {icon}
+        </span>
         <div className="min-w-0 flex-1">
           <p className="font-medium">{title}</p>
           <p className="text-sm text-muted-foreground">{hint}</p>

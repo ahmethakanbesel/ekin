@@ -20,12 +20,25 @@ export type ArtifactRef = {
 }
 
 const url = (a: ArtifactRef, name: string, download = false) =>
-  artifactUrl(a.workspaceId, a.storyId, a.deliverableId, a.revision, name, download)
+  artifactUrl(
+    a.workspaceId,
+    a.storyId,
+    a.deliverableId,
+    a.revision,
+    name,
+    download
+  )
 
 /** The text of an artifact of the revision, when it has one. */
 function useArtifactText(a: ArtifactRef, name: string, present: boolean) {
   return useQuery({
-    ...artifactTextQuery(a.workspaceId, a.storyId, a.deliverableId, a.revision, name),
+    ...artifactTextQuery(
+      a.workspaceId,
+      a.storyId,
+      a.deliverableId,
+      a.revision,
+      name
+    ),
     enabled: present,
   })
 }
@@ -42,16 +55,26 @@ function Block({
 }) {
   return (
     <section className={cn("grid gap-3", className)}>
-      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">{title}</h3>
+      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        {title}
+      </h3>
       {children}
     </section>
   )
 }
 
-function TextState({ query }: { query: { isPending: boolean; isError: boolean; error: unknown } }) {
+function TextState({
+  query,
+}: {
+  query: { isPending: boolean; isError: boolean; error: unknown }
+}) {
   if (query.isPending) {
     return (
-      <div className="grid gap-2" aria-busy="true" aria-label={m.common.loading}>
+      <div
+        className="grid gap-2"
+        aria-busy="true"
+        aria-label={m.common.loading}
+      >
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-5/6" />
@@ -70,11 +93,12 @@ function TextState({ query }: { query: { isPending: boolean; isError: boolean; e
 
 // ---- Video ----
 
-const frame: Record<NonNullable<Deliverable["video"]>["orientation"], string> = {
-  vertical: "aspect-[9/16] max-h-[72vh]",
-  square: "aspect-square max-h-[72vh]",
-  horizontal: "aspect-video w-full",
-}
+const frame: Record<NonNullable<Deliverable["video"]>["orientation"], string> =
+  {
+    vertical: "aspect-[9/16] max-h-[72vh]",
+    square: "aspect-square max-h-[72vh]",
+    horizontal: "aspect-video w-full",
+  }
 
 /**
  * The revision's video (the final render once there is one, else the
@@ -92,7 +116,11 @@ export function VideoPreview({
   videoRef: RefObject<HTMLVideoElement | null>
 }) {
   const has = (name: string) => revision.artifacts.includes(name)
-  const video = has("final.mp4") ? "final.mp4" : has("preview.mp4") ? "preview.mp4" : undefined
+  const video = has("final.mp4")
+    ? "final.mp4"
+    : has("preview.mp4")
+      ? "preview.mp4"
+      : undefined
   const orientation = d.video?.orientation ?? "horizontal"
   const metadata = useArtifactText(a, "metadata.json", has("metadata.json"))
   const script = useArtifactText(a, "script.md", has("script.md"))
@@ -128,7 +156,9 @@ export function VideoPreview({
           <div
             className={cn(
               "mx-auto flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground",
-              orientation === "horizontal" ? "aspect-video w-full" : "aspect-[9/16] h-[60vh] max-h-[32rem]"
+              orientation === "horizontal"
+                ? "aspect-video w-full"
+                : "aspect-[9/16] h-[60vh] max-h-[32rem]"
             )}
           >
             <FilmIcon className="size-6" />
@@ -139,7 +169,9 @@ export function VideoPreview({
         )}
         {video ? (
           <p className="text-center text-xs text-muted-foreground">
-            {video === "final.mp4" ? m.preview.finalRender : m.preview.previewRender}
+            {video === "final.mp4"
+              ? m.preview.finalRender
+              : m.preview.previewRender}
           </p>
         ) : null}
       </div>
@@ -147,7 +179,10 @@ export function VideoPreview({
       {has("metadata.json") ? (
         <Block title={m.preview.metadata}>
           {metadata.data !== undefined ? (
-            <MetadataView text={metadata.data} onSeek={video ? seek : undefined} />
+            <MetadataView
+              text={metadata.data}
+              onSeek={video ? seek : undefined}
+            />
           ) : (
             <TextState query={metadata} />
           )}
@@ -174,7 +209,12 @@ export function VideoPreview({
         <Block title={m.preview.narration}>
           {/* The script above is the narration's transcript. */}
           {/* oxlint-disable-next-line jsx-a11y/media-has-caption */}
-          <audio controls preload="none" src={url(a, "narration.wav")} className="w-full" />
+          <audio
+            controls
+            preload="none"
+            src={url(a, "narration.wav")}
+            className="w-full"
+          />
         </Block>
       ) : null}
     </div>
@@ -212,12 +252,20 @@ function parseMetadata(text: string): Metadata | undefined {
   return {
     title: str(r.title),
     description: str(r.description),
-    tags: Array.isArray(r.tags) ? r.tags.filter((t): t is string => typeof t === "string") : [],
+    tags: Array.isArray(r.tags)
+      ? r.tags.filter((t): t is string => typeof t === "string")
+      : [],
     chapters,
   }
 }
 
-function MetadataView({ text, onSeek }: { text: string; onSeek?: (seconds: number) => void }) {
+function MetadataView({
+  text,
+  onSeek,
+}: {
+  text: string
+  onSeek?: (seconds: number) => void
+}) {
   const meta = useMemo(() => parseMetadata(text), [text])
   if (!meta) {
     return (
@@ -229,15 +277,23 @@ function MetadataView({ text, onSeek }: { text: string; onSeek?: (seconds: numbe
   return (
     <div className="grid gap-4 rounded-xl border p-4 md:p-5">
       {meta.title ? (
-        <p className="font-heading text-lg leading-snug font-semibold">{meta.title}</p>
+        <p className="font-heading text-lg leading-snug font-semibold">
+          {meta.title}
+        </p>
       ) : null}
       {meta.description ? (
-        <p className="text-sm whitespace-pre-wrap text-muted-foreground">{meta.description}</p>
+        <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+          {meta.description}
+        </p>
       ) : null}
-      {meta.tags.length > 0 ? <Tags tags={meta.tags} label={m.preview.tags} /> : null}
+      {meta.tags.length > 0 ? (
+        <Tags tags={meta.tags} label={m.preview.tags} />
+      ) : null}
       {meta.chapters.length > 0 ? (
         <div className="grid gap-1.5">
-          <p className="text-xs font-medium text-muted-foreground">{m.preview.chapters}</p>
+          <p className="text-xs font-medium text-muted-foreground">
+            {m.preview.chapters}
+          </p>
           <ol className="grid gap-0.5">
             {meta.chapters.map((c) => (
               <li key={`${c.at}-${c.title}`}>
@@ -248,14 +304,14 @@ function MetadataView({ text, onSeek }: { text: string; onSeek?: (seconds: numbe
                     onClick={() => onSeek(c.at)}
                     title={m.preview.seek(formatTimestamp(c.at))}
                   >
-                    <span className="w-12 shrink-0 font-mono text-xs text-primary tabular">
+                    <span className="tabular w-12 shrink-0 font-mono text-xs text-primary-ink">
                       {formatTimestamp(c.at)}
                     </span>
                     <span>{c.title}</span>
                   </button>
                 ) : (
                   <span className="flex items-baseline gap-3 py-1 text-sm">
-                    <span className="w-12 shrink-0 font-mono text-xs text-muted-foreground tabular">
+                    <span className="tabular w-12 shrink-0 font-mono text-xs text-muted-foreground">
                       {formatTimestamp(c.at)}
                     </span>
                     <span>{c.title}</span>
@@ -287,11 +343,18 @@ function Tags({ tags, label }: { tags: string[]; label: string }) {
 // ---- Article ----
 
 /** The revision's article.md: frontmatter as a header, the body rendered. */
-export function ArticlePreview({ artifacts: a, revision }: { artifacts: ArtifactRef; revision: Revision }) {
+export function ArticlePreview({
+  artifacts: a,
+  revision,
+}: {
+  artifacts: ArtifactRef
+  revision: Revision
+}) {
   const present = revision.artifacts.includes("article.md")
   const article = useArtifactText(a, "article.md", present)
   const parsed = useMemo(
-    () => (article.data !== undefined ? splitFrontmatter(article.data) : undefined),
+    () =>
+      article.data !== undefined ? splitFrontmatter(article.data) : undefined,
     [article.data]
   )
 
@@ -315,14 +378,20 @@ export function ArticlePreview({ artifacts: a, revision }: { artifacts: Artifact
     <article className="grid gap-6">
       <header className="grid gap-3 rounded-xl border bg-muted/20 p-5 md:p-6">
         {title ? (
-          <h2 className="font-heading text-2xl leading-tight font-semibold tracking-tight">{title}</h2>
+          <h2 className="font-heading text-2xl leading-tight font-semibold tracking-tight">
+            {title}
+          </h2>
         ) : null}
-        {description ? <p className="text-muted-foreground">{description}</p> : null}
+        {description ? (
+          <p className="text-muted-foreground">{description}</p>
+        ) : null}
         <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[auto_1fr]">
           {slug ? (
             <>
               <dt className="text-muted-foreground">{m.preview.slug}</dt>
-              <dd className="font-mono text-[13px] break-all">/{slug.replace(/^\//, "")}</dd>
+              <dd className="font-mono text-[13px] break-all">
+                /{slug.replace(/^\//, "")}
+              </dd>
             </>
           ) : null}
           {seoTitle ? (
@@ -349,7 +418,13 @@ export function ArticlePreview({ artifacts: a, revision }: { artifacts: Artifact
 // ---- Files ----
 
 /** Every downloadable artifact of the revision. */
-export function FilesList({ artifacts: a, revision }: { artifacts: ArtifactRef; revision: Revision }) {
+export function FilesList({
+  artifacts: a,
+  revision,
+}: {
+  artifacts: ArtifactRef
+  revision: Revision
+}) {
   // The agent's packed working directory is internal and not served.
   const names = revision.artifacts.filter((n) => !n.endsWith(".tar.gz"))
   if (names.length === 0) return null

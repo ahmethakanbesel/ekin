@@ -36,7 +36,7 @@ function Slider({
           data-slot="slider-thumb"
           getAriaLabel={thumbLabel ? () => thumbLabel : undefined}
           aria-valuetext={valueText}
-          className="block size-4 shrink-0 rounded-full border border-primary bg-white shadow-sm transition-[color,box-shadow] select-none hover:ring-4 hover:ring-ring/50 focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-hidden data-disabled:pointer-events-none"
+          className="block size-4 shrink-0 rounded-full border border-primary-ink bg-white shadow-sm transition-[color,box-shadow] select-none hover:ring-4 hover:ring-ring/50 focus-visible:ring-4 focus-visible:ring-ring focus-visible:outline-hidden data-disabled:pointer-events-none"
         />
       </SliderPrimitive.Control>
     </SliderPrimitive.Root>
