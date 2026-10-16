@@ -142,8 +142,8 @@ function StoryView({ story }: { story: Story }) {
                   {deliverableLabel(d)}
                   <span
                     className={cn(
-                      "rounded-full px-1.5 text-[11px] leading-4 font-medium",
-                      statusTone[d.status]
+                      "rounded-full border border-transparent px-1.5 text-[11px] leading-4 font-medium",
+                      statusTone(d.status)
                     )}
                   >
                     {m.stories.status[d.status] ?? d.status}
@@ -162,7 +162,9 @@ function StoryView({ story }: { story: Story }) {
                 canEdit={canEdit}
                 canManage={canManage}
                 onDirtyChange={(dirty) =>
-                  setDirtyId((cur) => (dirty ? d.id : cur === d.id ? null : cur))
+                  setDirtyId((cur) =>
+                    dirty ? d.id : cur === d.id ? null : cur
+                  )
                 }
               />
             </TabsContent>
@@ -242,7 +244,9 @@ function StoryFacts({
           <Fact label={m.story.language}>
             {m.values.language[s.language] ?? s.language}
           </Fact>
-          {s.templateName ? <Fact label={m.story.template}>{s.templateName}</Fact> : null}
+          {s.templateName ? (
+            <Fact label={m.story.template}>{s.templateName}</Fact>
+          ) : null}
           {s.keyword ? (
             <Fact label={m.story.keyword}>
               <span className="font-medium">{s.keyword}</span>

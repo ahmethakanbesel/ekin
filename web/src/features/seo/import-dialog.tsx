@@ -13,7 +13,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field"
 import {
   Select,
   SelectContent,
@@ -62,7 +67,9 @@ function ImportForm({ onDone }: { onDone: () => void }) {
     setSubmitted(true)
     if (count === 0) return
     try {
-      const added = await importer.mutateAsync(parsed.items.map((it) => ({ ...it, language })))
+      const added = await importer.mutateAsync(
+        parsed.items.map((it) => ({ ...it, language }))
+      )
       toast.success(m.seo.imported(added, count - added))
       onDone()
     } catch {
@@ -96,7 +103,11 @@ function ImportForm({ onDone }: { onDone: () => void }) {
           aria-invalid={empty || undefined}
           aria-describedby="seo-import-summary"
         />
-        <div id="seo-import-summary" aria-live="polite" className="grid gap-0.5">
+        <div
+          id="seo-import-summary"
+          aria-live="polite"
+          className="grid gap-0.5"
+        >
           {empty ? (
             <FieldError>{m.seo.importEmpty}</FieldError>
           ) : text.trim() ? (
@@ -108,14 +119,16 @@ function ImportForm({ onDone }: { onDone: () => void }) {
             </FieldDescription>
           ) : null}
           {parsed.skipped > 0 ? (
-            <FieldDescription className="text-amber-700 dark:text-amber-400">
+            <FieldDescription className="text-primary-ink">
               {m.seo.importSkipped(parsed.skipped)}
             </FieldDescription>
           ) : null}
         </div>
       </Field>
       <Field>
-        <FieldLabel htmlFor="seo-import-language">{m.seo.importLanguage}</FieldLabel>
+        <FieldLabel htmlFor="seo-import-language">
+          {m.seo.importLanguage}
+        </FieldLabel>
         <Select
           items={languageItems}
           value={language}

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
+import { iconClass, toneClass } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 
 export function PageHeader({
@@ -19,10 +20,16 @@ export function PageHeader({
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0 space-y-1">
-        <h1 className="font-heading text-2xl font-semibold tracking-tight">{title}</h1>
-        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+        <h1 className="font-heading text-2xl font-semibold tracking-tight">
+          {title}
+        </h1>
+        {description ? (
+          <p className="text-sm text-muted-foreground">{description}</p>
+        ) : null}
       </div>
-      {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="flex items-center gap-2">{actions}</div>
+      ) : null}
     </div>
   )
 }
@@ -61,7 +68,13 @@ export function EmptyState({
   )
 }
 
-export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
+export function ErrorState({
+  error,
+  onRetry,
+}: {
+  error: unknown
+  onRetry?: () => void
+}) {
   return (
     <div
       role="alert"
@@ -109,21 +122,21 @@ export function Banner({
       role="alert"
       className={cn(
         "flex flex-wrap items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm",
-        tone === "destructive"
-          ? "border-destructive/30 bg-destructive/5"
-          : "border-amber-500/40 bg-amber-500/10"
+        toneClass[tone === "destructive" ? "danger" : "attention"]
       )}
     >
       <div className="flex min-w-0 gap-2.5">
         <AlertCircleIcon
           className={cn(
             "mt-0.5 size-4 shrink-0",
-            tone === "destructive" ? "text-destructive" : "text-amber-600 dark:text-amber-400"
+            iconClass[tone === "destructive" ? "danger" : "attention"]
           )}
         />
         <div className="min-w-0 space-y-0.5">
           <p className="font-medium">{title}</p>
-          {children ? <div className="text-muted-foreground">{children}</div> : null}
+          {children ? (
+            <div className="text-muted-foreground">{children}</div>
+          ) : null}
         </div>
       </div>
       {action}
@@ -132,9 +145,20 @@ export function Banner({
 }
 
 /** Says why the controls on a page are missing or disabled for this role. */
-export function ReadOnlyNote({ children, className }: { children: ReactNode; className?: string }) {
+export function ReadOnlyNote({
+  children,
+  className,
+}: {
+  children: ReactNode
+  className?: string
+}) {
   return (
-    <p className={cn("mb-4 flex items-center gap-2 text-sm text-muted-foreground", className)}>
+    <p
+      className={cn(
+        "mb-4 flex items-center gap-2 text-sm text-muted-foreground",
+        className
+      )}
+    >
       <LockIcon className="size-4 shrink-0" />
       {children}
     </p>

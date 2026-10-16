@@ -4,7 +4,12 @@ import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { Loader2Icon, PaletteIcon, PlusIcon, SparklesIcon } from "lucide-react"
 
 import type { Template } from "@/api/client"
-import { EmptyState, ErrorState, PageHeader, ReadOnlyNote } from "@/components/page"
+import {
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  ReadOnlyNote,
+} from "@/components/page"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -33,16 +38,27 @@ export function TemplatesPage() {
   let body
   if (list.isPending)
     body = (
-      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true" aria-label={m.common.loading}>
+      <div
+        className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3"
+        aria-busy="true"
+        aria-label={m.common.loading}
+      >
         {Array.from({ length: 6 }, (_, i) => (
           <Skeleton key={i} className="aspect-[4/5] w-full rounded-xl" />
         ))}
       </div>
     )
-  else if (list.isError) body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />
+  else if (list.isError)
+    body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />
   else if (!shown || shown.length === 0) {
     const empty = m.templates.empty[tab]
-    body = <EmptyState icon={<PaletteIcon />} title={empty.title} body={empty.body} />
+    body = (
+      <EmptyState
+        icon={<PaletteIcon />}
+        title={empty.title}
+        body={empty.body}
+      />
+    )
   } else
     body = (
       <ul className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
@@ -68,7 +84,10 @@ export function TemplatesPage() {
               </Button>
               <Button
                 render={
-                  <Link to="/w/$workspaceId/templates/new" params={{ workspaceId: workspace.id }} />
+                  <Link
+                    to="/w/$workspaceId/templates/new"
+                    params={{ workspaceId: workspace.id }}
+                  />
                 }
                 nativeButton={false}
               >
@@ -84,12 +103,16 @@ export function TemplatesPage() {
         <div
           key={d.jobId}
           role="status"
-          className="mb-4 flex items-start gap-2.5 rounded-lg border border-sky-500/30 bg-sky-500/5 px-4 py-3 text-sm"
+          className="mb-4 flex items-start gap-2.5 rounded-lg border border-info/30 bg-info/5 px-4 py-3 text-sm"
         >
-          <Loader2Icon className="mt-0.5 size-4 shrink-0 animate-spin text-sky-600 dark:text-sky-400" />
+          <Loader2Icon className="mt-0.5 size-4 shrink-0 animate-spin text-info" />
           <div className="min-w-0 space-y-0.5">
-            <p className="font-medium break-words">{m.templates.generate.drafting(d.channel)}</p>
-            <p className="text-muted-foreground">{m.templates.generate.draftingBody}</p>
+            <p className="font-medium break-words">
+              {m.templates.generate.drafting(d.channel)}
+            </p>
+            <p className="text-muted-foreground">
+              {m.templates.generate.draftingBody}
+            </p>
           </div>
         </div>
       ))}
@@ -97,7 +120,10 @@ export function TemplatesPage() {
         value={tab}
         onValueChange={(next) =>
           void navigate({
-            search: next === "all" ? {} : { kind: next as Exclude<TemplateTab, "all"> },
+            search:
+              next === "all"
+                ? {}
+                : { kind: next as Exclude<TemplateTab, "all"> },
             replace: true,
           })
         }
@@ -121,7 +147,13 @@ export function TemplatesPage() {
   )
 }
 
-function TemplateCard({ workspaceId, template: t }: { workspaceId: string; template: Template }) {
+function TemplateCard({
+  workspaceId,
+  template: t,
+}: {
+  workspaceId: string
+  template: Template
+}) {
   return (
     <Link
       to="/w/$workspaceId/templates/$templateId"
@@ -146,7 +178,10 @@ function TemplateCard({ workspaceId, template: t }: { workspaceId: string; templ
           <SourceBadge source={t.source} />
         </div>
         {t.inspiration ? (
-          <p className="text-xs text-muted-foreground/80" title={m.templates.inspiration}>
+          <p
+            className="text-xs text-muted-foreground/80"
+            title={m.templates.inspiration}
+          >
             {t.inspiration}
           </p>
         ) : null}

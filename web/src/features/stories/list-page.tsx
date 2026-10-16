@@ -4,7 +4,13 @@ import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { InboxIcon, Loader2Icon, PlusIcon } from "lucide-react"
 
 import type { Job, Pipeline, Story } from "@/api/client"
-import { EmptyState, ErrorState, PageHeader, ReadOnlyNote, TableSkeleton } from "@/components/page"
+import {
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  ReadOnlyNote,
+  TableSkeleton,
+} from "@/components/page"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -45,13 +51,21 @@ export function StoriesPage() {
   const now = useNow()
 
   const pipelineNames = useMemo(
-    () => new Map((pipelines.data ?? []).map((p: Pipeline) => [p.id, p.definition.name])),
+    () =>
+      new Map(
+        (pipelines.data ?? []).map((p: Pipeline) => [p.id, p.definition.name])
+      ),
     [pipelines.data]
   )
 
   const newButton = canEdit ? (
     <Button
-      render={<Link to="/w/$workspaceId/stories/new" params={{ workspaceId: workspace.id }} />}
+      render={
+        <Link
+          to="/w/$workspaceId/stories/new"
+          params={{ workspaceId: workspace.id }}
+        />
+      }
       nativeButton={false}
     >
       <PlusIcon data-icon="inline-start" />
@@ -61,7 +75,8 @@ export function StoriesPage() {
 
   let body
   if (list.isPending) body = <TableSkeleton rows={5} />
-  else if (list.isError) body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />
+  else if (list.isError)
+    body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />
   else if (list.data.length === 0) {
     const empty = m.stories.empty[tab]
     body = (
@@ -79,11 +94,15 @@ export function StoriesPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">{m.stories.columns.title}</TableHead>
+                <TableHead className="pl-4">
+                  {m.stories.columns.title}
+                </TableHead>
                 <TableHead>{m.stories.columns.outputs}</TableHead>
                 <TableHead>{m.stories.columns.origin}</TableHead>
                 <TableHead>{m.stories.columns.language}</TableHead>
-                <TableHead className="pr-4">{m.stories.columns.created}</TableHead>
+                <TableHead className="pr-4">
+                  {m.stories.columns.created}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -92,7 +111,9 @@ export function StoriesPage() {
                   key={s.id}
                   workspaceId={workspace.id}
                   story={s}
-                  pipelineName={s.pipelineId ? pipelineNames.get(s.pipelineId) : undefined}
+                  pipelineName={
+                    s.pipelineId ? pipelineNames.get(s.pipelineId) : undefined
+                  }
                   pipelinesLoaded={!!pipelines.data}
                   timezone={workspace.timezone}
                   now={now}
@@ -102,7 +123,9 @@ export function StoriesPage() {
           </Table>
         </div>
         {list.data.length >= STORY_LIST_LIMIT ? (
-          <p className="mt-3 text-xs text-muted-foreground">{m.stories.showing(STORY_LIST_LIMIT)}</p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            {m.stories.showing(STORY_LIST_LIMIT)}
+          </p>
         ) : null}
       </>
     )
@@ -111,7 +134,11 @@ export function StoriesPage() {
 
   return (
     <>
-      <PageHeader title={m.stories.title} description={m.stories.description} actions={newButton} />
+      <PageHeader
+        title={m.stories.title}
+        description={m.stories.description}
+        actions={newButton}
+      />
       {canEdit ? null : <ReadOnlyNote>{m.stories.readOnlyHint}</ReadOnlyNote>}
       <Tabs
         value={tab}
@@ -129,8 +156,10 @@ export function StoriesPage() {
               <TabsTrigger key={t} value={t} className="flex-none">
                 {m.stories.tabs[t]}
                 {t === "review" && reviewCount > 0 ? (
-                  <span className="rounded-full bg-amber-500/20 px-1.5 text-[11px] leading-4 font-semibold text-amber-800 tabular dark:text-amber-300">
-                    {reviewCount >= STORY_LIST_LIMIT ? `${STORY_LIST_LIMIT}+` : reviewCount}
+                  <span className="tabular rounded-full bg-primary px-1.5 text-[11px] leading-4 font-semibold text-primary-foreground inset-ring inset-ring-primary-ink">
+                    {reviewCount >= STORY_LIST_LIMIT
+                      ? `${STORY_LIST_LIMIT}+`
+                      : reviewCount}
                   </span>
                 ) : null}
               </TabsTrigger>
@@ -157,10 +186,14 @@ function usePlanningJobs(workspaceId: string): Job[] {
     // The list holds whole requests: keep their planning jobs still at work.
     select: (all) =>
       all.filter(
-        (j) => PLANNING_KINDS.has(j.kind) && (j.status === "queued" || j.status === "running")
+        (j) =>
+          PLANNING_KINDS.has(j.kind) &&
+          (j.status === "queued" || j.status === "running")
       ),
     refetchInterval: (q) =>
-      q.state.data?.some((j) => PLANNING_KINDS.has(j.kind)) ? POLL_PLANNING_MS : false,
+      q.state.data?.some((j) => PLANNING_KINDS.has(j.kind))
+        ? POLL_PLANNING_MS
+        : false,
   })
   const planning = jobs.data ?? []
   const count = planning.length
@@ -168,7 +201,8 @@ function usePlanningJobs(workspaceId: string): Job[] {
   const prev = useRef(count)
   useEffect(() => {
     // A planning job finished: the lists may have new stories.
-    if (count < prev.current) void qc.invalidateQueries({ queryKey: keys.storyLists(workspaceId) })
+    if (count < prev.current)
+      void qc.invalidateQueries({ queryKey: keys.storyLists(workspaceId) })
     prev.current = count
   }, [count, qc, workspaceId])
   return planning
@@ -178,9 +212,9 @@ function PlanningNote({ count }: { count: number }) {
   return (
     <div
       role="status"
-      className="mb-4 flex items-center gap-2.5 rounded-lg border border-sky-500/30 bg-sky-500/5 px-4 py-3 text-sm"
+      className="mb-4 flex items-center gap-2.5 rounded-lg border border-info/30 bg-info/5 px-4 py-3 text-sm"
     >
-      <Loader2Icon className="size-4 shrink-0 animate-spin text-sky-600 dark:text-sky-400" />
+      <Loader2Icon className="size-4 shrink-0 animate-spin text-info" />
       <div>
         <p className="font-medium">{m.stories.planning(count)}</p>
         <p className="text-muted-foreground">{m.stories.planningBody}</p>
@@ -221,7 +255,10 @@ function StoryRow({
             {s.title}
           </Link>
           {s.angle ? (
-            <span className="line-clamp-1 text-xs text-muted-foreground" title={s.angle}>
+            <span
+              className="line-clamp-1 text-xs text-muted-foreground"
+              title={s.angle}
+            >
               {s.angle}
             </span>
           ) : null}
@@ -250,7 +287,9 @@ function StoryRow({
             <span className="truncate text-sm">{origin}</span>
           )}
           {s.pipelineId ? (
-            <span className="text-xs text-muted-foreground">{m.stories.origin[s.origin]}</span>
+            <span className="text-xs text-muted-foreground">
+              {m.stories.origin[s.origin]}
+            </span>
           ) : null}
         </div>
       </TableCell>
@@ -259,8 +298,12 @@ function StoryRow({
       </TableCell>
       <TableCell className="pr-4 align-top">
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm whitespace-nowrap tabular">{formatDateTime(s.createdAt, timezone)}</span>
-          <span className="text-xs text-muted-foreground">{formatRelative(s.createdAt, now)}</span>
+          <span className="tabular text-sm whitespace-nowrap">
+            {formatDateTime(s.createdAt, timezone)}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {formatRelative(s.createdAt, now)}
+          </span>
         </div>
       </TableCell>
     </TableRow>

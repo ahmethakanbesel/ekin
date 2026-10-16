@@ -28,10 +28,22 @@ import { WorkspaceSwitcher } from "./workspace-switcher"
 
 const navItems = [
   { to: "/w/$workspaceId/stories", label: m.nav.review, icon: InboxIcon },
-  { to: "/w/$workspaceId/pipelines", label: m.nav.pipelines, icon: WorkflowIcon },
-  { to: "/w/$workspaceId/knowledge", label: m.nav.knowledge, icon: LibraryIcon },
+  {
+    to: "/w/$workspaceId/pipelines",
+    label: m.nav.pipelines,
+    icon: WorkflowIcon,
+  },
+  {
+    to: "/w/$workspaceId/knowledge",
+    label: m.nav.knowledge,
+    icon: LibraryIcon,
+  },
   { to: "/w/$workspaceId/seo", label: m.nav.seo, icon: TrendingUpIcon },
-  { to: "/w/$workspaceId/templates", label: m.nav.templates, icon: PaletteIcon },
+  {
+    to: "/w/$workspaceId/templates",
+    label: m.nav.templates,
+    icon: PaletteIcon,
+  },
   { to: "/w/$workspaceId/jobs", label: m.nav.jobs, icon: ListChecksIcon },
   { to: "/w/$workspaceId/members", label: m.nav.members, icon: UsersIcon },
   { to: "/w/$workspaceId/settings", label: m.nav.settings, icon: SettingsIcon },
@@ -67,7 +79,9 @@ export function WorkspaceLayout() {
 
   if (ws.isError) {
     // A workspace you are not a member of answers 404, like a missing one.
-    const missing = isApiError(ws.error) && (ws.error.status === 404 || ws.error.status === 400)
+    const missing =
+      isApiError(ws.error) &&
+      (ws.error.status === 404 || ws.error.status === 400)
     return (
       <main className="mx-auto max-w-xl p-8">
         {missing ? (
@@ -89,7 +103,11 @@ export function WorkspaceLayout() {
   const workspace = ws.data
   // Keyed: its "last opened" mark belongs to one workspace.
   const bell = (
-    <NotificationBell key={workspaceId} workspaceId={workspaceId} timezone={workspace.timezone} />
+    <NotificationBell
+      key={workspaceId}
+      workspaceId={workspaceId}
+      timezone={workspace.timezone}
+    />
   )
   const nav = navItems.map((item) => (
     <Link
@@ -102,10 +120,12 @@ export function WorkspaceLayout() {
       {item.label}
       {item.to === "/w/$workspaceId/stories" && reviewCount > 0 ? (
         <span
-          className="ml-auto min-w-5 rounded-full bg-amber-500/20 px-1.5 text-center text-[11px] leading-5 font-semibold text-amber-800 tabular dark:text-amber-300"
+          className="tabular ml-auto min-w-5 rounded-full bg-primary px-1.5 text-center text-[11px] leading-5 font-semibold text-primary-foreground inset-ring inset-ring-primary-ink"
           aria-label={m.nav.reviewCount(reviewCount)}
         >
-          {reviewCount >= STORY_LIST_LIMIT ? `${STORY_LIST_LIMIT}+` : reviewCount}
+          {reviewCount >= STORY_LIST_LIMIT
+            ? `${STORY_LIST_LIMIT}+`
+            : reviewCount}
         </span>
       ) : null}
     </Link>

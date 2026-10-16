@@ -1,11 +1,24 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
-import { ArrowUpRightIcon, RotateCcwIcon, SearchIcon, SparklesIcon, UploadIcon, XIcon } from "lucide-react"
+import {
+  ArrowUpRightIcon,
+  RotateCcwIcon,
+  SearchIcon,
+  SparklesIcon,
+  UploadIcon,
+  XIcon,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import type { Opportunity } from "@/api/client"
-import { EmptyState, ErrorState, PageHeader, ReadOnlyNote, TableSkeleton } from "@/components/page"
+import {
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  ReadOnlyNote,
+  TableSkeleton,
+} from "@/components/page"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -22,6 +35,7 @@ import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { formatInteger } from "@/lib/format"
 import { formatAgo, formatDateTime, useNow } from "@/lib/time"
+import { badgeTone } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { opportunitiesQuery, useSetOpportunityStatus } from "@/queries/seo"
 import { ImportDialog } from "./import-dialog"
@@ -54,7 +68,8 @@ export function SeoPage() {
 
   let body
   if (list.isPending) body = <TableSkeleton rows={5} />
-  else if (list.isError) body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />
+  else if (list.isError)
+    body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />
   else if (list.data.length === 0) {
     const empty = m.seo.empty[tab]
     body = (
@@ -72,7 +87,9 @@ export function SeoPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="pl-4">{m.seo.columns.keyword}</TableHead>
-              {tab === "all" ? <TableHead>{m.seo.columns.status}</TableHead> : null}
+              {tab === "all" ? (
+                <TableHead>{m.seo.columns.status}</TableHead>
+              ) : null}
               <TableHead className="text-right" title={m.seo.volumeHint}>
                 {m.seo.columns.volume}
               </TableHead>
@@ -120,7 +137,7 @@ export function SeoPage() {
                   <SparklesIcon data-icon="inline-start" />
                   {m.seo.refresh}
                   {plan.credits ? (
-                    <span className="ml-1 rounded-full bg-muted px-1.5 text-xs font-normal text-muted-foreground tabular">
+                    <span className="tabular ml-1 rounded-full bg-muted px-1.5 text-xs font-normal text-muted-foreground">
                       {m.seo.estimateShort(formatInteger(plan.credits))}
                     </span>
                   ) : null}
@@ -134,7 +151,10 @@ export function SeoPage() {
             value={tab}
             onValueChange={(next) =>
               void navigate({
-                search: next === "open" ? {} : { status: next as Exclude<OpportunityTab, "open"> },
+                search:
+                  next === "open"
+                    ? {}
+                    : { status: next as Exclude<OpportunityTab, "open"> },
                 replace: true,
               })
             }
@@ -164,9 +184,9 @@ export function SeoPage() {
 }
 
 function difficultyTone(d: number): string {
-  if (d < 30) return "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300"
-  if (d < 60) return "bg-amber-500/15 text-amber-800 dark:text-amber-300"
-  return "bg-red-500/15 text-red-800 dark:text-red-300"
+  if (d < 30) return badgeTone.success
+  if (d < 60) return "bg-primary/15 text-primary-ink"
+  return badgeTone.danger
 }
 
 const statusVariant = {
@@ -192,7 +212,11 @@ function OpportunityRow({
   const change = async (status: "open" | "dismissed") => {
     try {
       await setStatus.mutateAsync({ id: o.id, status })
-      toast.success(status === "open" ? m.seo.reopened(o.keyword) : m.seo.dismissed(o.keyword))
+      toast.success(
+        status === "open"
+          ? m.seo.reopened(o.keyword)
+          : m.seo.dismissed(o.keyword)
+      )
     } catch (err) {
       toast.error(errorMessage(err))
     }
@@ -244,17 +268,26 @@ function OpportunityRow({
     )
 
   return (
-    <TableRow className={cn(o.status === "dismissed" && "text-muted-foreground")}>
+    <TableRow
+      className={cn(o.status === "dismissed" && "text-muted-foreground")}
+    >
       <TableCell className="max-w-sm pl-4 align-top whitespace-normal">
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="flex flex-wrap items-center gap-1.5">
             <span className="font-medium">{o.keyword}</span>
-            <Badge variant="outline" className="uppercase" title={m.values.language[o.language]}>
+            <Badge
+              variant="outline"
+              className="uppercase"
+              title={m.values.language[o.language]}
+            >
               {o.language}
             </Badge>
           </span>
           {o.note ? (
-            <span className="line-clamp-2 text-xs text-muted-foreground" title={o.note}>
+            <span
+              className="line-clamp-2 text-xs text-muted-foreground"
+              title={o.note}
+            >
               {o.note}
             </span>
           ) : null}
@@ -262,17 +295,19 @@ function OpportunityRow({
       </TableCell>
       {showStatus ? (
         <TableCell className="align-top">
-          <Badge variant={statusVariant[o.status]}>{m.seo.status[o.status]}</Badge>
+          <Badge variant={statusVariant[o.status]}>
+            {m.seo.status[o.status]}
+          </Badge>
         </TableCell>
       ) : null}
-      <TableCell className="text-right align-top tabular">
+      <TableCell className="tabular text-right align-top">
         {o.volume > 0 ? formatInteger(o.volume) : m.common.none}
       </TableCell>
       <TableCell className="text-right align-top">
         {o.difficulty >= 0 ? (
           <span
             className={cn(
-              "inline-block min-w-8 rounded-full px-1.5 text-center text-xs leading-5 font-semibold tabular",
+              "tabular inline-block min-w-8 rounded-full px-1.5 text-center text-xs leading-5 font-semibold",
               difficultyTone(o.difficulty)
             )}
           >
@@ -282,11 +317,18 @@ function OpportunityRow({
           m.common.none
         )}
       </TableCell>
-      <TableCell className="align-top text-sm capitalize">{o.intent || m.common.none}</TableCell>
-      <TableCell className="text-right align-top tabular" title={m.seo.scoreHint}>
+      <TableCell className="align-top text-sm capitalize">
+        {o.intent || m.common.none}
+      </TableCell>
+      <TableCell
+        className="tabular text-right align-top"
+        title={m.seo.scoreHint}
+      >
         {formatInteger(o.score)}
       </TableCell>
-      <TableCell className="align-top text-sm">{m.seo.sources[o.source] ?? o.source}</TableCell>
+      <TableCell className="align-top text-sm">
+        {m.seo.sources[o.source] ?? o.source}
+      </TableCell>
       <TableCell className="align-top">
         <span
           className="text-sm whitespace-nowrap"

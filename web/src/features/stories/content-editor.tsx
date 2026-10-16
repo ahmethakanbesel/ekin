@@ -15,7 +15,12 @@ import {
 import { ChipInput } from "@/components/chip-input"
 import { Banner, ErrorState } from "@/components/page"
 import { Button } from "@/components/ui/button"
-import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -23,7 +28,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { cn } from "@/lib/utils"
-import { deliverableContentQuery, useEditDeliverableContent } from "@/queries/stories"
+import {
+  deliverableContentQuery,
+  useEditDeliverableContent,
+} from "@/queries/stories"
 import {
   FIELD_KEYS,
   articleErrors,
@@ -57,12 +65,18 @@ export function ContentEditor(props: EditorProps) {
   const { workspaceId, story, deliverable: d, onClose } = props
   const query = useQuery(deliverableContentQuery(workspaceId, story.id, d.id))
   const title =
-    d.kind === "video" ? m.editor.titleVideo(d.revision) : m.editor.titleArticle(d.revision)
+    d.kind === "video"
+      ? m.editor.titleVideo(d.revision)
+      : m.editor.titleArticle(d.revision)
 
   if (query.isPending) {
     return (
       <Shell title={title}>
-        <div className="grid gap-4" aria-busy="true" aria-label={m.common.loading}>
+        <div
+          className="grid gap-4"
+          aria-busy="true"
+          aria-label={m.common.loading}
+        >
           <Skeleton className="h-9 w-full" />
           <Skeleton className="h-20 w-full" />
           <Skeleton className="h-[40vh] w-full" />
@@ -124,10 +138,17 @@ function Shell({
   children: ReactNode
 }) {
   return (
-    <section className="grid gap-6 rounded-xl border p-4 md:p-6" aria-label={title}>
+    <section
+      className="grid gap-6 rounded-xl border p-4 md:p-6"
+      aria-label={title}
+    >
       <header className="space-y-1">
-        <h3 className="font-heading text-lg font-semibold tracking-tight">{title}</h3>
-        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+        <h3 className="font-heading text-lg font-semibold tracking-tight">
+          {title}
+        </h3>
+        {description ? (
+          <p className="text-sm text-muted-foreground">{description}</p>
+        ) : null}
       </header>
       {children}
     </section>
@@ -138,7 +159,10 @@ function Shell({
  * Asks before unsaved changes are lost: on Cancel, on navigating away
  * within the app and on closing or reloading the tab.
  */
-function useUnsavedGuard(dirty: boolean, onDirtyChange: ((dirty: boolean) => void) | undefined) {
+function useUnsavedGuard(
+  dirty: boolean,
+  onDirtyChange: ((dirty: boolean) => void) | undefined
+) {
   const blocker = useBlocker({
     shouldBlockFn: () => dirty,
     enableBeforeUnload: () => dirty,
@@ -164,7 +188,13 @@ function sentence(s: string): string {
 }
 
 /** What the server said about a failed save, shown above the buttons. */
-function SaveError({ error, onReload }: { error: unknown; onReload: () => void }) {
+function SaveError({
+  error,
+  onReload,
+}: {
+  error: unknown
+  onReload: () => void
+}) {
   if (!error) return null
   if (isApiError(error) && error.status === 409) {
     return (
@@ -220,14 +250,20 @@ function Footer({
       <SaveError error={error} onReload={onReload} />
       <div className="flex flex-wrap items-center justify-end gap-3">
         {!dirty ? (
-          <span className="text-sm text-muted-foreground">{m.editor.noChanges}</span>
+          <span className="text-sm text-muted-foreground">
+            {m.editor.noChanges}
+          </span>
         ) : problems ? (
           <span className="text-sm text-destructive">{m.editor.fixErrors}</span>
         ) : null}
         <Button type="button" variant="outline" onClick={onCancel}>
           {m.common.cancel}
         </Button>
-        <Button type="button" disabled={!dirty || problems || saving} onClick={onSave}>
+        <Button
+          type="button"
+          disabled={!dirty || problems || saving}
+          onClick={onSave}
+        >
           {saving ? m.common.saving : saveLabel}
         </Button>
       </div>
@@ -237,7 +273,12 @@ function Footer({
 
 function Counter({ text, bad }: { text: string; bad: boolean }) {
   return (
-    <span className={cn("tabular text-xs", bad ? "text-destructive" : "text-muted-foreground")}>
+    <span
+      className={cn(
+        "tabular text-xs",
+        bad ? "text-destructive" : "text-muted-foreground"
+      )}
+    >
       {text}
     </span>
   )
@@ -291,7 +332,11 @@ function useEditorState(props: InnerProps, dirty: boolean) {
       return // shown above the buttons
     }
     const now = updated.deliverables.find((x) => x.id === d.id)
-    toast.success(retime ? m.editor.savedRetime : m.editor.saved(now?.revision ?? d.revision + 1))
+    toast.success(
+      retime
+        ? m.editor.savedRetime
+        : m.editor.saved(now?.revision ?? d.revision + 1)
+    )
     onClose()
   }
 
@@ -322,15 +367,22 @@ const sameTags = (a: string[], b: string[]) =>
 
 function ArticleEditor(props: InnerProps) {
   const { title, content, deliverable: d, onReload } = props
-  const doc = useMemo(() => parseArticle(content.article ?? ""), [content.article])
+  const doc = useMemo(
+    () => parseArticle(content.article ?? ""),
+    [content.article]
+  )
   const [fields, setFields] = useState<ArticleFields>(doc.fields)
   const [body, setBody] = useState(doc.body)
-  const set = <K extends keyof ArticleFields>(key: K, value: ArticleFields[K]) =>
-    setFields((prev) => ({ ...prev, [key]: value }))
+  const set = <K extends keyof ArticleFields>(
+    key: K,
+    value: ArticleFields[K]
+  ) => setFields((prev) => ({ ...prev, [key]: value }))
 
   const dirty =
     FIELD_KEYS.some((k) =>
-      k === "tags" ? !sameTags(fields.tags, doc.fields.tags) : fields[k] !== doc.fields[k]
+      k === "tags"
+        ? !sameTags(fields.tags, doc.fields.tags)
+        : fields[k] !== doc.fields[k]
     ) || normalizeNewlines(body) !== doc.body
   const errors = articleErrors(fields, body)
   const problems = Object.keys(errors).length > 0
@@ -371,12 +423,19 @@ function ArticleEditor(props: InnerProps) {
             id="edit-description"
             rows={2}
             value={fields.description}
-            onChange={(e) => set("description", e.target.value.replace(/\n/g, " "))}
+            onChange={(e) =>
+              set("description", e.target.value.replace(/\n/g, " "))
+            }
             aria-invalid={!!errors.description || undefined}
           />
         </EditField>
         <div className="grid gap-5 md:grid-cols-2">
-          <EditField id="edit-slug" label={t.slug} hint={t.slugHint} error={errors.slug}>
+          <EditField
+            id="edit-slug"
+            label={t.slug}
+            hint={t.slugHint}
+            error={errors.slug}
+          >
             <Input
               id="edit-slug"
               className="font-mono"
@@ -390,7 +449,12 @@ function ArticleEditor(props: InnerProps) {
           <EditField
             id="edit-seo-title"
             label={t.seoTitle}
-            counter={<Counter text={m.editor.chars(seoChars, 60)} bad={seoChars > 60} />}
+            counter={
+              <Counter
+                text={m.editor.chars(seoChars, 60)}
+                bad={seoChars > 60}
+              />
+            }
             hint={t.seoTitleHint}
             error={errors.seoTitle}
           >
@@ -402,7 +466,12 @@ function ArticleEditor(props: InnerProps) {
             />
           </EditField>
         </div>
-        <EditField id="edit-tags" label={t.tags} hint={m.editor.tagsHint} error={errors.tags}>
+        <EditField
+          id="edit-tags"
+          label={t.tags}
+          hint={m.editor.tagsHint}
+          error={errors.tags}
+        >
           <ChipInput
             id="edit-tags"
             value={fields.tags}
@@ -412,7 +481,9 @@ function ArticleEditor(props: InnerProps) {
           />
         </EditField>
         {otherKeys.length > 0 ? (
-          <p className="text-xs text-muted-foreground">{t.otherKeys(otherKeys.join(", "))}</p>
+          <p className="text-xs text-muted-foreground">
+            {t.otherKeys(otherKeys.join(", "))}
+          </p>
         ) : null}
 
         <Tabs defaultValue="write" className="gap-3">
@@ -426,7 +497,9 @@ function ArticleEditor(props: InnerProps) {
             </div>
             <Counter
               text={
-                d.article ? m.editor.wordsTarget(words, d.article.words) : m.editor.words(words)
+                d.article
+                  ? m.editor.wordsTarget(words, d.article.words)
+                  : m.editor.words(words)
               }
               bad={words < 100}
             />
@@ -440,7 +513,9 @@ function ArticleEditor(props: InnerProps) {
               onChange={(e) => setBody(e.target.value)}
               aria-invalid={!!errors.body || undefined}
             />
-            {errors.body ? <p className="text-sm text-destructive">{errors.body}</p> : null}
+            {errors.body ? (
+              <p className="text-sm text-destructive">{errors.body}</p>
+            ) : null}
           </TabsContent>
           <TabsContent value="preview">
             <div className="min-h-[60vh] rounded-xl border p-5 md:p-8">
@@ -452,7 +527,9 @@ function ArticleEditor(props: InnerProps) {
               {body.trim() ? (
                 <Markdown source={body} className="max-w-[72ch] text-[15px]" />
               ) : (
-                <p className="text-sm text-muted-foreground">{t.emptyPreview}</p>
+                <p className="text-sm text-muted-foreground">
+                  {t.emptyPreview}
+                </p>
               )}
             </div>
           </TabsContent>
@@ -497,7 +574,8 @@ function metadataErrors(meta: VideoMetadataContent) {
   if (!meta.title.trim()) errors.title = t.titleRequired
   else if (countChars(meta.title) > 100) errors.title = t.titleTooLong
   else if (/[<>]/.test(meta.title)) errors.title = t.angleBrackets
-  if (countChars(meta.description) > 5000) errors.description = t.descriptionTooLong
+  if (countChars(meta.description) > 5000)
+    errors.description = t.descriptionTooLong
   else if (/[<>]/.test(meta.description)) errors.description = t.angleBrackets
   const tagChars = countChars(meta.tags.join(","))
   if (tagChars > MAX_TAG_CHARS) errors.tags = t.tagsTooLong(tagChars)
@@ -505,24 +583,31 @@ function metadataErrors(meta: VideoMetadataContent) {
 }
 
 const sameMeta = (a: VideoMetadataContent, b: VideoMetadataContent) =>
-  a.title === b.title && a.description === b.description && sameTags(a.tags, b.tags)
+  a.title === b.title &&
+  a.description === b.description &&
+  sameTags(a.tags, b.tags)
 
 function VideoEditor(props: InnerProps) {
   const { title, content, deliverable: d, onReload } = props
   const original = content.narration
   const [narration, setNarration] = useState(original ?? "")
-  const [meta, setMeta] = useState<VideoMetadataContent | undefined>(content.metadata)
+  const [meta, setMeta] = useState<VideoMetadataContent | undefined>(
+    content.metadata
+  )
   const t = m.editor.video
 
   // The server compares the narration ignoring surrounding whitespace.
   const narrationChanged =
     original !== undefined &&
     normalizeNewlines(narration).trim() !== normalizeNewlines(original).trim()
-  const metaChanged = !!meta && !!content.metadata && !sameMeta(meta, content.metadata)
+  const metaChanged =
+    !!meta && !!content.metadata && !sameMeta(meta, content.metadata)
   const dirty = narrationChanged || metaChanged
-  const narrationError = narrationChanged && !narration.trim() ? t.narrationRequired : undefined
+  const narrationError =
+    narrationChanged && !narration.trim() ? t.narrationRequired : undefined
   const metaErrors = meta ? metadataErrors(meta) : {}
-  const problems = !!narrationError || (metaChanged && Object.keys(metaErrors).length > 0)
+  const problems =
+    !!narrationError || (metaChanged && Object.keys(metaErrors).length > 0)
   const { edit, cancel, save, dialogs } = useEditorState(props, dirty)
 
   const words = countWords(narration)
@@ -571,7 +656,8 @@ function VideoEditor(props: InnerProps) {
               label={t.narration}
               counter={
                 <span className="tabular text-xs text-muted-foreground">
-                  {m.editor.words(words)} · {t.estimate(formatTimestamp(estimate))}
+                  {m.editor.words(words)} ·{" "}
+                  {t.estimate(formatTimestamp(estimate))}
                   {target ? ` · ${t.target(formatTimestamp(target))}` : ""}
                 </span>
               }
@@ -589,7 +675,10 @@ function VideoEditor(props: InnerProps) {
             </EditField>
           )}
           {pace || overShort ? (
-            <Banner tone="warning" title={overShort ? t.overShort : (pace ?? "")}>
+            <Banner
+              tone="warning"
+              title={overShort ? t.overShort : (pace ?? "")}
+            >
               {overShort && pace ? <p>{pace}</p> : null}
             </Banner>
           ) : null}
@@ -606,7 +695,12 @@ function VideoEditor(props: InnerProps) {
               <EditField
                 id="edit-video-title"
                 label={t.title}
-                counter={<Counter text={m.editor.chars(titleChars, 100)} bad={titleChars > 100} />}
+                counter={
+                  <Counter
+                    text={m.editor.chars(titleChars, 100)}
+                    bad={titleChars > 100}
+                  />
+                }
                 error={metaErrors.title}
               >
                 <Input
@@ -619,7 +713,12 @@ function VideoEditor(props: InnerProps) {
               <EditField
                 id="edit-video-description"
                 label={t.description}
-                counter={<Counter text={m.editor.chars(descChars, 5000)} bad={descChars > 5000} />}
+                counter={
+                  <Counter
+                    text={m.editor.chars(descChars, 5000)}
+                    bad={descChars > 5000}
+                  />
+                }
                 error={metaErrors.description}
               >
                 <Textarea
@@ -655,8 +754,8 @@ function VideoEditor(props: InnerProps) {
         saveLabel={narrationChanged ? m.editor.saveRetime : m.editor.save}
         note={
           narrationChanged ? (
-            <p className="flex gap-2 rounded-lg border border-sky-500/30 bg-sky-500/5 px-3 py-2 text-sm">
-              <InfoIcon className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400" />
+            <p className="flex gap-2 rounded-lg border border-info/30 bg-info/5 px-3 py-2 text-sm">
+              <InfoIcon className="mt-0.5 size-4 shrink-0 text-info" />
               <span>{m.editor.retimeNote}</span>
             </p>
           ) : null

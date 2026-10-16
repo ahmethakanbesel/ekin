@@ -34,7 +34,10 @@ export function TitleCard({
     >
       {accent ? (
         <span
-          className={cn("block rounded-full", size === "lg" ? "h-1.5 w-16" : "h-1 w-10")}
+          className={cn(
+            "block rounded-full",
+            size === "lg" ? "h-1.5 w-16" : "h-1 w-10"
+          )}
           style={{ background: accent }}
         />
       ) : null}
@@ -52,7 +55,13 @@ export function TitleCard({
 }
 
 /** A thumbnail of the title card, for select options. */
-export function MiniCard({ template, className }: { template: Look; className?: string }) {
+export function MiniCard({
+  template,
+  className,
+}: {
+  template: Look
+  className?: string
+}) {
   const { background, text } = titleColours(template.palette)
   return (
     <span
@@ -69,19 +78,37 @@ export function MiniCard({ template, className }: { template: Look; className?: 
 }
 
 /** The palette as one segmented strip. */
-export function PaletteStrip({ palette, className }: { palette: string[]; className?: string }) {
+export function PaletteStrip({
+  palette,
+  className,
+}: {
+  palette: string[]
+  className?: string
+}) {
   const colours = palette.filter((c) => HEX.test(c))
   if (colours.length === 0) {
-    return <p className={cn("text-xs text-muted-foreground", className)}>{m.templates.noPalette}</p>
+    return (
+      <p className={cn("text-xs text-muted-foreground", className)}>
+        {m.templates.noPalette}
+      </p>
+    )
   }
   return (
     <div
-      className={cn("flex h-3 overflow-hidden rounded-full ring-1 ring-foreground/10", className)}
+      className={cn(
+        "flex h-3 overflow-hidden rounded-full ring-1 ring-foreground/10",
+        className
+      )}
       role="img"
       aria-label={`${m.templates.palette}: ${colours.join(", ")}`}
     >
       {colours.map((c, i) => (
-        <span key={`${c}-${i}`} className="flex-1" style={{ background: c }} title={c} />
+        <span
+          key={`${c}-${i}`}
+          className="flex-1"
+          style={{ background: c }}
+          title={c}
+        />
       ))}
     </div>
   )
@@ -91,7 +118,9 @@ export function PaletteStrip({ palette, className }: { palette: string[]; classN
 export function PaletteChips({ palette }: { palette: string[] }) {
   const colours = palette.filter((c) => HEX.test(c))
   if (colours.length === 0) {
-    return <p className="text-sm text-muted-foreground">{m.templates.noPalette}</p>
+    return (
+      <p className="text-sm text-muted-foreground">{m.templates.noPalette}</p>
+    )
   }
   return (
     <ul className="flex flex-wrap gap-3">
@@ -101,7 +130,9 @@ export function PaletteChips({ palette }: { palette: string[] }) {
             className="size-8 shrink-0 rounded-xl ring-1 ring-foreground/10"
             style={{ background: c }}
           />
-          <span className="font-mono text-xs text-muted-foreground uppercase">{c}</span>
+          <span className="font-mono text-xs text-muted-foreground uppercase">
+            {c}
+          </span>
         </li>
       ))}
     </ul>
@@ -118,9 +149,7 @@ export function SourceBadge({ source }: { source: Template["source"] }) {
   return (
     <Badge
       variant={sourceVariant[source] ?? "outline"}
-      className={cn(
-        source === "generated" && "bg-violet-500/15 text-violet-800 dark:text-violet-300"
-      )}
+      className={cn(source === "generated" && "bg-chart-1/15 text-foreground")}
     >
       {m.templates.source[source] ?? source}
     </Badge>

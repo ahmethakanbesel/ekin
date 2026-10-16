@@ -4,11 +4,18 @@ import { ArrowUpRightIcon } from "lucide-react"
 
 import { ErrorState } from "@/components/page"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { formatInteger } from "@/lib/format"
+import { badgeTone } from "@/lib/tones"
 import { meQuery } from "@/queries/auth"
 import { openSeoStatusQuery } from "@/queries/seo"
 
@@ -38,7 +45,9 @@ export function OpenSeoCard() {
   let body
   if (status.isPending) body = <Skeleton className="h-16 w-full rounded-lg" />
   else if (status.isError)
-    body = <ErrorState error={status.error} onRetry={() => void status.refetch()} />
+    body = (
+      <ErrorState error={status.error} onRetry={() => void status.refetch()} />
+    )
   else if (!status.data.configured) {
     badge = <Badge variant="outline">{m.seo.openseoNotConnected}</Badge>
     body = (
@@ -65,7 +74,7 @@ export function OpenSeoCard() {
   } else {
     const s = status.data
     badge = (
-      <Badge className="bg-emerald-500/15 text-emerald-800 dark:text-emerald-300">
+      <Badge variant="secondary" className={badgeTone.success}>
         {m.seo.openseoConnected}
       </Badge>
     )
@@ -82,7 +91,9 @@ export function OpenSeoCard() {
         {s.creditsRemaining !== undefined ? (
           <>
             <dt className="text-muted-foreground">{m.seo.openseoCredits}</dt>
-            <dd className="tabular font-medium">{formatInteger(s.creditsRemaining)}</dd>
+            <dd className="tabular font-medium">
+              {formatInteger(s.creditsRemaining)}
+            </dd>
           </>
         ) : null}
         <dt className="text-muted-foreground">{m.seo.openseoProjects}</dt>

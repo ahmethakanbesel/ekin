@@ -2,7 +2,13 @@ import { useQuery } from "@tanstack/react-query"
 import { CircleCheckIcon, CircleXIcon } from "lucide-react"
 
 import { ErrorState, PageHeader } from "@/components/page"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { StandalonePage } from "@/features/auth/standalone-page"
 import { m } from "@/i18n"
@@ -19,14 +25,20 @@ export function SystemPage() {
   let checks
   if (status.isPending)
     checks = (
-      <div className="grid gap-3" aria-busy="true" aria-label={m.common.loading}>
+      <div
+        className="grid gap-3"
+        aria-busy="true"
+        aria-label={m.common.loading}
+      >
         {Array.from({ length: 6 }, (_, i) => (
           <Skeleton key={i} className="h-10 w-full" />
         ))}
       </div>
     )
   else if (status.isError)
-    checks = <ErrorState error={status.error} onRetry={() => void status.refetch()} />
+    checks = (
+      <ErrorState error={status.error} onRetry={() => void status.refetch()} />
+    )
   else
     checks = (
       <ul className="divide-y">
@@ -34,7 +46,7 @@ export function SystemPage() {
           <li key={c.name} className="flex gap-3 py-3 first:pt-0 last:pb-0">
             {c.ok ? (
               <CircleCheckIcon
-                className="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                className="mt-0.5 size-5 shrink-0 text-success"
                 aria-label={m.system.ok}
               />
             ) : (
@@ -46,7 +58,9 @@ export function SystemPage() {
             <div className="min-w-0 space-y-0.5">
               <p className="font-medium">{c.name}</p>
               {c.detail ? (
-                <p className="font-mono text-xs break-words text-muted-foreground">{c.detail}</p>
+                <p className="font-mono text-xs break-words text-muted-foreground">
+                  {c.detail}
+                </p>
               ) : null}
             </div>
           </li>

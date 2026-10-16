@@ -1,7 +1,13 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { GaugeIcon, MinusIcon, PauseIcon, PlayIcon, PlusIcon } from "lucide-react"
+import {
+  GaugeIcon,
+  MinusIcon,
+  PauseIcon,
+  PlayIcon,
+  PlusIcon,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import type { HostProfile } from "@/api/client"
@@ -93,15 +99,19 @@ export function PausedBanners({ throttle }: { throttle: Throttle }) {
         <div
           key={p.name}
           role="status"
-          className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm"
+          className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-primary-ink/40 bg-primary/10 px-4 py-3 text-sm"
         >
-          <PauseIcon className="size-4 shrink-0 text-amber-700 dark:text-amber-300" />
+          <PauseIcon className="size-4 shrink-0 text-primary-ink" />
           <span className="min-w-0 flex-1">
-            {p.name === throttle.current ? t.pausedHere(p.name) : t.pausedRemote(p.name)}
+            {p.name === throttle.current
+              ? t.pausedHere(p.name)
+              : t.pausedRemote(p.name)}
           </span>
           <Button
             size="sm"
-            onClick={() => throttle.update(p.name, (x) => ({ ...x, paused: false }))}
+            onClick={() =>
+              throttle.update(p.name, (x) => ({ ...x, paused: false }))
+            }
           >
             <PlayIcon data-icon="inline-start" />
             {t.resume}
@@ -122,7 +132,8 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
     throttle.profiles[0]
   const t = m.jobs.throttle
   if (!profile) return null
-  const set = (edit: (p: HostProfile) => HostProfile) => throttle.update(profile.name, edit)
+  const set = (edit: (p: HostProfile) => HostProfile) =>
+    throttle.update(profile.name, edit)
   const slots = (q: string) => profile.concurrency[q] ?? 0
   const setSlots = (q: string, n: number) =>
     set((p) => ({ ...p, concurrency: { ...p.concurrency, [q]: n } }))
@@ -133,17 +144,27 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
         <GaugeIcon data-icon="inline-start" />
         {t.button}
         {throttle.profiles.some((p) => p.paused) ? (
-          <span className="size-2 rounded-full bg-amber-500" aria-label={t.someonePaused} />
+          <span
+            className="size-2 rounded-full bg-primary-ink"
+            aria-label={t.someonePaused}
+          />
         ) : null}
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[22rem] max-w-[calc(100vw-2rem)]">
+      <PopoverContent
+        align="end"
+        className="w-[22rem] max-w-[calc(100vw-2rem)]"
+      >
         <PopoverHeader>
           <PopoverTitle>{t.title}</PopoverTitle>
           <PopoverDescription>{t.description}</PopoverDescription>
         </PopoverHeader>
 
         {throttle.profiles.length > 1 ? (
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label={t.profile}>
+          <div
+            className="flex flex-wrap gap-1.5"
+            role="group"
+            aria-label={t.profile}
+          >
             {throttle.profiles.map((p) => (
               <Button
                 key={p.name}
@@ -162,7 +183,9 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
 
         <label className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
           <span className="flex flex-col">
-            <span className="font-medium">{profile.paused ? t.paused : t.running}</span>
+            <span className="font-medium">
+              {profile.paused ? t.paused : t.running}
+            </span>
             <span className="text-xs text-muted-foreground">
               {profile.paused ? t.pausedHint : t.runningHint}
             </span>
@@ -175,7 +198,9 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
         </label>
 
         <fieldset className="grid gap-1.5">
-          <legend className="mb-1.5 text-xs font-medium text-muted-foreground">{t.slots}</legend>
+          <legend className="mb-1.5 text-xs font-medium text-muted-foreground">
+            {t.slots}
+          </legend>
           {QUEUES.map((q) => (
             <div key={q} className="flex items-center justify-between gap-3">
               <span>{m.system.queues[q]}</span>
@@ -193,7 +218,9 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
         <label className="flex items-center justify-between gap-3">
           <span className="flex flex-col">
             <span>{m.system.heavyExclusive}</span>
-            <span className="text-xs text-muted-foreground">{m.system.heavyExclusiveHint}</span>
+            <span className="text-xs text-muted-foreground">
+              {m.system.heavyExclusiveHint}
+            </span>
           </span>
           <Switch
             checked={profile.heavyExclusive}
@@ -202,7 +229,9 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
         </label>
         {profile.heavyExclusive ? (
           <div className="grid gap-1.5">
-            <span className="text-xs text-muted-foreground">{t.heavyQueues}</span>
+            <span className="text-xs text-muted-foreground">
+              {t.heavyQueues}
+            </span>
             <HeavyQueuesPicker
               value={heavyOf(profile)}
               onChange={(next) => set((p) => ({ ...p, heavyQueues: next }))}
@@ -219,14 +248,18 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
           <span className="flex flex-col">
             <span>{t.priority}</span>
-            <span className="text-xs text-muted-foreground">{t.priorityHint}</span>
+            <span className="text-xs text-muted-foreground">
+              {t.priorityHint}
+            </span>
           </span>
           <div role="group" aria-label={t.priority} className="flex gap-1">
             {PRIORITIES.map((pr) => (
               <Button
                 key={pr.nice}
                 size="xs"
-                variant={(profile.nice ?? 0) === pr.nice ? "default" : "outline"}
+                variant={
+                  (profile.nice ?? 0) === pr.nice ? "default" : "outline"
+                }
                 aria-pressed={(profile.nice ?? 0) === pr.nice}
                 onClick={() => set((p) => ({ ...p, nice: pr.nice }))}
               >
@@ -280,7 +313,10 @@ function Stepper({
         <MinusIcon />
       </Button>
       <span
-        className={cn("tabular w-7 text-center", value === 0 && "text-muted-foreground")}
+        className={cn(
+          "tabular w-7 text-center",
+          value === 0 && "text-muted-foreground"
+        )}
         aria-live="polite"
       >
         {value}
@@ -343,7 +379,13 @@ function Cooldown({
 }
 
 /** A switch for the CPU limit and, when on, its share (saved on release). */
-function CpuLimit({ percent, onChange }: { percent: number; onChange: (pct: number) => void }) {
+function CpuLimit({
+  percent,
+  onChange,
+}: {
+  percent: number
+  onChange: (pct: number) => void
+}) {
   const t = m.jobs.throttle
   const on = percent > 0 && percent < 100
   const [drag, setDrag] = useState(on ? percent : DEFAULT_CPU)
@@ -352,13 +394,18 @@ function CpuLimit({ percent, onChange }: { percent: number; onChange: (pct: numb
       <label className="flex items-center justify-between gap-3">
         <span className="flex flex-col">
           <span>{t.cpuLimit}</span>
-          <span className="text-xs text-muted-foreground">{t.cpuLimitHint}</span>
+          <span className="text-xs text-muted-foreground">
+            {t.cpuLimitHint}
+          </span>
         </span>
         <span className="flex items-center gap-2">
           <span className="tabular text-sm text-muted-foreground">
             {on ? t.cpuLimitValue(drag) : t.noLimit}
           </span>
-          <Switch checked={on} onCheckedChange={(next) => onChange(next ? drag : 0)} />
+          <Switch
+            checked={on}
+            onCheckedChange={(next) => onChange(next ? drag : 0)}
+          />
         </span>
       </label>
       {on ? (

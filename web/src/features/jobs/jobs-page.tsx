@@ -2,16 +2,27 @@ import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import {
+  BanIcon,
   ChevronRightIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
+  CircleCheckIcon,
+  CircleXIcon,
+  ClockIcon,
   ListChecksIcon,
+  Loader2Icon,
   XIcon,
+  type LucideIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
 import type { Document, Job, JobStatus, Pipeline, Story } from "@/api/client"
-import { EmptyState, ErrorState, PageHeader, TableSkeleton } from "@/components/page"
+import {
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  TableSkeleton,
+} from "@/components/page"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,11 +43,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { formatDateTime, formatRelative, formatSpan, useNow } from "@/lib/time"
+import { badgeTone, jobTone, phaseQueue, queueTone } from "@/lib/tones"
 import { useRetained } from "@/lib/use-retained"
 import { cn } from "@/lib/utils"
 import { documentsQuery } from "@/queries/documents"
@@ -49,32 +65,54 @@ import {
   ran,
   waited,
   type Bucket,
+  type Phase,
   type Request,
   type Step,
 } from "./requests"
-import { JOB_STATUSES, parseStatusFilter, serializeStatusFilter } from "./search"
+import {
+  JOB_STATUSES,
+  parseStatusFilter,
+  serializeStatusFilter,
+} from "./search"
 import { PausedBanners, ThrottleControl, useThrottle } from "./throttle"
 
-const statusTone: Record<JobStatus, string> = {
-  queued: "bg-secondary text-secondary-foreground",
-  running: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-  succeeded: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  failed: "bg-destructive/10 text-destructive",
-  cancelled: "bg-muted text-muted-foreground",
+const statusIcon: Record<JobStatus, LucideIcon> = {
+  queued: ClockIcon,
+  running: Loader2Icon,
+  succeeded: CircleCheckIcon,
+  failed: CircleXIcon,
+  cancelled: BanIcon,
 }
 
+function JobStatusBadge({
+  status,
+  className,
+}: {
+  status: JobStatus
+  className?: string
+}) {
+  const Icon = statusIcon[status]
+  return (
+    <Badge
+      variant="secondary"
+      className={cn(badgeTone[jobTone(status)], className)}
+    >
+      <Icon
+        data-icon="inline-start"
+        className={cn(status === "running" && "animate-spin")}
+      />
+      {m.jobs.status[status]}
+    </Badge>
+  )
+}
+
+/** Phases take their queue's hue; queued time is hatched, idle time a faint fill. */
 const bucketTone: Record<Bucket, string> = {
-  plan: "bg-violet-500",
-  draft: "bg-sky-500",
-  render: "bg-amber-500",
-  final: "bg-orange-600",
-  publish: "bg-emerald-500",
-  extract: "bg-teal-500",
-  seo: "bg-lime-500",
-  template: "bg-fuchsia-500",
-  voice: "bg-pink-500",
-  other: "bg-slate-500",
-  queued: "bg-muted-foreground/35",
+  ...(Object.fromEntries(
+    PHASES.map((p) => [p, queueTone[phaseQueue[p]]])
+  ) as Record<Phase, string>),
+  queued:
+    "bg-[repeating-linear-gradient(135deg,var(--muted-foreground)_0_1.5px,transparent_1.5px_3.5px)]",
   idle: "bg-muted-foreground/10",
 }
 
@@ -116,17 +154,26 @@ export function JobsPage() {
     }),
     [stories.data, pipelines.data, documents.data]
   )
-  const requests = useMemo(() => groupRequests(jobs.data ?? [], now), [jobs.data, now])
+  const requests = useMemo(
+    () => groupRequests(jobs.data ?? [], now),
+    [jobs.data, now]
+  )
   const isOpen = (r: Request) => folds[r.id] ?? r.active
   const anyOpen = requests.some(isOpen)
 
   const setStatus = (next: JobStatus[]) =>
-    void navigate({ search: { status: serializeStatusFilter(next) }, replace: true })
+    void navigate({
+      search: { status: serializeStatusFilter(next) },
+      replace: true,
+    })
 
   const toggle = (s: JobStatus) =>
-    setStatus(status.includes(s) ? status.filter((x) => x !== s) : [...status, s])
+    setStatus(
+      status.includes(s) ? status.filter((x) => x !== s) : [...status, s]
+    )
 
-  const setAll = (open: boolean) => setFolds(Object.fromEntries(requests.map((r) => [r.id, open])))
+  const setAll = (open: boolean) =>
+    setFolds(Object.fromEntries(requests.map((r) => [r.id, open])))
 
   let body
   if (jobs.isPending) body = <TableSkeleton rows={6} />
@@ -160,7 +207,9 @@ export function JobsPage() {
           ))}
         </div>
         {requests.length >= JOB_LIST_LIMIT ? (
-          <p className="mt-3 text-xs text-muted-foreground">{m.jobs.showing(JOB_LIST_LIMIT)}</p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            {m.jobs.showing(JOB_LIST_LIMIT)}
+          </p>
         ) : null}
       </>
     )
@@ -174,7 +223,11 @@ export function JobsPage() {
       />
       {throttle ? <PausedBanners throttle={throttle} /> : null}
       <div className="mb-4 flex flex-wrap items-center gap-1.5">
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label={m.jobs.columns.status}>
+        <div
+          className="flex flex-wrap gap-1.5"
+          role="group"
+          aria-label={m.jobs.columns.status}
+        >
           <Chip active={status.length === 0} onClick={() => setStatus([])}>
             {m.jobs.all}
           </Chip>
@@ -185,14 +238,22 @@ export function JobsPage() {
           ))}
         </div>
         {requests.length > 0 ? (
-          <Button variant="ghost" size="sm" className="ml-auto" onClick={() => setAll(!anyOpen)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto"
+            onClick={() => setAll(!anyOpen)}
+          >
             {anyOpen ? <ChevronsDownUpIcon /> : <ChevronsUpDownIcon />}
             {anyOpen ? m.jobs.request.collapseAll : m.jobs.request.expandAll}
           </Button>
         ) : null}
       </div>
       {body}
-      <CancelJobDialog job={cancelling} onOpenChange={(open) => !open && setCancelling(null)} />
+      <CancelJobDialog
+        job={cancelling}
+        onOpenChange={(open) => !open && setCancelling(null)}
+      />
     </>
   )
 }
@@ -225,13 +286,22 @@ function describe(
   lookup: Lookup
 ): { title: string; origin: string; story?: Story; more: number } {
   const t = m.jobs.request.origin
-  const storyIds = [...new Set(r.steps.flatMap((s) => s.job.subject.storyId ?? []))]
-  const story = storyIds.map((id) => lookup.stories.get(id)).find((s) => s !== undefined)
+  const storyIds = [
+    ...new Set(r.steps.flatMap((s) => s.job.subject.storyId ?? [])),
+  ]
+  const story = storyIds
+    .map((id) => lookup.stories.get(id))
+    .find((s) => s !== undefined)
   const root = r.root ?? r.steps[0].job
   const pipelineId = root.subject.pipelineId ?? story?.pipelineId
-  const pipeline = pipelineId ? lookup.pipelines.get(pipelineId)?.definition.name : undefined
-  const documentId = r.steps.find((s) => s.job.subject.documentId)?.job.subject.documentId
-  const document = documentId ? lookup.documents.get(documentId)?.title : undefined
+  const pipeline = pipelineId
+    ? lookup.pipelines.get(pipelineId)?.definition.name
+    : undefined
+  const documentId = r.steps.find((s) => s.job.subject.documentId)?.job.subject
+    .documentId
+  const document = documentId
+    ? lookup.documents.get(documentId)?.title
+    : undefined
 
   let origin: string
   if (root.kind === "story.adhoc" || story?.origin === "adhoc") origin = t.adhoc
@@ -240,7 +310,8 @@ function describe(
   else if (document) origin = t.document(document)
   else origin = m.jobs.phase[r.steps[0].phase]
 
-  const title = story?.title ?? document ?? pipeline ?? m.jobs.phase[r.steps[0].phase]
+  const title =
+    story?.title ?? document ?? pipeline ?? m.jobs.phase[r.steps[0].phase]
   return { title, origin, story, more: Math.max(0, storyIds.length - 1) }
 }
 
@@ -279,7 +350,9 @@ function RequestRow({
           onClick={onToggle}
           className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-[3px] focus-visible:ring-ring"
         >
-          <ChevronRightIcon className={cn("size-4 transition-transform", open && "rotate-90")} />
+          <ChevronRightIcon
+            className={cn("size-4 transition-transform", open && "rotate-90")}
+          />
         </button>
         <div className="flex min-w-0 flex-1 basis-56 flex-col gap-0.5">
           <span className="flex min-w-0 items-baseline gap-2">
@@ -295,18 +368,24 @@ function RequestRow({
               <span className="truncate font-medium">{title}</span>
             )}
             {more > 0 ? (
-              <span className="shrink-0 text-xs text-muted-foreground">{t.more(more)}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">
+                {t.more(more)}
+              </span>
             ) : null}
           </span>
           <span className="truncate text-xs text-muted-foreground">
             {origin} · {t.steps(r.steps.length)} ·{" "}
-            <span title={formatDateTime(startIso, timezone)}>{formatRelative(startIso, now)}</span>
+            <span title={formatDateTime(startIso, timezone)}>
+              {formatRelative(startIso, now)}
+            </span>
           </span>
         </div>
-        <Badge className={cn("shrink-0", statusTone[r.status])}>{m.jobs.status[r.status]}</Badge>
+        <JobStatusBadge status={r.status} className="shrink-0" />
         <TimeBar request={r} className="w-full sm:w-56" />
         <div className="flex w-28 shrink-0 flex-col items-end gap-0.5 text-right">
-          <span className="tabular text-sm font-medium">{formatSpan(r.end - r.start)}</span>
+          <span className="tabular text-sm font-medium">
+            {formatSpan(r.end - r.start)}
+          </span>
           <span className="tabular text-[11px] text-muted-foreground">
             {t.busy(formatSpan(r.busy))}
           </span>
@@ -329,11 +408,20 @@ function RequestRow({
 }
 
 /** The request's time stacked by bucket: each phase's work, then waiting. */
-function TimeBar({ request: r, className }: { request: Request; className?: string }) {
+function TimeBar({
+  request: r,
+  className,
+}: {
+  request: Request
+  className?: string
+}) {
   const total = Math.max(1, r.end - r.start)
   return (
     <div
-      className={cn("flex h-2.5 shrink-0 overflow-hidden rounded-full bg-muted", className)}
+      className={cn(
+        "flex h-2.5 shrink-0 overflow-hidden rounded-full bg-muted",
+        className
+      )}
       role="img"
       aria-label={summary(r)}
     >
@@ -373,9 +461,14 @@ function Breakdown({ request: r }: { request: Request }) {
       </figcaption>
       <ul className="grid gap-1.5">
         {rows.map(({ b, ms }) => (
-          <li key={b} className="grid grid-cols-[9rem_1fr_6.5rem] items-center gap-3 text-xs">
+          <li
+            key={b}
+            className="grid grid-cols-[9rem_1fr_6.5rem] items-center gap-3 text-xs"
+          >
             <span className="flex min-w-0 items-center gap-2">
-              <span className={cn("size-2.5 shrink-0 rounded-sm", bucketTone[b])} />
+              <span
+                className={cn("size-2.5 shrink-0 rounded-sm", bucketTone[b])}
+              />
               <span className="truncate">{m.jobs.phase[b]}</span>
             </span>
             <span className="h-2 overflow-hidden rounded-full bg-muted">
@@ -386,7 +479,9 @@ function Breakdown({ request: r }: { request: Request }) {
             </span>
             <span className="tabular text-right">
               {formatSpan(ms)}{" "}
-              <span className="text-muted-foreground">{Math.round((ms / total) * 100)}%</span>
+              <span className="text-muted-foreground">
+                {Math.round((ms / total) * 100)}%
+              </span>
             </span>
           </li>
         ))}
@@ -399,7 +494,9 @@ function stepLabel(s: Step, lookup: Lookup): string {
   const phase = m.jobs.phase[s.phase]
   const { storyId, deliverableId } = s.job.subject
   const d = storyId
-    ? lookup.stories.get(storyId)?.deliverables.find((x) => x.id === deliverableId)
+    ? lookup.stories
+        .get(storyId)
+        ?.deliverables.find((x) => x.id === deliverableId)
     : undefined
   if (!d) return phase
   return `${phase} · ${m.values.kind[d.kind] ?? d.kind} ${d.language.toUpperCase()}`
@@ -426,7 +523,9 @@ function Steps({
           <TableRow>
             <TableHead className="min-w-52 pl-4">{t.step}</TableHead>
             <TableHead>{m.jobs.columns.status}</TableHead>
-            <TableHead className="text-right">{m.jobs.columns.attempt}</TableHead>
+            <TableHead className="text-right">
+              {m.jobs.columns.attempt}
+            </TableHead>
             <TableHead className="text-right">{t.waited}</TableHead>
             <TableHead className="text-right">{t.ran}</TableHead>
             <TableHead className="w-full min-w-48">{t.timeline}</TableHead>
@@ -446,7 +545,12 @@ function Steps({
                 <TableCell className="max-w-72 pl-4 align-top whitespace-normal">
                   <div className="flex flex-col gap-0.5">
                     <span className="flex items-center gap-2 text-sm">
-                      <span className={cn("size-2.5 shrink-0 rounded-sm", bucketTone[s.phase])} />
+                      <span
+                        className={cn(
+                          "size-2.5 shrink-0 rounded-sm",
+                          bucketTone[s.phase]
+                        )}
+                      />
                       {stepLabel(s, lookup)}
                     </span>
                     <span
@@ -472,7 +576,7 @@ function Steps({
                   </div>
                 </TableCell>
                 <TableCell className="align-top">
-                  <Badge className={cn(statusTone[job.status])}>{m.jobs.status[job.status]}</Badge>
+                  <JobStatusBadge status={job.status} />
                 </TableCell>
                 <TableCell className="tabular text-right align-top">
                   {job.attempt}/{job.maxAttempts}
@@ -541,7 +645,10 @@ function Gantt({
     >
       {wait !== undefined && wait > 0 ? (
         <span
-          className={cn("absolute inset-y-0 min-w-0.5 rounded-full", bucketTone.queued)}
+          className={cn(
+            "absolute inset-y-0 min-w-0.5 rounded-full",
+            bucketTone.queued
+          )}
           style={{ left: pct(s.created - r.start), width: pct(wait) }}
           title={t.waitedFor(formatSpan(wait))}
         />
@@ -589,7 +696,9 @@ function CancelJobDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{m.jobs.cancelTitle}</AlertDialogTitle>
-          <AlertDialogDescription>{m.jobs.cancelBody(target?.kind ?? "")}</AlertDialogDescription>
+          <AlertDialogDescription>
+            {m.jobs.cancelBody(target?.kind ?? "")}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{m.jobs.keep}</AlertDialogCancel>

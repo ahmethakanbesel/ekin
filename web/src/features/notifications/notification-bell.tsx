@@ -11,7 +11,12 @@ import {
 } from "lucide-react"
 
 import type { Notification } from "@/api/client"
-import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Skeleton } from "@/components/ui/skeleton"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
@@ -19,11 +24,14 @@ import { formatAgo, formatDateTime, useNow } from "@/lib/time"
 import { cn } from "@/lib/utils"
 import { notificationsQuery } from "@/queries/notifications"
 
-const kindIcon: Record<Notification["kind"], { icon: LucideIcon; tone: string }> = {
-  review: { icon: InboxIcon, tone: "text-amber-600 dark:text-amber-400" },
+const kindIcon: Record<
+  Notification["kind"],
+  { icon: LucideIcon; tone: string }
+> = {
+  review: { icon: InboxIcon, tone: "text-primary-ink" },
   failed: { icon: CircleAlertIcon, tone: "text-destructive" },
-  published: { icon: CircleCheckIcon, tone: "text-emerald-600 dark:text-emerald-400" },
-  run: { icon: PlayIcon, tone: "text-sky-600 dark:text-sky-400" },
+  published: { icon: CircleCheckIcon, tone: "text-success" },
+  run: { icon: PlayIcon, tone: "text-info" },
 }
 
 // When the list was last opened, per workspace, so the dot means "new
@@ -31,7 +39,8 @@ const kindIcon: Record<Notification["kind"], { icon: LucideIcon; tone: string }>
 // site data); then every visit starts fresh.
 // The sidebar and the mobile header each render a bell; they share the
 // mark through this small store.
-const storageKey = (workspaceId: string) => `kurgu:notifications-seen:${workspaceId}`
+const storageKey = (workspaceId: string) =>
+  `kurgu:notifications-seen:${workspaceId}`
 const seenCache = new Map<string, number>()
 const listeners = new Set<() => void>()
 
@@ -79,7 +88,10 @@ export function NotificationBell({
   timezone: string
   className?: string
 }) {
-  const query = useQuery({ ...notificationsQuery(workspaceId), refetchIntervalInBackground: true })
+  const query = useQuery({
+    ...notificationsQuery(workspaceId),
+    refetchIntervalInBackground: true,
+  })
   const seen = useSeen(workspaceId)
   // The mark the list was opened with, so items new on this opening stay
   // highlighted until it closes.
@@ -109,9 +121,17 @@ export function NotificationBell({
       </div>
     )
   else if (query.isError)
-    body = <p className="p-3 text-sm text-muted-foreground">{errorMessage(query.error)}</p>
+    body = (
+      <p className="p-3 text-sm text-muted-foreground">
+        {errorMessage(query.error)}
+      </p>
+    )
   else if (items.length === 0)
-    body = <p className="p-3 text-sm text-muted-foreground">{m.notifications.empty}</p>
+    body = (
+      <p className="p-3 text-sm text-muted-foreground">
+        {m.notifications.empty}
+      </p>
+    )
   else
     body = (
       <ul className="grid gap-0.5">
@@ -143,12 +163,15 @@ export function NotificationBell({
         <BellIcon className="size-4" />
         {unread ? (
           <span
-            className="absolute top-1.5 right-1.5 size-2 rounded-full bg-amber-500 ring-2 ring-sidebar"
+            className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary-ink ring-2 ring-sidebar"
             aria-hidden="true"
           />
         ) : null}
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[min(24rem,calc(100vw-2rem))] gap-2 p-2">
+      <PopoverContent
+        align="start"
+        className="w-[min(24rem,calc(100vw-2rem))] gap-2 p-2"
+      >
         <PopoverTitle className="px-2 pt-1.5 font-heading text-sm font-semibold">
           {m.notifications.title}
         </PopoverTitle>
@@ -176,18 +199,29 @@ function NotificationItem({
   const { icon: Icon, tone } = kindIcon[n.kind] ?? kindIcon.run
   const content = (
     <>
-      <Icon className={cn("mt-0.5 size-4 shrink-0", tone)} aria-label={m.notifications.kinds[n.kind]} />
+      <Icon
+        className={cn("mt-0.5 size-4 shrink-0", tone)}
+        aria-label={m.notifications.kinds[n.kind]}
+      />
       <span className="grid min-w-0 flex-1 gap-0.5">
         <span className="flex items-start gap-2">
           <span className="min-w-0 flex-1 font-medium">{n.title}</span>
           {fresh ? (
-            <span className="mt-1.5 size-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
+            <span
+              className="mt-1.5 size-2 shrink-0 rounded-full bg-primary-ink"
+              aria-hidden="true"
+            />
           ) : null}
         </span>
         {n.detail ? (
-          <span className="line-clamp-2 text-xs text-muted-foreground">{n.detail}</span>
+          <span className="line-clamp-2 text-xs text-muted-foreground">
+            {n.detail}
+          </span>
         ) : null}
-        <span className="text-xs text-muted-foreground" title={formatDateTime(n.createdAt, timezone)}>
+        <span
+          className="text-xs text-muted-foreground"
+          title={formatDateTime(n.createdAt, timezone)}
+        >
           {formatAgo(n.createdAt, now)}
         </span>
       </span>
@@ -195,14 +229,17 @@ function NotificationItem({
   )
   const className = cn(
     "flex gap-3 rounded-lg px-2.5 py-2 text-sm",
-    fresh && "bg-amber-500/5"
+    fresh && "bg-primary/5"
   )
   return n.storyId ? (
     <Link
       to="/w/$workspaceId/stories/$storyId"
       params={{ workspaceId, storyId: n.storyId }}
       onClick={onNavigate}
-      className={cn(className, "outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring")}
+      className={cn(
+        className,
+        "outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring"
+      )}
     >
       {content}
     </Link>

@@ -31,6 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { formatDateTime, formatRelative, useNow } from "@/lib/time"
+import { iconClass, toneClass, type BannerTone } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { membersQuery } from "@/queries/members"
 import { revisionsQuery, useDeliverableAction } from "@/queries/stories"
@@ -338,24 +339,6 @@ function sentence(s: string): string {
 
 // ---- Status banner ----
 
-type Tone = "working" | "attention" | "done" | "danger" | "muted"
-
-const toneClass: Record<Tone, string> = {
-  working: "border-sky-500/30 bg-sky-500/5",
-  attention: "border-amber-500/40 bg-amber-500/10",
-  done: "border-emerald-500/30 bg-emerald-500/5",
-  danger: "border-destructive/30 bg-destructive/5",
-  muted: "bg-muted/40",
-}
-
-const iconClass: Record<Tone, string> = {
-  working: "text-sky-600 dark:text-sky-400",
-  attention: "text-amber-600 dark:text-amber-400",
-  done: "text-emerald-600 dark:text-emerald-400",
-  danger: "text-destructive",
-  muted: "text-muted-foreground",
-}
-
 /** What is happening to the deliverable, in plain words, with what can be done about it. */
 function StatusBanner({
   story,
@@ -374,7 +357,7 @@ function StatusBanner({
   const t = m.banner
   const when = (iso: string | undefined) =>
     iso ? `${formatRelative(iso, now)} (${formatDateTime(iso, timezone)})` : ""
-  let tone: Tone
+  let tone: BannerTone
   let title: string
   let body: ReactNode = null
 
@@ -569,8 +552,8 @@ function RevisionList({
         {m.revisions.title}
       </h3>
       {d.pendingFeedback && d.status !== "review" ? (
-        <div className="grid gap-1.5 rounded-lg border border-dashed border-sky-500/40 p-3.5 text-sm">
-          <p className="flex items-center gap-1.5 text-xs font-medium text-sky-700 dark:text-sky-300">
+        <div className="grid gap-1.5 rounded-lg border border-dashed border-info/40 p-3.5 text-sm">
+          <p className="flex items-center gap-1.5 text-xs font-medium text-info">
             <MessageSquareIcon className="size-3.5" />
             {m.revisions.pending(d.revision + 1)}
           </p>
