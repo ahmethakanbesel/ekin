@@ -1,4 +1,10 @@
-import { queryOptions, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query"
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query"
 
 import { api, call, type Invitation, type Member, type Role, type Workspace } from "@/api/client"
 import { keys } from "./keys"
@@ -16,6 +22,18 @@ export const membersQuery = (workspaceId: string) =>
       return res.members
     },
   })
+
+/**
+ * Looks up members' names by user id, loading the member list only when
+ * enabled (any member may list members). Someone who left has no name.
+ */
+export function useMemberNames(workspaceId: string, enabled: boolean) {
+  const members = useQuery({ ...membersQuery(workspaceId), enabled })
+  return (userId: string | undefined) =>
+    userId
+      ? members.data?.find((x) => x.userId.toLowerCase() === userId.toLowerCase())?.name
+      : undefined
+}
 
 export const invitationsQuery = (workspaceId: string) =>
   queryOptions({

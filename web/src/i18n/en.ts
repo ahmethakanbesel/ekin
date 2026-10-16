@@ -773,8 +773,10 @@ export const en = {
     title: "History",
     entries: (n: number) => (n === 1 ? "1 entry" : `${n} entries`),
     written: "Written by the agent",
-    askedOn: (n: number) => `Note on r${n}`,
+    askedOn: (n: number, author?: string) =>
+      author ? `${author}’s note on r${n}` : `Note on r${n}`,
     addressedIn: (n: number) => `Addressed in r${n}`,
+    from: (name: string) => `From ${name}`,
   },
   panel: {
     revision: "Revision",

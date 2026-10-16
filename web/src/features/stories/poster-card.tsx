@@ -16,7 +16,7 @@ import { pipelineHue } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { artifactUrl } from "@/queries/stories"
 import { StatusBadge } from "./badges"
-import { deliverableLabel } from "./model"
+import { deliverableLabel, measuredLength, measuredWords } from "./model"
 
 const orientationIcon: Record<string, LucideIcon> = {
   vertical: SmartphoneIcon,
@@ -196,6 +196,7 @@ function VideoPoster({
 }) {
   const video = lead?.video
   const orientation = video?.orientation ?? "vertical"
+  const length = measuredLength(lead?.measured)
   const Icon = orientationIcon[orientation] ?? SmartphoneIcon
   const src =
     lead && lead.revision > 0
@@ -233,6 +234,7 @@ function VideoPoster({
             m.values.format[video?.format ?? "short"] ?? m.values.kind.video,
             m.stories.ratio[orientation] ?? orientation
           )}
+          {length ? ` · ${length}` : null}
         </Badge>
       </div>
       <PosterStrip story={story} lead={lead} className="bg-background/85" />
@@ -282,6 +284,7 @@ function ArticlePoster({ story, lead }: { story: Story; lead: Deliverable }) {
         <Badge variant="secondary">
           <FileTextIcon data-icon="inline-start" />
           {m.values.kind.article}
+          {measuredWords(lead.measured) ? ` · ${measuredWords(lead.measured)}` : null}
         </Badge>
       </div>
       <div className="px-4 pt-14">

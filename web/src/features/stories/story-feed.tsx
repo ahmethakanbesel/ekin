@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils"
 import { artifactUrl, revisionsQuery } from "@/queries/stories"
 import { StatusBadge } from "./badges"
 import { PlayerBar, PlayerCorner, usePlayback, type PlaybackStore } from "./player"
-import { formatTimestamp, scopeLabel } from "./model"
+import { formatTimestamp, measuredLength, measuredWords, scopeLabel } from "./model"
 import {
   ArticlePreview,
   VideoFrameElement,
@@ -417,6 +417,8 @@ export function DraftFrame({
   onSeek?: (seconds: number) => void
 }) {
   const Title = current ? "h1" : "h2"
+  // The shown revision's measures; the latest's until it has loaded.
+  const measured = revision ? revision.measured : d?.measured
   const artifacts: ArtifactRef | undefined =
     d && revision
       ? {
@@ -437,6 +439,7 @@ export function DraftFrame({
             {m.values.kind.article}
             {" · "}
             <span className="uppercase">{d.language}</span>
+            {measuredWords(measured) ? ` · ${measuredWords(measured)}` : null}
           </Badge>
         </div>
         <div className="p-5 md:p-6">
@@ -569,11 +572,12 @@ export function DraftFrame({
           <div className="flex flex-wrap items-center gap-1.5">
             {d ? <StatusBadge status={d.status} revision={d.revision} /> : null}
             {d?.video ? (
-              <Badge variant="secondary">
+              <Badge variant="secondary" className="tabular">
                 {m.stories.posterFormat(
                   m.values.format[d.video.format] ?? m.values.kind.video,
                   m.stories.ratio[orientation] ?? orientation
                 )}
+                {measuredLength(measured) ? ` · ${measuredLength(measured)}` : null}
               </Badge>
             ) : null}
             <Badge variant="outline" className="uppercase">

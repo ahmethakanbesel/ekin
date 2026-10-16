@@ -1,5 +1,4 @@
 import type { ReactNode } from "react"
-import { useQuery } from "@tanstack/react-query"
 import {
   CheckIcon,
   MessageSquareIcon,
@@ -14,19 +13,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { m } from "@/i18n"
 import { formatDateTime, formatRelative, useNow } from "@/lib/time"
 import { cn } from "@/lib/utils"
-import { membersQuery } from "@/queries/members"
+import { useMemberNames } from "@/queries/members"
+import { measuredLength, measuredWords } from "./model"
 import { FeedbackLine } from "./status-alert"
-
-/** Names for revisions a person edited in place (any member may list members). */
-function useEditorNames(workspaceId: string, revisions: Revision[]) {
-  const members = useQuery({
-    ...membersQuery(workspaceId),
-    enabled: revisions.some((r) => r.editedBy),
-  })
-  return (userId: string) =>
-    members.data?.find((x) => x.userId.toLowerCase() === userId.toLowerCase())
-      ?.name
-}
 
 /** How many entries the history lists. */
 export function historyCount(d: Deliverable, revisions: Revision[]): number {
@@ -58,8 +47,12 @@ export function RevisionHistory({
   timezone: string
 }) {
   const now = useNow()
-  const editorName = useEditorNames(workspaceId, revisions)
   const pending = pendingNote(d)
+  // The people who edited revisions or wrote notes.
+  const nameOf = useMemberNames(
+    workspaceId,
+    !!pending?.by || revisions.some((r) => r.editedBy || r.feedback?.by)
+  )
 
   if (loading) {
     return (
@@ -80,13 +73,19 @@ export function RevisionHistory({
           <p className="text-sm font-medium text-info">
             {m.revisions.pending(d.revision + 1)}
           </p>
+          {nameOf(pending.by) ? (
+            <p className="text-xs text-muted-foreground">
+              {m.history.from(nameOf(pending.by) ?? "")}
+            </p>
+          ) : null}
           <div className="mt-1 text-sm">
             <FeedbackLine feedback={pending} kind={d.kind} />
           </div>
         </Entry>
       ) : null}
       {revisions.toReversed().map((r) => {
-        const editor = r.editedBy ? editorName(r.editedBy) : undefined
+        const editor = r.editedBy ? nameOf(r.editedBy) : undefined
+        const measured = [measuredLength(r.measured), measuredWords(r.measured)].filter(Boolean)
         return (
           <Entry
             key={r.number}
@@ -104,6 +103,9 @@ export function RevisionHistory({
                     : m.revisions.editedInPlace
                   : m.history.written}
               </span>
+              {measured.length ? (
+                <span className="text-xs text-muted-foreground tabular">{measured.join(" · ")}</span>
+              ) : null}
               <span
                 className="ml-auto text-xs text-muted-foreground"
                 title={formatDateTime(r.createdAt, timezone)}
@@ -114,7 +116,7 @@ export function RevisionHistory({
             {r.feedback ? (
               <div className="mt-2 grid gap-1.5 rounded-lg bg-muted/60 px-3 py-2.5 text-sm">
                 <span className="text-xs font-medium text-muted-foreground">
-                  {m.history.askedOn(r.number - 1)}
+                  {m.history.askedOn(r.number - 1, nameOf(r.feedback.by))}
                 </span>
                 <FeedbackLine feedback={r.feedback} kind={d.kind} />
                 <span className="flex items-center gap-1.5 text-xs text-success">

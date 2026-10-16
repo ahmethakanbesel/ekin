@@ -4,6 +4,7 @@ import type {
   DeliverableStatus,
   FeedbackScope,
   Language,
+  Measures,
   Story,
 } from "@/api/client"
 import {
@@ -44,6 +45,18 @@ export function deliverableLabel(d: Deliverable): string {
   const kind = m.values.kind[d.kind] ?? d.kind
   if (d.role === "translation") return m.stories.translationLabel(kind, d.language.toUpperCase())
   return m.stories.roleLabel(kind, m.stories.roles[d.role] ?? d.role)
+}
+
+/** A rendered video's measured length, "0:58"; undefined until measured. */
+export function measuredLength(measured: Measures | undefined): string | undefined {
+  return measured?.durationSeconds
+    ? formatTimestamp(Math.round(measured.durationSeconds))
+    : undefined
+}
+
+/** The words a revision says or shows, "1,420 words"; undefined until counted. */
+export function measuredWords(measured: Measures | undefined): string | undefined {
+  return measured?.words ? m.editor.words(measured.words) : undefined
 }
 
 /** The deliverable a derived one or a translation is made from. */

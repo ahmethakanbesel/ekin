@@ -13,6 +13,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { cn } from "@/lib/utils"
+import { useMemberNames } from "@/queries/members"
 import { useRequestChanges } from "@/queries/stories"
 import { SCOPES, formatTimestamp, parseTimestamp, scopeLabel } from "./model"
 import type { FeedbackDraft } from "./use-deliverable-review"
@@ -132,6 +133,7 @@ export function FeedbackForm({
   }, [focusN, focusAt, video, setAt])
 
   const earlier = earlierNotes(d, revisions)
+  const nameOf = useMemberNames(workspaceId, earlier.some((e) => e.by))
 
   return (
     <form
@@ -301,6 +303,7 @@ export function FeedbackForm({
                     {e.addressedIn !== undefined
                       ? m.feedbackSheet.addressed(e.on, e.scope, e.addressedIn)
                       : m.feedbackSheet.pending(e.on, e.scope)}
+                    {nameOf(e.by) ? ` · ${nameOf(e.by)}` : null}
                     <span className="mt-0.5 line-clamp-2 text-xs text-foreground/80">
                       “{e.text}”
                     </span>
@@ -326,6 +329,8 @@ type EarlierNote = {
   scope: string
   at?: number
   text: string
+  /** Who wrote it (a user id). */
+  by?: string
 }
 
 /** Feedback already given on the deliverable, newest first. */
@@ -339,6 +344,7 @@ function earlierNotes(d: Deliverable, revisions: Revision[]): EarlierNote[] {
       scope: scopeLabel(r.feedback.scope, d.kind),
       at: r.feedback.atSeconds,
       text: r.feedback.text,
+      by: r.feedback.by,
     })
   }
   if (d.pendingFeedback)
@@ -347,6 +353,7 @@ function earlierNotes(d: Deliverable, revisions: Revision[]): EarlierNote[] {
       scope: scopeLabel(d.pendingFeedback.scope, d.kind),
       at: d.pendingFeedback.atSeconds,
       text: d.pendingFeedback.text,
+      by: d.pendingFeedback.by,
     })
   return out.toReversed()
 }
