@@ -32,7 +32,12 @@ type Segment struct {
 
 // Timings is the scripts' timings.json.
 type Timings struct {
-	Engine     string    `json:"engine"`
+	Engine string `json:"engine"`
+	// Voice and Model are what spoke: the voice ID ("" for the engine's
+	// only voice) and the ElevenLabs model. Kurgu adds them after the
+	// script runs, so the file says who read the narration.
+	Voice      string    `json:"voice,omitempty"`
+	Model      string    `json:"model,omitempty"`
 	SampleRate int       `json:"sampleRate"`
 	Duration   float64   `json:"duration"`
 	Words      []Word    `json:"words"`
@@ -178,7 +183,37 @@ func (s *Synth) Say(ctx context.Context, lang, textFile, outDir string, o Option
 	if t.Duration <= 0 || len(t.Words) == 0 {
 		return Timings{}, errors.New("speech: the script produced no speech")
 	}
+	if lang == "en" {
+		t.Voice = voice
+	}
+	if err := recordVoice(filepath.Join(outDir, "timings.json"), raw, t.Voice, ""); err != nil {
+		return Timings{}, err
+	}
 	return t, nil
+}
+
+// recordVoice adds the voice and model to a script's timings.json,
+// keeping every field the script wrote.
+func recordVoice(path string, raw []byte, voice, model string) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return fmt.Errorf("speech: parse timings: %w", err)
+	}
+	for k, v := range map[string]string{"voice": voice, "model": model} {
+		if v == "" {
+			delete(fields, k)
+			continue
+		}
+		fields[k], _ = json.Marshal(v)
+	}
+	out, err := json.Marshal(fields)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(path, out, 0o600); err != nil {
+		return fmt.Errorf("speech: write timings: %w", err)
+	}
+	return nil
 }
 
 func lastLines(s string, n int) string {

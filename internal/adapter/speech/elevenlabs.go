@@ -62,7 +62,7 @@ func (s *Synth) sayElevenLabs(ctx context.Context, lang, textFile, outDir string
 	const rate = elevenlabs.SampleRate
 	var (
 		pcm      []int16
-		timings  = Timings{Engine: EngineElevenLabs, SampleRate: rate}
+		timings  = Timings{Engine: EngineElevenLabs, Voice: o.Voice, Model: el.Model, SampleRate: rate}
 		previous = -1
 	)
 	for i, c := range chunks {

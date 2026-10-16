@@ -139,7 +139,8 @@ func TestElevenLabsNarration(t *testing.T) {
 	}
 	var saved speech.Timings
 	raw, _ := os.ReadFile(filepath.Join(dir, "timings.json"))
-	if err := json.Unmarshal(raw, &saved); err != nil || saved.Engine != "elevenlabs" || len(saved.Words) != len(tm.Words) {
+	if err := json.Unmarshal(raw, &saved); err != nil || saved.Engine != "elevenlabs" || len(saved.Words) != len(tm.Words) ||
+		saved.Voice != "voice123456" || saved.Model != "eleven_flash_v2_5" {
 		t.Fatalf("timings.json = %s (%v)", raw, err)
 	}
 }
