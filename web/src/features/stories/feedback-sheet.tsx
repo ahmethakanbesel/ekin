@@ -20,6 +20,7 @@ import {
   type FeedbackFocus,
   type FeedbackFooterState,
 } from "./feedback-form"
+import { showHistory } from "./review-panel"
 
 type Props = {
   workspaceId: string
@@ -45,6 +46,8 @@ type Props = {
 export function FeedbackSheet({ docked, ...props }: Props & { docked: boolean }) {
   return docked ? <DockedSheet {...props} /> : <ModalSheet {...props} />
 }
+
+type FormProps = Props & { onShowHistory: () => void }
 
 function Footer({
   n,
@@ -83,7 +86,8 @@ function Form({
   focus,
   draft,
   onSent,
-}: Props) {
+  onShowHistory,
+}: FormProps) {
   return (
     <FeedbackForm
       // Each draft gets its own note.
@@ -101,6 +105,7 @@ function Form({
         <Footer n={d.revision} video={d.kind === "video"} state={state} />
       )}
       onSent={onSent}
+      onShowHistory={onShowHistory}
     />
   )
 }
@@ -149,7 +154,7 @@ function DockedSheet(props: Props) {
       >
         <XIcon />
       </Button>
-      <Form {...props} />
+      <Form {...props} onShowHistory={showHistory} />
     </aside>
   )
 }
@@ -172,7 +177,14 @@ function ModalSheet(props: Props) {
             {m.feedbackSheet.description(d.revision)}
           </SheetDescription>
         </SheetHeader>
-        <Form {...props} />
+        <Form
+          {...props}
+          onShowHistory={() => {
+            // The History is under the draft here; the sheet makes way.
+            onOpenChange(false)
+            window.setTimeout(showHistory, 250)
+          }}
+        />
       </SheetContent>
     </Sheet>
   )

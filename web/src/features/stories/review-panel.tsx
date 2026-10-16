@@ -200,6 +200,7 @@ export function ReviewPanel({
         <>
           <Separator />
           <Section
+            id={HISTORY_ID}
             title={m.history.title}
             aside={
               review.revisions.data
@@ -320,22 +321,41 @@ function scriptNotes(
   return out
 }
 
+/** The History section, which the feedback sheet points to for earlier notes. */
+const HISTORY_ID = "panel-history"
+
+/** Brings the panel's History into view and moves focus to its heading. */
+export function showHistory() {
+  const el = document.getElementById(HISTORY_ID)
+  if (!el) return
+  const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  el.scrollIntoView({ block: "start", behavior: smooth ? "smooth" : "auto" })
+  el.querySelector<HTMLElement>("h2")?.focus({ preventScroll: true })
+}
+
 function Section({
+  id,
   title,
   aside,
   className,
   children,
 }: {
+  id?: string
   title?: string
   aside?: ReactNode
   className?: string
   children: ReactNode
 }) {
   return (
-    <section className={cn("p-6 max-sm:px-4", className)}>
+    <section id={id} className={cn("p-6 max-sm:px-4", className)}>
       {title ? (
         <div className="mb-4 flex items-baseline justify-between gap-2">
-          <h2 className="font-semibold">{title}</h2>
+          <h2
+            tabIndex={id ? -1 : undefined}
+            className="font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
+          >
+            {title}
+          </h2>
           {aside ? (
             <span className="text-xs text-muted-foreground">{aside}</span>
           ) : null}

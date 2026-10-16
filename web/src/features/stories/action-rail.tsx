@@ -9,7 +9,6 @@ import {
   ExternalLinkIcon,
   LayersIcon,
   Loader2Icon,
-  MessageSquarePlusIcon,
   PencilLineIcon,
   RotateCwIcon,
   SendIcon,
@@ -65,25 +64,29 @@ export function ActionRail({
   review,
   canEdit,
   onApprove,
-  onRequestChanges,
-  feedback,
+  requestChanges,
 }: {
   deliverable: Deliverable
   review: DeliverableReview
   canEdit: boolean
   /** Starts the (undoable) approval of the deliverable on screen. */
   onApprove: () => void
-  /** Opens the feedback sheet on the note, pinned where the player paused. */
-  onRequestChanges: () => void
-  /** The feedback sheet's toggle. */
-  feedback: {
+  /**
+   * Request changes (and N): opens the feedback sheet on a new note, pinned
+   * where the player paused. `unsent` counts the notes waiting in a closed
+   * sheet; focus comes back to `ref` when the sheet closes.
+   */
+  requestChanges: {
+    onClick: () => void
     open: boolean
-    onToggle: () => void
+    unsent: number
     ref: RefObject<HTMLButtonElement | null>
   }
 }) {
   const busy = review.busy
-  const { ref: feedbackRef, open: feedbackOpen, onToggle } = feedback
+  const { ref: changesRef, open: sheetOpen, unsent, onClick } = requestChanges
+  // Notes waiting in the closed sheet show as a count on the button.
+  const waiting = !sheetOpen && unsent > 0 ? unsent : 0
   const reviewing = canEdit && d.status === "review"
   const shown = review.current?.number ?? d.revision
   const main: ReactNode[] = []
@@ -157,44 +160,33 @@ export function ActionRail({
           tip={pinTip}
           button={
             <Button
+              ref={changesRef}
               variant="outline"
               size="icon-lg"
               className={cn(round, tones.changes)}
-              aria-label={m.feed.requestChanges(d.revision)}
+              aria-label={
+                waiting
+                  ? m.feed.requestChangesUnsent(d.revision, waiting)
+                  : m.feed.requestChanges(d.revision)
+              }
               aria-keyshortcuts="N"
+              aria-expanded={sheetOpen}
+              aria-controls="feedback-sheet"
               disabled={busy}
-              onClick={onRequestChanges}
+              onClick={onClick}
             />
           }
         >
           <PencilLineIcon />
         </RailTip>
-      </RailItem>,
-      <RailItem key="feedback" label={m.feed.feedback}>
-        <RailTip
-          tip={
-            <>
-              {m.feed.feedbackToggle}
-              <span aria-hidden="true">·</span>
-              {pinTip}
-            </>
-          }
-          button={
-            <Button
-              ref={feedbackRef}
-              variant="outline"
-              size="icon-lg"
-              className={cn(round, tones.neutral)}
-              aria-label={m.feed.feedbackToggle}
-              aria-expanded={feedbackOpen}
-              aria-controls="feedback-sheet"
-              disabled={!!pending}
-              onClick={onToggle}
-            />
-          }
-        >
-          <MessageSquarePlusIcon />
-        </RailTip>
+        {waiting ? (
+          <Badge
+            className="tabular pointer-events-none absolute -right-2 -bottom-1 h-5 min-w-5 rounded-full px-1.5 ring-2 ring-background"
+            aria-hidden="true"
+          >
+            {waiting}
+          </Badge>
+        ) : null}
       </RailItem>
     )
   } else if (canEdit && d.status === "ready") {

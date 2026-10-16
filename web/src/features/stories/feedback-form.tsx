@@ -11,7 +11,6 @@ import { toast } from "sonner"
 
 import type {
   Deliverable,
-  FeedbackNote,
   FeedbackScope,
   Revision,
   Story,
@@ -26,7 +25,6 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { cn } from "@/lib/utils"
-import { useMemberNames } from "@/queries/members"
 import { useRequestChanges } from "@/queries/stories"
 import { SCOPES, formatTimestamp, parseTimestamp, scopeLabel } from "./model"
 import {
@@ -109,13 +107,14 @@ export function FeedbackForm({
   bodyClassName,
   renderFooter,
   onSent,
+  onShowHistory,
 }: {
   workspaceId: string
   storyId: string
   /** The story's language, which notes are written in. */
   lang: string
   deliverable: Deliverable
-  /** For the earlier notes on this deliverable. */
+  /** For counting the earlier notes on this deliverable (History lists them). */
   revisions: Revision[]
   /** The player's position, when there is a player showing the latest revision. */
   playhead?: () => number | undefined
@@ -126,6 +125,8 @@ export function FeedbackForm({
   renderFooter: (state: FeedbackFooterState) => ReactNode
   /** After the server took it, with the updated story. */
   onSent?: (story: Story) => void
+  /** Shows the History beside the draft, where the earlier notes are. */
+  onShowHistory?: () => void
 }) {
   const request = useRequestChanges(workspaceId, storyId)
   const video = d.kind === "video"
@@ -274,7 +275,6 @@ export function FeedbackForm({
   }, [focusN, focusAt])
 
   const earlier = earlierNotes(d, revisions)
-  const nameOf = useMemberNames(workspaceId, earlier.some((e) => e.by))
 
   return (
     <form
@@ -470,46 +470,18 @@ export function FeedbackForm({
         <p className="sr-only" aria-live="polite">
           {announced}
         </p>
-        {earlier.length > 0 ? (
-          <div className="grid gap-3">
-            <p className="text-sm leading-none font-medium">
-              {m.feedbackSheet.earlier}
-            </p>
-            <ol className="grid gap-4 text-sm">
-              {earlier.map((round) => (
-                <li key={round.on} className="grid gap-1.5">
-                  <p className="text-xs text-muted-foreground">
-                    {round.addressedIn !== undefined
-                      ? m.feedbackSheet.addressed(round.on, round.addressedIn)
-                      : m.feedbackSheet.pending(round.on)}
-                    {nameOf(round.by) ? ` · ${nameOf(round.by)}` : null}
-                  </p>
-                  <ul className="grid gap-1.5">
-                    {round.notes.map((n, i) => (
-                      <li key={i} className="flex gap-3">
-                        <span className="tabular w-10 shrink-0 font-mono text-xs leading-5">
-                          {n.atSeconds !== undefined
-                            ? formatTimestamp(n.atSeconds)
-                            : "—"}
-                        </span>
-                        <span className="min-w-0 text-muted-foreground">
-                          <span className="text-xs">
-                            {scopeLabel(n.scope, d.kind)}
-                          </span>
-                          <span
-                            lang={lang}
-                            className="mt-0.5 line-clamp-2 text-xs text-foreground/80"
-                          >
-                            “{n.text}”
-                          </span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
-            </ol>
-          </div>
+        {earlier > 0 && onShowHistory ? (
+          <p className="text-xs text-muted-foreground">
+            {m.feedbackSheet.earlier(earlier)}
+            <span aria-hidden="true"> · </span>
+            <button
+              type="button"
+              className="rounded-sm text-primary-ink underline-offset-4 outline-none hover:underline focus-visible:ring-[3px] focus-visible:ring-ring"
+              onClick={onShowHistory}
+            >
+              {m.feedbackSheet.seeHistory}
+            </button>
+          </p>
         ) : null}
         {request.error ? <Banner title={errorMessage(request.error)} /> : null}
       </div>
@@ -598,32 +570,9 @@ function PendingList({
   )
 }
 
-type EarlierRound = {
-  /** The revision the notes were given on. */
-  on: number
-  addressedIn?: number
-  notes: FeedbackNote[]
-  /** Who wrote them (a user id). */
-  by?: string
-}
-
-/** Feedback already given on the deliverable, a round per revision, newest first. */
-function earlierNotes(d: Deliverable, revisions: Revision[]): EarlierRound[] {
-  const out: EarlierRound[] = []
-  for (const r of revisions) {
-    if (!r.feedback?.notes.length) continue
-    out.push({
-      on: r.number - 1,
-      addressedIn: r.number,
-      notes: r.feedback.notes,
-      by: r.feedback.by,
-    })
-  }
-  if (d.pendingFeedback?.notes.length)
-    out.push({
-      on: d.revision,
-      notes: d.pendingFeedback.notes,
-      by: d.pendingFeedback.by,
-    })
-  return out.toReversed()
+/** How many notes were already given on the deliverable, sent rounds and the one being revised. */
+function earlierNotes(d: Deliverable, revisions: Revision[]): number {
+  let n = d.pendingFeedback?.notes.length ?? 0
+  for (const r of revisions) n += r.feedback?.notes.length ?? 0
+  return n
 }

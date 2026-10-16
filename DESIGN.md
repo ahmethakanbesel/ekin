@@ -307,16 +307,17 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 
 ### Action Rail
 - **Character:** round 40px buttons in a column beside the draft, each with a 12px medium caption beneath; the caption is visual, the button carries the accessible name.
-- **Approve:** Ready Green fill with light text. **Request changes:** Cornflower Ink edge and text with a 10% cornflower hover. **Feedback / Revisions / Open publication:** neutral outline. **Reject:** red edge and text, separated from the rest by a hairline divider and given a red caption.
-- **Revisions** shows the revision on screen as a small secondary badge at its corner.
-- **Request changes** and the **N** key do the same thing: pause the video and open the feedback sheet on a new note pinned at the playhead. Both rail buttons name the key in their tooltips.
+- **Approve:** Ready Green fill with light text. **Request changes:** Cornflower Ink edge and text with a 10% cornflower hover. **Revisions / Open publication:** neutral outline. **Reject:** red edge and text, separated from the rest by a hairline divider and given a red caption.
+- **Revisions** shows the revision on screen as a small secondary badge at its corner; **Request changes** shows the count of unsent notes as a Cornflower badge at its corner while the sheet is closed.
+- **Request changes** is the only way into the feedback sheet, and the **N** key does the same thing: pause the video and open the sheet on a new note pinned at the playhead. Its tooltip names the key. Viewers cannot send feedback, so they get no feedback control; earlier notes are in History for everyone.
 - **Approving** waits six seconds before it is sent: the toast names the story with an Undo action and a green bar draining over the window, and the Approve button turns into a green-edged Undo with a ring draining around it (both hidden when motion is reduced). The feed moves on at the click; a tab closing sends what is waiting.
 
 ### Feedback Sheet
+- **Opening:** closed until there is something to say. It opens on Request changes, on N, and by itself on a draft that still has unsent notes. From 1280px it docks between the feed and the panel and stays as the reviewer leaves it from draft to draft and for the browser session (session storage; it works without it); sending closes it. Below that it is a sheet over the page (from the bottom on phones) and never opens by itself. Esc or the close button closes it and focus returns to Request changes.
 - **Character:** a review round is a list of notes, sent together. The form on top writes one note (scope, timestamp for videos, text); "Add note" (with its ⌘/Ctrl Enter hint, hidden on touch) moves it to "Notes to send", a bordered list with hairline dividers, untimed notes first and then by time, each showing time, scope and text. A listed note opens back in the form when clicked (the note being written takes its place) and has its own remove button.
 - **Sending:** the footer's primary button counts what it sends, the typed note included: "Send note to the agent", "Send 3 notes to the agent". Under it, a line names the N key.
 - **Unsent notes** live with the draft until sent, through closing the sheet and moving through the feed. Approving or rejecting with notes waiting asks first.
-- **Earlier notes** are grouped by round: one line naming the revision, whether it was addressed and who wrote it, then the round's notes.
+- **Earlier notes** are not repeated in the sheet; History in the panel is the record. The sheet says how many there are in one line, "2 earlier notes · see History", and the link brings History into view (closing the sheet first below 1280px).
 
 ### Badges and Status
 - **Style:** fully round, 20px tall, 12px medium label.

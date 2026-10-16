@@ -70,6 +70,25 @@ const ContentEditor = lazy(() =>
 
 const ROUTE = "/w/$workspaceId/stories/$storyId"
 
+// Whether the reviewer keeps the docked feedback sheet open, for the
+// browser session. A per-viewer convenience: storage may be unavailable.
+const SHEET_KEY = "kurgu.feedback-sheet"
+function sheetRemembered(): boolean {
+  try {
+    return window.sessionStorage.getItem(SHEET_KEY) === "open"
+  } catch {
+    return false
+  }
+}
+function rememberSheet(open: boolean) {
+  try {
+    if (open) window.sessionStorage.setItem(SHEET_KEY, "open")
+    else window.sessionStorage.removeItem(SHEET_KEY)
+  } catch {
+    // Not remembered; the sheet still works.
+  }
+}
+
 export function StoryPage() {
   const workspace = useWorkspace()
   const { storyId } = useParams({ from: ROUTE })
@@ -270,11 +289,18 @@ function StoryView({
     selected.revision > 0 &&
     !deciding
 
-  // The feedback sheet: docked from xl up (open unless closed), a sheet
-  // over the page below. Only for a draft an editor can send back.
+  // The feedback sheet: docked from xl up, a sheet over the page below.
+  // Only for a draft an editor can send back. It starts closed and opens
+  // when there is something to say: Request changes, N, or notes still
+  // unsent on the draft. Docked, it stays as the reviewer leaves it from
+  // draft to draft, and for the rest of the browser session.
   const wide = useMediaQuery("(min-width: 1280px)")
   const reviewing = canEdit && selected.status === "review" && !deciding
-  const [docked, setDocked] = useState(true)
+  const [docked, setDockedState] = useState(sheetRemembered)
+  const setDocked = (open: boolean) => {
+    setDockedState(open)
+    rememberSheet(open)
+  }
   const [sheetOpen, setSheetOpen] = useState(false)
   const feedbackOpen = reviewing && (wide ? docked : sheetOpen)
   const setFeedbackOpen = wide ? setDocked : setSheetOpen
@@ -286,6 +312,8 @@ function StoryView({
   if (focusFor !== draftKey) {
     setFocusFor(draftKey)
     setFocus(null)
+    // Notes left unsent on this draft are never hidden behind a closed sheet.
+    if (unsent > 0) setDockedState(true)
   }
   const feedbackButton = useRef<HTMLButtonElement>(null)
   const openFeedback = (at?: number) => {
@@ -471,13 +499,10 @@ function StoryView({
                     onApprove={() =>
                       unsentNow() > 0 ? setApprovingWithNotes(true) : approve()
                     }
-                    onRequestChanges={pinNote}
-                    feedback={{
+                    requestChanges={{
+                      onClick: pinNote,
                       open: feedbackOpen,
-                      onToggle: () =>
-                        feedbackOpen
-                          ? setFeedbackOpen(false)
-                          : openFeedback(),
+                      unsent,
                       ref: feedbackButton,
                     }}
                   />
@@ -509,7 +534,8 @@ function StoryView({
           onOpenChange={setFeedbackOpen}
           returnFocus={feedbackButton}
           onSent={(updated) => {
-            setSheetOpen(false)
+            // Said and sent: the sheet closes until there is more to say.
+            setFeedbackOpen(false)
             onDecided(updated)
           }}
         />

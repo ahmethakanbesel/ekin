@@ -807,6 +807,10 @@ export const en = {
     railOther: "Actions",
     approve: (n: number) => `Approve revision ${n}`,
     requestChanges: (n: number) => `Request changes to revision ${n}`,
+    requestChangesUnsent: (n: number, notes: number) =>
+      notes === 1
+        ? `Request changes to revision ${n}, 1 note not sent yet`
+        : `Request changes to revision ${n}, ${notes} notes not sent yet`,
     revisions: "Revisions",
     revisionsShowing: (n: number) => `Revisions, showing revision ${n}`,
     revisionItem: (n: number) => `Revision ${n}`,
@@ -819,8 +823,6 @@ export const en = {
     details: "Details",
     story: "Story",
     outputs: "Other outputs",
-    feedback: "Feedback",
-    feedbackToggle: "Feedback for the agent",
     pinNote: "Pause and pin a note at the playhead",
     writeNote: "Write a note for the agent",
   },
@@ -866,9 +868,9 @@ export const en = {
     note: "Note",
     count: (n: number, max: number) =>
       `${n.toLocaleString("en-GB")} / ${max.toLocaleString("en-GB")}`,
-    earlier: "Earlier notes on this output",
-    addressed: (on: number, n: number) => `On r${on} · addressed in r${n}`,
-    pending: (on: number) => `On r${on} · being revised`,
+    earlier: (n: number) =>
+      n === 1 ? "1 earlier note" : `${n} earlier notes`,
+    seeHistory: "see History",
     add: "Add note",
     pinKey: "pins a new note at the playhead while you watch",
     writeKey: "opens a new note while you read",
