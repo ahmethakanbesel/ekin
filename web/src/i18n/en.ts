@@ -562,6 +562,7 @@ export const en = {
     roleLabel: (kind: string, role: string) => `${kind} · ${role}`,
     translationLabel: (kind: string, language: string) => `${kind} · ${language} translation`,
     revisionShort: (n: number) => `r${n}`,
+    otherOutput: (label: string) => `+ ${label}`,
     status: {
       waiting: "Waiting",
       queued: "Queued",

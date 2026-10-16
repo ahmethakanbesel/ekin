@@ -15,7 +15,8 @@ import { formatDateTime, formatRelative } from "@/lib/time"
 import { pipelineHue } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { artifactUrl } from "@/queries/stories"
-import { DeliverableChip, StatusBadge } from "./badges"
+import { StatusBadge } from "./badges"
+import { deliverableLabel } from "./model"
 
 const orientationIcon: Record<string, LucideIcon> = {
   vertical: SmartphoneIcon,
@@ -75,12 +76,27 @@ export function PosterCard({
         )}
       </Link>
       <div className="mt-3 grid gap-1.5 text-sm">
-        <ul className="flex flex-wrap gap-x-3 gap-y-1">
-          {s.deliverables.map((d) => (
-            <li key={d.id}>
-              <DeliverableChip deliverable={d} />
+        {/* The poster carries the lead's status; the other outputs name theirs. */}
+        <ul className="grid gap-0.5">
+          {lead ? (
+            <li className="font-medium">
+              {deliverableLabel(lead)}
+              {lead.revision > 0
+                ? ` · ${m.stories.revisionShort(lead.revision)}`
+                : null}
             </li>
-          ))}
+          ) : null}
+          {s.deliverables
+            .filter((d) => d !== lead)
+            .map((d) => (
+              <li key={d.id} className="text-muted-foreground">
+                {m.stories.otherOutput(deliverableLabel(d))}
+                {d.revision > 0
+                  ? ` · ${m.stories.revisionShort(d.revision)}`
+                  : null}
+                {` · ${m.stories.status[d.status] ?? d.status}`}
+              </li>
+            ))}
         </ul>
         {failed ? (
           <p className="text-destructive">

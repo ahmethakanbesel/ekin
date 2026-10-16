@@ -15,7 +15,6 @@ import { m } from "@/i18n"
 import { deliverableBadge } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { isWorking } from "@/queries/stories"
-import { deliverableLabel } from "./model"
 
 /** Badge classes per deliverable status, from the shared tones. */
 export function statusTone(status: DeliverableStatus): string {
@@ -68,32 +67,5 @@ export function KindIcon({
       aria-hidden
       className={cn("size-3.5 shrink-0 text-muted-foreground", className)}
     />
-  )
-}
-
-/** One deliverable in a list row: kind icon, status and revision. */
-export function DeliverableChip({
-  deliverable: d,
-}: {
-  deliverable: Deliverable
-}) {
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 text-sm"
-      title={deliverableLabel(d)}
-    >
-      <KindIcon kind={d.kind} />
-      {d.role === "translation" ? (
-        <span className="font-mono text-[11px] text-muted-foreground uppercase">
-          {d.language}
-        </span>
-      ) : null}
-      <StatusBadge status={d.status} />
-      {d.revision > 0 ? (
-        <span className="tabular text-xs text-muted-foreground">
-          {m.stories.revisionShort(d.revision)}
-        </span>
-      ) : null}
-    </span>
   )
 }
