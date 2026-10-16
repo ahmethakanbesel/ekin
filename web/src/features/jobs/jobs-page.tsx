@@ -441,7 +441,7 @@ function RequestRow({
         </div>
         <JobStatusBadge status={r.status} className="shrink-0" />
         <TimeBar request={r} className="w-full sm:w-56" />
-        <div className="flex w-28 shrink-0 flex-col items-end gap-0.5 text-right">
+        <div className="flex w-full shrink-0 items-baseline gap-2 sm:w-28 sm:flex-col sm:items-end sm:gap-0.5 sm:text-right">
           <span className="tabular text-sm font-medium">
             {formatSpan(r.end - r.start)}
           </span>
