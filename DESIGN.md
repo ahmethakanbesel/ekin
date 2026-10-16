@@ -236,7 +236,7 @@ Badges lay a status tone over a tint of itself (working and done at 15%, failed 
 Every queue and pipeline hue clears 3:1 against the page in both themes (lowest: 3.5:1 light, 4.7:1 dark).
 
 ### Named Rules
-**The Needs-You Rule.** Cornflower means a person is needed, the surface's one primary action, or focus. A selected tab, the active nav item, a pressed filter, a hover, a decorative accent: neutral, always.
+**The Needs-You Rule.** Cornflower means a person is needed, the surface's one primary action, or focus. A selected tab, the active nav item, a pressed filter, a checked switch, checkbox or radio, a slider range, a progress or playback fill, a hover, a decorative accent: neutral (Ink), always.
 
 **The Ink Boundary Rule.** Cornflower is never a bare fill. Any cornflower surface carries an inset 1px Cornflower Ink edge; any cornflower text or edge uses Cornflower Ink, not Cornflower.
 
@@ -347,13 +347,14 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 
 ### Player
 - **Character:** the video frame is always dark-scoped with a black stage. The caption strip under it holds status, format and language badges, the title, origin and tags, then the scrubber and the "feedback at" timestamps in mono.
-- **Scrubber:** a 6px round track with a field-edge inset outline, a white 16px thumb, and small round markers where feedback notes were pinned: hollow for notes the agent has, filled for the reviewer's unsent ones. The times listed beside it are the sent notes only. The thumb exposes position and value text to assistive tech.
+- **Scrubber:** a 6px round track with a field-edge inset outline, filled in Ink (neutral; playback position is not a needs-you signal), a white 16px thumb with a dark page-coloured edge so it stays distinct on the fill, and small round markers where feedback notes were pinned: hollow for notes the agent has, filled for the reviewer's unsent ones, each ringed in the page colour so it reads over the fill. The times listed beside it are the sent notes only. The thumb exposes position and value text to assistive tech.
 
 ### Inputs / Fields
 - **Style:** transparent field, 1px Field Edge border, 8px corners, 36px tall, extra-small shadow; 30% field-edge fill in dark. Caret in Cornflower Ink.
 - **Focus:** Focus Ring border plus a 3px full-strength ring.
 - **Error:** red border with a 20% red ring.
-- **Slider:** stock with a white thumb edged in Cornflower Ink, plus an optional thumb label and value text for screen readers.
+- **Slider:** an Ink range and a white thumb edged in Ink at 60% (5.0:1 on the light page), plus an optional thumb label and value text for screen readers. Progress bars fill in Ink too.
+- **Switch, checkbox, radio:** "on" is an Ink fill with a page-coloured thumb, check or dot, never cornflower. Off is the Field Edge outline (or a Field Edge track for switches). On against off: 5.7:1 light (Ink vs Field Edge track), 7.3:1 dark (Ink vs the 29% white track); the checked fill against the page is 18.8:1 light and 18.2:1 dark, and the thumb also changes side. Focus stays the cornflower ring.
 
 ### Navigation
 - **Sidebar:** stock shadcn sidebar on Sidebar Linen; the active item takes the stone accent fill and medium weight, never cornflower. The review count is a Cornflower Ink number.
@@ -375,7 +376,7 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 - **Do** regenerate UI primitives from the stock base-vega style and re-apply only the documented deviations.
 
 ### Don't:
-- **Don't** use Cornflower for a selected tab, the active nav item, a pressed filter, hover, or decoration.
+- **Don't** use Cornflower for a selected tab, the active nav item, a pressed filter, a checked control, a slider or progress fill, hover, or decoration.
 - **Don't** put a bare Cornflower fill or Cornflower text on the light page; it is 1.82:1.
 - **Don't** let a state rest on a tinted fill alone; the stone fill is about 1.1:1 against the page.
 - **Don't** invent metrics, scores or counts the API does not return.

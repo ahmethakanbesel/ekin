@@ -188,7 +188,7 @@ export function PlayerBar({
       >
         <span className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted inset-ring inset-ring-input">
           <span
-            className="absolute inset-y-0 left-0 bg-primary inset-ring inset-ring-primary-ink"
+            className="absolute inset-y-0 left-0 bg-foreground"
             style={{ width: pct(time) }}
           />
         </span>
@@ -204,7 +204,7 @@ export function PlayerBar({
               >
                 <span
                   className={cn(
-                    "size-2 rounded-full border border-foreground",
+                    "size-2 rounded-full border border-foreground ring-1 ring-background",
                     k.unsent ? "bg-foreground" : "bg-background"
                   )}
                 />
@@ -221,7 +221,7 @@ export function PlayerBar({
           aria-valuenow={Math.round(time)}
           aria-valuetext={total ? m.player.valueText(now, total) : now}
           aria-disabled={max > 0 ? undefined : true}
-          className="absolute z-20 size-4 -translate-x-1/2 rounded-full border border-primary bg-white shadow-sm ring-ring/50 transition-shadow outline-none hover:ring-4 focus-visible:ring-4 focus-visible:ring-ring"
+          className="absolute z-20 size-4 -translate-x-1/2 rounded-full border border-background bg-white shadow-sm ring-ring/50 transition-shadow outline-none hover:ring-4 focus-visible:ring-4 focus-visible:ring-ring"
           style={{ left: pct(time) }}
           onKeyDown={onKeyDown}
         />
