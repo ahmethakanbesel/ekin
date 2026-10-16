@@ -682,6 +682,23 @@ export const en = {
     retried: "Retrying the failed step",
     publish: "Publish",
     publishQueued: "Publishing queued",
+    publishTitle: (kind: string) => `Publish this ${kind}?`,
+    publishYouTube: "It is uploaded to YouTube.",
+    publishChannel: (channel: string, privacy: string) =>
+      `It is uploaded to the YouTube channel “${channel}”, set to ${privacy}.`,
+    publishStaysPrivate:
+      "Until Google's audit of Kurgu's YouTube API use passes, YouTube keeps uploads private.",
+    publishNoChannel:
+      "No YouTube channel is connected, so Kurgu cannot upload it yet. An owner can connect one in workspace settings.",
+    publishBlog: "It is written to your blog.",
+    publishGitHub: (repo: string, branch: string) =>
+      `It is committed as a Markdown post to ${repo} on ${branch}.`,
+    publishDir: (dir: string) => `It is written as a Markdown post into ${dir} on the server.`,
+    publishDraft: "The post is marked as a draft, for a last manual pass.",
+    publishSite: (site: string) => `${site} shows it once the site rebuilds.`,
+    publishNoBlog:
+      "No blog is set up, so Kurgu cannot publish it yet. An owner can set one up in workspace settings.",
+    publishUndoable: "Once it is out, Kurgu cannot take it back.",
     publishFailed: "Could not publish",
     openSettings: "Workspace settings",
     openPublication: "Open published version",

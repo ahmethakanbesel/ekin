@@ -1,6 +1,7 @@
+import { useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 
-import type { Deliverable, Story } from "@/api/client"
+import type { Deliverable, Integrations, Story } from "@/api/client"
 import { Banner } from "@/components/page"
 import {
   AlertDialog,
@@ -15,6 +16,7 @@ import {
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { useRetained } from "@/lib/use-retained"
+import { integrationsQuery } from "@/queries/integrations"
 import { useDeleteStory, useDeliverableAction } from "@/queries/stories"
 
 /** Confirms rejecting a deliverable; the server's refusal stays in the dialog. */
@@ -76,6 +78,109 @@ export function RejectDialog({
       </AlertDialogContent>
     </AlertDialog>
   )
+}
+
+/**
+ * Confirms publishing a deliverable, naming where it goes as far as the
+ * workspace's publishing settings tell.
+ */
+export function PublishDialog({
+  workspaceId,
+  deliverable,
+  busy,
+  onOpenChange,
+  onConfirm,
+}: {
+  workspaceId: string
+  deliverable: Deliverable | null
+  busy: boolean
+  onOpenChange: (open: boolean) => void
+  /** Publishes; a failure is shown on the page (and toasted). */
+  onConfirm: () => Promise<unknown>
+}) {
+  const target = useRetained(deliverable)
+  const integrations = useQuery({
+    ...integrationsQuery(workspaceId),
+    enabled: !!deliverable,
+  })
+  const kind = (m.values.kind[target?.kind ?? "video"] ?? "").toLowerCase()
+  const where = destination(target?.kind ?? "video", integrations.data)
+
+  const confirm = async () => {
+    await onConfirm()
+    onOpenChange(false)
+  }
+
+  return (
+    <AlertDialog open={!!deliverable} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{m.review.publishTitle(kind)}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {where.text}
+            {where.ready === false ? null : ` ${m.review.publishUndoable}`}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{m.common.cancel}</AlertDialogCancel>
+          <AlertDialogAction disabled={busy} onClick={() => void confirm()}>
+            {m.review.publish}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+/**
+ * Where a deliverable of this kind is published, in a sentence or two;
+ * ready is false when the settings say there is nowhere to publish yet
+ * (undefined while they load).
+ */
+function destination(
+  kind: Deliverable["kind"],
+  settings: Integrations | undefined
+): { text: string; ready?: boolean } {
+  const t = m.review
+  if (kind === "video") {
+    const yt = settings?.youtube
+    if (!yt) return { text: t.publishYouTube }
+    if (!yt.connected) return { text: t.publishNoChannel, ready: false }
+    const privacy = yt.privacy ?? "private"
+    const channel = yt.channelTitle
+      ? t.publishChannel(
+          yt.channelTitle,
+          (m.values.privacy[privacy] ?? privacy).toLowerCase()
+        )
+      : t.publishYouTube
+    return {
+      text:
+        privacy === "private" ? channel : `${channel} ${t.publishStaysPrivate}`,
+      ready: true,
+    }
+  }
+  if (!settings) return { text: t.publishBlog }
+  const blog = settings.blog
+  if (!blog) return { text: t.publishNoBlog, ready: false }
+  const parts = [
+    blog.kind === "github" && blog.repo
+      ? t.publishGitHub(blog.repo, blog.branch || "main")
+      : blog.kind === "dir" && blog.dir
+        ? t.publishDir(blog.dir)
+        : t.publishBlog,
+  ]
+  if (blog.draft) parts.push(t.publishDraft)
+  const site = siteName(blog.siteUrl)
+  if (site) parts.push(t.publishSite(site))
+  return { text: parts.join(" "), ready: true }
+}
+
+function siteName(url: string): string {
+  try {
+    return url ? new URL(url).host : ""
+  } catch {
+    return ""
+  }
 }
 
 /** Confirms deleting a story. While a step runs the server answers 409; that stays in the dialog. */

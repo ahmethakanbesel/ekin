@@ -170,7 +170,7 @@ export function ActionRail({
           className={round}
           aria-label={m.feed.publish}
           disabled={busy}
-          onClick={() => void review.publish()}
+          onClick={() => review.setConfirmingPublish(true)}
         >
           <SendIcon />
         </Button>

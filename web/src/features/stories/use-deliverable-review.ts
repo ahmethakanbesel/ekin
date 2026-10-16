@@ -46,6 +46,7 @@ export function useDeliverableReview({
   // The player's state, for the scrubber and the script beside it.
   const [playback] = useState(createPlayback)
   const [rejecting, setRejecting] = useState(false)
+  const [confirmingPublish, setConfirmingPublish] = useState(false)
   const [editing, setEditing] = useState(false)
   // Another story or deliverable starts afresh (the feed keeps this mounted).
   const key = `${story.id}/${d.id}`
@@ -54,6 +55,7 @@ export function useDeliverableReview({
     setShown(key)
     setPicked(null)
     setRejecting(false)
+    setConfirmingPublish(false)
     setEditing(false)
   }
   // Unsent notes per draft (deliverable and revision). They outlive the
@@ -155,6 +157,9 @@ export function useDeliverableReview({
     pause,
     rejecting,
     setRejecting,
+    /** The publish confirmation is open. */
+    confirmingPublish,
+    setConfirmingPublish,
     editing: showEditor,
     setEditing,
     /**

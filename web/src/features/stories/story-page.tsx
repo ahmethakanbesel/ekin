@@ -38,7 +38,11 @@ import { FeedbackSheet } from "./feedback-sheet"
 import { TAB_STATUSES, deliverableLabel } from "./model"
 import { seekVideo } from "./previews"
 import { ReviewPanel } from "./review-panel"
-import { DeleteStoryDialog, RejectDialog } from "./review-dialogs"
+import {
+  DeleteStoryDialog,
+  PublishDialog,
+  RejectDialog,
+} from "./review-dialogs"
 import {
   DraftFrame,
   FEED_END,
@@ -478,6 +482,17 @@ function StoryView({
         deliverable={review.rejecting ? selected : null}
         onOpenChange={review.setRejecting}
         onRejected={onDecided}
+      />
+      <PublishDialog
+        workspaceId={workspace.id}
+        deliverable={
+          review.confirmingPublish && selected.status === "ready"
+            ? selected
+            : null
+        }
+        busy={review.busy}
+        onOpenChange={review.setConfirmingPublish}
+        onConfirm={review.publish}
       />
       <DiscardChangesDialog
         open={pendingTab !== null}
