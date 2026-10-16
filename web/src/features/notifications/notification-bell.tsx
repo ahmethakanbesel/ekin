@@ -37,8 +37,8 @@ const kindIcon: Record<
 // When the list was last opened, per workspace, so the dot means "new
 // since you looked". Storage can be unavailable (private mode, blocked
 // site data); then every visit starts fresh.
-// The sidebar and the mobile header each render a bell; they share the
-// mark through this small store.
+// The mark lives in this small store so anything rendering a bell for the
+// same workspace agrees on it.
 const storageKey = (workspaceId: string) =>
   `kurgu:notifications-seen:${workspaceId}`
 const seenCache = new Map<string, number>()
@@ -103,6 +103,9 @@ export function NotificationBell({
   // Server times, so a skewed browser clock cannot hide new items.
   const newest = items.reduce((max, n) => Math.max(max, time(n.createdAt)), 0)
   const unread = newest > seen
+  const unreadCount = unread
+    ? items.filter((n) => time(n.createdAt) > seen).length
+    : 0
 
   const onOpenChange = (next: boolean) => {
     setOpen(next)
@@ -154,22 +157,24 @@ export function NotificationBell({
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger
         className={cn(
-          "relative flex size-9 shrink-0 items-center justify-center rounded-full text-sidebar-foreground/80 outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring aria-expanded:bg-sidebar-accent",
+          "relative flex size-8 shrink-0 items-center justify-center rounded-md text-foreground outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring aria-expanded:bg-muted dark:hover:bg-muted/50",
           className
         )}
         aria-label={unread ? m.notifications.openUnread : m.notifications.open}
         title={m.notifications.title}
       >
         <BellIcon className="size-4" />
-        {unread ? (
+        {unreadCount > 0 ? (
           <span
-            className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary-ink ring-2 ring-sidebar"
+            className="tabular absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 font-semibold text-primary-foreground inset-ring inset-ring-primary-ink"
             aria-hidden="true"
-          />
+          >
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
         ) : null}
       </PopoverTrigger>
       <PopoverContent
-        align="start"
+        align="end"
         className="w-[min(24rem,calc(100vw-2rem))] gap-2 p-2"
       >
         <PopoverTitle className="px-2 pt-1.5 font-heading text-sm font-semibold">

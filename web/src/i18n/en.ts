@@ -53,6 +53,14 @@ export const en = {
     newWorkspace: "New workspace",
     allWorkspaces: "All workspaces",
     system: "System",
+    toggleSidebar: "Toggle sidebar",
+    breadcrumb: "Breadcrumb",
+    sections: "Workspace sections",
+    skipToContent: "Skip to content",
+  },
+  theme: {
+    toLight: "Switch to light theme",
+    toDark: "Switch to dark theme",
   },
   roles: {
     owner: "Owner",

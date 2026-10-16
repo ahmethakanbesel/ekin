@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 
 import { Brand } from "@/components/brand"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { m } from "@/i18n"
 import { UserMenu } from "./user-menu"
 
@@ -10,7 +11,8 @@ export function StandalonePage({ children }: { children: ReactNode }) {
     <div className="flex min-h-svh flex-col">
       <header className="flex items-center gap-2 border-b bg-sidebar p-3">
         <Brand />
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-1">
+          <ThemeToggle />
           <UserMenu compact />
         </div>
       </header>

@@ -4,6 +4,7 @@ import { ChevronsUpDownIcon, LogOutIcon, ServerIcon, UserIcon } from "lucide-rea
 import { toast } from "sonner"
 
 import type { User } from "@/api/client"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,30 +14,43 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
-import { cn } from "@/lib/utils"
+import { initials } from "@/lib/format"
 import { meQuery, useLogout } from "@/queries/auth"
 
-function Avatar({ user, className }: { user: User; className?: string }) {
+function UserAvatar({ user }: { user: User }) {
   return (
-    <span
-      className={cn(
-        "flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground uppercase",
-        className,
-      )}
-      aria-hidden="true"
-    >
-      {[...(user.name || user.email)][0] ?? "?"}
-    </span>
+    <Avatar aria-hidden="true">
+      <AvatarFallback className="text-xs font-medium text-foreground">
+        {initials(user.name || user.email)}
+      </AvatarFallback>
+    </Avatar>
   )
 }
 
 /**
  * The signed-in user with Account and Sign out. `compact` shows only the
- * avatar (headers); otherwise a full-width row (the sidebar).
+ * avatar (headers); otherwise a large sidebar menu button, which needs the
+ * sidebar provider.
  */
 export function UserMenu({ compact = false }: { compact?: boolean }) {
+  return compact ? <UserMenuBody compact /> : <SidebarUserMenu />
+}
+
+function SidebarUserMenu() {
+  const { isMobile, state } = useSidebar()
+  return <UserMenuBody side={!isMobile && state === "collapsed" ? "right" : "top"} />
+}
+
+function UserMenuBody({
+  compact = false,
+  side = "bottom",
+}: {
+  compact?: boolean
+  side?: "top" | "right" | "bottom"
+}) {
   const { data: me } = useQuery(meQuery())
   const logout = useLogout()
   const qc = useQueryClient()
@@ -59,25 +73,36 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        className={cn(
-          "flex items-center gap-2.5 rounded-lg text-left outline-none hover:bg-sidebar-accent focus-visible:ring-[3px] focus-visible:ring-ring aria-expanded:bg-sidebar-accent",
-          compact ? "rounded-full p-0.5" : "w-full px-2.5 py-2",
-        )}
-        aria-label={m.auth.userMenu}
+      {compact ? (
+        <DropdownMenuTrigger
+          className="flex shrink-0 items-center rounded-full p-0.5 outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring aria-expanded:bg-muted"
+          aria-label={m.auth.userMenu}
+        >
+          <UserAvatar user={me} />
+        </DropdownMenuTrigger>
+      ) : (
+        <DropdownMenuTrigger
+          render={
+            <SidebarMenuButton
+              size="lg"
+              className="aria-expanded:bg-sidebar-accent aria-expanded:text-sidebar-accent-foreground"
+            />
+          }
+          aria-label={`${me.name || me.email}. ${m.auth.userMenu}`}
+        >
+          <UserAvatar user={me} />
+          <span className="grid flex-1 text-left leading-tight">
+            <span className="truncate font-medium">{me.name}</span>
+            <span className="truncate text-xs text-muted-foreground">{me.email}</span>
+          </span>
+          <ChevronsUpDownIcon className="ml-auto text-muted-foreground" />
+        </DropdownMenuTrigger>
+      )}
+      <DropdownMenuContent
+        side={side}
+        align={compact || side === "top" ? "end" : "start"}
+        className="min-w-60"
       >
-        <Avatar user={me} />
-        {compact ? null : (
-          <>
-            <span className="grid min-w-0 flex-1 leading-tight">
-              <span className="truncate text-sm font-medium">{me.name}</span>
-              <span className="truncate text-xs text-muted-foreground">{me.email}</span>
-            </span>
-            <ChevronsUpDownIcon className="size-4 shrink-0 text-muted-foreground" />
-          </>
-        )}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align={compact ? "end" : "start"} className="min-w-60">
         <DropdownMenuGroup>
           <DropdownMenuLabel className="grid leading-tight">
             <span className="truncate text-sm font-medium text-foreground">{me.name}</span>

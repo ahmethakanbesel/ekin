@@ -1,5 +1,12 @@
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Link, Outlet, useParams } from "@tanstack/react-router"
+import {
+  Link,
+  Outlet,
+  useMatchRoute,
+  useMatches,
+  useParams,
+} from "@tanstack/react-router"
 import {
   InboxIcon,
   LibraryIcon,
@@ -12,15 +19,34 @@ import {
 } from "lucide-react"
 
 import { isApiError } from "@/api/client"
-import { Brand } from "@/components/brand"
+import { AppBreadcrumb } from "@/components/app-breadcrumb"
+import { BrandMark } from "@/components/brand"
 import { EmptyState, ErrorState } from "@/components/page"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuBadge,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
 import { Skeleton } from "@/components/ui/skeleton"
 import { UserMenu } from "@/features/auth/user-menu"
 import { NotificationBell } from "@/features/notifications/notification-bell"
 import { TAB_STATUSES } from "@/features/stories/model"
 import { TemplateDraftWatcher } from "@/features/templates/draft-watch"
 import { m } from "@/i18n"
+import { cn } from "@/lib/utils"
 import { STORY_LIST_LIMIT, storiesQuery } from "@/queries/stories"
 import { workspaceQuery } from "@/queries/workspaces"
 import { WorkspaceContext } from "./context"
@@ -52,6 +78,28 @@ const navItems = [
 /** How often the nav refreshes the number of stories waiting for review. */
 const REVIEW_COUNT_MS = 30_000
 
+const STORY_ROUTE = "/w/$workspaceId/stories/$storyId"
+
+/**
+ * Whether the sidebar is expanded. A story page wants the width, so the
+ * sidebar collapses to icons on entering one (it can still be opened) and
+ * goes back to the reader's own choice on leaving.
+ */
+function useSidebarOpen(onStory: boolean) {
+  const [preferred, setPreferred] = useState(true)
+  const [open, setOpen] = useState(!onStory)
+  const [wasOnStory, setWasOnStory] = useState(onStory)
+  if (onStory !== wasOnStory) {
+    setWasOnStory(onStory)
+    setOpen(onStory ? false : preferred)
+  }
+  const toggle = (next: boolean) => {
+    setOpen(next)
+    if (!onStory) setPreferred(next)
+  }
+  return { open, toggle }
+}
+
 export function WorkspaceLayout() {
   const { workspaceId } = useParams({ from: "/w/$workspaceId" })
   const ws = useQuery(workspaceQuery(workspaceId))
@@ -63,6 +111,11 @@ export function WorkspaceLayout() {
     refetchIntervalInBackground: true,
   })
   const reviewCount = review.data?.length ?? 0
+  const onStory = useMatches({
+    select: (ms) => ms.some((r) => r.routeId === STORY_ROUTE),
+  })
+  const { open, toggle } = useSidebarOpen(onStory)
+  const matchRoute = useMatchRoute()
 
   if (ws.isPending) {
     return (
@@ -101,68 +154,156 @@ export function WorkspaceLayout() {
   }
 
   const workspace = ws.data
-  // Keyed: its "last opened" mark belongs to one workspace.
-  const bell = (
-    <NotificationBell
-      key={workspaceId}
-      workspaceId={workspaceId}
-      timezone={workspace.timezone}
-    />
-  )
-  const nav = navItems.map((item) => (
-    <Link
-      key={item.to}
-      to={item.to}
-      params={{ workspaceId }}
-      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/80 outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring data-[status=active]:bg-sidebar-accent data-[status=active]:text-sidebar-accent-foreground [&_svg]:size-4"
-    >
-      <item.icon />
-      {item.label}
-      {item.to === "/w/$workspaceId/stories" && reviewCount > 0 ? (
-        <span
-          className="tabular ml-auto min-w-5 rounded-full bg-primary px-1.5 text-center text-[11px] leading-5 font-semibold text-primary-foreground inset-ring inset-ring-primary-ink"
-          aria-label={m.nav.reviewCount(reviewCount)}
-        >
-          {reviewCount >= STORY_LIST_LIMIT
-            ? `${STORY_LIST_LIMIT}+`
-            : reviewCount}
-        </span>
-      ) : null}
-    </Link>
-  ))
+  const badge =
+    reviewCount > 0
+      ? reviewCount >= STORY_LIST_LIMIT
+        ? `${STORY_LIST_LIMIT}+`
+        : String(reviewCount)
+      : null
+  const params = { workspaceId }
 
   return (
     <WorkspaceContext.Provider value={workspace}>
       <TemplateDraftWatcher workspaceId={workspaceId} />
-      <div className="flex min-h-svh">
-        <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col gap-4 border-r bg-sidebar p-3 md:flex">
-          <div className="flex items-center justify-between gap-2">
-            <Brand />
-            {bell}
-          </div>
-          <WorkspaceSwitcher current={workspace} />
-          <nav className="grid gap-0.5">{nav}</nav>
-          <div className="mt-auto">
-            <UserMenu />
-          </div>
-        </aside>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex flex-col gap-2 border-b bg-sidebar p-3 md:hidden">
-            <div className="flex items-center gap-2">
-              <Brand />
-              <div className="ml-auto max-w-56 min-w-0 flex-1">
+      <SidebarProvider open={open} onOpenChange={toggle}>
+        <a
+          href="#main"
+          className="sr-only z-50 rounded-md bg-background px-3 py-2 text-sm font-medium focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:ring-[3px] focus:ring-ring focus:outline-none"
+        >
+          {m.nav.skipToContent}
+        </a>
+        <Sidebar collapsible="icon" aria-label={m.nav.workspace}>
+          <SidebarHeader>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  size="lg"
+                  render={<Link to="/" />}
+                  tooltip={m.app.name}
+                >
+                  <BrandMark />
+                  <span className="grid flex-1 text-left leading-tight">
+                    <span className="truncate font-heading font-semibold">
+                      {m.app.name}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {m.app.tagline}
+                    </span>
+                  </span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
                 <WorkspaceSwitcher current={workspace} />
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarHeader>
+          <SidebarContent className="scroll-area">
+            <SidebarGroup>
+              <SidebarGroupLabel>{m.nav.workspace}</SidebarGroupLabel>
+              <SidebarMenu>
+                {navItems.map((item) => (
+                  <SidebarMenuItem key={item.to}>
+                    <SidebarMenuButton
+                      render={<Link to={item.to} params={params} />}
+                      isActive={!!matchRoute({ to: item.to, params, fuzzy: true })}
+                      tooltip={item.label}
+                      className="data-active:[&>svg]:text-primary-ink"
+                    >
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                    {item.to === "/w/$workspaceId/stories" && badge ? (
+                      <SidebarMenuBadge
+                        className="text-primary-ink peer-data-active/menu-button:text-primary-ink peer-hover/menu-button:text-primary-ink"
+                        aria-label={m.nav.reviewCount(reviewCount)}
+                      >
+                        {badge}
+                      </SidebarMenuBadge>
+                    ) : null}
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroup>
+          </SidebarContent>
+          <SidebarFooter>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <UserMenu />
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarFooter>
+        </Sidebar>
+        <SidebarInset className="min-w-0">
+          <header className="sticky top-0 z-20 border-b bg-background">
+            <div className="flex h-12 items-center gap-2 px-4">
+              <div className="flex min-w-0 items-center gap-1 md:hidden">
+                <Link
+                  to="/"
+                  className="shrink-0 rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                  aria-label={m.app.name}
+                >
+                  <BrandMark />
+                </Link>
+                <WorkspaceSwitcher current={workspace} compact />
               </div>
-              {bell}
-              <UserMenu compact />
+              <SidebarTrigger
+                className="-ml-1 hidden md:inline-flex"
+                aria-label={m.nav.toggleSidebar}
+              />
+              <Separator
+                orientation="vertical"
+                className="mr-2 hidden data-[orientation=vertical]:h-4 data-[orientation=vertical]:self-center md:block"
+              />
+              <AppBreadcrumb workspace={workspace} className="hidden md:block" />
+              <div className="ml-auto flex shrink-0 items-center gap-1">
+                {/* Keyed: its "last opened" mark belongs to one workspace. */}
+                <NotificationBell
+                  key={workspaceId}
+                  workspaceId={workspaceId}
+                  timezone={workspace.timezone}
+                />
+                <ThemeToggle />
+                <div className="ml-1 md:hidden">
+                  <UserMenu compact />
+                </div>
+              </div>
             </div>
-            <nav className="flex gap-1 overflow-x-auto">{nav}</nav>
+            <nav
+              aria-label={m.nav.sections}
+              className="scroll-area flex gap-1 overflow-x-auto px-3 pb-2 md:hidden"
+            >
+              {navItems.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  params={params}
+                  className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring data-[status=active]:bg-secondary data-[status=active]:text-foreground [&_svg]:size-4"
+                >
+                  <item.icon />
+                  {item.label}
+                  {item.to === "/w/$workspaceId/stories" && badge ? (
+                    <span
+                      className="tabular min-w-5 rounded-full bg-primary px-1.5 text-center text-[11px] leading-5 font-semibold text-primary-foreground inset-ring inset-ring-primary-ink"
+                      aria-label={m.nav.reviewCount(reviewCount)}
+                    >
+                      {badge}
+                    </span>
+                  ) : null}
+                </Link>
+              ))}
+            </nav>
           </header>
-          <main className="mx-auto w-full max-w-7xl flex-1 p-4 md:p-8">
+          <main
+            id="main"
+            className={cn(
+              "w-full min-w-0 flex-1 p-4",
+              onStory ? "md:p-6" : "mx-auto max-w-7xl md:p-8"
+            )}
+          >
             <Outlet />
           </main>
-        </div>
-      </div>
+        </SidebarInset>
+      </SidebarProvider>
     </WorkspaceContext.Provider>
   )
 }

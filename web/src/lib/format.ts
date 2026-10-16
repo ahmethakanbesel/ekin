@@ -31,3 +31,15 @@ export function formatBytes(n: number): string {
   const f = unit === 0 || value >= 100 ? integer : oneDecimal
   return `${f.format(value)} ${units[unit]}`
 }
+
+/** Up to two initials for an avatar: "Hakan Beşel" → "HB", "acme" → "ps". */
+export function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return "?"
+  if (words.length === 1) return [...words[0]].slice(0, 2).join("")
+  return words
+    .slice(0, 2)
+    .map((w) => [...w][0])
+    .join("")
+    .toLocaleUpperCase()
+}

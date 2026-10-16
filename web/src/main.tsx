@@ -7,12 +7,12 @@ import { ApiError, isApiError } from "@/api/client"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
 import { isPublicPath } from "@/features/auth/search"
-import { followSystemTheme } from "@/lib/theme"
+import { initTheme } from "@/lib/theme"
 import { isUnauthenticated } from "@/queries/auth"
 import { keys } from "@/queries/keys"
 import { AppRouter, router } from "./router"
 
-followSystemTheme()
+initTheme()
 
 /**
  * A 401 anywhere means the session ended (expired, signed out elsewhere,

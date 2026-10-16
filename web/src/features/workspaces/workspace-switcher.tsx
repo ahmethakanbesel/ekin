@@ -4,6 +4,7 @@ import { useNavigate, useRouterState } from "@tanstack/react-router"
 import { ChevronsUpDownIcon, LayoutGridIcon, PlusIcon } from "lucide-react"
 
 import type { Workspace } from "@/api/client"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +16,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { SidebarMenuButton, useSidebar } from "@/components/ui/sidebar"
 import { m } from "@/i18n"
+import { initials } from "@/lib/format"
 import { workspacesQuery } from "@/queries/workspaces"
 import { CreateWorkspaceDialog } from "./create-workspace-dialog"
 
@@ -36,10 +39,22 @@ function currentSection(pathname: string): keyof typeof sectionRoutes {
     : "stories"
 }
 
-export function WorkspaceSwitcher({ current }: { current: Workspace }) {
+/**
+ * The current workspace and a menu to switch. In the sidebar it is a large
+ * menu button (an avatar alone when the sidebar is collapsed); `compact`
+ * is the name and a chevron, for the mobile header.
+ */
+export function WorkspaceSwitcher({
+  current,
+  compact = false,
+}: {
+  current: Workspace
+  compact?: boolean
+}) {
   const { data: workspaces } = useQuery(workspacesQuery())
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const navigate = useNavigate()
+  const { isMobile, state } = useSidebar()
   const [creating, setCreating] = useState(false)
 
   const go = (workspaceId: string) => {
@@ -50,25 +65,49 @@ export function WorkspaceSwitcher({ current }: { current: Workspace }) {
     })
   }
 
+  const label = `${current.name}, ${m.roles[current.role]}. ${m.nav.switchWorkspace}`
+  const trigger = compact ? (
+    <DropdownMenuTrigger
+      className="flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring aria-expanded:bg-muted"
+      aria-label={label}
+    >
+      <span className="truncate">{current.name}</span>
+      <ChevronsUpDownIcon className="size-4 shrink-0 text-muted-foreground" />
+    </DropdownMenuTrigger>
+  ) : (
+    <DropdownMenuTrigger
+      render={
+        <SidebarMenuButton
+          size="lg"
+          className="aria-expanded:bg-sidebar-accent aria-expanded:text-sidebar-accent-foreground"
+        />
+      }
+      aria-label={label}
+    >
+      <Avatar className="rounded-lg after:rounded-lg">
+        <AvatarFallback className="rounded-lg text-xs font-medium text-foreground">
+          {initials(current.name)}
+        </AvatarFallback>
+      </Avatar>
+      <span className="grid flex-1 text-left leading-tight">
+        <span className="truncate font-medium">{current.name}</span>
+        <span className="truncate text-xs text-muted-foreground">
+          {m.roles[current.role]} · {current.timezone}
+        </span>
+      </span>
+      <ChevronsUpDownIcon className="ml-auto text-muted-foreground" />
+    </DropdownMenuTrigger>
+  )
+
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-[3px] focus-visible:ring-ring aria-expanded:bg-sidebar-accent"
-          aria-label={m.nav.switchWorkspace}
+        {trigger}
+        <DropdownMenuContent
+          className="min-w-60"
+          side={!compact && !isMobile && state === "collapsed" ? "right" : "bottom"}
+          align={compact ? "end" : "start"}
         >
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground uppercase inset-ring inset-ring-primary-ink">
-            {[...current.name][0] ?? "?"}
-          </span>
-          <span className="grid min-w-0 flex-1 leading-tight">
-            <span className="truncate text-sm font-medium">{current.name}</span>
-            <span className="truncate text-xs text-muted-foreground">
-              {m.roles[current.role]} · {current.timezone}
-            </span>
-          </span>
-          <ChevronsUpDownIcon className="size-4 shrink-0 text-muted-foreground" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="min-w-60">
           <DropdownMenuGroup>
             <DropdownMenuLabel>{m.nav.workspace}</DropdownMenuLabel>
             <DropdownMenuRadioGroup
