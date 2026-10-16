@@ -306,6 +306,10 @@ func feedbackToWire(fb *storydomain.Feedback) *gen.Feedback {
 		v := *fb.AtSeconds
 		out.AtSeconds = &v
 	}
+	if fb.By != uuid.Nil {
+		by := fb.By
+		out.By = &by
+	}
 	return out
 }
 

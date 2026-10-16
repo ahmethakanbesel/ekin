@@ -1830,6 +1830,10 @@ components:
         text: { type: string }
         scope: { $ref: "#/components/schemas/FeedbackScope" }
         atSeconds: { type: number, format: double }
+        by:
+          type: string
+          format: uuid
+          description: The person who wrote the feedback.
         at: { type: string, format: date-time }
 
     Publication:

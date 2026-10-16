@@ -1228,6 +1228,11 @@ export interface components {
             scope: components["schemas"]["FeedbackScope"];
             /** Format: double */
             atSeconds?: number;
+            /**
+             * Format: uuid
+             * @description The person who wrote the feedback.
+             */
+            by?: string;
             /** Format: date-time */
             at: string;
         };
