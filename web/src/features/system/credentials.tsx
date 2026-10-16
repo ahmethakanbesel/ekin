@@ -198,7 +198,11 @@ export function Credentials() {
               {m.system.unsavedChanges(changed.length)}
             </span>
           ) : null}
-          <Button type="submit" disabled={save.isPending || changed.length === 0 || invalid}>
+          <Button
+            type="submit"
+            variant={changed.length > 0 ? "default" : "outline"}
+            disabled={save.isPending || changed.length === 0 || invalid}
+          >
             {save.isPending ? m.common.saving : m.common.save}
           </Button>
         </div>

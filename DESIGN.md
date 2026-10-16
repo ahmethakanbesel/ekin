@@ -301,7 +301,7 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 
 ### Buttons
 - **Shape:** 8px corners, 36px tall by default (24 / 32 / 40px sizes), 14px medium label, icons at 16px.
-- **Primary:** Cornflower with Cornflower On text and an inset 1px Cornflower Ink boundary; hover drops to 80% fill. One per surface: "Start review sitting", "Send 3 notes to the agent" in the feedback sheet.
+- **Primary:** Cornflower with Cornflower On text and an inset 1px Cornflower Ink boundary; hover drops to 80% fill. One per surface: "Start review sitting", "Send 3 notes to the agent" in the feedback sheet. Where a page stacks forms that save on their own (Settings: General, each language's voice, the blog; Account, SEO, System), a card's save is an outline button while the card is clean and turns primary only once it holds unsaved changes, so the primary marks the card that needs saving.
 - **Outline / Secondary / Ghost:** page fill with hairline border; stone fill; transparent with stone hover. These carry all ordinary actions.
 - **Destructive:** red text on a 10% red tint (20% in dark).
 - **Link:** Cornflower Ink text, underline on hover.

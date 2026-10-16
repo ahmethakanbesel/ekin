@@ -450,7 +450,7 @@ function ProfileForm({
         <div className="flex justify-end">
           <form.Subscribe selector={(s) => [s.isSubmitting, s.isDirty] as const}>
             {([submitting, dirty]) => (
-              <Button type="submit" disabled={submitting || !dirty}>
+              <Button type="submit" variant={dirty ? "default" : "outline"} disabled={submitting || !dirty}>
                 {submitting ? m.common.saving : m.common.save}
               </Button>
             )}

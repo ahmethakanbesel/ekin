@@ -370,7 +370,11 @@ function LanguageCard({
           {save.error ? <Banner title={errorMessage(save.error)} /> : null}
           {canManage ? (
             <div className="flex justify-end">
-              <Button type="submit" disabled={save.isPending || !dirty}>
+              <Button
+                type="submit"
+                variant={dirty ? "default" : "outline"}
+                disabled={save.isPending || !dirty}
+              >
                 {save.isPending ? m.common.saving : m.voice.save}
               </Button>
             </div>
