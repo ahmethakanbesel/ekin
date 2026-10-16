@@ -1292,7 +1292,7 @@ export interface components {
         Narrator: {
             /** @description TTS engine ID: okur, ema, kokoro, elevenlabs. */
             engine: string;
-            /** @description Voice ID; absent for the engine's default voice. */
+            /** @description Voice ID; absent for an engine with one voice, or when not recorded. */
             voice?: string;
             /** @description ElevenLabs model ID. */
             model?: string;

@@ -1915,7 +1915,7 @@ components:
       required: [engine]
       properties:
         engine: { type: string, description: "TTS engine ID: okur, ema, kokoro, elevenlabs." }
-        voice: { type: string, description: "Voice ID; absent for the engine's default voice." }
+        voice: { type: string, description: "Voice ID; absent for an engine with one voice, or when not recorded." }
         model: { type: string, description: "ElevenLabs model ID." }
 
     Story:

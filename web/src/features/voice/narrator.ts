@@ -7,7 +7,8 @@ import { elevenLabsAccountQuery, voicesQuery } from "@/queries/voice"
  * Who read a narration: "EMA Lightning", "Kokoro-82M · George (British
  * male)", "ElevenLabs · George · Eleven Multilingual v2". An engine's
  * only voice goes unnamed; an ElevenLabs voice the account no longer
- * lists is left out rather than shown as an ID.
+ * lists is left out rather than shown as an ID, and so is a voice not
+ * recorded (revisions narrated before Kurgu kept it).
  */
 export function narratorName(
   n: Narrator,
@@ -19,7 +20,7 @@ export function narratorName(
     (e) => e.id === n.engine && e.language === language
   )
   const parts = [engine?.name ?? n.engine]
-  const voiceId = n.voice ?? engine?.defaultVoice
+  const voiceId = n.voice
   if (n.engine === "elevenlabs") {
     const voice = account?.voices.find((v) => v.id === voiceId)
     if (voice) parts.push(voice.name)
