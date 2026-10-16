@@ -121,7 +121,7 @@ func (r *InMemory) PutRevision(_ context.Context, rev storydomain.Revision) erro
 	defer r.mu.Unlock()
 	k := revKey{rev.DeliverableID, rev.Number}
 	if old, ok := r.revisions[k]; ok {
-		old.Artifacts, old.Notes = maps.Clone(rev.Artifacts), rev.Notes
+		old.Artifacts, old.Notes, old.Measures = maps.Clone(rev.Artifacts), rev.Notes, rev.Measures
 		r.revisions[k] = old
 		return nil
 	}

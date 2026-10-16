@@ -65,7 +65,7 @@ func TestConformance(t *testing.T) {
 
 			video := got.Lead()
 			_, _ = got.StartDrafting(video.ID(), now)
-			rev, _ := got.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k"}, "sess", "notes", now)
+			rev, _ := got.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k"}, "sess", "notes", 140, now)
 			if err := repo.Save(ctx, got); err != nil {
 				t.Fatal(err)
 			}
@@ -73,9 +73,11 @@ func TestConformance(t *testing.T) {
 				t.Fatal(err)
 			}
 			rev.Artifacts["preview.mp4"] = "p"
+			rev.Measures.Duration = 47500 * time.Millisecond
 			_ = repo.PutRevision(ctx, rev)
 			back, _ := repo.Revision(ctx, video.ID(), 1)
-			if back.Artifacts["preview.mp4"] != "p" || back.Artifacts["workdir.tar.gz"] != "k" || back.Notes != "notes" {
+			if back.Artifacts["preview.mp4"] != "p" || back.Artifacts["workdir.tar.gz"] != "k" || back.Notes != "notes" ||
+				back.Measures != (storydomain.Measures{Duration: 47500 * time.Millisecond, Words: 140}) {
 				t.Fatalf("revision = %+v", back)
 			}
 			if _, err := repo.Revision(ctx, video.ID(), 2); !apperror.Is(err, apperror.NotFound) {
@@ -86,11 +88,15 @@ func TestConformance(t *testing.T) {
 			if stale.Version() != 2 || stale.Lead().Status() != storydomain.StatusRendering || stale.Lead().Session() != "sess" {
 				t.Fatalf("saved = v%d %s", stale.Version(), stale.Lead().Status())
 			}
-			_ = got.Rendered(video.ID(), now)
+			_ = got.Rendered(video.ID(), 47500*time.Millisecond, now)
 			if err := repo.Save(ctx, got); err != nil {
 				t.Fatal(err)
 			}
-			_ = stale.Rendered(video.ID(), now)
+			rendered, _ := repo.Get(ctx, ws, s.ID())
+			if m := rendered.Lead().Measures(); m != (storydomain.Measures{Duration: 47500 * time.Millisecond, Words: 140}) {
+				t.Fatalf("deliverable measures = %+v", m)
+			}
+			_ = stale.Rendered(video.ID(), 0, now)
 			if err := repo.Save(ctx, stale); !apperror.Is(err, apperror.StaleVersion) {
 				t.Fatalf("stale save = %v", err)
 			}

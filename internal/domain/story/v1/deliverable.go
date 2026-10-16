@@ -100,6 +100,14 @@ func NewFeedback(text string, scope Scope, atSeconds *float64, by uuid.UUID, now
 	return Feedback{Text: text, Scope: scope, AtSeconds: atSeconds, By: by, At: timeutil.Normalize(now)}, nil
 }
 
+// Measures are what a revision came out as, not what was asked for:
+// the rendered video's length and the words spoken or written. Zero
+// means not measured (yet).
+type Measures struct {
+	Duration time.Duration
+	Words    int
+}
+
 // Publication is where a deliverable went live.
 type Publication struct {
 	URL        string    `json:"url"`
@@ -125,6 +133,7 @@ type Deliverable struct {
 	approvedBy uuid.UUID
 	approvedAt time.Time
 	published  *Publication
+	measures   Measures
 	createdAt  time.Time
 	updatedAt  time.Time
 }
@@ -145,6 +154,7 @@ func (d *Deliverable) Session() string                      { return d.session }
 func (d *Deliverable) ApprovedBy() uuid.UUID                { return d.approvedBy }
 func (d *Deliverable) ApprovedAt() time.Time                { return d.approvedAt }
 func (d *Deliverable) Publication() *Publication            { return d.published }
+func (d *Deliverable) Measures() Measures                   { return d.measures }
 func (d *Deliverable) CreatedAt() time.Time                 { return d.createdAt }
 func (d *Deliverable) UpdatedAt() time.Time                 { return d.updatedAt }
 func (d *Deliverable) IsVideo() bool                        { return d.kind == pipelinedomain.KindVideo }
@@ -157,6 +167,7 @@ type Revision struct {
 	Feedback      *Feedback
 	Artifacts     map[string]string
 	Notes         string
+	Measures      Measures
 	// EditedBy is the person who edited this revision in place; Nil when
 	// the agent made it.
 	EditedBy  uuid.UUID
@@ -207,17 +218,19 @@ func (s *Story) StartDrafting(id uuid.UUID, now time.Time) (*Feedback, error) {
 	return d.pending, nil
 }
 
-// Drafted records the agent's output as the next revision. Videos go on
-// to the preview render; articles straight to review.
-func (s *Story) Drafted(id uuid.UUID, artifacts map[string]string, session, notes string, now time.Time) (Revision, error) {
+// Drafted records the agent's output, of words words, as the next
+// revision. Videos go on to the preview render; articles straight to
+// review.
+func (s *Story) Drafted(id uuid.UUID, artifacts map[string]string, session, notes string, words int, now time.Time) (Revision, error) {
 	d, err := s.find(id, StatusDrafting)
 	if err != nil {
 		return Revision{}, err
 	}
 	d.revision++
+	d.measures = Measures{Words: max(words, 0)}
 	rev := Revision{
 		DeliverableID: d.id, Number: d.revision, Feedback: d.pending,
-		Artifacts: maps.Clone(artifacts), Notes: notes, CreatedAt: timeutil.Normalize(now),
+		Artifacts: maps.Clone(artifacts), Notes: notes, Measures: d.measures, CreatedAt: timeutil.Normalize(now),
 	}
 	d.pending, d.failure, d.failedStep = nil, "", ""
 	if session != "" {
@@ -232,11 +245,12 @@ func (s *Story) Drafted(id uuid.UUID, artifacts map[string]string, session, note
 	return rev, nil
 }
 
-// Edited records a reviewer's in-place edit as the next revision. With
-// retime set (the narration changed), the deliverable goes back to the
-// agent to re-narrate and re-time its visuals to the edited text;
-// otherwise it stays in review.
-func (s *Story) Edited(id uuid.UUID, artifacts map[string]string, by uuid.UUID, retime *Feedback, now time.Time) (Revision, error) {
+// Edited records a reviewer's in-place edit, now of words words, as the
+// next revision. With retime set (the narration changed), the
+// deliverable goes back to the agent to re-narrate and re-time its
+// visuals to the edited text, so its length is unknown until the next
+// render; otherwise it stays in review with the video it had.
+func (s *Story) Edited(id uuid.UUID, artifacts map[string]string, by uuid.UUID, retime *Feedback, words int, now time.Time) (Revision, error) {
 	d, err := s.find(id, StatusReview)
 	if err != nil {
 		return Revision{}, err
@@ -245,9 +259,13 @@ func (s *Story) Edited(id uuid.UUID, artifacts map[string]string, by uuid.UUID, 
 		return Revision{}, apperror.New(apperror.ValidationFailed, "only a video is re-timed after an edit")
 	}
 	d.revision++
+	d.measures.Words = max(words, 0)
+	if retime != nil {
+		d.measures.Duration = 0
+	}
 	rev := Revision{
 		DeliverableID: d.id, Number: d.revision, Artifacts: maps.Clone(artifacts), EditedBy: by,
-		Notes: "Edited in place.", CreatedAt: timeutil.Normalize(now),
+		Notes: "Edited in place.", Measures: d.measures, CreatedAt: timeutil.Normalize(now),
 	}
 	if retime != nil {
 		rev.Notes = "Narration edited in place; the agent re-times the video to it."
@@ -260,12 +278,16 @@ func (s *Story) Edited(id uuid.UUID, artifacts map[string]string, by uuid.UUID, 
 	return rev, nil
 }
 
-// Rendered records a finished render: a preview puts the video in
-// review, a final render makes it ready.
-func (s *Story) Rendered(id uuid.UUID, now time.Time) error {
+// Rendered records a finished render of the given length (0 when it
+// could not be measured): a preview puts the video in review, a final
+// render makes it ready.
+func (s *Story) Rendered(id uuid.UUID, length time.Duration, now time.Time) error {
 	d, err := s.find(id, StatusRendering, StatusFinalizing)
 	if err != nil {
 		return err
+	}
+	if length > 0 {
+		d.measures.Duration = length
 	}
 	if d.status == StatusRendering {
 		d.set(StatusReview, now)

@@ -1262,10 +1262,22 @@ export interface components {
             /** Format: date-time */
             approvedAt?: string;
             publication?: components["schemas"]["Publication"];
+            /** @description What the latest revision came out as; absent until something was measured. */
+            measured?: components["schemas"]["Measures"];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        /** @description What a revision came out as, as opposed to the pipeline's targets. Each field is absent until measured. */
+        Measures: {
+            /**
+             * Format: double
+             * @description Length of the rendered video.
+             */
+            durationSeconds?: number;
+            /** @description Words in a video's narration or an article's body. */
+            words?: number;
         };
         Story: {
             /** Format: uuid */
@@ -1303,6 +1315,7 @@ export interface components {
              * @description The person who edited this revision in place; absent when the agent made it.
              */
             editedBy?: string;
+            measured?: components["schemas"]["Measures"];
             /** Format: date-time */
             createdAt: string;
         };

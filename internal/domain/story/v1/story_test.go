@@ -81,11 +81,11 @@ func TestVideoLifecycle(t *testing.T) {
 	if _, err := s.StartDrafting(video.ID(), now); err != nil || video.Status() != story.StatusDrafting {
 		t.Fatalf("restart an interrupted draft = %s, %v", video.Status(), err)
 	}
-	rev, err := s.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k1"}, "sess-1", "", now)
+	rev, err := s.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k1"}, "sess-1", "", 0, now)
 	if err != nil || rev.Number != 1 || video.Status() != story.StatusRendering || video.Session() != "sess-1" {
 		t.Fatalf("drafted = %+v %s %v", rev, video.Status(), err)
 	}
-	if err := s.Rendered(video.ID(), now); err != nil || video.Status() != story.StatusReview || s.Status() != story.StatusReview {
+	if err := s.Rendered(video.ID(), 0, now); err != nil || video.Status() != story.StatusReview || s.Status() != story.StatusReview {
 		t.Fatalf("rendered = %s %v", video.Status(), err)
 	}
 
@@ -98,11 +98,11 @@ func TestVideoLifecycle(t *testing.T) {
 	if got == nil || got.Text != "Make the hook faster" {
 		t.Fatalf("feedback lost: %v", got)
 	}
-	rev, _ = s.Drafted(video.ID(), nil, "", "", now)
+	rev, _ = s.Drafted(video.ID(), nil, "", "", 0, now)
 	if rev.Number != 2 || rev.Feedback == nil || video.PendingFeedback() != nil || video.Session() != "sess-1" {
 		t.Fatalf("revision 2 = %+v", rev)
 	}
-	_ = s.Rendered(video.ID(), now)
+	_ = s.Rendered(video.ID(), 0, now)
 
 	queued, err := s.Approve(video.ID(), id.New(), id.New, now)
 	if err != nil || video.Status() != story.StatusFinalizing || len(queued) != 0 || article.Status() != story.StatusWaiting {
@@ -111,7 +111,7 @@ func TestVideoLifecycle(t *testing.T) {
 	if _, err := s.ReleaseDerived(video.ID(), now); !apperror.Is(err, apperror.InvalidTransition) {
 		t.Fatalf("released before the final render: %v", err)
 	}
-	_ = s.Rendered(video.ID(), now)
+	_ = s.Rendered(video.ID(), 0, now)
 	if video.Status() != story.StatusReady {
 		t.Fatalf("final render = %s", video.Status())
 	}
@@ -128,7 +128,7 @@ func TestVideoLifecycle(t *testing.T) {
 
 	// The derived article: approval adds its English translation.
 	_, _ = s.StartDrafting(article.ID(), now)
-	_, _ = s.Drafted(article.ID(), nil, "", "", now)
+	_, _ = s.Drafted(article.ID(), nil, "", "", 0, now)
 	if article.Status() != story.StatusReview {
 		t.Fatalf("article skips rendering: %s", article.Status())
 	}
@@ -138,7 +138,7 @@ func TestVideoLifecycle(t *testing.T) {
 	}
 	tr := queued[0]
 	_, _ = s.StartDrafting(tr.ID(), now)
-	_, _ = s.Drafted(tr.ID(), nil, "", "", now)
+	_, _ = s.Drafted(tr.ID(), nil, "", "", 0, now)
 	if more, _ := s.Approve(tr.ID(), id.New(), id.New, now); len(more) != 0 {
 		t.Fatalf("a translation spawned translations: %d", len(more))
 	}
@@ -156,7 +156,7 @@ func TestFailRetryAndReject(t *testing.T) {
 	s := newStory(t, outputs(t, true, true, pipelinedomain.KindVideo))
 	video := s.Lead()
 	_, _ = s.StartDrafting(video.ID(), now)
-	_, _ = s.Drafted(video.ID(), nil, "", "", now)
+	_, _ = s.Drafted(video.ID(), nil, "", "", 0, now)
 	if err := s.Fail(video.ID(), "chrome crashed", now); err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +167,7 @@ func TestFailRetryAndReject(t *testing.T) {
 	if err != nil || next != story.StatusRendering || video.Failure() != "" {
 		t.Fatalf("retry = %s %v", next, err)
 	}
-	_ = s.Rendered(video.ID(), now)
+	_ = s.Rendered(video.ID(), 0, now)
 	if err := s.Reject(video.ID(), now); err != nil {
 		t.Fatal(err)
 	}
@@ -178,6 +178,49 @@ func TestFailRetryAndReject(t *testing.T) {
 	}
 	if err := s.Fail(video.ID(), "x", now); !apperror.Is(err, apperror.InvalidTransition) {
 		t.Fatalf("fail rejected = %v", err)
+	}
+}
+
+func TestMeasuresFollowTheLatestRevision(t *testing.T) {
+	s := newStory(t, outputs(t, true, false, pipelinedomain.KindVideo))
+	video := s.Lead()
+	editor := id.New()
+	check := func(step string, rev story.Revision, want story.Measures) {
+		t.Helper()
+		if rev.Measures != want || video.Measures() != want {
+			t.Fatalf("%s: revision %+v, deliverable %+v, want %+v", step, rev.Measures, video.Measures(), want)
+		}
+	}
+
+	_, _ = s.StartDrafting(video.ID(), now)
+	rev, _ := s.Drafted(video.ID(), nil, "", "", 112, now)
+	check("drafted", rev, story.Measures{Words: 112})
+	_ = s.Rendered(video.ID(), 0, now) // not measured: nothing changes
+	check("unmeasured render", rev, story.Measures{Words: 112})
+
+	fb, _ := story.NewFeedback("Shorter", story.ScopeScript, nil, editor, now)
+	_ = s.RequestChanges(video.ID(), fb, now)
+	_, _ = s.StartDrafting(video.ID(), now)
+	rev, _ = s.Drafted(video.ID(), nil, "", "", 120, now)
+	check("redrafted", rev, story.Measures{Words: 120})
+	_ = s.Rendered(video.ID(), 47*time.Second, now)
+	if want := (story.Measures{Duration: 47 * time.Second, Words: 120}); video.Measures() != want {
+		t.Fatalf("rendered = %+v, want %+v", video.Measures(), want)
+	}
+
+	// A metadata edit keeps the picture, so the length carries over.
+	rev, _ = s.Edited(video.ID(), nil, editor, nil, 120, now)
+	check("metadata edit", rev, story.Measures{Duration: 47 * time.Second, Words: 120})
+
+	// A narration edit goes back to the agent: the length is unknown
+	// until the next render.
+	retime, _ := story.NewFeedback("re-time", story.ScopeScript, nil, editor, now)
+	rev, _ = s.Edited(video.ID(), nil, editor, &retime, 98, now)
+	check("narration edit", rev, story.Measures{Words: 98})
+
+	back, err := story.Rehydrate(s.Snapshot())
+	if err != nil || back.Lead().Measures() != (story.Measures{Words: 98}) {
+		t.Fatalf("rehydrated measures = %+v, %v", back.Lead().Measures(), err)
 	}
 }
 

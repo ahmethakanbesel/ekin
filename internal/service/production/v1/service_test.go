@@ -2,6 +2,7 @@ package production_test
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"io"
@@ -138,8 +139,19 @@ func (fakeRenderer) Video(_ context.Context, _, _ string, _ render.VideoOptions,
 	return render.Meta{Width: 1080, Height: 1920, FPS: 30, Duration: 21}, os.WriteFile(out, []byte("video"), 0o600)
 }
 func (fakeRenderer) Music(context.Context, string, float64, string) (float64, error) { return 0.5, nil }
-func (fakeRenderer) Mix(_ context.Context, _, _, _ string, _ float64, out string) error {
-	return os.WriteFile(out, []byte("mixed"), 0o600)
+func (fakeRenderer) Mix(_ context.Context, _, _, _ string, duration float64, out string) error {
+	return os.WriteFile(out, tinyMP4(duration), 0o600)
+}
+
+// tinyMP4 is just enough of an MP4 to carry a length: ftyp, then a moov
+// holding a version 0 mvhd with a millisecond timescale.
+func tinyMP4(seconds float64) []byte {
+	box := func(kind string, body []byte) []byte {
+		return append(append(binary.BigEndian.AppendUint32(nil, uint32(8+len(body))), kind...), body...)
+	}
+	mvhd := binary.BigEndian.AppendUint32(make([]byte, 12), 1000)
+	mvhd = binary.BigEndian.AppendUint32(mvhd, uint32(seconds*1000))
+	return append(box("ftyp", []byte("isom\x00\x00\x02\x00")), box("moov", box("mvhd", append(mvhd, make([]byte, 80)...)))...)
 }
 func (fakeRenderer) Poster(_ context.Context, _ string, _ float64, out string) error {
 	return os.WriteFile(out, []byte("jpg"), 0o600)
@@ -290,6 +302,10 @@ func TestVideoWithDerivedArticleAndTranslation(t *testing.T) {
 			t.Fatalf("revision 1 lacks %s: %v", name, revs[0].Artifacts)
 		}
 	}
+	// The narration's words and the rendered preview's length.
+	if want := (storydomain.Measures{Duration: 21 * time.Second, Words: 2}); revs[0].Measures != want || lead.Measures() != want {
+		t.Fatalf("measures = %+v / %+v, want %+v", revs[0].Measures, lead.Measures(), want)
+	}
 	brief := f.agent.prompts[1]
 	if !strings.Contains(strings.Join(brief.Allowed, ","), "Bash(kurgu tool:*)") || !strings.Contains(strings.Join(brief.Env, " "), "KURGU_TOOL_SPEC") ||
 		!strings.Contains(strings.Join(brief.Env, " "), ".bin") {
@@ -336,6 +352,9 @@ func TestVideoWithDerivedArticleAndTranslation(t *testing.T) {
 	}
 	if articleD.Status() != storydomain.StatusReview || articleD.Kind() != pipelinedomain.KindArticle {
 		t.Fatalf("derived = %s: %s", articleD.Status(), articleD.Failure())
+	}
+	if m := articleD.Measures(); m != (storydomain.Measures{Words: 903}) {
+		t.Fatalf("article measures = %+v, want 903 words", m)
 	}
 	brief = f.agent.prompts[len(f.agent.prompts)-1]
 	instructions, _ = os.ReadFile(filepath.Join(brief.Dir, "INSTRUCTIONS.md"))
@@ -810,6 +829,9 @@ func TestEditVideoInPlace(t *testing.T) {
 	if revs[1].Artifacts[storydomain.ArtifactPreview] != revs[0].Artifacts[storydomain.ArtifactPreview] || revs[1].Artifacts[storydomain.ArtifactPreview] == "" {
 		t.Fatalf("preview not kept: %v", revs[1].Artifacts)
 	}
+	if want := (storydomain.Measures{Duration: 21 * time.Second, Words: 2}); revs[1].Measures != want {
+		t.Fatalf("kept preview measures = %+v, want %+v", revs[1].Measures, want)
+	}
 	c, _ = f.svc.Content(ctx, f.ws, st.ID(), d.ID())
 	if c.Metadata.Title != "Kaygı nedir, ne değildir?" || len(c.Metadata.Tags) != 2 {
 		t.Fatalf("metadata = %+v", c.Metadata)
@@ -822,6 +844,10 @@ func TestEditVideoInPlace(t *testing.T) {
 	}
 	if d = f.story(t).Lead(); d.Status() != storydomain.StatusQueued || d.Revision() != 3 {
 		t.Fatalf("after narration edit: r%d %s", d.Revision(), d.Status())
+	}
+	// Not rendered yet: the edited words, but no length.
+	if m := d.Measures(); m != (storydomain.Measures{Words: 7}) {
+		t.Fatalf("after narration edit measures = %+v, want 7 words", m)
 	}
 	f.drain(t)
 	last := f.agent.prompts[len(f.agent.prompts)-1]

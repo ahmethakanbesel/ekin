@@ -154,6 +154,7 @@ func (s *Service) EditContent(ctx context.Context, workspaceID, storyID, deliver
 	if err != nil {
 		return nil, err
 	}
+	words := wordsIn(d, dir)
 	prev, err := s.stories.Revision(ctx, d.ID(), d.Revision())
 	if err != nil {
 		return nil, err
@@ -182,7 +183,7 @@ func (s *Service) EditContent(ctx context.Context, workspaceID, storyID, deliver
 		if d.Revision() != e.Revision {
 			return apperror.New(apperror.Conflict, "the deliverable changed while saving; reload and edit again")
 		}
-		rev, err := st.Edited(deliverableID, maps.Clone(artifacts), by, retime, s.now())
+		rev, err := st.Edited(deliverableID, maps.Clone(artifacts), by, retime, words, s.now())
 		if err != nil {
 			return err
 		}

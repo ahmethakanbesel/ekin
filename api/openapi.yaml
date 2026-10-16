@@ -1866,8 +1866,25 @@ components:
         failedStep: { type: string }
         approvedAt: { type: string, format: date-time }
         publication: { $ref: "#/components/schemas/Publication" }
+        measured:
+          $ref: "#/components/schemas/Measures"
+          description: What the latest revision came out as; absent until something was measured.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    Measures:
+      type: object
+      description: >
+        What a revision came out as, as opposed to the pipeline's targets.
+        Each field is absent until measured.
+      properties:
+        durationSeconds:
+          type: number
+          format: double
+          description: Length of the rendered video.
+        words:
+          type: integer
+          description: Words in a video's narration or an article's body.
 
     Story:
       type: object
@@ -1914,6 +1931,7 @@ components:
           type: string
           format: uuid
           description: The person who edited this revision in place; absent when the agent made it.
+        measured: { $ref: "#/components/schemas/Measures" }
         createdAt: { type: string, format: date-time }
 
     VideoMetadataContent:

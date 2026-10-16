@@ -36,3 +36,17 @@ func TestFeedbackToWireNamesTheAuthor(t *testing.T) {
 		})
 	}
 }
+
+func TestMeasuresToWireLeavesOutWhatWasNotMeasured(t *testing.T) {
+	if got := measuresToWire(storydomain.Measures{}); got != nil {
+		t.Fatalf("unmeasured = %+v, want nil", got)
+	}
+	words := measuresToWire(storydomain.Measures{Words: 140})
+	if words == nil || words.DurationSeconds != nil || words.Words == nil || *words.Words != 140 {
+		t.Fatalf("words only = %+v", words)
+	}
+	both := measuresToWire(storydomain.Measures{Duration: 47520 * time.Millisecond, Words: 98})
+	if both == nil || both.DurationSeconds == nil || *both.DurationSeconds != 47.52 || *both.Words != 98 {
+		t.Fatalf("both = %+v", both)
+	}
+}

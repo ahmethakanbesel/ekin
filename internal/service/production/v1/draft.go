@@ -238,10 +238,11 @@ func (s *Service) FinishDraft(ctx context.Context, task DraftTask, dir string, r
 	if err != nil {
 		return s.stepFailed(ctx, p, err)
 	}
+	words := wordsIn(d, dir)
 	var rev storydomain.Revision
 	st, err = s.mutate(ctx, p.StoryID, func(ctx context.Context, st *storydomain.Story) error {
 		var err error
-		rev, err = st.Drafted(p.DeliverableID, artifacts, res.Session, res.Notes, s.now())
+		rev, err = st.Drafted(p.DeliverableID, artifacts, res.Session, res.Notes, words, s.now())
 		if err != nil {
 			return err
 		}

@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -126,9 +127,12 @@ func (s *Service) FinishRender(ctx context.Context, task RenderTask, files map[s
 	}
 	prefix := fmt.Sprintf("ws/%s/stories/%s/%s/r%d/", st.WorkspaceID(), st.ID(), d.ID(), d.Revision())
 	keys := map[string]string{}
+	var length time.Duration
 	for artifact, path := range files {
 		switch artifact {
-		case storydomain.ArtifactPreview, storydomain.ArtifactFinal, storydomain.ArtifactPoster:
+		case storydomain.ArtifactPreview, storydomain.ArtifactFinal:
+			length = videoLength(path)
+		case storydomain.ArtifactPoster:
 		default:
 			continue
 		}
@@ -145,10 +149,13 @@ func (s *Service) FinishRender(ctx context.Context, task RenderTask, files map[s
 		for k, v := range keys {
 			rev.Artifacts[k] = v
 		}
+		if length > 0 {
+			rev.Measures.Duration = length
+		}
 		if err := s.stories.PutRevision(ctx, rev); err != nil {
 			return err
 		}
-		return st.Rendered(d.ID(), s.now())
+		return st.Rendered(d.ID(), length, s.now())
 	})
 	if err != nil {
 		return err

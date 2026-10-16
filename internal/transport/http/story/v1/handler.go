@@ -159,7 +159,8 @@ func (h *Handler) ListRevisions(ctx context.Context, req gen.ListRevisionsReques
 		}
 		slices.Sort(names)
 		rev := gen.Revision{
-			Number: r.Number, Feedback: feedbackToWire(r.Feedback), Artifacts: names, Notes: r.Notes, CreatedAt: r.CreatedAt,
+			Number: r.Number, Feedback: feedbackToWire(r.Feedback), Artifacts: names, Notes: r.Notes,
+			Measured: measuresToWire(r.Measures), CreatedAt: r.CreatedAt,
 		}
 		if r.EditedBy != uuid.Nil {
 			by := r.EditedBy
@@ -269,7 +270,8 @@ func ToWire(st *storydomain.Story) gen.Story {
 		wd := gen.Deliverable{
 			Id: d.ID(), Kind: gen.DeliverableKind(d.Kind()), Role: gen.DeliverableRole(d.Role()),
 			Language: gen.Language(d.Language()), Status: gen.DeliverableStatus(d.Status()), Revision: d.Revision(),
-			PendingFeedback: feedbackToWire(d.PendingFeedback()), CreatedAt: d.CreatedAt(), UpdatedAt: d.UpdatedAt(),
+			PendingFeedback: feedbackToWire(d.PendingFeedback()), Measured: measuresToWire(d.Measures()),
+			CreatedAt: d.CreatedAt(), UpdatedAt: d.UpdatedAt(),
 		}
 		if d.SourceID() != uuid.Nil {
 			sid := d.SourceID()
@@ -295,6 +297,24 @@ func ToWire(st *storydomain.Story) gen.Story {
 		out.Deliverables = append(out.Deliverables, wd)
 	}
 	return out
+}
+
+// measuresToWire leaves out what was not measured, and the whole
+// object when nothing was.
+func measuresToWire(m storydomain.Measures) *gen.Measures {
+	if m == (storydomain.Measures{}) {
+		return nil
+	}
+	var out gen.Measures
+	if m.Duration > 0 {
+		secs := m.Duration.Seconds()
+		out.DurationSeconds = &secs
+	}
+	if m.Words > 0 {
+		words := m.Words
+		out.Words = &words
+	}
+	return &out
 }
 
 func feedbackToWire(fb *storydomain.Feedback) *gen.Feedback {
