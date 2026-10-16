@@ -200,14 +200,13 @@
 
 /*
  * Review feed geometry (layout only): one draft per snap, sized to the
- * feed's own box, with the next draft peeking below. Every draft starts
- * from one left edge: the place a 9:16 frame as tall as the feed allows
- * (with its rail) is centred in the room the docked feedback sheet leaves.
- * While the sheet is closed that room is reserved (`data-sheet="closed"`),
- * so opening it, or moving to a draft without one, never moves the draft.
- * Wider drafts grow to the right of that edge: a 16:9 video, and an
- * article as a reading column. A 9:16 video carries its caption strip
- * over its foot.
+ * feed's own box, with the next draft peeking below. Each draft and its
+ * rail stand centred in the feed: a 9:16 frame as tall as the feed allows,
+ * a 16:9 video or an article reading column as wide as the room left
+ * beside the rail. Opening or closing the docked feedback sheet changes
+ * the feed's width, and the page's grid slides that change in, so the
+ * drafts glide to their new centre rather than jump. A 9:16 video carries
+ * its caption strip over its foot.
  */
 .feed {
   position: relative;
@@ -227,9 +226,6 @@
     flex: 1 1 0%;
     min-height: 0;
   }
-  .feed[data-sheet="closed"] {
-    --reserve: 340px;
-  }
 }
 .feed-item {
   --peek: 48px;
@@ -240,20 +236,14 @@
     calc(var(--fh) * 9 / 16),
     calc(100cqw - 32px - var(--gap) - var(--rail))
   );
-  --left: max(
-    16px,
-    calc(
-      (100cqw - var(--reserve, 0px) - var(--cw) - var(--gap) - var(--rail)) /
-        2
-    )
-  );
-  /* What a draft may take to the right of the left edge. */
-  --room: calc(100cqw - var(--left) - 16px - var(--gap) - var(--rail));
+  /* What a draft may take beside its rail. */
+  --room: calc(100cqw - 32px - var(--gap) - var(--rail));
   height: calc(100cqh - var(--peek));
   scroll-snap-align: start;
   display: flex;
   align-items: flex-start;
-  padding: 4px 16px 16px var(--left);
+  justify-content: center;
+  padding: 4px 16px 16px;
 }
 .feed-item:last-child,
 .feed-item:only-child {

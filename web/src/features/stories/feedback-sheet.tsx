@@ -132,29 +132,32 @@ function DockedSheet(props: Props) {
       id="feedback-sheet"
       hidden={!open}
       aria-labelledby="feedback-sheet-title"
-      className="relative flex min-h-0 flex-col border-l bg-background"
+      // Its column slides open; the content keeps its width and is revealed.
+      className="min-h-0 min-w-0 overflow-hidden border-l bg-background xl:col-start-2 xl:row-start-1"
     >
-      <SheetHeader className="pr-12">
-        <h2 id="feedback-sheet-title" className="font-semibold">
-          {m.feedbackSheet.title}
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          {m.feedbackSheet.description(d.revision)}
-        </p>
-      </SheetHeader>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className="absolute top-3 right-3"
-        aria-label={m.feedbackSheet.close}
-        onClick={() => {
-          onOpenChange(false)
-          returnFocus.current?.focus()
-        }}
-      >
-        <XIcon />
-      </Button>
-      <Form {...props} onShowHistory={showHistory} />
+      <div className="relative flex h-full w-full min-w-[339px] flex-col">
+        <SheetHeader className="pr-12">
+          <h2 id="feedback-sheet-title" className="font-semibold">
+            {m.feedbackSheet.title}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {m.feedbackSheet.description(d.revision)}
+          </p>
+        </SheetHeader>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="absolute top-3 right-3"
+          aria-label={m.feedbackSheet.close}
+          onClick={() => {
+            onOpenChange(false)
+            returnFocus.current?.focus()
+          }}
+        >
+          <XIcon />
+        </Button>
+        <Form {...props} onShowHistory={showHistory} />
+      </div>
     </aside>
   )
 }

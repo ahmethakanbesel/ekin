@@ -347,18 +347,29 @@ function StoryView({
     return () => document.removeEventListener("keydown", onKey)
   }, [pinning])
 
+  // The docked sheet's column. It opens and closes with the sheet, and the
+  // drafts, centred in the feed, slide with it. It stays while the sheet is
+  // kept open but this draft has none (one being approved, one not in
+  // review), so moving through the sitting never moves the drafts.
+  const sheetColumn =
+    wide &&
+    docked &&
+    canEdit &&
+    !review.editing &&
+    (sitting || selected.status === "review")
+
   return (
     <div
       className={cn(
-        "min-w-0 xl:grid xl:h-[calc(100svh-3rem-1px)] xl:overflow-hidden",
-        feedbackOpen
+        "min-w-0 xl:grid xl:h-[calc(100svh-3rem-1px)] xl:overflow-hidden motion-safe:xl:transition-[grid-template-columns] motion-safe:xl:duration-300 motion-safe:xl:ease-[cubic-bezier(0.16,1,0.3,1)]",
+        sheetColumn
           ? "xl:grid-cols-[minmax(0,1fr)_340px_360px]"
-          : "xl:grid-cols-[minmax(0,1fr)_360px]"
+          : "xl:grid-cols-[minmax(0,1fr)_0px_360px]"
       )}
     >
       <section
         aria-label={story.title}
-        className="flex min-h-0 min-w-0 flex-col"
+        className="@container flex min-h-0 min-w-0 flex-col xl:col-start-1 xl:row-start-1"
       >
         {/* As tall with or without the outputs switch (38px), so the feed
             below keeps its height from story to story. */}
@@ -375,7 +386,7 @@ function StoryView({
             nativeButton={false}
           >
             <ChevronLeftIcon data-icon="inline-start" />
-            {m.feed.back}
+            <span className="@max-[640px]:sr-only">{m.feed.back}</span>
           </Button>
           {story.deliverables.length > 1 ? (
             <ToggleGroup
@@ -390,12 +401,14 @@ function StoryView({
                   key={d.id}
                   value={d.id}
                   // Pressed: a foreground/60 border on the track (4.6:1 light, 5.2:1 dark).
-                  className="h-8 flex-1 gap-1.5 border border-transparent px-2.5 font-normal text-muted-foreground hover:bg-background/60 hover:text-foreground aria-pressed:border-foreground/60 aria-pressed:bg-background aria-pressed:font-medium aria-pressed:text-foreground aria-pressed:inset-ring-0"
+                  className="h-8 flex-1 gap-1.5 border sm:flex-none border-transparent px-2.5 font-normal text-muted-foreground hover:bg-background/60 hover:text-foreground aria-pressed:border-foreground/60 aria-pressed:bg-background aria-pressed:font-medium aria-pressed:text-foreground aria-pressed:inset-ring-0"
                 >
                   {deliverableLabel(d)}
+                  {/* Hidden where the docked sheet leaves too little room
+                      for the toolbar on one line; the panel's banner says it. */}
                   <span
                     className={cn(
-                      "hidden text-xs font-normal sm:inline",
+                      "hidden text-xs font-normal sm:inline @max-[640px]:hidden",
                       d.status === "review"
                         ? "text-primary-ink"
                         : "text-muted-foreground"
@@ -469,13 +482,6 @@ function StoryView({
             stories={stories}
             currentId={story.id}
             sitting={sitting}
-            sheet={
-              feedbackOpen
-                ? "open"
-                : canEdit && (sitting || reviewing)
-                  ? "closed"
-                  : undefined
-            }
             workspaceId={workspace.id}
             renderItem={(s, near) =>
               s.id === story.id ? (
@@ -552,7 +558,7 @@ function StoryView({
       ) : null}
       <aside
         aria-label={m.feed.details}
-        className="scroll-area min-h-0 border-t xl:overflow-y-auto xl:border-t-0 xl:border-l"
+        className="scroll-area min-h-0 border-t xl:col-start-3 xl:row-start-1 xl:overflow-y-auto xl:border-t-0 xl:border-l"
       >
         <ReviewPanel
           workspaceId={workspace.id}
