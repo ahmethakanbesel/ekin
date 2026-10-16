@@ -2,9 +2,9 @@ import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import {
+  CirclePauseIcon,
   GaugeIcon,
   MinusIcon,
-  PauseIcon,
   PlayIcon,
   PlusIcon,
 } from "lucide-react"
@@ -23,6 +23,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   HeavyQueuesPicker,
   PRIORITIES,
@@ -31,9 +32,11 @@ import {
 } from "@/features/system/host-profiles"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
+import { iconClass, toneClass } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { meQuery } from "@/queries/auth"
 import { profilesQuery, useSaveProfile } from "@/queries/system"
+import { QueueDot } from "./queue"
 
 const MAX_SLOTS = 8
 const MAX_COOLDOWN = 3600
@@ -99,9 +102,14 @@ export function PausedBanners({ throttle }: { throttle: Throttle }) {
         <div
           key={p.name}
           role="status"
-          className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-primary-ink/40 bg-primary/10 px-4 py-3 text-sm"
+          className={cn(
+            "flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border px-4 py-3 text-sm",
+            toneClass.attention
+          )}
         >
-          <PauseIcon className="size-4 shrink-0 text-primary-ink" />
+          <CirclePauseIcon
+            className={cn("size-4 shrink-0", iconClass.attention)}
+          />
           <span className="min-w-0 flex-1">
             {p.name === throttle.current
               ? t.pausedHere(p.name)
@@ -160,25 +168,32 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
         </PopoverHeader>
 
         {throttle.profiles.length > 1 ? (
-          <div
-            className="flex flex-wrap gap-1.5"
-            role="group"
+          <ToggleGroup
+            variant="outline"
+            size="sm"
+            spacing={0}
             aria-label={t.profile}
+            value={[profile.name]}
+            onValueChange={(next) => next[0] && setChosen(next[0])}
+            className="flex-wrap"
           >
             {throttle.profiles.map((p) => (
-              <Button
+              <ToggleGroupItem
                 key={p.name}
-                size="xs"
-                variant={p.name === profile.name ? "default" : "outline"}
-                aria-pressed={p.name === profile.name}
-                onClick={() => setChosen(p.name)}
-                className="font-mono"
+                value={p.name}
+                className="font-mono font-normal"
               >
                 {p.name}
                 {p.name === throttle.current ? ` · ${t.thisServer}` : ""}
-              </Button>
+                {p.paused ? (
+                  <CirclePauseIcon
+                    className={iconClass.attention}
+                    aria-label={t.paused}
+                  />
+                ) : null}
+              </ToggleGroupItem>
             ))}
-          </div>
+          </ToggleGroup>
         ) : null}
 
         <label className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
@@ -203,7 +218,10 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
           </legend>
           {QUEUES.map((q) => (
             <div key={q} className="flex items-center justify-between gap-3">
-              <span>{m.system.queues[q]}</span>
+              <span className="flex items-center gap-2">
+                <QueueDot queue={q} />
+                {m.system.queues[q]}
+              </span>
               <Stepper
                 label={m.system.queues[q]}
                 value={slots(q)}
@@ -252,21 +270,23 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
               {t.priorityHint}
             </span>
           </span>
-          <div role="group" aria-label={t.priority} className="flex gap-1">
+          <ToggleGroup
+            variant="outline"
+            size="sm"
+            spacing={0}
+            aria-label={t.priority}
+            value={[String(profile.nice ?? 0)]}
+            onValueChange={(next) =>
+              next[0] !== undefined &&
+              set((p) => ({ ...p, nice: Number(next[0]) }))
+            }
+          >
             {PRIORITIES.map((pr) => (
-              <Button
-                key={pr.nice}
-                size="xs"
-                variant={
-                  (profile.nice ?? 0) === pr.nice ? "default" : "outline"
-                }
-                aria-pressed={(profile.nice ?? 0) === pr.nice}
-                onClick={() => set((p) => ({ ...p, nice: pr.nice }))}
-              >
+              <ToggleGroupItem key={pr.nice} value={String(pr.nice)}>
                 {pr.label}
-              </Button>
+              </ToggleGroupItem>
             ))}
-          </div>
+          </ToggleGroup>
         </div>
 
         <Cooldown

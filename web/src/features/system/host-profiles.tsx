@@ -29,6 +29,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { QueueDot } from "@/features/jobs/queue"
 import { Row, shownError } from "@/features/pipelines/form-parts"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
@@ -67,31 +69,31 @@ export function HeavyQueuesPicker({
   onChange: (next: Queue[]) => void
 }) {
   return (
-    <div
-      role="group"
+    <ToggleGroup
+      multiple
+      variant="outline"
+      size="sm"
+      spacing={1.5}
       aria-label={m.system.heavyQueues}
-      className="flex flex-wrap gap-1.5"
+      value={value}
+      onValueChange={(next) => onChange(QUEUES.filter((q) => next.includes(q)))}
+      className="flex-wrap"
     >
-      {QUEUES.map((q) => {
-        const on = value.includes(q)
-        return (
-          <Button
-            key={q}
-            type="button"
-            size="xs"
-            variant={on ? "default" : "outline"}
-            aria-pressed={on}
-            onClick={() =>
-              onChange(
-                QUEUES.filter((x) => (x === q ? !on : value.includes(x)))
-              )
-            }
-          >
-            {m.system.queues[q]}
-          </Button>
-        )
-      })}
-    </div>
+      {/* Off queues fade, so the pressed fill is not the only cue. */}
+      {QUEUES.map((q) => (
+        <ToggleGroupItem
+          key={q}
+          value={q}
+          className="text-muted-foreground aria-pressed:text-foreground"
+        >
+          <QueueDot
+            queue={q}
+            className={cn(!value.includes(q) && "opacity-40")}
+          />
+          {m.system.queues[q]}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
   )
 }
 const PROFILE_NAME = /^[a-z0-9][a-z0-9-]{0,31}$/
@@ -317,11 +319,13 @@ function ProfileCard({
   const id = (field: string) => `profile-${profile.name}-${field}`
 
   return (
-    <Card className={cn(current && "ring-2 ring-primary-ink")}>
+    <Card className={cn(current && "ring-2 ring-foreground/20")}>
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-2">
           <span className="font-mono">{profile.name}</span>
-          {current ? <Badge>{m.system.current}</Badge> : null}
+          {current ? (
+            <Badge variant="secondary">{m.system.current}</Badge>
+          ) : null}
           {profile.paused ? (
             <Badge variant="outline">{m.system.paused}</Badge>
           ) : null}
@@ -361,6 +365,7 @@ function ProfileCard({
                           htmlFor={id(q)}
                           className="text-xs text-muted-foreground"
                         >
+                          <QueueDot queue={q} />
                           {m.system.queues[q]}
                         </FieldLabel>
                         <Input

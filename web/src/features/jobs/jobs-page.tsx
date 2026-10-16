@@ -43,6 +43,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   Tooltip,
   TooltipContent,
@@ -52,7 +53,15 @@ import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { formatDateTime, formatRelative, formatSpan, useNow } from "@/lib/time"
-import { badgeTone, jobTone, phaseQueue, queueTone } from "@/lib/tones"
+import {
+  QUEUE_ORDER,
+  badgeTone,
+  jobTone,
+  phaseQueue,
+  queueFill,
+  queueTone,
+  type Queue,
+} from "@/lib/tones"
 import { useRetained } from "@/lib/use-retained"
 import { cn } from "@/lib/utils"
 import { documentsQuery } from "@/queries/documents"
@@ -69,8 +78,10 @@ import {
   type Request,
   type Step,
 } from "./requests"
+import { QueueBadge, QueueDot } from "./queue"
 import {
   JOB_STATUSES,
+  parseQueueFilter,
   parseStatusFilter,
   serializeStatusFilter,
 } from "./search"
@@ -116,6 +127,9 @@ const bucketTone: Record<Bucket, string> = {
   idle: "bg-muted-foreground/10",
 }
 
+/** The filters' "everything" item. */
+const ALL = "all"
+
 /** Buckets in chart order: the work, then the waiting. */
 const BUCKETS: Bucket[] = [...PHASES, "queued", "idle"]
 
@@ -132,6 +146,7 @@ export function JobsPage() {
   const search = useSearch({ from: "/w/$workspaceId/jobs" })
   const navigate = useNavigate({ from: "/w/$workspaceId/jobs" })
   const status = parseStatusFilter(search.status)
+  const queue = parseQueueFilter(search.queue)
   const jobs = useQuery({
     ...jobsQuery(workspace.id, status),
     refetchInterval: 5_000,
@@ -154,23 +169,34 @@ export function JobsPage() {
     }),
     [stories.data, pipelines.data, documents.data]
   )
-  const requests = useMemo(
-    () => groupRequests(jobs.data ?? [], now),
-    [jobs.data, now]
-  )
+  // Grouped from every job, so a request keeps all its steps; the queue
+  // filter then keeps the requests that touched that queue.
+  const requests = useMemo(() => {
+    const all = groupRequests(jobs.data ?? [], now)
+    return queue
+      ? all.filter((r) => r.steps.some((s) => s.job.queue === queue))
+      : all
+  }, [jobs.data, now, queue])
   const isOpen = (r: Request) => folds[r.id] ?? r.active
   const anyOpen = requests.some(isOpen)
 
   const setStatus = (next: JobStatus[]) =>
     void navigate({
-      search: { status: serializeStatusFilter(next) },
+      search: (prev) => ({ ...prev, status: serializeStatusFilter(next) }),
       replace: true,
     })
 
-  const toggle = (s: JobStatus) =>
-    setStatus(
-      status.includes(s) ? status.filter((x) => x !== s) : [...status, s]
-    )
+  const setQueue = (next: Queue | undefined) =>
+    void navigate({
+      search: (prev) => ({ ...prev, queue: next }),
+      replace: true,
+    })
+
+  // "All" clears the other statuses; picking a status clears "All".
+  const onStatus = (next: string[]) => {
+    if (next.includes(ALL) && status.length > 0) setStatus([])
+    else setStatus(JOB_STATUSES.filter((s) => next.includes(s)))
+  }
 
   const setAll = (open: boolean) =>
     setFolds(Object.fromEntries(requests.map((r) => [r.id, open])))
@@ -184,7 +210,9 @@ export function JobsPage() {
       <EmptyState
         icon={<ListChecksIcon />}
         title={m.jobs.emptyTitle}
-        body={status.length ? m.jobs.emptyFiltered : m.jobs.emptyBody}
+        body={
+          status.length || queue ? m.jobs.emptyFiltered : m.jobs.emptyBody
+        }
       />
     )
   else
@@ -222,20 +250,54 @@ export function JobsPage() {
         actions={throttle ? <ThrottleControl throttle={throttle} /> : null}
       />
       {throttle ? <PausedBanners throttle={throttle} /> : null}
-      <div className="mb-4 flex flex-wrap items-center gap-1.5">
-        <div
-          className="flex flex-wrap gap-1.5"
-          role="group"
-          aria-label={m.jobs.columns.status}
-        >
-          <Chip active={status.length === 0} onClick={() => setStatus([])}>
-            {m.jobs.all}
-          </Chip>
-          {JOB_STATUSES.map((s) => (
-            <Chip key={s} active={status.includes(s)} onClick={() => toggle(s)}>
-              {m.jobs.status[s]}
-            </Chip>
-          ))}
+      <div className="mb-4 flex flex-wrap items-start gap-x-4 gap-y-2">
+        <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
+          <span className="text-sm text-muted-foreground" id="jobs-status">
+            {m.jobs.columns.status}
+          </span>
+          <div className="scroll-area min-w-0 overflow-x-auto">
+            <ToggleGroup
+              multiple
+              variant="outline"
+              size="sm"
+              spacing={0}
+              aria-labelledby="jobs-status"
+              value={status.length ? status : [ALL]}
+              onValueChange={onStatus}
+            >
+              <ToggleGroupItem value={ALL}>{m.jobs.all}</ToggleGroupItem>
+              {JOB_STATUSES.map((s) => (
+                <ToggleGroupItem key={s} value={s}>
+                  {m.jobs.status[s]}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
+          <span className="text-sm text-muted-foreground" id="jobs-queue">
+            {m.jobs.columns.queue}
+          </span>
+          <div className="scroll-area min-w-0 overflow-x-auto">
+            <ToggleGroup
+              variant="outline"
+              size="sm"
+              spacing={0}
+              aria-labelledby="jobs-queue"
+              value={[queue ?? ALL]}
+              onValueChange={(next) => setQueue(parseQueueFilter(next[0]))}
+            >
+              <ToggleGroupItem value={ALL}>{m.jobs.all}</ToggleGroupItem>
+              {QUEUE_ORDER.map((q) => (
+                <ToggleGroupItem
+                  key={q}
+                  value={q}
+                  title={m.system.queues[q]}
+                >
+                  <QueueDot queue={q} />
+                  {q}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
         </div>
         {requests.length > 0 ? (
           <Button
@@ -255,28 +317,6 @@ export function JobsPage() {
         onOpenChange={(open) => !open && setCancelling(null)}
       />
     </>
-  )
-}
-
-function Chip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <Button
-      type="button"
-      size="sm"
-      variant={active ? "default" : "outline"}
-      aria-pressed={active}
-      onClick={onClick}
-    >
-      {children}
-    </Button>
   )
 }
 
@@ -522,6 +562,7 @@ function Steps({
         <TableHeader>
           <TableRow>
             <TableHead className="min-w-52 pl-4">{t.step}</TableHead>
+            <TableHead>{m.jobs.columns.queue}</TableHead>
             <TableHead>{m.jobs.columns.status}</TableHead>
             <TableHead className="text-right">
               {m.jobs.columns.attempt}
@@ -544,20 +585,12 @@ function Steps({
               <TableRow key={job.id}>
                 <TableCell className="max-w-72 pl-4 align-top whitespace-normal">
                   <div className="flex flex-col gap-0.5">
-                    <span className="flex items-center gap-2 text-sm">
-                      <span
-                        className={cn(
-                          "size-2.5 shrink-0 rounded-sm",
-                          bucketTone[s.phase]
-                        )}
-                      />
-                      {stepLabel(s, lookup)}
-                    </span>
+                    <span className="text-sm">{stepLabel(s, lookup)}</span>
                     <span
                       className="font-mono text-[11px] text-muted-foreground"
                       title={`${job.kind} · ${job.id}`}
                     >
-                      {job.queue} · {job.id.slice(0, 8)}
+                      {job.id.slice(0, 8)}
                     </span>
                     {job.lastError ? (
                       <Tooltip>
@@ -574,6 +607,9 @@ function Steps({
                       </Tooltip>
                     ) : null}
                   </div>
+                </TableCell>
+                <TableCell className="align-top">
+                  <QueueBadge queue={job.queue} />
                 </TableCell>
                 <TableCell className="align-top">
                   <JobStatusBadge status={job.status} />
@@ -657,7 +693,7 @@ function Gantt({
         <span
           className={cn(
             "absolute inset-y-0 min-w-0.5 rounded-full",
-            bucketTone[s.phase],
+            queueFill(s.job.queue),
             s.job.status === "running" && "animate-pulse",
             s.job.status === "failed" &&
               "ring-2 ring-destructive ring-offset-1 ring-offset-background"

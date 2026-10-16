@@ -68,6 +68,14 @@ export const queueTone: Record<Queue, string> = {
   io: "bg-chart-5",
 }
 
+/** All queues, in the order the throttle and system pages list them. */
+export const QUEUE_ORDER = Object.keys(queueTone) as Queue[]
+
+/** A job's queue fill; a queue this build does not know gets the muted tone. */
+export function queueFill(queue: string): string {
+  return queueTone[queue as Queue] ?? queueTone.control
+}
+
 /** The queue each jobs-page phase runs on, so its bars take that queue's hue. */
 export const phaseQueue = {
   plan: "control",

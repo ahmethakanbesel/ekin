@@ -1,14 +1,16 @@
 import type { JobStatus } from "@/api/client"
+import { QUEUE_ORDER, type Queue } from "@/lib/tones"
 
 export const JOB_STATUSES: JobStatus[] = ["queued", "running", "succeeded", "failed", "cancelled"]
 
-export type JobsSearch = { status?: string }
+export type JobsSearch = { status?: string; queue?: Queue }
 
-/** `?status=queued,running` — unknown values are dropped. */
+/** `?status=queued,running&queue=render` — unknown values are dropped. */
 export function validateJobsSearch(search: Record<string, unknown>): JobsSearch {
   const raw = typeof search.status === "string" ? search.status : undefined
   const status = serializeStatusFilter(parseStatusFilter(raw))
-  return status ? { status } : {}
+  const queue = parseQueueFilter(search.queue)
+  return { ...(status ? { status } : {}), ...(queue ? { queue } : {}) }
 }
 
 export function parseStatusFilter(raw: string | undefined): JobStatus[] {
@@ -20,4 +22,9 @@ export function parseStatusFilter(raw: string | undefined): JobStatus[] {
 export function serializeStatusFilter(status: JobStatus[]): string | undefined {
   const ordered = JOB_STATUSES.filter((s) => status.includes(s))
   return ordered.length ? ordered.join(",") : undefined
+}
+
+/** One queue to show requests that touched it; the API filters status only. */
+export function parseQueueFilter(raw: unknown): Queue | undefined {
+  return QUEUE_ORDER.find((q) => q === raw)
 }
