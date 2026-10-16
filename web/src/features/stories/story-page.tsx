@@ -45,6 +45,7 @@ import { FeedbackSheet } from "./feedback-sheet"
 import { TAB_STATUSES, deliverableLabel } from "./model"
 import { seekVideo } from "./previews"
 import { ReviewPanel } from "./review-panel"
+import { recordDecision } from "./sitting-ledger"
 import {
   ApproveWithNotesDialog,
   DeleteStoryDialog,
@@ -572,6 +573,9 @@ function StoryView({
         unsent={unsent}
         onOpenChange={review.setRejecting}
         onRejected={(updated) => {
+          recordDecision(story.id, selected.id, selected.revision, {
+            kind: "rejected",
+          })
           review.draft.clear()
           onDecided(updated)
         }}

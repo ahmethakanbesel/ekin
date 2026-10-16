@@ -796,6 +796,34 @@ export const en = {
     article: (title: string) => `Article: ${title}`,
     endTitle: "That was the last draft",
     endBody: "New stories appear in Review when the agent is done.",
+    summary: (approved: number, sent: number, notes: number, rejected: number) => {
+      const parts: string[] = []
+      if (approved > 0) parts.push(`${approved} approved`)
+      if (sent > 0)
+        parts.push(`${sent} sent back with ${notes === 1 ? "1 note" : `${notes} notes`}`)
+      if (rejected > 0) parts.push(`${rejected} rejected`)
+      const total = approved + sent + rejected
+      const list =
+        parts.length > 1
+          ? `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`
+          : parts[0]
+      return `You decided on ${total === 1 ? "1 draft" : `${total} drafts`}: ${list}.`
+    },
+    nothingDecided: "You have not decided on any draft in this sitting yet.",
+    decisions: "Decided in this sitting",
+    outcome: {
+      approved: "Approved",
+      sent: "Sent back",
+      rejected: "Rejected",
+    },
+    stillWaiting: (n: number) =>
+      n === 1
+        ? "1 story is still waiting for you."
+        : `${n} stories are still waiting for you.`,
+    agentWorking: (n: number) =>
+      n === 1
+        ? "The agent is working on 1 story from this sitting; it comes back to Review when it is ready."
+        : `The agent is working on ${n} stories from this sitting; they come back to Review when they are ready.`,
     backToReview: "Back to Review",
     preview: "Preview",
     final: "Final",

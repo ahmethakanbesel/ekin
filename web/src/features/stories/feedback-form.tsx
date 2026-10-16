@@ -27,6 +27,7 @@ import { errorMessage } from "@/lib/errors"
 import { cn } from "@/lib/utils"
 import { useRequestChanges } from "@/queries/stories"
 import { SCOPES, formatTimestamp, parseTimestamp, scopeLabel } from "./model"
+import { recordDecision } from "./sitting-ledger"
 import {
   EMPTY_NOTE,
   sortNotes,
@@ -203,6 +204,10 @@ export function FeedbackForm({
       } catch {
         return // shown in the banner
       }
+      recordDecision(storyId, d.id, d.revision, {
+        kind: "sent",
+        notes: notes.length,
+      })
       toast.success(m.review.changes.sent(notes.length))
       draft.clear()
       form.reset(EMPTY_NOTE)

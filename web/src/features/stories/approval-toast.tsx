@@ -10,6 +10,7 @@ import {
   cancelApproval,
   scheduleApproval,
 } from "./pending-approvals"
+import { forgetDecision, recordDecision } from "./sitting-ledger"
 
 /**
  * Approves a deliverable a few seconds from now, with a toast that can undo
@@ -50,6 +51,7 @@ export function startApproval({
           { id, description: what, action: undefined, duration: 4_000 }
         )
       } catch (err) {
+        forgetDecision(d.id, n)
         toast.error(errorMessage(err), {
           id,
           description: what,
@@ -58,9 +60,13 @@ export function startApproval({
         })
       }
     },
-    () => toast.dismiss(id)
+    () => {
+      forgetDecision(d.id, n)
+      toast.dismiss(id)
+    }
   )
   if (!scheduled) return false
+  recordDecision(story.id, d.id, n, { kind: "approved" })
 
   toast(m.review.approving(n), {
     id,

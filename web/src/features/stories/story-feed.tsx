@@ -9,9 +9,7 @@ import {
   type RefObject,
 } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
 import {
-  CheckCheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   EyeIcon,
@@ -35,6 +33,7 @@ import { pipelineHue } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { artifactUrl, revisionsQuery } from "@/queries/stories"
 import { StatusBadge } from "./badges"
+import { SittingSummary } from "./sitting-summary"
 import { PlayerBar, PlayerCorner, usePlayback, type PlaybackStore } from "./player"
 import {
   formatTimestamp,
@@ -330,29 +329,9 @@ export function StoryFeed({
         </div>
       ))}
       {sitting ? (
-        <div
-          data-feed-item={FEED_END}
-          className="grid h-[100cqh] snap-start place-items-center p-6"
-        >
-          <div className="flex max-w-sm flex-col items-center gap-3 text-center">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-success/15 text-success">
-              <CheckCheckIcon className="size-5" />
-            </div>
-            <h2 className="text-lg font-medium tracking-tight">
-              {m.feed.endTitle}
-            </h2>
-            <p className="text-sm text-muted-foreground">{m.feed.endBody}</p>
-            <Button
-              variant="outline"
-              className="mt-2"
-              render={
-                <Link to="/w/$workspaceId/stories" params={{ workspaceId }} />
-              }
-              nativeButton={false}
-            >
-              {m.feed.backToReview}
-            </Button>
-          </div>
+        // The same left edge as the drafts above it.
+        <div data-feed-item={FEED_END} className="feed-item">
+          <SittingSummary stories={stories} workspaceId={workspaceId} />
         </div>
       ) : null}
     </section>
