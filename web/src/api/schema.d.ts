@@ -1286,6 +1286,16 @@ export interface components {
             durationSeconds?: number;
             /** @description Words in a video's narration or an article's body. */
             words?: number;
+            narrator?: components["schemas"]["Narrator"];
+        };
+        /** @description The voice that read a video's narration. Names come from GET /voices (and, for ElevenLabs, the workspace's ElevenLabs voices and models). */
+        Narrator: {
+            /** @description TTS engine ID: okur, ema, kokoro, elevenlabs. */
+            engine: string;
+            /** @description Voice ID; absent for the engine's default voice. */
+            voice?: string;
+            /** @description ElevenLabs model ID. */
+            model?: string;
         };
         Story: {
             /** Format: uuid */

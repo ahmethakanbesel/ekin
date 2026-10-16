@@ -49,6 +49,17 @@ func TestMeasuresToWireLeavesOutWhatWasNotMeasured(t *testing.T) {
 	if both == nil || both.DurationSeconds == nil || *both.DurationSeconds != 47.52 || *both.Words != 98 {
 		t.Fatalf("both = %+v", both)
 	}
+	if both.Narrator != nil {
+		t.Fatalf("no narrator = %+v", both.Narrator)
+	}
+	local := measuresToWire(storydomain.Measures{Narrator: storydomain.Narrator{Engine: "ema"}})
+	if local == nil || local.Narrator == nil || local.Narrator.Engine != "ema" || local.Narrator.Voice != nil || local.Narrator.Model != nil {
+		t.Fatalf("local voice = %+v", local)
+	}
+	cloud := measuresToWire(storydomain.Measures{Narrator: storydomain.Narrator{Engine: "elevenlabs", Voice: "v1", Model: "eleven_v3"}})
+	if n := cloud.Narrator; n == nil || *n.Voice != "v1" || *n.Model != "eleven_v3" {
+		t.Fatalf("cloud voice = %+v", n)
+	}
 }
 
 func TestFeedbackToWireKeepsEveryNote(t *testing.T) {

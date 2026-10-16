@@ -317,6 +317,9 @@ func measuresToWire(m storydomain.Measures) *gen.Measures {
 		words := m.Words
 		out.Words = &words
 	}
+	if n := m.Narrator; n.Engine != "" {
+		out.Narrator = &gen.Narrator{Engine: n.Engine, Voice: optional(n.Voice), Model: optional(n.Model)}
+	}
 	return &out
 }
 
@@ -372,4 +375,12 @@ func (h *Handler) EditDeliverableContent(ctx context.Context, req gen.EditDelive
 		return nil, err
 	}
 	return gen.EditDeliverableContent200JSONResponse(ToWire(st)), nil
+}
+
+// optional is s, or nil when s is empty.
+func optional(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
