@@ -619,7 +619,7 @@ export function ArticlePreview({
 
   return (
     <article className="grid gap-6">
-      <header className="grid gap-3 rounded-xl border bg-muted/20 p-5 md:p-6">
+      <header className="grid gap-3 border-b pb-6">
         {title ? (
           <h2
             lang={lang}

@@ -455,7 +455,7 @@ function RequestRow({
         </div>
       </div>
       {open ? (
-        <div className="border-t bg-muted/20 px-4 py-3">
+        <div className="border-t bg-muted/20">
           <Breakdown request={r} />
           <Steps
             request={r}
@@ -518,7 +518,7 @@ function Breakdown({ request: r }: { request: Request }) {
     return ms > 0 ? [{ b, ms }] : []
   }).toSorted((a, b) => b.ms - a.ms)
   return (
-    <figure className="mb-3">
+    <figure className="px-4 pt-3 pb-4">
       <figcaption className="mb-2 text-xs font-medium text-muted-foreground">
         {m.jobs.request.whereTimeWent}
       </figcaption>
@@ -580,7 +580,9 @@ function Steps({
 }) {
   const t = m.jobs.request
   return (
-    <div className="rounded-lg border bg-background">
+    // One level of containment: the steps sit in the group under a
+    // hairline, not in a second box.
+    <div className="border-t">
       <Table>
         <TableHeader>
           <TableRow>
