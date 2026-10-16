@@ -384,9 +384,9 @@ function SceneList({
                   lang={lang}
                   className="markdown-compact text-sm leading-relaxed"
                 />
-                {marks?.map((n) => (
+                {marks?.map((n, j) => (
                   <p
-                    key={`${n.at}-${n.label}`}
+                    key={`${n.at}-${j}`}
                     className="mt-1.5 flex items-center gap-1.5 text-xs font-medium"
                   >
                     <MessageSquareIcon

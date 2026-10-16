@@ -2,6 +2,8 @@ package story_test
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -101,6 +103,39 @@ func TestConformance(t *testing.T) {
 				t.Fatalf("stale save = %v", err)
 			}
 
+			// A round of several notes is stored whole, pending and on
+			// the revision it asked for.
+			at := 14.2
+			fb, _ := storydomain.NewFeedback([]storydomain.Note{
+				{Text: "Grafik yanlış", Scope: storydomain.ScopeVisuals, AtSeconds: &at},
+				{Text: "Girişi kısalt"},
+			}, id.New(), now)
+			wantNotes := []string{"Girişi kısalt|all|-", "Grafik yanlış|visuals|14.2"}
+			sent, _ := repo.Get(ctx, ws, s.ID())
+			if err := sent.RequestChanges(video.ID(), fb, now); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.Save(ctx, sent); err != nil {
+				t.Fatal(err)
+			}
+			queued, _ := repo.Get(ctx, ws, s.ID())
+			if got := noteKeys(queued.Lead().PendingFeedback()); !slices.Equal(got, wantNotes) {
+				t.Fatalf("pending notes = %v, want %v", got, wantNotes)
+			}
+			_, _ = queued.StartDrafting(video.ID(), now)
+			rev2, _ := queued.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k2"}, "sess", "", 0, now)
+			_ = queued.Rendered(video.ID(), 0, now)
+			if err := repo.Save(ctx, queued); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.PutRevision(ctx, rev2); err != nil {
+				t.Fatal(err)
+			}
+			back2, _ := repo.Revision(ctx, video.ID(), 2)
+			if got := noteKeys(back2.Feedback); !slices.Equal(got, wantNotes) || back2.Feedback.By != fb.By {
+				t.Fatalf("revision notes = %v, want %v", got, wantNotes)
+			}
+
 			inReview, _ := repo.List(ctx, ws, storyrepo.Filter{Statuses: []storydomain.Status{storydomain.StatusReview}})
 			if len(inReview) != 1 {
 				t.Fatalf("review list = %d", len(inReview))
@@ -123,5 +158,62 @@ func TestConformance(t *testing.T) {
 				t.Fatalf("deleted get = %v", err)
 			}
 		})
+	}
+}
+
+// noteKeys is each note as "text|scope|time" ("-" for no time).
+func noteKeys(fb *storydomain.Feedback) []string {
+	if fb == nil {
+		return nil
+	}
+	out := make([]string, 0, len(fb.Notes))
+	for _, n := range fb.Notes {
+		at := "-"
+		if n.AtSeconds != nil {
+			at = fmt.Sprint(*n.AtSeconds)
+		}
+		out = append(out, fmt.Sprintf("%s|%s|%s", n.Text, n.Scope, at))
+	}
+	return out
+}
+
+// Rows written before feedback carried several notes read as one note.
+func TestSQLiteReadsSingleNoteFeedback(t *testing.T) {
+	ctx := context.Background()
+	d, tx := dbtest.Open(t)
+	w, _ := workspacedomain.New(id.New(), "ws", time.UTC, now)
+	if err := workspacerepo.NewSQLite(tx).Create(ctx, w); err != nil {
+		t.Fatal(err)
+	}
+	repo := storyrepo.NewSQLite(tx)
+	s := newStory(t, w.ID(), "Kaygı", now)
+	if err := repo.Create(ctx, s); err != nil {
+		t.Fatal(err)
+	}
+	video := s.Lead()
+	_, _ = s.StartDrafting(video.ID(), now)
+	rev, _ := s.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k"}, "sess", "", 0, now)
+	rev.Number = 2
+	if err := repo.PutRevision(ctx, rev); err != nil {
+		t.Fatal(err)
+	}
+	legacy := `{"text":"Kancayı hızlandır","scope":"script","atSeconds":4,"by":"01a14343-5400-7c50-a726-d5f8ab86553c","at":"2026-10-13T09:00:00Z"}`
+	if _, err := d.Writer.ExecContext(ctx, `UPDATE deliverables SET pending = ? WHERE id = ?`, legacy, video.ID().String()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.Writer.ExecContext(ctx, `UPDATE revisions SET feedback = ? WHERE deliverable_id = ?`, legacy, video.ID().String()); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"Kancayı hızlandır|script|4"}
+	got, err := repo.Get(ctx, w.ID(), s.ID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if keys := noteKeys(got.Lead().PendingFeedback()); !slices.Equal(keys, want) {
+		t.Fatalf("pending = %v, want %v", keys, want)
+	}
+	back, _ := repo.Revision(ctx, video.ID(), 2)
+	if keys := noteKeys(back.Feedback); !slices.Equal(keys, want) || back.Feedback.By.String() != "01a14343-5400-7c50-a726-d5f8ab86553c" {
+		t.Fatalf("revision = %v, want %v", keys, want)
 	}
 }

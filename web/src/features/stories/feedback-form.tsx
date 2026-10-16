@@ -3,7 +3,13 @@ import { useForm } from "@tanstack/react-form"
 import { CrosshairIcon } from "lucide-react"
 import { toast } from "sonner"
 
-import type { Deliverable, FeedbackScope, Revision, Story } from "@/api/client"
+import type {
+  Deliverable,
+  FeedbackNote,
+  FeedbackScope,
+  Revision,
+  Story,
+} from "@/api/client"
 import { Banner } from "@/components/page"
 import { Button } from "@/components/ui/button"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
@@ -98,9 +104,14 @@ export function FeedbackForm({
         updated = await request.mutateAsync({
           deliverableId: d.id,
           body: {
-            text: value.text.trim(),
-            scope: value.scope,
-            atSeconds: at !== undefined ? Math.round(at * 10) / 10 : undefined,
+            notes: [
+              {
+                text: value.text.trim(),
+                scope: value.scope,
+                atSeconds:
+                  at !== undefined ? Math.round(at * 10) / 10 : undefined,
+              },
+            ],
           },
         })
       } catch {
@@ -296,27 +307,40 @@ export function FeedbackForm({
             <p className="text-sm leading-none font-medium">
               {m.feedbackSheet.earlier}
             </p>
-            <ul className="grid gap-2 text-sm text-muted-foreground">
-              {earlier.map((e) => (
-                <li key={`${e.on}-${e.text}`} className="flex gap-3">
-                  <span className="tabular w-10 shrink-0 font-mono text-foreground">
-                    {e.at !== undefined ? formatTimestamp(e.at) : "—"}
-                  </span>
-                  <span className="min-w-0">
-                    {e.addressedIn !== undefined
-                      ? m.feedbackSheet.addressed(e.on, e.scope, e.addressedIn)
-                      : m.feedbackSheet.pending(e.on, e.scope)}
-                    {nameOf(e.by) ? ` · ${nameOf(e.by)}` : null}
-                    <span
-                      lang={lang}
-                      className="mt-0.5 line-clamp-2 text-xs text-foreground/80"
-                    >
-                      “{e.text}”
-                    </span>
-                  </span>
+            <ol className="grid gap-4 text-sm">
+              {earlier.map((round) => (
+                <li key={round.on} className="grid gap-1.5">
+                  <p className="text-xs text-muted-foreground">
+                    {round.addressedIn !== undefined
+                      ? m.feedbackSheet.addressed(round.on, round.addressedIn)
+                      : m.feedbackSheet.pending(round.on)}
+                    {nameOf(round.by) ? ` · ${nameOf(round.by)}` : null}
+                  </p>
+                  <ul className="grid gap-1.5">
+                    {round.notes.map((n, i) => (
+                      <li key={i} className="flex gap-3">
+                        <span className="tabular w-10 shrink-0 font-mono text-xs leading-5">
+                          {n.atSeconds !== undefined
+                            ? formatTimestamp(n.atSeconds)
+                            : "—"}
+                        </span>
+                        <span className="min-w-0 text-muted-foreground">
+                          <span className="text-xs">
+                            {scopeLabel(n.scope, d.kind)}
+                          </span>
+                          <span
+                            lang={lang}
+                            className="mt-0.5 line-clamp-2 text-xs text-foreground/80"
+                          >
+                            “{n.text}”
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 </li>
               ))}
-            </ul>
+            </ol>
           </div>
         ) : null}
         {request.error ? <Banner title={errorMessage(request.error)} /> : null}
@@ -328,37 +352,31 @@ export function FeedbackForm({
   )
 }
 
-type EarlierNote = {
-  /** The revision the note was given on. */
+type EarlierRound = {
+  /** The revision the notes were given on. */
   on: number
   addressedIn?: number
-  scope: string
-  at?: number
-  text: string
-  /** Who wrote it (a user id). */
+  notes: FeedbackNote[]
+  /** Who wrote them (a user id). */
   by?: string
 }
 
-/** Feedback already given on the deliverable, newest first. */
-function earlierNotes(d: Deliverable, revisions: Revision[]): EarlierNote[] {
-  const out: EarlierNote[] = []
+/** Feedback already given on the deliverable, a round per revision, newest first. */
+function earlierNotes(d: Deliverable, revisions: Revision[]): EarlierRound[] {
+  const out: EarlierRound[] = []
   for (const r of revisions) {
-    if (!r.feedback) continue
+    if (!r.feedback?.notes.length) continue
     out.push({
       on: r.number - 1,
       addressedIn: r.number,
-      scope: scopeLabel(r.feedback.scope, d.kind),
-      at: r.feedback.atSeconds,
-      text: r.feedback.text,
+      notes: r.feedback.notes,
       by: r.feedback.by,
     })
   }
-  if (d.pendingFeedback)
+  if (d.pendingFeedback?.notes.length)
     out.push({
       on: d.revision,
-      scope: scopeLabel(d.pendingFeedback.scope, d.kind),
-      at: d.pendingFeedback.atSeconds,
-      text: d.pendingFeedback.text,
+      notes: d.pendingFeedback.notes,
       by: d.pendingFeedback.by,
     })
   return out.toReversed()

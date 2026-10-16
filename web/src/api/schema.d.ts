@@ -1214,20 +1214,28 @@ export interface components {
         DeliverableStatus: "waiting" | "queued" | "drafting" | "rendering" | "review" | "finalizing" | "ready" | "publishing" | "published" | "rejected" | "failed";
         /** @enum {string} */
         FeedbackScope: "all" | "script" | "voice" | "visuals" | "music" | "metadata";
-        FeedbackInput: {
+        FeedbackNoteInput: {
             text: string;
             scope?: components["schemas"]["FeedbackScope"];
             /**
              * Format: double
-             * @description Video position the feedback refers to.
+             * @description Video position the note refers to.
              */
             atSeconds?: number;
         };
-        Feedback: {
+        FeedbackInput: {
+            /** @description The notes of one review round, sent together. */
+            notes: components["schemas"]["FeedbackNoteInput"][];
+        };
+        FeedbackNote: {
             text: string;
             scope: components["schemas"]["FeedbackScope"];
             /** Format: double */
             atSeconds?: number;
+        };
+        Feedback: {
+            /** @description Untimed notes first, then the timed ones by time. */
+            notes: components["schemas"]["FeedbackNote"][];
             /**
              * Format: uuid
              * @description The person who wrote the feedback.

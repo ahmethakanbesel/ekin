@@ -1811,7 +1811,7 @@ components:
       type: string
       enum: [all, script, voice, visuals, music, metadata]
 
-    FeedbackInput:
+    FeedbackNoteInput:
       type: object
       required: [text]
       properties:
@@ -1821,15 +1821,35 @@ components:
           type: number
           format: double
           minimum: 0
-          description: Video position the feedback refers to.
+          description: Video position the note refers to.
 
-    Feedback:
+    FeedbackInput:
       type: object
-      required: [text, scope, at]
+      required: [notes]
+      properties:
+        notes:
+          type: array
+          minItems: 1
+          maxItems: 20
+          description: The notes of one review round, sent together.
+          items: { $ref: "#/components/schemas/FeedbackNoteInput" }
+
+    FeedbackNote:
+      type: object
+      required: [text, scope]
       properties:
         text: { type: string }
         scope: { $ref: "#/components/schemas/FeedbackScope" }
         atSeconds: { type: number, format: double }
+
+    Feedback:
+      type: object
+      required: [notes, at]
+      properties:
+        notes:
+          type: array
+          description: Untimed notes first, then the timed ones by time.
+          items: { $ref: "#/components/schemas/FeedbackNote" }
         by:
           type: string
           format: uuid

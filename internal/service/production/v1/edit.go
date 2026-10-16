@@ -161,7 +161,7 @@ func (s *Service) EditContent(ctx context.Context, workspaceID, storyID, deliver
 	}
 	var retime *storydomain.Feedback
 	if changedNarration {
-		fb, err := storydomain.NewFeedback(retimeFeedback, storydomain.ScopeScript, nil, by, s.now())
+		fb, err := storydomain.NewFeedback([]storydomain.Note{{Text: retimeFeedback, Scope: storydomain.ScopeScript}}, by, s.now())
 		if err != nil {
 			return nil, err
 		}

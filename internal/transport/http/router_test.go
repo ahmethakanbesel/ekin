@@ -633,12 +633,14 @@ func TestKnowledgeBase(t *testing.T) {
 // came back as 14.199999809265137).
 func TestFeedbackPositionIsDouble(t *testing.T) {
 	var body struct {
-		AtSeconds *float64 `json:"atSeconds"`
+		Notes []struct {
+			AtSeconds *float64 `json:"atSeconds"`
+		} `json:"notes"`
 	}
-	raw, _ := json.Marshal(gen.FeedbackInput{Text: "x", AtSeconds: ptr(14.2)})
+	raw, _ := json.Marshal(gen.FeedbackInput{Notes: []gen.FeedbackNoteInput{{Text: "x", AtSeconds: ptr(14.2)}}})
 	_ = json.Unmarshal(raw, &body)
-	if body.AtSeconds == nil || *body.AtSeconds != 14.2 {
-		t.Fatalf("atSeconds = %v", body.AtSeconds)
+	if len(body.Notes) != 1 || body.Notes[0].AtSeconds == nil || *body.Notes[0].AtSeconds != 14.2 {
+		t.Fatalf("notes = %s", raw)
 	}
 }
 

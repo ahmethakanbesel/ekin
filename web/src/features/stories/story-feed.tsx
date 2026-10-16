@@ -20,7 +20,7 @@ import {
   Loader2Icon,
 } from "lucide-react"
 
-import type { Deliverable, Revision, Story } from "@/api/client"
+import type { Deliverable, Feedback, Revision, Story } from "@/api/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Kbd } from "@/components/ui/kbd"
@@ -361,24 +361,19 @@ export function feedbackMarkers(
   revisions: Revision[]
 ): FeedMarker[] {
   const out: FeedMarker[] = []
-  for (const r of revisions) {
-    const f = r.feedback
-    if (f?.atSeconds === undefined) continue
-    out.push({
-      at: f.atSeconds,
-      revision: r.number - 1,
-      scope: scopeLabel(f.scope, d.kind),
-      text: f.text,
-    })
+  const add = (f: Feedback | undefined, revision: number) => {
+    for (const n of f?.notes ?? []) {
+      if (n.atSeconds === undefined) continue
+      out.push({
+        at: n.atSeconds,
+        revision,
+        scope: scopeLabel(n.scope, d.kind),
+        text: n.text,
+      })
+    }
   }
-  const p = d.pendingFeedback
-  if (p?.atSeconds !== undefined)
-    out.push({
-      at: p.atSeconds,
-      revision: d.revision,
-      scope: scopeLabel(p.scope, d.kind),
-      text: p.text,
-    })
+  for (const r of revisions) add(r.feedback, r.number - 1)
+  add(d.pendingFeedback, d.revision)
   return out.toSorted((a, b) => a.at - b.at)
 }
 
@@ -688,7 +683,7 @@ function FeedbackTimes({
     <span className="ml-auto flex flex-wrap items-center justify-end gap-x-0.5 text-xs text-muted-foreground">
       <span className="mr-0.5">{m.feed.feedbackAt}</span>
       {markers.map((k, i) => (
-        <span key={`${k.revision}-${k.at}`}>
+        <span key={`${k.revision}-${k.at}-${i}`}>
           <button
             type="button"
             className="tabular rounded-sm px-0.5 font-mono text-foreground outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring"

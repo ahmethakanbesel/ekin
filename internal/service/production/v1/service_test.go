@@ -323,16 +323,30 @@ func TestVideoWithDerivedArticleAndTranslation(t *testing.T) {
 		t.Fatalf("WRITING.md = %.80s %v", guide, err)
 	}
 
-	// Changes resume the agent session with the feedback.
-	at := 4.0
-	fb, _ := storydomain.NewFeedback("Kancayı hızlandır", storydomain.ScopeScript, &at, id.New(), time.Now())
+	// Changes resume the agent session with every note of the round.
+	at, later := 4.0, 31.5
+	fb, _ := storydomain.NewFeedback([]storydomain.Note{
+		{Text: "Grafik yanlış", Scope: storydomain.ScopeVisuals, AtSeconds: &later},
+		{Text: "Kancayı hızlandır", Scope: storydomain.ScopeScript, AtSeconds: &at},
+		{Text: "Daha sakin bir ton"},
+	}, id.New(), time.Now())
 	if _, err := f.svc.RequestChanges(ctx, f.ws, st.ID(), lead.ID(), fb); err != nil {
 		t.Fatal(err)
 	}
 	f.drain(t)
 	last := f.agent.prompts[len(f.agent.prompts)-1]
-	if last.Resume == "" || !strings.Contains(last.Prompt, "Kancayı hızlandır") || !strings.Contains(last.Prompt, "4.0 s") {
+	if last.Resume == "" || !strings.Contains(last.Prompt, "3 changes; address every one") {
 		t.Fatalf("revision prompt = %+v", last)
+	}
+	// Untimed first, then by time, each with what it is about.
+	for i, want := range []string{
+		"1. The whole draft:\n   > Daha sakin bir ton",
+		"2. The script, at about 4.0 s:\n   > Kancayı hızlandır",
+		"3. The visuals, at about 31.5 s:\n   > Grafik yanlış",
+	} {
+		if !strings.Contains(last.Prompt, want) {
+			t.Fatalf("note %d missing from the revision prompt:\n%s", i+1, last.Prompt)
+		}
 	}
 	st = f.story(t)
 	if st.Lead().Revision() != 2 || st.Lead().Status() != storydomain.StatusReview {
@@ -655,7 +669,7 @@ func TestInterruptedDraftRunsAgain(t *testing.T) {
 func TestStepsJoinTheirRequest(t *testing.T) {
 	ctx := context.Background()
 	f, st := articleFixture(t)
-	fb, _ := storydomain.NewFeedback("Girişi kısalt", storydomain.ScopeAll, nil, id.New(), time.Now())
+	fb, _ := storydomain.NewFeedback([]storydomain.Note{{Text: "Girişi kısalt", Scope: storydomain.ScopeAll}}, id.New(), time.Now())
 	if _, err := f.svc.RequestChanges(ctx, f.ws, st.ID(), st.Lead().ID(), fb); err != nil {
 		t.Fatal(err)
 	}
@@ -783,7 +797,7 @@ func TestStaleWorkDirIsRestored(t *testing.T) {
 	if _, err := other.EditContent(ctx, f.ws, st.ID(), d.ID(), id.New(), production.Edit{Revision: 1, Article: &edited}); err != nil {
 		t.Fatal(err)
 	}
-	fb, _ := storydomain.NewFeedback("Girişi kısalt", storydomain.ScopeAll, nil, id.New(), time.Now())
+	fb, _ := storydomain.NewFeedback([]storydomain.Note{{Text: "Girişi kısalt", Scope: storydomain.ScopeAll}}, id.New(), time.Now())
 	if _, err := f.svc.RequestChanges(ctx, f.ws, st.ID(), d.ID(), fb); err != nil {
 		t.Fatal(err)
 	}

@@ -847,9 +847,8 @@ export const en = {
     count: (n: number, max: number) =>
       `${n.toLocaleString("en-GB")} / ${max.toLocaleString("en-GB")}`,
     earlier: "Earlier notes on this output",
-    addressed: (on: number, scope: string, n: number) =>
-      `r${on} · ${scope} · addressed in r${n}`,
-    pending: (on: number, scope: string) => `r${on} · ${scope} · being revised`,
+    addressed: (on: number, n: number) => `On r${on} · addressed in r${n}`,
+    pending: (on: number) => `On r${on} · being revised`,
     submit: "Request changes",
     hint: (n: number) =>
       `Sends this note to the agent, which writes revision ${n + 1}. Approve or reject instead to close r${n} without changes.`,

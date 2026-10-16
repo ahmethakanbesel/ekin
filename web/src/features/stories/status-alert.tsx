@@ -8,7 +8,7 @@ import {
   XCircleIcon,
 } from "lucide-react"
 
-import type { Deliverable, Feedback, Story } from "@/api/client"
+import type { Deliverable, Feedback, FeedbackNote, Story } from "@/api/client"
 import { Badge } from "@/components/ui/badge"
 import { m } from "@/i18n"
 import { formatDateTime, formatRelative, useNow } from "@/lib/time"
@@ -57,7 +57,7 @@ export function StatusBanner({
       title =
         d.revision === 0 ? t.queuedFirst : t.queuedRevision(d.revision + 1)
       body = d.pendingFeedback ? (
-        <FeedbackLine
+        <FeedbackNotes
           feedback={d.pendingFeedback}
           kind={d.kind}
           lang={story.language}
@@ -202,13 +202,37 @@ function FailureBody({
   )
 }
 
-/** A piece of feedback: what it is about, where in the video, and what it says. */
-export function FeedbackLine({
+/** The notes of one change request, one line each, in reading order. */
+export function FeedbackNotes({
   feedback: f,
   kind,
   lang,
 }: {
   feedback: Feedback
+  kind: Deliverable["kind"]
+  /** The notes' language: the story's, which reviewers write in. */
+  lang: string
+}) {
+  if (f.notes.length === 1)
+    return <FeedbackLine note={f.notes[0]} kind={kind} lang={lang} />
+  return (
+    <ul className="grid gap-1.5">
+      {f.notes.map((n, i) => (
+        <li key={i}>
+          <FeedbackLine note={n} kind={kind} lang={lang} />
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** One note: what it is about, where in the video, and what it says. */
+export function FeedbackLine({
+  note: f,
+  kind,
+  lang,
+}: {
+  note: FeedbackNote
   kind: Deliverable["kind"]
   /** The note's language: the story's, which reviewers write in. */
   lang: string

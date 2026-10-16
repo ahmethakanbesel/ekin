@@ -275,19 +275,19 @@ function scriptNotes(
   draft: FeedbackDraft | undefined
 ): ScriptNote[] {
   const out: ScriptNote[] = []
-  const answered = shown.feedback?.atSeconds
-  if (answered !== undefined)
-    out.push({
-      at: answered,
-      label: m.panel.noteOn(shown.number - 1, formatTimestamp(answered)),
-    })
+  for (const n of shown.feedback?.notes ?? [])
+    if (n.atSeconds !== undefined)
+      out.push({
+        at: n.atSeconds,
+        label: m.panel.noteOn(shown.number - 1, formatTimestamp(n.atSeconds)),
+      })
   if (shown.number !== d.revision) return out
-  const pending = d.pendingFeedback?.atSeconds
-  if (pending !== undefined)
-    out.push({
-      at: pending,
-      label: m.panel.noteOn(d.revision, formatTimestamp(pending)),
-    })
+  for (const n of d.pendingFeedback?.notes ?? [])
+    if (n.atSeconds !== undefined)
+      out.push({
+        at: n.atSeconds,
+        label: m.panel.noteOn(d.revision, formatTimestamp(n.atSeconds)),
+      })
   const typed = d.status === "review" ? parseTimestamp(draft?.at) : undefined
   if (typed !== undefined)
     out.push({ at: typed, label: m.panel.yourNote(formatTimestamp(typed)) })

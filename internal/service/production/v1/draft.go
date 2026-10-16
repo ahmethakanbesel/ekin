@@ -148,22 +148,13 @@ func (s *Service) RunDraft(ctx context.Context, task DraftTask, dir string) (Dra
 		allowed = append(allowed, "Bash(kurgu tool:*)")
 	}
 	req := claude.Request{Dir: dir, Tools: tools, Allowed: allowed, Timeout: s.cfg.AgentTimeout, Env: s.toolEnv(ctx, task.Spec)}
-	fb := task.Feedback
 	var err error
-	switch {
-	case fb != nil && task.Resume != "":
+	req.Prompt, err = draftPrompt(task)
+	if err != nil {
+		return DraftResult{}, err
+	}
+	if task.Feedback != nil && task.Resume != "" {
 		req.Resume = task.Resume
-		req.Prompt, err = execute("revise.md", map[string]any{
-			"Revision": task.Revision, "Feedback": fb.Text, "Scope": scopeName(fb.Scope), "At": atSeconds(fb), "Tool": toolCmd,
-		})
-		if err != nil {
-			return DraftResult{}, err
-		}
-	default:
-		req.Prompt = "Read INSTRUCTIONS.md, then BRIEF.md, and do the task they describe."
-		if fb != nil {
-			req.Prompt += fmt.Sprintf("\n\nA reviewer asked for these changes to the previous version (kept in this directory): %s", fb.Text)
-		}
 	}
 	res, err := s.agent.Run(ctx, req)
 	if err != nil {
@@ -585,18 +576,60 @@ func wordsPerSecond(l pipelinedomain.Language) float64 {
 	return 2.0
 }
 
+// draftPrompt is the agent's first turn: the brief for a first draft,
+// or the reviewer's notes, resuming the session that wrote the draft
+// (or, without one, over the previous version's files).
+func draftPrompt(task DraftTask) (string, error) {
+	fb := task.Feedback
+	switch {
+	case fb != nil && task.Resume != "":
+		return execute("revise.md", map[string]any{
+			"Revision": task.Revision, "Count": len(fb.Notes), "Notes": feedbackList(fb), "Tool": toolCmd,
+		})
+	case fb != nil:
+		return "Read INSTRUCTIONS.md, then BRIEF.md, and do the task they describe.\n\n" +
+			"A reviewer asked for these changes to the previous version (kept in this directory); address every one:\n\n" +
+			feedbackList(fb), nil
+	}
+	return "Read INSTRUCTIONS.md, then BRIEF.md, and do the task they describe.", nil
+}
+
+// feedbackList is the reviewer's notes as a numbered Markdown list, in
+// reading order: what each is about and where, then the note quoted.
+func feedbackList(fb *storydomain.Feedback) string {
+	var b strings.Builder
+	for i, n := range fb.Notes {
+		var about string
+		switch {
+		case scopeName(n.Scope) != "":
+			about = "The " + scopeName(n.Scope)
+		case n.AtSeconds == nil:
+			about = "The whole draft"
+		}
+		if n.AtSeconds != nil {
+			if about == "" {
+				about = "At"
+			} else {
+				about += ", at"
+			}
+			about += fmt.Sprintf(" about %.1f s", *n.AtSeconds)
+		}
+		if i > 0 {
+			b.WriteString("\n")
+		}
+		fmt.Fprintf(&b, "%d. %s:\n", i+1, about)
+		for line := range strings.SplitSeq(n.Text, "\n") {
+			b.WriteString("   > " + strings.TrimRight(line, " \t") + "\n")
+		}
+	}
+	return b.String()
+}
+
 func scopeName(sc storydomain.Scope) string {
 	if sc == storydomain.ScopeAll || sc == "" {
 		return ""
 	}
 	return string(sc)
-}
-
-func atSeconds(fb *storydomain.Feedback) string {
-	if fb.AtSeconds == nil {
-		return ""
-	}
-	return fmt.Sprintf("%.1f", *fb.AtSeconds)
 }
 
 func firstLine(s string) string {

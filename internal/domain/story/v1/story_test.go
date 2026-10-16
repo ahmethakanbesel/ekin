@@ -1,6 +1,9 @@
 package story_test
 
 import (
+	"encoding/json"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -90,12 +93,12 @@ func TestVideoLifecycle(t *testing.T) {
 	}
 
 	at := 12.5
-	fb, _ := story.NewFeedback("Make the hook faster", story.ScopeScript, &at, id.New(), now)
+	fb, _ := story.NewFeedback([]story.Note{{Text: "Make the hook faster", Scope: story.ScopeScript, AtSeconds: &at}}, id.New(), now)
 	if err := s.RequestChanges(video.ID(), fb, now); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := s.StartDrafting(video.ID(), now)
-	if got == nil || got.Text != "Make the hook faster" {
+	if got == nil || len(got.Notes) != 1 || got.Notes[0].Text != "Make the hook faster" {
 		t.Fatalf("feedback lost: %v", got)
 	}
 	rev, _ = s.Drafted(video.ID(), nil, "", "", 0, now)
@@ -198,7 +201,7 @@ func TestMeasuresFollowTheLatestRevision(t *testing.T) {
 	_ = s.Rendered(video.ID(), 0, now) // not measured: nothing changes
 	check("unmeasured render", rev, story.Measures{Words: 112})
 
-	fb, _ := story.NewFeedback("Shorter", story.ScopeScript, nil, editor, now)
+	fb, _ := story.NewFeedback([]story.Note{{Text: "Shorter", Scope: story.ScopeScript}}, editor, now)
 	_ = s.RequestChanges(video.ID(), fb, now)
 	_, _ = s.StartDrafting(video.ID(), now)
 	rev, _ = s.Drafted(video.ID(), nil, "", "", 120, now)
@@ -214,7 +217,7 @@ func TestMeasuresFollowTheLatestRevision(t *testing.T) {
 
 	// A narration edit goes back to the agent: the length is unknown
 	// until the next render.
-	retime, _ := story.NewFeedback("re-time", story.ScopeScript, nil, editor, now)
+	retime, _ := story.NewFeedback([]story.Note{{Text: "re-time", Scope: story.ScopeScript}}, editor, now)
 	rev, _ = s.Edited(video.ID(), nil, editor, &retime, 98, now)
 	check("narration edit", rev, story.Measures{Words: 98})
 
@@ -225,25 +228,108 @@ func TestMeasuresFollowTheLatestRevision(t *testing.T) {
 }
 
 func TestNewFeedback(t *testing.T) {
-	neg := -1.0
+	neg, at3, at9 := -1.0, 3.0, 9.0
+	many := make([]story.Note, story.MaxFeedbackNotes+1)
+	for i := range many {
+		many[i] = story.Note{Text: "ok"}
+	}
 	tests := []struct {
-		text  string
-		scope story.Scope
-		at    *float64
+		name  string
+		notes []story.Note
 		ok    bool
+		// The texts in the order kept, when ok.
+		order []string
 	}{
-		{"ok", "", nil, true},
-		{"  ", story.ScopeAll, nil, false},
-		{"ok", story.Scope("tone"), nil, false},
-		{"ok", story.ScopeVisuals, &neg, false},
+		{"one note", []story.Note{{Text: "ok"}}, true, []string{"ok"}},
+		{"no notes", nil, false, nil},
+		{"blank note", []story.Note{{Text: "ok"}, {Text: "  ", Scope: story.ScopeAll}}, false, nil},
+		{"unknown scope", []story.Note{{Text: "ok", Scope: story.Scope("tone")}}, false, nil},
+		{"negative time", []story.Note{{Text: "ok", Scope: story.ScopeVisuals, AtSeconds: &neg}}, false, nil},
+		{"too long", []story.Note{{Text: strings.Repeat("a", story.MaxFeedbackRunes+1)}}, false, nil},
+		{"too many", many, false, nil},
+		{"at the limit", many[:story.MaxFeedbackNotes], true, nil},
+		{
+			"untimed first, then by time",
+			[]story.Note{{Text: "late", AtSeconds: &at9}, {Text: "whole"}, {Text: "early", AtSeconds: &at3}, {Text: "tone"}},
+			true, []string{"whole", "tone", "early", "late"},
+		},
 	}
 	for _, tt := range tests {
-		fb, err := story.NewFeedback(tt.text, tt.scope, tt.at, uuid.Nil, now)
-		if (err == nil) != tt.ok {
-			t.Errorf("NewFeedback(%q, %q) = %v", tt.text, tt.scope, err)
-		}
-		if err == nil && fb.Scope != story.ScopeAll && tt.scope == "" {
-			t.Error("empty scope not defaulted")
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			fb, err := story.NewFeedback(tt.notes, uuid.Nil, now)
+			if (err == nil) != tt.ok {
+				t.Fatalf("NewFeedback = %v, want ok %v", err, tt.ok)
+			}
+			if err != nil {
+				return
+			}
+			for _, n := range fb.Notes {
+				if n.Scope == "" {
+					t.Error("empty scope not defaulted")
+				}
+			}
+			if tt.order != nil {
+				got := make([]string, len(fb.Notes))
+				for i, n := range fb.Notes {
+					got[i] = n.Text
+				}
+				if !slices.Equal(got, tt.order) {
+					t.Errorf("order = %v, want %v", got, tt.order)
+				}
+			}
+		})
 	}
 }
+
+// Feedback stored before it carried several notes reads as one note.
+func TestFeedbackJSON(t *testing.T) {
+	by := uuid.MustParse("01a14343-5400-7c50-a726-d5f8ab86553c")
+	tests := []struct {
+		name  string
+		raw   string
+		notes []story.Note
+	}{
+		{
+			"legacy single note",
+			`{"text":"Slow the voice down","scope":"voice","atSeconds":21.5,"by":"` + by.String() + `","at":"2026-10-13T09:00:00Z"}`,
+			[]story.Note{{Text: "Slow the voice down", Scope: story.ScopeVoice, AtSeconds: ptr(21.5)}},
+		},
+		{
+			"legacy without a time or scope",
+			`{"text":"Shorter","by":"` + by.String() + `","at":"2026-10-13T09:00:00Z"}`,
+			[]story.Note{{Text: "Shorter", Scope: story.ScopeAll}},
+		},
+		{
+			"notes",
+			`{"notes":[{"text":"Tighter intro","scope":"all"},{"text":"Wrong chart","scope":"visuals","atSeconds":14.2}],"by":"` + by.String() + `","at":"2026-10-13T09:00:00Z"}`,
+			[]story.Note{{Text: "Tighter intro", Scope: story.ScopeAll}, {Text: "Wrong chart", Scope: story.ScopeVisuals, AtSeconds: ptr(14.2)}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var fb story.Feedback
+			if err := json.Unmarshal([]byte(tt.raw), &fb); err != nil {
+				t.Fatal(err)
+			}
+			if fb.By != by || !fb.At.Equal(now) {
+				t.Fatalf("by, at = %v, %v", fb.By, fb.At)
+			}
+			if !slices.EqualFunc(fb.Notes, tt.notes, sameNote) {
+				t.Fatalf("notes = %+v, want %+v", fb.Notes, tt.notes)
+			}
+			// It writes the new shape and reads it back the same.
+			raw, _ := json.Marshal(fb)
+			var back story.Feedback
+			if err := json.Unmarshal(raw, &back); err != nil || !slices.EqualFunc(back.Notes, tt.notes, sameNote) {
+				t.Fatalf("round trip %s = %+v, %v", raw, back.Notes, err)
+			}
+		})
+	}
+}
+
+func sameNote(a, b story.Note) bool {
+	return a.Text == b.Text && a.Scope == b.Scope &&
+		(a.AtSeconds == nil) == (b.AtSeconds == nil) && (a.AtSeconds == nil || *a.AtSeconds == *b.AtSeconds)
+}
+
+func ptr[T any](v T) *T { return &v }

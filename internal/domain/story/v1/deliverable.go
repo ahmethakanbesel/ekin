@@ -1,7 +1,11 @@
 package story
 
 import (
+	"cmp"
+	"encoding/json"
+	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -69,35 +73,106 @@ const (
 	ScopeMetadata Scope = "metadata"
 )
 
-// Feedback is a reviewer's change request.
-type Feedback struct {
-	Text      string    `json:"text"`
-	Scope     Scope     `json:"scope"`
-	AtSeconds *float64  `json:"atSeconds,omitempty"` // video position it refers to
-	By        uuid.UUID `json:"by"`
-	At        time.Time `json:"at"`
+// Note is one thing a reviewer wants changed: what it is about, where
+// in the video (nil for the whole draft), and what should change.
+type Note struct {
+	Text      string   `json:"text"`
+	Scope     Scope    `json:"scope"`
+	AtSeconds *float64 `json:"atSeconds,omitempty"` // video position it refers to
 }
 
-// NewFeedback checks a change request.
-func NewFeedback(text string, scope Scope, atSeconds *float64, by uuid.UUID, now time.Time) (Feedback, error) {
-	text = strings.TrimSpace(text)
-	if text == "" {
+// Feedback is a reviewer's change request: the notes of one review
+// round, sent together.
+type Feedback struct {
+	Notes []Note    `json:"notes"`
+	By    uuid.UUID `json:"by"`
+	At    time.Time `json:"at"`
+}
+
+// MaxFeedbackNotes is the most notes one change request carries.
+const MaxFeedbackNotes = 20
+
+// NewFeedback checks a change request. Notes are kept in reading order:
+// those about the whole draft first, then the timed ones by time.
+func NewFeedback(notes []Note, by uuid.UUID, now time.Time) (Feedback, error) {
+	if len(notes) == 0 {
 		return Feedback{}, apperror.New(apperror.ValidationFailed, "feedback is required")
 	}
-	if utf8.RuneCountInString(text) > MaxFeedbackRunes {
-		return Feedback{}, apperror.New(apperror.ValidationFailed, "feedback is too long")
+	if len(notes) > MaxFeedbackNotes {
+		return Feedback{}, apperror.New(apperror.ValidationFailed, fmt.Sprintf("feedback has more than %d notes", MaxFeedbackNotes))
 	}
-	switch scope {
+	out := make([]Note, 0, len(notes))
+	for _, n := range notes {
+		checked, err := newNote(n)
+		if err != nil {
+			return Feedback{}, err
+		}
+		out = append(out, checked)
+	}
+	slices.SortStableFunc(out, func(a, b Note) int {
+		switch {
+		case a.AtSeconds == nil && b.AtSeconds == nil:
+			return 0
+		case a.AtSeconds == nil:
+			return -1
+		case b.AtSeconds == nil:
+			return 1
+		}
+		return cmp.Compare(*a.AtSeconds, *b.AtSeconds)
+	})
+	return Feedback{Notes: out, By: by, At: timeutil.Normalize(now)}, nil
+}
+
+func newNote(n Note) (Note, error) {
+	n.Text = strings.TrimSpace(n.Text)
+	if n.Text == "" {
+		return Note{}, apperror.New(apperror.ValidationFailed, "feedback is required")
+	}
+	if utf8.RuneCountInString(n.Text) > MaxFeedbackRunes {
+		return Note{}, apperror.New(apperror.ValidationFailed, "feedback is too long")
+	}
+	switch n.Scope {
 	case "":
-		scope = ScopeAll
+		n.Scope = ScopeAll
 	case ScopeAll, ScopeScript, ScopeVoice, ScopeVisuals, ScopeMusic, ScopeMetadata:
 	default:
-		return Feedback{}, apperror.New(apperror.ValidationFailed, "unknown feedback scope")
+		return Note{}, apperror.New(apperror.ValidationFailed, "unknown feedback scope")
 	}
-	if atSeconds != nil && *atSeconds < 0 {
-		return Feedback{}, apperror.New(apperror.ValidationFailed, "feedback position must not be negative")
+	if n.AtSeconds != nil {
+		if *n.AtSeconds < 0 {
+			return Note{}, apperror.New(apperror.ValidationFailed, "feedback position must not be negative")
+		}
+		at := *n.AtSeconds
+		n.AtSeconds = &at
 	}
-	return Feedback{Text: text, Scope: scope, AtSeconds: atSeconds, By: by, At: timeutil.Normalize(now)}, nil
+	return n, nil
+}
+
+// UnmarshalJSON reads feedback as stored, also from before it carried
+// several notes ({"text", "scope", "atSeconds", "by", "at"}), which
+// becomes one note.
+func (f *Feedback) UnmarshalJSON(b []byte) error {
+	var raw struct {
+		Notes     []Note    `json:"notes"`
+		Text      string    `json:"text"`
+		Scope     Scope     `json:"scope"`
+		AtSeconds *float64  `json:"atSeconds"`
+		By        uuid.UUID `json:"by"`
+		At        time.Time `json:"at"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+	notes := raw.Notes
+	if len(notes) == 0 && raw.Text != "" {
+		scope := raw.Scope
+		if scope == "" {
+			scope = ScopeAll
+		}
+		notes = []Note{{Text: raw.Text, Scope: scope, AtSeconds: raw.AtSeconds}}
+	}
+	*f = Feedback{Notes: notes, By: raw.By, At: raw.At}
+	return nil
 }
 
 // Measures are what a revision came out as, not what was asked for:

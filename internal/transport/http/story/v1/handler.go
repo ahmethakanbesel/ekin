@@ -188,16 +188,19 @@ func (h *Handler) RequestChanges(ctx context.Context, req gen.RequestChangesRequ
 	if err != nil {
 		return nil, err
 	}
-	var scope storydomain.Scope
-	if req.Body.Scope != nil {
-		scope = storydomain.Scope(*req.Body.Scope)
+	notes := make([]storydomain.Note, 0, len(req.Body.Notes))
+	for _, n := range req.Body.Notes {
+		note := storydomain.Note{Text: n.Text}
+		if n.Scope != nil {
+			note.Scope = storydomain.Scope(*n.Scope)
+		}
+		if n.AtSeconds != nil {
+			v := *n.AtSeconds
+			note.AtSeconds = &v
+		}
+		notes = append(notes, note)
 	}
-	var at *float64
-	if req.Body.AtSeconds != nil {
-		v := *req.Body.AtSeconds
-		at = &v
-	}
-	fb, err := storydomain.NewFeedback(req.Body.Text, scope, at, p.User.ID(), timeNow())
+	fb, err := storydomain.NewFeedback(notes, p.User.ID(), timeNow())
 	if err != nil {
 		return nil, err
 	}
@@ -321,10 +324,14 @@ func feedbackToWire(fb *storydomain.Feedback) *gen.Feedback {
 	if fb == nil {
 		return nil
 	}
-	out := &gen.Feedback{Text: fb.Text, Scope: gen.FeedbackScope(fb.Scope), At: fb.At}
-	if fb.AtSeconds != nil {
-		v := *fb.AtSeconds
-		out.AtSeconds = &v
+	out := &gen.Feedback{Notes: make([]gen.FeedbackNote, 0, len(fb.Notes)), At: fb.At}
+	for _, n := range fb.Notes {
+		note := gen.FeedbackNote{Text: n.Text, Scope: gen.FeedbackScope(n.Scope)}
+		if n.AtSeconds != nil {
+			v := *n.AtSeconds
+			note.AtSeconds = &v
+		}
+		out.Notes = append(out.Notes, note)
 	}
 	if fb.By != uuid.Nil {
 		by := fb.By

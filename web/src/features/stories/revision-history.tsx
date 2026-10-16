@@ -15,7 +15,7 @@ import { formatDateTime, formatRelative, useNow } from "@/lib/time"
 import { cn } from "@/lib/utils"
 import { useMemberNames } from "@/queries/members"
 import { measuredLength, measuredWords } from "./model"
-import { FeedbackLine } from "./status-alert"
+import { FeedbackNotes } from "./status-alert"
 
 /** How many entries the history lists. */
 export function historyCount(d: Deliverable, revisions: Revision[]): number {
@@ -82,7 +82,7 @@ export function RevisionHistory({
             </p>
           ) : null}
           <div className="mt-1 text-sm">
-            <FeedbackLine feedback={pending} kind={d.kind} lang={lang} />
+            <FeedbackNotes feedback={pending} kind={d.kind} lang={lang} />
           </div>
         </Entry>
       ) : null}
@@ -121,7 +121,7 @@ export function RevisionHistory({
                 <span className="text-xs font-medium text-muted-foreground">
                   {m.history.askedOn(r.number - 1, nameOf(r.feedback.by))}
                 </span>
-                <FeedbackLine
+                <FeedbackNotes
                   feedback={r.feedback}
                   kind={d.kind}
                   lang={lang}
