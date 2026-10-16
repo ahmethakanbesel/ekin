@@ -10,6 +10,7 @@ import {
 import type { Deliverable, Revision } from "@/api/client"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useNarratorNames } from "@/features/voice/narrator"
 import { m } from "@/i18n"
 import { formatDateTime, formatRelative, useNow } from "@/lib/time"
 import { cn } from "@/lib/utils"
@@ -51,6 +52,10 @@ export function RevisionHistory({
 }) {
   const now = useNow()
   const pending = pendingNote(d)
+  const nameNarrator = useNarratorNames(
+    workspaceId,
+    revisions.map((r) => r.measured?.narrator)
+  )
   // The people who edited revisions or wrote notes.
   const nameOf = useMemberNames(
     workspaceId,
@@ -88,7 +93,11 @@ export function RevisionHistory({
       ) : null}
       {revisions.toReversed().map((r) => {
         const editor = r.editedBy ? nameOf(r.editedBy) : undefined
-        const measured = [measuredLength(r.measured), measuredWords(r.measured)].filter(Boolean)
+        const measured = [
+          measuredLength(r.measured),
+          measuredWords(r.measured),
+          nameNarrator(r.measured?.narrator, d.language),
+        ].filter(Boolean)
         return (
           <Entry
             key={r.number}

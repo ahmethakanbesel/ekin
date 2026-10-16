@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { useNarratorNames } from "@/features/voice/narrator"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { formatDateTime, formatRelative, useNow } from "@/lib/time"
@@ -74,6 +75,11 @@ export function ReviewPanel({
   const { current, latest, artifacts } = review
   const language = m.values.language[story.language] ?? story.language
   const hasScript = !!current?.artifacts.includes("script.md")
+  const nameNarrator = useNarratorNames(
+    workspaceId,
+    review.list.map((r) => r.measured?.narrator)
+  )
+  const narrator = nameNarrator(current?.measured?.narrator, d.language)
 
   return (
     <div className="grid">
@@ -170,9 +176,11 @@ export function ReviewPanel({
           <Section
             title={m.panel.script}
             aside={
-              current.artifacts.includes("narration.wav")
-                ? m.panel.narration(language)
-                : language
+              narrator
+                ? m.panel.readBy(narrator, language)
+                : current.artifacts.includes("narration.wav")
+                  ? m.panel.narration(language)
+                  : language
             }
           >
             <ScriptText

@@ -879,6 +879,7 @@ export const en = {
     latest: (label: string) => `${label} · latest`,
     script: "Script",
     narration: (language: string) => `Narration · ${language}`,
+    readBy: (voice: string, language: string) => `Read by ${voice} · ${language}`,
     details: "Details",
     yourNote: (time: string) => `Note you are writing, at ${time}`,
     unsentNote: (time: string, scope: string) => `Unsent note at ${time} · ${scope}`,
