@@ -337,6 +337,21 @@ export const en = {
     articleSummary: (words: number, translations: string) =>
       `Article · ${words.toLocaleString("en-GB")} words${translations ? ` · → ${translations}` : ""}`,
     batch: (n: number) => (n === 1 ? "1 item per run" : `${n} items per run`),
+    // Readable schedules; days are cron numbers, 0 = Sunday.
+    every: {
+      day: (times: string) => `Every day ${times}`,
+      weekday: (times: string) => `Weekdays ${times}`,
+      weekend: (times: string) => `Weekends ${times}`,
+      week: (day: number, times: string) =>
+        `${["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"][day]} ${times}`,
+      days: (days: number[], times: string) => {
+        const names = days.map((d) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d])
+        const last = names.pop()
+        return `${names.length ? `${names.join(", ")} & ${last}` : last} ${times}`
+      },
+      hour: (minute: number) =>
+        minute === 0 ? "Every hour" : `Every hour at :${String(minute).padStart(2, "0")}`,
+    },
     runNow: "Run now",
     pause: "Pause",
     resume: "Resume",

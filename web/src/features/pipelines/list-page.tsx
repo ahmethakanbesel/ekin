@@ -8,7 +8,6 @@ import {
   PencilIcon,
   PlayIcon,
   PlusIcon,
-  RotateCwIcon,
   Trash2Icon,
   VideoIcon,
   WorkflowIcon,
@@ -49,6 +48,7 @@ import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { formatDateTime, formatRelative, useNow } from "@/lib/time"
 import { useRetained } from "@/lib/use-retained"
+import { cn } from "@/lib/utils"
 import {
   pipelinesQuery,
   useDeletePipeline,
@@ -57,7 +57,7 @@ import {
 } from "@/queries/pipelines"
 import { PipelineStatusBadge, PipelineSwatch } from "./identity"
 import { RunPipelineDialog } from "./run-dialog"
-import { outputLines } from "./summary"
+import { outputLines, scheduleText } from "./summary"
 
 export function PipelinesPage() {
   const workspace = useWorkspace()
@@ -181,7 +181,7 @@ function PipelineRow({
 
   return (
     <TableRow>
-      <TableCell className="max-w-64 min-w-48 pl-4 align-top whitespace-normal">
+      <TableCell className="max-w-64 min-w-40 pl-4 align-top whitespace-normal">
         <div className="flex flex-col gap-1">
           <span className="flex items-start gap-2">
             <PipelineSwatch id={p.id} className="mt-1.25" />
@@ -198,18 +198,18 @@ function PipelineRow({
           </span>
         </div>
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell className="max-w-64 min-w-44 align-top whitespace-normal">
         <ul className="grid gap-1">
           {outputLines(def).map((line) => (
-            <li key={line.kind} className="flex items-center gap-1.5 text-sm">
+            <li key={line.kind} className="flex items-start gap-1.5 text-sm">
               {line.kind === "video" ? (
-                <VideoIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                <VideoIcon className="mt-0.75 size-3.5 shrink-0 text-muted-foreground" />
               ) : (
-                <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                <FileTextIcon className="mt-0.75 size-3.5 shrink-0 text-muted-foreground" />
               )}
               <span>{line.text}</span>
               {line.lead ? (
-                <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
+                <Badge variant="outline" className="mt-0.5 h-4 shrink-0 px-1.5 text-[10px]">
                   {m.pipelines.lead}
                 </Badge>
               ) : null}
@@ -217,21 +217,15 @@ function PipelineRow({
           ))}
         </ul>
       </TableCell>
-      <TableCell className="align-top text-sm">
+      <TableCell className="max-w-40 align-top text-sm whitespace-normal">
         {m.pipelineForm.sourceKinds[def.source.kind]}
         {def.source.kind === "knowledge" && def.source.refs?.length ? (
           <span className="text-muted-foreground"> · {def.source.refs.length}</span>
         ) : null}
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell className="max-w-44 min-w-32 align-top whitespace-normal">
         {schedule ? (
-          <div className="flex flex-col gap-0.5">
-            <code className="w-fit rounded-md bg-muted px-1.5 py-0.5 font-mono text-xs">
-              {schedule.cron}
-            </code>
-            <span className="text-xs text-muted-foreground">{schedule.timezone}</span>
-            <span className="text-xs text-muted-foreground">{m.pipelines.batch(schedule.batch)}</span>
-          </div>
+          <ScheduleCell schedule={schedule} />
         ) : (
           <span className="text-sm text-muted-foreground">{m.common.manual}</span>
         )}
@@ -258,6 +252,16 @@ function PipelineRow({
               <PlayIcon data-icon="inline-start" />
               {m.pipelines.runNow}
             </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              disabled={toggling}
+              aria-label={`${p.status === "active" ? m.pipelines.pause : m.pipelines.resume}: ${def.name}`}
+              title={p.status === "active" ? m.pipelines.pause : m.pipelines.resume}
+              onClick={() => void togglePause()}
+            >
+              {p.status === "active" ? <PauseIcon /> : <PlayIcon />}
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={<Button variant="ghost" size="icon-sm" aria-label={m.common.actions} />}
@@ -268,10 +272,6 @@ function PipelineRow({
                 <DropdownMenuItem onClick={edit}>
                   <PencilIcon />
                   {m.common.edit}
-                </DropdownMenuItem>
-                <DropdownMenuItem disabled={toggling} onClick={() => void togglePause()}>
-                  {p.status === "active" ? <PauseIcon /> : <RotateCwIcon />}
-                  {p.status === "active" ? m.pipelines.pause : m.pipelines.resume}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onClick={onDelete}>
@@ -284,6 +284,21 @@ function PipelineRow({
         ) : null}
       </TableCell>
     </TableRow>
+  )
+}
+
+/** The schedule in words first, the cron expression under it. */
+function ScheduleCell({ schedule }: { schedule: NonNullable<Pipeline["definition"]["schedule"]> }) {
+  const text = scheduleText(schedule.cron)
+  return (
+    <div className="flex flex-col gap-0.5">
+      {text ? <span className="text-sm">{text}</span> : null}
+      <code className={cn("w-fit font-mono", text ? "text-xs text-muted-foreground" : "text-sm")}>
+        {schedule.cron}
+      </code>
+      <span className="text-xs text-muted-foreground">{schedule.timezone}</span>
+      <span className="text-xs text-muted-foreground">{m.pipelines.batch(schedule.batch)}</span>
+    </div>
   )
 }
 
