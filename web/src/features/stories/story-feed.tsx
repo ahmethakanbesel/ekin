@@ -290,6 +290,7 @@ export function StoryFeed({
   stories,
   currentId,
   sitting,
+  sheet,
   workspaceId,
   renderItem,
 }: {
@@ -297,6 +298,11 @@ export function StoryFeed({
   stories: Story[]
   currentId: string
   sitting: boolean
+  /**
+   * The docked feedback sheet beside the feed, when this reviewer can have
+   * one: closed, its room stays reserved so drafts keep their place.
+   */
+  sheet?: "open" | "closed"
   workspaceId: string
   /** A story's draft; `near` when it is next to the current one. */
   renderItem: (story: Story, near: boolean) => ReactNode
@@ -309,6 +315,7 @@ export function StoryFeed({
   return (
     <section
       ref={attach}
+      data-sheet={sheet}
       className="feed outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-inset"
       aria-label={sitting ? m.feed.label : m.feed.single}
     >

@@ -200,10 +200,14 @@
 
 /*
  * Review feed geometry (layout only): one draft per snap, sized to the
- * feed's own box, with the next draft peeking below. Every draft shares
- * one column: the width of a 9:16 frame as tall as the feed allows, from
- * one left edge. A 16:9 video grows to the right of it; a 9:16 video
- * carries its caption strip over its foot.
+ * feed's own box, with the next draft peeking below. Every draft starts
+ * from one left edge: the place a 9:16 frame as tall as the feed allows
+ * (with its rail) is centred in the room the docked feedback sheet leaves.
+ * While the sheet is closed that room is reserved (`data-sheet="closed"`),
+ * so opening it, or moving to a draft without one, never moves the draft.
+ * A 16:9 video grows to the right of that edge; an article is a paper
+ * sheet at the 9:16 size; a 9:16 video carries its caption strip over
+ * its foot.
  */
 .feed {
   position: relative;
@@ -223,9 +227,12 @@
     flex: 1 1 0%;
     min-height: 0;
   }
+  .feed[data-sheet="closed"] {
+    --reserve: 340px;
+  }
 }
 .feed-item {
-  --peek: 72px;
+  --peek: 48px;
   --rail: 88px;
   --gap: 16px;
   --fh: calc(100cqh - var(--peek) - 20px);
@@ -233,7 +240,15 @@
     calc(var(--fh) * 9 / 16),
     calc(100cqw - 32px - var(--gap) - var(--rail))
   );
-  --left: max(16px, calc((100cqw - var(--cw) - var(--gap) - var(--rail)) / 2));
+  --left: max(
+    16px,
+    calc(
+      (100cqw - var(--reserve, 0px) - var(--cw) - var(--gap) - var(--rail)) /
+        2
+    )
+  );
+  /* What a draft may take to the right of the left edge. */
+  --room: calc(100cqw - var(--left) - 16px - var(--gap) - var(--rail));
   height: calc(100cqh - var(--peek));
   scroll-snap-align: start;
   display: flex;
@@ -259,13 +274,7 @@
   max-height: var(--fh);
 }
 .frame-h {
-  width: max(
-    var(--cw),
-    min(
-      calc(100cqw - var(--left) - 16px - var(--gap) - var(--rail)),
-      calc(var(--fh) * 16 / 9)
-    )
-  );
+  width: max(var(--cw), min(var(--room), calc(var(--fh) * 16 / 9)));
   max-height: var(--fh);
 }
 .rail {

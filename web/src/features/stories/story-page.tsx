@@ -466,6 +466,13 @@ function StoryView({
             stories={stories}
             currentId={story.id}
             sitting={sitting}
+            sheet={
+              feedbackOpen
+                ? "open"
+                : canEdit && (sitting || reviewing)
+                  ? "closed"
+                  : undefined
+            }
             workspaceId={workspace.id}
             renderItem={(s, near) =>
               s.id === story.id ? (
