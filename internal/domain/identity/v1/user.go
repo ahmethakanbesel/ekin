@@ -17,7 +17,7 @@ const (
 	MaxNameLength = 80
 	// MinPasswordLength and MaxPasswordLength bound a new password, in
 	// runes.
-	MinPasswordLength = 10
+	MinPasswordLength = 8
 	MaxPasswordLength = 128
 	maxEmailLength    = 254
 )
@@ -49,12 +49,12 @@ type Password struct {
 	plain string
 }
 
-// ParsePassword checks a new password against the policy: 10 to 128
+// ParsePassword checks a new password against the policy: 8 to 128
 // characters. Length beats composition rules (NIST SP 800-63B).
 func ParsePassword(s string) (Password, error) {
 	n := utf8.RuneCountInString(s)
 	if n < MinPasswordLength {
-		return Password{}, apperror.New(apperror.ValidationFailed, "password must be at least 10 characters")
+		return Password{}, apperror.New(apperror.ValidationFailed, "password must be at least 8 characters")
 	}
 	if n > MaxPasswordLength {
 		return Password{}, apperror.New(apperror.ValidationFailed, "password must be at most 128 characters")

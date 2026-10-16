@@ -42,9 +42,12 @@ func TestParsePassword(t *testing.T) {
 		ok bool
 	}{
 		{"short", false},
+		{"1234567", false},
+		{"12345678", true},
 		{"0123456789", true},
-		{"çğıöşüçğıö", true}, // runes, not bytes
-		{"          ", false},
+		{"çğıöşüçğ", true}, // runes, not bytes
+		{"çğıöşüç", false},
+		{"        ", false},
 		{strings.Repeat("x", 128), true},
 		{strings.Repeat("x", 129), false},
 	}

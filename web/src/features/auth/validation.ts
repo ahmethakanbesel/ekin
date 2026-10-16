@@ -1,6 +1,6 @@
 import { m } from "@/i18n"
 
-export const PASSWORD_MIN = 10
+export const PASSWORD_MIN = 8
 export const PASSWORD_MAX = 128
 
 export function personNameError(name: string): string | undefined {
