@@ -268,7 +268,8 @@ function StoryView({
                 <ToggleGroupItem
                   key={d.id}
                   value={d.id}
-                  className="h-8 flex-1 gap-1.5 border border-transparent px-2.5 text-foreground hover:bg-background/60 aria-pressed:border-border aria-pressed:bg-background dark:text-muted-foreground dark:aria-pressed:border-input dark:aria-pressed:bg-input/30 dark:aria-pressed:text-foreground"
+                  // Pressed: a foreground/60 border on the track (4.6:1 light, 5.2:1 dark).
+                  className="h-8 flex-1 gap-1.5 border border-transparent px-2.5 font-normal text-muted-foreground hover:bg-background/60 hover:text-foreground aria-pressed:border-foreground/60 aria-pressed:bg-background aria-pressed:font-medium aria-pressed:text-foreground aria-pressed:inset-ring-0"
                 >
                   {deliverableLabel(d)}
                   <span
