@@ -1,6 +1,11 @@
 import { lazy, Suspense, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Link, useNavigate, useParams } from "@tanstack/react-router"
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useRouter,
+} from "@tanstack/react-router"
 import {
   ChevronLeftIcon,
   EllipsisIcon,
@@ -139,6 +144,7 @@ function StoryView({
   const canEdit = useCan("edit")
   const canManage = useCan("manage")
   const navigate = useNavigate()
+  const router = useRouter()
   const qc = useQueryClient()
   const [deleting, setDeleting] = useState(false)
 
@@ -204,19 +210,49 @@ function StoryView({
     else if (sitting) nav.next()
   }
 
+  /**
+   * Approving moves on at once, like any decision; the approval itself is
+   * sent a few seconds later unless undone. Undo comes back to the draft.
+   */
+  const approve = () => {
+    const at = { story: story.id, id: selected.id }
+    const started = review.approve(() => {
+      const onStory = router.state.location.pathname.startsWith(
+        `/w/${workspace.id}/stories/`
+      )
+      void navigate({
+        to: ROUTE,
+        params: { workspaceId: workspace.id, storyId: at.story },
+        replace: onStory,
+      })
+      setPicked(at)
+    })
+    if (!started) return
+    const waiting = story.deliverables.find(
+      (d) => d.status === "review" && d.id !== selected.id
+    )
+    if (waiting) setPicked({ story: story.id, id: waiting.id })
+    else if (sitting) nav.next()
+  }
+
   const pick = (id: string) => {
     if (id === selected.id) return
     if (dirty) setPendingTab(id)
     else setPicked({ story: story.id, id })
   }
 
+  // A waiting approval has decided the draft unless it is undone.
+  const deciding = !!review.pendingApproval
   const canEditContent =
-    canEdit && selected.status === "review" && selected.revision > 0
+    canEdit &&
+    selected.status === "review" &&
+    selected.revision > 0 &&
+    !deciding
 
   // The feedback sheet: docked from xl up (open unless closed), a sheet
   // over the page below. Only for a draft an editor can send back.
   const wide = useMediaQuery("(min-width: 1280px)")
-  const reviewing = canEdit && selected.status === "review"
+  const reviewing = canEdit && selected.status === "review" && !deciding
   const [docked, setDocked] = useState(true)
   const [sheetOpen, setSheetOpen] = useState(false)
   const feedbackOpen = reviewing && (wide ? docked : sheetOpen)
@@ -374,7 +410,7 @@ function StoryView({
                     deliverable={selected}
                     review={review}
                     canEdit={canEdit}
-                    onDecided={onDecided}
+                    onApprove={approve}
                     onRequestChanges={() => openFeedback(review.pause())}
                     feedback={{
                       open: feedbackOpen,

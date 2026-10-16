@@ -309,6 +309,7 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 - **Character:** round 40px buttons in a column beside the draft, each with a 12px medium caption beneath; the caption is visual, the button carries the accessible name.
 - **Approve:** Ready Green fill with light text. **Request changes:** Cornflower Ink edge and text with a 10% cornflower hover. **Feedback / Revisions / Open publication:** neutral outline. **Reject:** red edge and text, separated from the rest by a hairline divider and given a red caption.
 - **Revisions** shows the revision on screen as a small secondary badge at its corner.
+- **Approving** waits six seconds before it is sent: the toast names the story with an Undo action and a green bar draining over the window, and the Approve button turns into a green-edged Undo with a ring draining around it (both hidden when motion is reduced). The feed moves on at the click; a tab closing sends what is waiting.
 
 ### Badges and Status
 - **Style:** fully round, 20px tall, 12px medium label.

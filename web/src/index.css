@@ -418,3 +418,34 @@
   padding: 0.4em 0.7em;
   text-align: left;
 }
+
+/* A countdown draining from full to empty (the approve undo window).
+   Set animation-duration (and a negative delay to resume part-way). */
+@keyframes countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+.countdown {
+  transform-origin: left;
+  animation-name: countdown;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes countdown-ring {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 100;
+  }
+}
+.countdown-ring {
+  stroke-dasharray: 100;
+  animation-name: countdown-ring;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}

@@ -1,4 +1,4 @@
-import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
+import { queryOptions, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query"
 
 import {
   API_BASE,
@@ -182,6 +182,27 @@ function postAction(
         { params }
       )
   }
+}
+
+/**
+ * Approves a deliverable outside a component (a delayed approval outlives
+ * the rail that started it) and stores the story it returns. keepalive lets
+ * the request finish while the page unloads.
+ */
+export async function approveDeliverable(
+  qc: QueryClient,
+  path: { workspaceId: string; storyId: string; deliverableId: string },
+  keepalive = false
+): Promise<Story> {
+  const s = await call(
+    api.POST("/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/approve", {
+      params: { path },
+      keepalive,
+    })
+  )
+  qc.setQueryData(keys.story(path.workspaceId, s.id), s)
+  void qc.invalidateQueries({ queryKey: keys.storyLists(path.workspaceId) })
+  return s
 }
 
 /** Approve, reject, retry or publish one deliverable. */

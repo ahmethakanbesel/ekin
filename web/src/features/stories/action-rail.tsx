@@ -1,16 +1,18 @@
-import type { ReactElement, ReactNode, RefObject } from "react"
+import { useState, type ReactNode, type RefObject } from "react"
 import {
   CheckIcon,
   ExternalLinkIcon,
   LayersIcon,
+  Loader2Icon,
   MessageSquarePlusIcon,
   PencilLineIcon,
   RotateCwIcon,
   SendIcon,
+  Undo2Icon,
   XIcon,
 } from "lucide-react"
 
-import type { Deliverable, Story } from "@/api/client"
+import type { Deliverable } from "@/api/client"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
@@ -24,12 +26,15 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { m } from "@/i18n"
 import { cn } from "@/lib/utils"
+import { APPROVE_DELAY_MS, type PendingApproval } from "./pending-approvals"
 import type { DeliverableReview } from "./use-deliverable-review"
 
 /** Round rail buttons in their roles' colours; the label under each says what it does. */
 const tones = {
   approve:
     "bg-success text-success-foreground inset-ring-success hover:bg-success/90",
+  approving:
+    "border-success text-success hover:bg-success/10 hover:text-success disabled:opacity-100 dark:border-success/70 dark:hover:bg-success/15",
   changes:
     "border-primary-ink text-primary-ink hover:bg-primary/10 hover:text-primary-ink dark:border-primary/70 dark:hover:bg-primary/15",
   neutral: "",
@@ -48,15 +53,15 @@ export function ActionRail({
   deliverable: d,
   review,
   canEdit,
-  onDecided,
+  onApprove,
   onRequestChanges,
   feedback,
 }: {
   deliverable: Deliverable
   review: DeliverableReview
   canEdit: boolean
-  /** After an approval went through, with the updated story. */
-  onDecided: (story: Story) => void
+  /** Starts the (undoable) approval of the deliverable on screen. */
+  onApprove: () => void
   /** Opens the feedback sheet on the note, pinned where the player paused. */
   onRequestChanges: () => void
   /** The feedback sheet's toggle. */
@@ -73,21 +78,62 @@ export function ActionRail({
   const main: ReactNode[] = []
   let reject: ReactNode = null
 
+  const pending = review.pendingApproval
+
   if (reviewing) {
     main.push(
-      <RailItem key="approve" label={m.review.approve} labelClass="text-success">
-        <Button
-          size="icon-lg"
-          className={cn(round, tones.approve)}
-          aria-label={m.feed.approve(d.revision)}
-          disabled={busy}
-          onClick={() =>
-            void review.approve().then((s) => s && onDecided(s))
+      pending ? (
+        <RailItem
+          key="approve"
+          label={
+            <>
+              {m.review.approvingRail}
+              {pending.state === "waiting" ? (
+                <span className="block">{m.review.undo}</span>
+              ) : null}
+            </>
           }
+          labelClass="text-success"
         >
-          <CheckIcon />
-        </Button>
-      </RailItem>,
+          <Button
+            variant="outline"
+            size="icon-lg"
+            className={cn(round, tones.approving)}
+            aria-label={
+              pending.state === "waiting"
+                ? m.review.undoApprove(d.revision)
+                : m.review.approving(d.revision)
+            }
+            disabled={pending.state !== "waiting"}
+            onClick={review.undoApproval}
+          >
+            {pending.state === "waiting" ? (
+              <Undo2Icon />
+            ) : (
+              <Loader2Icon className="animate-spin" />
+            )}
+          </Button>
+          {pending.state === "waiting" ? (
+            <CountdownRing pending={pending} />
+          ) : null}
+        </RailItem>
+      ) : (
+        <RailItem
+          key="approve"
+          label={m.review.approve}
+          labelClass="text-success"
+        >
+          <Button
+            size="icon-lg"
+            className={cn(round, tones.approve)}
+            aria-label={m.feed.approve(d.revision)}
+            disabled={busy}
+            onClick={onApprove}
+          >
+            <CheckIcon />
+          </Button>
+        </RailItem>
+      ),
       <RailItem key="changes" label={m.review.requestChanges}>
         <Button
           variant="outline"
@@ -109,6 +155,7 @@ export function ActionRail({
           aria-label={m.feed.feedbackToggle}
           aria-expanded={feedbackOpen}
           aria-controls="feedback-sheet"
+          disabled={!!pending}
           onClick={onToggle}
         >
           <MessageSquarePlusIcon />
@@ -212,9 +259,9 @@ function RailItem({
   labelClass,
   children,
 }: {
-  label: string
+  label: ReactNode
   labelClass?: string
-  children: ReactElement
+  children: ReactNode
 }) {
   return (
     <div className="flex w-16 flex-col items-center gap-1.5 sm:w-[88px]">
@@ -229,6 +276,40 @@ function RailItem({
         {label}
       </span>
     </div>
+  )
+}
+
+/**
+ * The undo window draining around the pending Approve button, resumed at
+ * the right point when the rail mounts part-way through it.
+ */
+function CountdownRing({
+  pending,
+}: {
+  pending: Extract<PendingApproval, { state: "waiting" }>
+}) {
+  const [left] = useState(() => Math.max(0, pending.deadline - Date.now()))
+  return (
+    <svg
+      viewBox="0 0 48 48"
+      className="pointer-events-none absolute -inset-1 size-12 -rotate-90 text-success motion-reduce:hidden"
+      aria-hidden="true"
+    >
+      <circle
+        cx="24"
+        cy="24"
+        r="22.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        pathLength={100}
+        className="countdown-ring"
+        style={{
+          animationDuration: `${APPROVE_DELAY_MS}ms`,
+          animationDelay: `${left - APPROVE_DELAY_MS}ms`,
+        }}
+      />
+    </svg>
   )
 }
 

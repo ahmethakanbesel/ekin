@@ -1,11 +1,17 @@
 import { useEffect, useReducer, useRef, useState } from "react"
-import { keepPreviousData, useQuery } from "@tanstack/react-query"
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import type { Deliverable, FeedbackScope, Story } from "@/api/client"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { revisionsQuery, useDeliverableAction } from "@/queries/stories"
+import { startApproval } from "./approval-toast"
+import { cancelApproval, usePendingApproval } from "./pending-approvals"
 import { createPlayback } from "./player"
 import type { ArtifactRef } from "./previews"
 
@@ -59,7 +65,9 @@ export function useDeliverableReview({
   // Editing applies to the latest revision of a deliverable in review only.
   const showEditor =
     editing && canEdit && d.status === "review" && d.revision > 0
-  const approve = useDeliverableAction(workspaceId, story.id, "approve")
+  const qc = useQueryClient()
+  // An approval waits a few seconds before it is sent, so it can be undone.
+  const pendingApproval = usePendingApproval(d.id)
   const retry = useDeliverableAction(workspaceId, story.id, "retry")
   const publish = useDeliverableAction(workspaceId, story.id, "publish")
 
@@ -109,7 +117,8 @@ export function useDeliverableReview({
     return el.currentTime
   }
 
-  const busy = approve.isPending || retry.isPending || publish.isPending
+  // A waiting approval holds the other decisions on this deliverable.
+  const busy = !!pendingApproval || retry.isPending || publish.isPending
 
   const artifacts: ArtifactRef | undefined = current && {
     workspaceId,
@@ -148,11 +157,15 @@ export function useDeliverableReview({
     setRejecting,
     editing: showEditor,
     setEditing,
-    approve: () =>
-      run(
-        approve,
-        d.kind === "video" ? m.review.approvedVideo : m.review.approved
-      ),
+    /**
+     * Starts approving the deliverable: sent after a few seconds unless
+     * undone. False when an approval of it is already under way.
+     */
+    approve: (onUndo: () => void) =>
+      !pendingApproval &&
+      startApproval({ qc, workspaceId, story, deliverable: d, onUndo }),
+    pendingApproval,
+    undoApproval: () => cancelApproval(d.id),
     retry: () => run(retry, m.review.retried),
     publish: () => run(publish, m.review.publishQueued),
     publishError: publish.error,
