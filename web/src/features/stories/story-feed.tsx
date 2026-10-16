@@ -35,6 +35,7 @@ import { pipelineHue } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { artifactUrl, revisionsQuery } from "@/queries/stories"
 import { StatusBadge } from "./badges"
+import { PlayerBar, PlayerCorner, usePlayback, type PlaybackStore } from "./player"
 import { formatTimestamp, scopeLabel } from "./model"
 import {
   ArticlePreview,
@@ -395,6 +396,7 @@ export function DraftFrame({
   current,
   player,
   videoRef,
+  playback,
   pipelineName,
   markers = [],
   onSeek,
@@ -408,6 +410,8 @@ export function DraftFrame({
   /** Mount the player (the current draft and its neighbours). */
   player: boolean
   videoRef?: RefObject<HTMLVideoElement | null>
+  /** The review's player state; with it (and the ref) the draft gets controls. */
+  playback?: PlaybackStore
   pipelineName?: string
   markers?: FeedMarker[]
   onSeek?: (seconds: number) => void
@@ -487,6 +491,7 @@ export function DraftFrame({
         revision={revision}
         file={file}
         videoRef={videoRef}
+        playback={playback}
         className="size-full object-contain"
       />
     )
@@ -509,17 +514,22 @@ export function DraftFrame({
       </div>
     )
 
+  // A 9:16 frame fills the column; its caption strip lies over its foot.
+  const overlay = orientation === "vertical"
+  const controls = !!(player && file && playback && videoRef)
+  const timed = markers.length > 0 && onSeek
   return (
     <div
+      data-player
       className={cn(
-        "dark flex flex-col overflow-hidden rounded-xl border bg-card text-foreground shadow-sm",
+        "dark relative flex flex-col overflow-hidden rounded-xl border bg-card text-foreground shadow-sm",
         shape
       )}
     >
       <div
         className={cn(
           "relative min-h-0 bg-black",
-          orientation === "vertical"
+          overlay
             ? "flex-1"
             : orientation === "horizontal"
               ? "aspect-video"
@@ -537,59 +547,142 @@ export function DraftFrame({
             {file === "final.mp4" ? m.feed.final : m.feed.preview}
           </Badge>
         ) : null}
-      </div>
-      <div className="grid gap-1 border-t bg-background p-4 max-sm:p-3">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {d ? <StatusBadge status={d.status} revision={d.revision} /> : null}
-          {d?.video ? (
-            <Badge variant="secondary">
-              {m.stories.posterFormat(
-                m.values.format[d.video.format] ?? m.values.kind.video,
-                m.stories.ratio[orientation] ?? orientation
-              )}
-            </Badge>
-          ) : null}
-          <Badge variant="outline" className="uppercase">
-            {story.language}
-          </Badge>
-        </div>
-        <Title className="mt-1.5 line-clamp-2 text-lg leading-snug font-semibold max-sm:text-base">
-          {story.title}
-        </Title>
-        <p className="line-clamp-2 text-sm text-muted-foreground">
-          <span
-            className={cn(
-              "mr-1.5 inline-block size-2 rounded-[2px] align-[0.05em]",
-              hue.bg
-            )}
-            aria-hidden="true"
+        {controls && playback && videoRef ? (
+          <PlayerCorner
+            store={playback}
+            videoRef={videoRef}
+            className="absolute top-3 right-3"
           />
-          {m.stories.origin[story.origin] ?? story.origin}
-          {pipelineName ? ` · ${pipelineName}` : null}
-        </p>
-        {markers.length > 0 && onSeek ? (
-          <p className="flex flex-wrap items-center justify-end gap-x-1 text-xs text-muted-foreground">
-            {m.feed.feedbackAt}
-            {markers.map((k) => (
-              <button
-                key={`${k.revision}-${k.at}`}
-                type="button"
-                className="tabular rounded-sm px-1 font-mono text-foreground outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring"
-                title={`r${k.revision} · ${k.scope}: ${k.text}`}
-                aria-label={m.feed.marker(
-                  formatTimestamp(k.at),
-                  k.revision,
-                  k.scope
+        ) : null}
+      </div>
+      <div
+        className={cn(
+          "grid gap-1 border-t p-4 max-sm:p-3",
+          overlay
+            ? "absolute inset-x-0 bottom-0 bg-background/85"
+            : "bg-background"
+        )}
+      >
+        <Caption
+          playback={controls && overlay ? playback : undefined}
+        >
+          <div className="flex flex-wrap items-center gap-1.5">
+            {d ? <StatusBadge status={d.status} revision={d.revision} /> : null}
+            {d?.video ? (
+              <Badge variant="secondary">
+                {m.stories.posterFormat(
+                  m.values.format[d.video.format] ?? m.values.kind.video,
+                  m.stories.ratio[orientation] ?? orientation
                 )}
-                onClick={() => onSeek(k.at)}
-              >
-                {formatTimestamp(k.at)}
-              </button>
-            ))}
+              </Badge>
+            ) : null}
+            <Badge variant="outline" className="uppercase">
+              {story.language}
+            </Badge>
+          </div>
+          <Title className="mt-1.5 line-clamp-2 text-lg leading-snug font-semibold max-sm:text-base">
+            {story.title}
+          </Title>
+          <p className="line-clamp-2 text-sm text-muted-foreground">
+            <span
+              className={cn(
+                "mr-1.5 inline-block size-2 rounded-[2px] align-[0.05em]",
+                hue.bg
+              )}
+              aria-hidden="true"
+            />
+            {m.stories.origin[story.origin] ?? story.origin}
+            {pipelineName ? ` · ${pipelineName}` : null}
+          </p>
+          {story.keywords.length > 0 ? (
+            <p
+              className="truncate text-sm text-muted-foreground"
+              aria-label={m.story.keywords}
+            >
+              {story.keywords.join(" · ")}
+            </p>
+          ) : null}
+        </Caption>
+        {controls && playback && videoRef ? (
+          <PlayerBar
+            store={playback}
+            videoRef={videoRef}
+            markers={markers.map((k) => ({
+              at: k.at,
+              label: m.feed.marker(formatTimestamp(k.at), k.revision, k.scope),
+            }))}
+            className="mt-2"
+          >
+            {timed ? <FeedbackTimes markers={markers} onSeek={onSeek} /> : null}
+          </PlayerBar>
+        ) : timed ? (
+          <p className="flex justify-end">
+            <FeedbackTimes markers={markers} onSeek={onSeek} />
           </p>
         ) : null}
       </div>
     </div>
+  )
+}
+
+/**
+ * The caption of a 9:16 draft. While it plays, the caption steps aside
+ * (for screen readers it stays) so only the scrubber covers the video.
+ */
+function Caption({
+  playback,
+  children,
+}: {
+  playback?: PlaybackStore
+  children: ReactNode
+}) {
+  if (!playback) return <div className="grid gap-1">{children}</div>
+  return <PlayingCaption playback={playback}>{children}</PlayingCaption>
+}
+
+function PlayingCaption({
+  playback,
+  children,
+}: {
+  playback: PlaybackStore
+  children: ReactNode
+}) {
+  const playing = usePlayback(playback, (p) => !p.paused)
+  return (
+    <div className={cn("grid gap-1", playing && "sr-only")}>{children}</div>
+  )
+}
+
+/** "Feedback at 0:21, 0:41": each time plays the video from there. */
+function FeedbackTimes({
+  markers,
+  onSeek,
+}: {
+  markers: FeedMarker[]
+  onSeek: (seconds: number) => void
+}) {
+  return (
+    <span className="ml-auto flex flex-wrap items-center justify-end gap-x-0.5 text-xs text-muted-foreground">
+      <span className="mr-0.5">{m.feed.feedbackAt}</span>
+      {markers.map((k, i) => (
+        <span key={`${k.revision}-${k.at}`}>
+          <button
+            type="button"
+            className="tabular rounded-sm px-0.5 font-mono text-foreground outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring"
+            title={`r${k.revision} · ${k.scope}: ${k.text}`}
+            aria-label={m.feed.marker(
+              formatTimestamp(k.at),
+              k.revision,
+              k.scope
+            )}
+            onClick={() => onSeek(k.at)}
+          >
+            {formatTimestamp(k.at)}
+          </button>
+          {i < markers.length - 1 ? "," : null}
+        </span>
+      ))}
+    </span>
   )
 }
 

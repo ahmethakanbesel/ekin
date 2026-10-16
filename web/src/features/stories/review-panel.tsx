@@ -7,6 +7,7 @@ import {
   isApiError,
   type Deliverable,
   type KnowledgeRef,
+  type Revision,
   type Story,
 } from "@/api/client"
 import { Banner, ErrorState, ReadOnlyNote } from "@/components/page"
@@ -21,11 +22,21 @@ import { pipelineHue } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { documentsQuery } from "@/queries/documents"
 import { StatusBadge } from "./badges"
-import { deliverableLabel } from "./model"
-import { FilesList, ScriptText, VideoDetails } from "./previews"
+import { deliverableLabel, formatTimestamp, parseTimestamp } from "./model"
+import {
+  FilesList,
+  ScriptText,
+  VideoDetails,
+  seekVideo,
+  videoFile,
+  type ScriptNote,
+} from "./previews"
 import { RevisionHistory, historyCount } from "./revision-history"
 import { StatusBanner } from "./status-alert"
-import type { DeliverableReview } from "./use-deliverable-review"
+import type {
+  DeliverableReview,
+  FeedbackDraft,
+} from "./use-deliverable-review"
 
 /**
  * Beside the feed: where the deliverable stands, its revisions, its
@@ -164,7 +175,17 @@ export function ReviewPanel({
                 : language
             }
           >
-            <ScriptText artifacts={artifacts} revision={current} />
+            <ScriptText
+              artifacts={artifacts}
+              revision={current}
+              notes={scriptNotes(d, current, review.draft.get())}
+              playback={videoFile(current) ? review.playback : undefined}
+              onSeek={
+                videoFile(current)
+                  ? (t) => seekVideo(review.videoRef, t)
+                  : undefined
+              }
+            />
           </Section>
         </>
       ) : null}
@@ -239,6 +260,35 @@ export function ReviewPanel({
       ) : null}
     </div>
   )
+}
+
+/**
+ * The notes to mark on a revision's script: the one it answers, and on
+ * the revision in review the note being revised and the unsent draft.
+ */
+function scriptNotes(
+  d: Deliverable,
+  shown: Revision,
+  draft: FeedbackDraft | undefined
+): ScriptNote[] {
+  const out: ScriptNote[] = []
+  const answered = shown.feedback?.atSeconds
+  if (answered !== undefined)
+    out.push({
+      at: answered,
+      label: m.panel.noteOn(shown.number - 1, formatTimestamp(answered)),
+    })
+  if (shown.number !== d.revision) return out
+  const pending = d.pendingFeedback?.atSeconds
+  if (pending !== undefined)
+    out.push({
+      at: pending,
+      label: m.panel.noteOn(d.revision, formatTimestamp(pending)),
+    })
+  const typed = d.status === "review" ? parseTimestamp(draft?.at) : undefined
+  if (typed !== undefined)
+    out.push({ at: typed, label: m.panel.yourNote(formatTimestamp(typed)) })
+  return out
 }
 
 function Section({

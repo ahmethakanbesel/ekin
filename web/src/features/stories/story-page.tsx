@@ -361,6 +361,7 @@ function StoryView({
                     current
                     player
                     videoRef={review.videoRef}
+                    playback={review.playback}
                     pipelineName={pipelineName(story)}
                     markers={
                       selected.kind === "video"

@@ -6,6 +6,7 @@ import type { Deliverable, FeedbackScope, Story } from "@/api/client"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { revisionsQuery, useDeliverableAction } from "@/queries/stories"
+import { createPlayback } from "./player"
 import type { ArtifactRef } from "./previews"
 
 /** A note for the agent not sent yet, as typed in the feedback form. */
@@ -36,6 +37,8 @@ export function useDeliverableReview({
   // null: follow the latest revision.
   const [picked, setPicked] = useState<number | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  // The player's state, for the scrubber and the script beside it.
+  const [playback] = useState(createPlayback)
   const [rejecting, setRejecting] = useState(false)
   const [editing, setEditing] = useState(false)
   // Another story or deliverable starts afresh (the feed keeps this mounted).
@@ -138,6 +141,7 @@ export function useDeliverableReview({
       },
     },
     videoRef,
+    playback,
     playhead,
     pause,
     rejecting,

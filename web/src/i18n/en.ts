@@ -750,6 +750,16 @@ export const en = {
     feedback: "Feedback",
     feedbackToggle: "Feedback for the agent",
   },
+  player: {
+    play: "Play",
+    pause: "Pause",
+    mute: "Mute",
+    unmute: "Unmute",
+    fullscreen: "Full screen",
+    exitFullscreen: "Exit full screen",
+    position: "Playhead",
+    valueText: (now: string, total: string) => `${now} of ${total}`,
+  },
   history: {
     title: "History",
     entries: (n: number) => (n === 1 ? "1 entry" : `${n} entries`),
@@ -763,6 +773,8 @@ export const en = {
     script: "Script",
     narration: (language: string) => `Narration · ${language}`,
     details: "Details",
+    yourNote: (time: string) => `Your note at ${time}`,
+    noteOn: (n: number, time: string) => `Note on r${n} at ${time}`,
   },
   feedbackSheet: {
     title: "Feedback",

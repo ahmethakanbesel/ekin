@@ -1,6 +1,6 @@
-import { useMemo, type ReactNode, type RefObject } from "react"
+import { useMemo, useSyncExternalStore, type ReactNode, type RefObject } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { DownloadIcon } from "lucide-react"
+import { DownloadIcon, MessageSquareIcon } from "lucide-react"
 
 import type { Revision } from "@/api/client"
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { artifactTextQuery, artifactUrl } from "@/queries/stories"
 import { Markdown, fmList, fmText, splitFrontmatter } from "./markdown"
 import { formatTimestamp, parseTimestamp } from "./model"
+import type { PlaybackStore } from "./player"
 
 export type ArtifactRef = {
   workspaceId: string
@@ -103,35 +104,51 @@ export function videoFile(revision: Revision): string | undefined {
       : undefined
 }
 
-/** The <video> of a revision's render, with its poster frame. */
+/**
+ * The <video> of a revision's render, with its poster frame. With
+ * `playback` the review's own controls drive it (a click plays or
+ * pauses); without, it is a still preview.
+ */
 export function VideoFrameElement({
   artifacts: a,
   revision,
   file,
   videoRef,
+  playback,
   className,
 }: {
   artifacts: ArtifactRef
   revision: Revision
   file: string
   videoRef?: RefObject<HTMLVideoElement | null>
+  playback?: PlaybackStore
   className?: string
 }) {
   const poster = revision.artifacts.includes("poster.jpg")
     ? url(a, "poster.jpg")
     : undefined
   return (
-    // No caption track is produced; the script is the transcript.
-    // oxlint-disable-next-line jsx-a11y/media-has-caption
+    // No caption track is produced; the script is the transcript. The
+    // click is a shortcut for the play button beside the scrubber.
+    // oxlint-disable-next-line jsx-a11y/media-has-caption, jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
     <video
       // A new source (another revision, or the final render) starts afresh.
       key={url(a, file)}
       ref={videoRef}
-      controls
       playsInline
       preload="metadata"
       poster={poster}
-      className={cn("block bg-black", className)}
+      className={cn("block bg-black", playback && "cursor-pointer", className)}
+      {...playback?.events}
+      onClick={
+        playback
+          ? (e) => {
+              const el = e.currentTarget
+              if (el.paused) void el.play().catch(() => undefined)
+              else el.pause()
+            }
+          : undefined
+      }
     >
       <source src={url(a, file)} type="video/mp4" />
     </video>
@@ -195,20 +212,187 @@ export function VideoDetails({
   )
 }
 
-/** The revision's script (the narration), rendered; null when it has none. */
+/** A note pinned to a time, shown on the script's scene that holds it. */
+export type ScriptNote = { at: number; label: string }
+
+/**
+ * The revision's script (the narration); null when it has none. A script
+ * whose scene headings carry their start ("## Sahne 2 · 0:09") reads as
+ * timed rows: a note's scene is marked, the playhead's scene is tinted,
+ * and a time plays the video from there. Any other script is rendered
+ * as it is; no times are made up.
+ */
 export function ScriptText({
   artifacts: a,
   revision,
+  notes = [],
+  playback,
+  onSeek,
 }: {
   artifacts: ArtifactRef
   revision: Revision
+  notes?: ScriptNote[]
+  playback?: PlaybackStore
+  onSeek?: (seconds: number) => void
 }) {
   const present = revision.artifacts.includes("script.md")
   const script = useArtifactText(a, "script.md", present)
+  const parsed = useMemo(
+    () => (script.data !== undefined ? parseScenes(script.data) : undefined),
+    [script.data]
+  )
   if (!present) return null
   if (script.data === undefined) return <TextState query={script} />
-  return <Markdown source={script.data} className="markdown-compact text-sm" />
+  if (!parsed)
+    return <Markdown source={script.data} className="markdown-compact text-sm" />
+  return (
+    <SceneList
+      intro={parsed.intro}
+      scenes={parsed.scenes}
+      notes={notes}
+      playback={playback}
+      onSeek={onSeek}
+    />
+  )
 }
+
+type Scene = { at: number; label: string; body: string }
+
+const SCENE_HEADING =
+  /^#{1,6}\s+(.*?)\s*(?:[·•|–—-]\s*)?\(?(\d{1,2}:\d{2}(?::\d{2})?)\)?\s*$/
+
+/**
+ * Splits a script at headings that end in a start time. Undefined unless
+ * every scene has one and they run forward, so the rows never guess.
+ */
+export function parseScenes(
+  text: string
+): { intro: string; scenes: Scene[] } | undefined {
+  const intro: string[] = []
+  const scenes: Scene[] = []
+  let body: string[] | null = null
+  for (const line of text.split(/\r?\n/)) {
+    const h = SCENE_HEADING.exec(line)
+    const at = h ? parseTimestamp(h[2]) : undefined
+    if (h && at !== undefined) {
+      body = []
+      scenes.push({ at, label: h[1].trim(), body: "" })
+      continue
+    }
+    // Another heading after the scenes began: not a timed script.
+    if (body && /^#{1,6}\s/.test(line)) return undefined
+    ;(body ?? intro).push(line)
+    if (body) scenes[scenes.length - 1].body = body.join("\n").trim()
+  }
+  if (scenes.length === 0) return undefined
+  if (scenes.some((sc, i) => i > 0 && sc.at <= scenes[i - 1].at))
+    return undefined
+  // The script's own title repeats the story's.
+  const lead = intro.join("\n").replace(/^\s*#\s+.*$/m, "").trim()
+  return { intro: lead, scenes }
+}
+
+/** The scene that holds `t`: the last one starting at or before it. */
+function sceneAt(scenes: Scene[], t: number): number {
+  let found = -1
+  for (let i = 0; i < scenes.length; i++) if (scenes[i].at <= t) found = i
+  return found
+}
+
+function SceneList({
+  intro,
+  scenes,
+  notes,
+  playback,
+  onSeek,
+}: {
+  intro: string
+  scenes: Scene[]
+  notes: ScriptNote[]
+  playback?: PlaybackStore
+  onSeek?: (seconds: number) => void
+}) {
+  const active = useActiveScene(scenes, playback)
+  const noted = new Map<number, ScriptNote[]>()
+  for (const n of notes) {
+    const i = sceneAt(scenes, n.at)
+    if (i >= 0) noted.set(i, [...(noted.get(i) ?? []), n])
+  }
+  return (
+    <div className="grid gap-3">
+      {intro ? (
+        <Markdown source={intro} className="markdown-compact text-sm" />
+      ) : null}
+      <ol className="-mx-2 grid gap-1">
+        {scenes.map((sc, i) => {
+          const marks = noted.get(i)
+          const time = formatTimestamp(sc.at)
+          return (
+            <li
+              key={`${sc.at}-${i}`}
+              aria-current={i === active ? "time" : undefined}
+              className={cn(
+                "grid grid-cols-[2.75rem_minmax(0,1fr)] gap-x-2 rounded-lg px-2 py-2 transition-colors",
+                marks ? "bg-muted" : i === active && "bg-muted/50"
+              )}
+            >
+              {onSeek ? (
+                <button
+                  type="button"
+                  className={cn(
+                    "tabular h-fit justify-self-start rounded-sm font-mono text-xs leading-5 outline-none hover:text-foreground hover:underline focus-visible:ring-[3px] focus-visible:ring-ring",
+                    i === active ? "text-foreground" : "text-muted-foreground"
+                  )}
+                  aria-label={m.preview.seek(time)}
+                  onClick={() => onSeek(sc.at)}
+                >
+                  {time}
+                </button>
+              ) : (
+                <span className="tabular font-mono text-xs leading-5 text-muted-foreground">
+                  {time}
+                </span>
+              )}
+              <div className="min-w-0">
+                {sc.label ? <span className="sr-only">{sc.label}</span> : null}
+                <Markdown
+                  source={sc.body}
+                  className="markdown-compact text-sm leading-relaxed"
+                />
+                {marks?.map((n) => (
+                  <p
+                    key={`${n.at}-${n.label}`}
+                    className="mt-1.5 flex items-center gap-1.5 text-xs font-medium"
+                  >
+                    <MessageSquareIcon
+                      className="size-3.5 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    {n.label}
+                  </p>
+                ))}
+              </div>
+            </li>
+          )
+        })}
+      </ol>
+    </div>
+  )
+}
+
+/** The scene under the playhead, once the video has been played or moved. */
+function useActiveScene(scenes: Scene[], playback?: PlaybackStore): number {
+  return useSyncExternalStore(
+    playback?.subscribe ?? noSubscribe,
+    () => {
+      const p = playback?.get()
+      if (!p || (p.paused && p.time === 0)) return -1
+      return sceneAt(scenes, p.time)
+    }
+  )
+}
+
+const noSubscribe = () => () => undefined
 
 type Metadata = {
   title?: string
