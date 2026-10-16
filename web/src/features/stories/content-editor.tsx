@@ -685,7 +685,7 @@ function VideoEditor(props: InnerProps) {
         </div>
 
         <div className="grid gap-5 rounded-xl bg-muted/30 p-4">
-          <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          <h4 className="text-sm font-medium">
             {t.metadata}
           </h4>
           {!meta ? (

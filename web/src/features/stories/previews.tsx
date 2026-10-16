@@ -55,7 +55,7 @@ function Block({
 }) {
   return (
     <section className={cn("grid gap-3", className)}>
-      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+      <h3 className="text-sm font-medium">
         {title}
       </h3>
       {children}
