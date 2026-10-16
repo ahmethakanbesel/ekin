@@ -155,7 +155,7 @@ function Entry({
       <span
         className={cn(
           "flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground",
-          current && "bg-primary/15 text-primary-ink",
+          current && "text-foreground inset-ring inset-ring-input",
           tone
         )}
         aria-hidden="true"

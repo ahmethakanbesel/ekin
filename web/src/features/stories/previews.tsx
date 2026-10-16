@@ -293,7 +293,7 @@ function MetadataView({
                     onClick={() => onSeek(c.at)}
                     title={m.preview.seek(formatTimestamp(c.at))}
                   >
-                    <span className="tabular w-12 shrink-0 font-mono text-xs text-primary-ink">
+                    <span className="tabular w-12 shrink-0 font-mono text-xs text-muted-foreground">
                       {formatTimestamp(c.at)}
                     </span>
                     <span>{c.title}</span>

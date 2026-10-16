@@ -113,12 +113,19 @@ export function ReviewPanel({
             >
               {review.list.map((r) => {
                 const label = m.stories.revisionShort(r.number)
+                // Marigold marks the revision waiting for a decision only.
+                const inReview = d.status === "review" && r.number === d.revision
                 return (
                   <ToggleGroupItem
                     key={r.number}
                     value={String(r.number)}
                     aria-label={m.feed.revisionItem(r.number)}
-                    className="tabular aria-pressed:border-primary-ink aria-pressed:bg-primary/10 aria-pressed:text-primary-ink"
+                    className={cn(
+                      "tabular aria-pressed:font-medium",
+                      inReview
+                        ? "aria-pressed:border-primary-ink aria-pressed:bg-primary/10 aria-pressed:text-primary-ink aria-pressed:inset-ring-0"
+                        : "aria-pressed:bg-secondary aria-pressed:text-foreground aria-pressed:inset-ring aria-pressed:inset-ring-foreground/60"
+                    )}
                   >
                     {r.number === latest?.number
                       ? m.panel.latest(label)
