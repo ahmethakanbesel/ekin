@@ -100,11 +100,50 @@ const frame: Record<NonNullable<Deliverable["video"]>["orientation"], string> =
     horizontal: "aspect-video w-full",
   }
 
+/** The revision's video file: the final render once there is one, else the preview. */
+export function videoFile(revision: Revision): string | undefined {
+  const has = (name: string) => revision.artifacts.includes(name)
+  return has("final.mp4")
+    ? "final.mp4"
+    : has("preview.mp4")
+      ? "preview.mp4"
+      : undefined
+}
+
 /**
  * The revision's video (the final render once there is one, else the
  * preview), its metadata and its script.
  */
 export function VideoPreview({
+  artifacts,
+  revision,
+  deliverable,
+  videoRef,
+}: {
+  artifacts: ArtifactRef
+  revision: Revision
+  deliverable: Deliverable
+  videoRef: RefObject<HTMLVideoElement | null>
+}) {
+  return (
+    <div className="grid gap-6">
+      <VideoFrame
+        artifacts={artifacts}
+        revision={revision}
+        deliverable={deliverable}
+        videoRef={videoRef}
+      />
+      <VideoDetails
+        artifacts={artifacts}
+        revision={revision}
+        videoRef={videoRef}
+      />
+    </div>
+  )
+}
+
+/** The player of the revision's video, or why there is none, with which render it is. */
+export function VideoFrame({
   artifacts: a,
   revision,
   deliverable: d,
@@ -116,66 +155,83 @@ export function VideoPreview({
   videoRef: RefObject<HTMLVideoElement | null>
 }) {
   const has = (name: string) => revision.artifacts.includes(name)
-  const video = has("final.mp4")
-    ? "final.mp4"
-    : has("preview.mp4")
-      ? "preview.mp4"
-      : undefined
+  const video = videoFile(revision)
   const orientation = d.video?.orientation ?? "horizontal"
-  const metadata = useArtifactText(a, "metadata.json", has("metadata.json"))
-  const script = useArtifactText(a, "script.md", has("script.md"))
-
-  const seek = (seconds: number) => {
-    const el = videoRef.current
-    if (!el) return
-    el.currentTime = seconds
-    void el.play().catch(() => undefined)
-  }
 
   return (
-    <div className="grid gap-6">
-      <div className="grid gap-2">
-        {video ? (
-          <div className="flex justify-center overflow-hidden rounded-xl bg-black">
-            {/* No caption track is produced; the script below is the transcript. */}
-            {/* oxlint-disable-next-line jsx-a11y/media-has-caption */}
-            <video
-              // A new source (another revision, or the final render) starts afresh.
-              key={url(a, video)}
-              ref={videoRef}
-              controls
-              playsInline
-              preload="metadata"
-              poster={has("poster.jpg") ? url(a, "poster.jpg") : undefined}
-              className={cn("block bg-black", frame[orientation])}
-            >
-              <source src={url(a, video)} type="video/mp4" />
-            </video>
-          </div>
-        ) : (
-          <div
-            className={cn(
-              "mx-auto flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground",
-              orientation === "horizontal"
-                ? "aspect-video w-full"
-                : "aspect-[9/16] h-[60vh] max-h-[32rem]"
-            )}
+    <div className="grid gap-2">
+      {video ? (
+        <div className="flex justify-center overflow-hidden rounded-xl bg-black">
+          {/* No caption track is produced; the script below is the transcript. */}
+          {/* oxlint-disable-next-line jsx-a11y/media-has-caption */}
+          <video
+            // A new source (another revision, or the final render) starts afresh.
+            key={url(a, video)}
+            ref={videoRef}
+            controls
+            playsInline
+            preload="metadata"
+            poster={has("poster.jpg") ? url(a, "poster.jpg") : undefined}
+            className={cn("block bg-black", frame[orientation])}
           >
-            <FilmIcon className="size-6" />
-            {d.status === "rendering" && revision.number === d.revision
-              ? m.preview.rendering
-              : m.preview.noVideo}
-          </div>
-        )}
-        {video ? (
-          <p className="text-center text-xs text-muted-foreground">
-            {video === "final.mp4"
-              ? m.preview.finalRender
-              : m.preview.previewRender}
-          </p>
-        ) : null}
-      </div>
+            <source src={url(a, video)} type="video/mp4" />
+          </video>
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "mx-auto flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground",
+            orientation === "horizontal"
+              ? "aspect-video w-full"
+              : "aspect-[9/16] h-[60vh] max-h-[32rem]"
+          )}
+        >
+          <FilmIcon className="size-6" />
+          {d.status === "rendering" && revision.number === d.revision
+            ? m.preview.rendering
+            : m.preview.noVideo}
+        </div>
+      )}
+      {video ? (
+        <p className="text-center text-xs text-muted-foreground">
+          {video === "final.mp4"
+            ? m.preview.finalRender
+            : m.preview.previewRender}
+        </p>
+      ) : null}
+    </div>
+  )
+}
 
+/** Plays the video from a position (chapters, feedback markers). */
+export function seekVideo(
+  videoRef: RefObject<HTMLVideoElement | null>,
+  seconds: number
+) {
+  const el = videoRef.current
+  if (!el) return
+  el.currentTime = seconds
+  void el.play().catch(() => undefined)
+}
+
+/** The revision's metadata, script and narration. */
+export function VideoDetails({
+  artifacts: a,
+  revision,
+  videoRef,
+}: {
+  artifacts: ArtifactRef
+  revision: Revision
+  videoRef: RefObject<HTMLVideoElement | null>
+}) {
+  const has = (name: string) => revision.artifacts.includes(name)
+  const video = videoFile(revision)
+  const metadata = useArtifactText(a, "metadata.json", has("metadata.json"))
+  const script = useArtifactText(a, "script.md", has("script.md"))
+  const seek = (seconds: number) => seekVideo(videoRef, seconds)
+
+  return (
+    <>
       {has("metadata.json") ? (
         <Block title={m.preview.metadata}>
           {metadata.data !== undefined ? (
@@ -217,7 +273,7 @@ export function VideoPreview({
           />
         </Block>
       ) : null}
-    </div>
+    </>
   )
 }
 

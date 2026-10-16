@@ -1,0 +1,127 @@
+import { useRef, useState } from "react"
+import { keepPreviousData, useQuery } from "@tanstack/react-query"
+import { toast } from "sonner"
+
+import type { Deliverable, Story } from "@/api/client"
+import { m } from "@/i18n"
+import { errorMessage } from "@/lib/errors"
+import { revisionsQuery, useDeliverableAction } from "@/queries/stories"
+import type { ArtifactRef } from "./previews"
+
+/**
+ * The state of reviewing one deliverable: its revisions and the one being
+ * looked at, the player, and the approve / retry / publish actions with the
+ * request-changes, reject and edit flows they open.
+ */
+export function useDeliverableReview({
+  workspaceId,
+  story,
+  deliverable: d,
+  canEdit,
+}: {
+  workspaceId: string
+  story: Story
+  deliverable: Deliverable
+  canEdit: boolean
+}) {
+  const revisions = useQuery({
+    ...revisionsQuery(workspaceId, story.id, d),
+    enabled: d.revision > 0,
+    // Keep showing the previous list while a new revision loads.
+    placeholderData: keepPreviousData,
+  })
+  // null: follow the latest revision.
+  const [picked, setPicked] = useState<number | null>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [changing, setChanging] = useState<{ atSeconds?: number } | null>(
+    null
+  )
+  const [rejecting, setRejecting] = useState(false)
+  const [editing, setEditing] = useState(false)
+  // Editing applies to the latest revision of a deliverable in review only.
+  const showEditor =
+    editing && canEdit && d.status === "review" && d.revision > 0
+  const approve = useDeliverableAction(workspaceId, story.id, "approve")
+  const retry = useDeliverableAction(workspaceId, story.id, "retry")
+  const publish = useDeliverableAction(workspaceId, story.id, "publish")
+
+  const list = revisions.data ?? []
+  const latest = list.at(-1)
+  const current =
+    (picked !== null ? list.find((r) => r.number === picked) : undefined) ??
+    latest
+  const viewingOld = !!current && !!latest && current.number !== latest.number
+
+  const run = async (
+    action: { mutateAsync: (id: string) => Promise<Story> },
+    success: string
+  ): Promise<boolean> => {
+    try {
+      await action.mutateAsync(d.id)
+      toast.success(success)
+      return true
+    } catch (err) {
+      toast.error(errorMessage(err))
+      return false
+    }
+  }
+
+  /** Where the player is now, for a video showing its latest revision. */
+  const playhead = (): number | undefined => {
+    const el = videoRef.current
+    if (d.kind !== "video" || !el || viewingOld) return undefined
+    return el.currentTime
+  }
+
+  const openChanges = () => {
+    const el = videoRef.current
+    let atSeconds: number | undefined
+    if (d.kind === "video" && el && !viewingOld) {
+      // Pause where the reviewer is, so the position they pin is the one they see.
+      el.pause()
+      atSeconds = el.currentTime
+    }
+    setChanging({ atSeconds })
+  }
+
+  const busy = approve.isPending || retry.isPending || publish.isPending
+
+  const artifacts: ArtifactRef | undefined = current && {
+    workspaceId,
+    storyId: story.id,
+    deliverableId: d.id,
+    revision: current.number,
+  }
+
+  return {
+    revisions,
+    list,
+    latest,
+    current,
+    viewingOld,
+    artifacts,
+    /** Show revision n; the latest one means "follow the latest". */
+    pick: (n: number | null) =>
+      setPicked(n === null || n === latest?.number ? null : n),
+    videoRef,
+    playhead,
+    changing,
+    openChanges,
+    closeChanges: () => setChanging(null),
+    rejecting,
+    setRejecting,
+    editing: showEditor,
+    setEditing,
+    approve: () =>
+      run(
+        approve,
+        d.kind === "video" ? m.review.approvedVideo : m.review.approved
+      ),
+    retry: () => run(retry, m.review.retried),
+    publish: () => run(publish, m.review.publishQueued),
+    publishError: publish.error,
+    busy,
+  }
+}
+
+export type DeliverableReview = ReturnType<typeof useDeliverableReview>
