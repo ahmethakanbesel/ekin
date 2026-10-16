@@ -163,7 +163,7 @@ function RefreshForm({ onDone }: { onDone: () => void }) {
         )}
       </Field>
       {creditsText ? (
-        <p className="rounded-2xl bg-muted/50 px-3 py-2 text-sm">
+        <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
           {m.seo.refreshEstimate(creditsText)}
         </p>
       ) : null}

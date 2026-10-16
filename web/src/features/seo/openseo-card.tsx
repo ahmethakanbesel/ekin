@@ -36,7 +36,7 @@ export function OpenSeoCard() {
 
   let badge = null
   let body
-  if (status.isPending) body = <Skeleton className="h-16 w-full rounded-2xl" />
+  if (status.isPending) body = <Skeleton className="h-16 w-full rounded-lg" />
   else if (status.isError)
     body = <ErrorState error={status.error} onRetry={() => void status.refetch()} />
   else if (!status.data.configured) {
@@ -54,7 +54,7 @@ export function OpenSeoCard() {
     badge = <Badge variant="destructive">{m.seo.openseoFailed}</Badge>
     body = (
       <div className="grid gap-2 text-sm">
-        <p className="rounded-2xl border border-destructive/30 bg-destructive/5 px-3 py-2 font-mono text-xs break-words">
+        <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 font-mono text-xs break-words">
           {status.data.error}
         </p>
         <p className="text-muted-foreground">

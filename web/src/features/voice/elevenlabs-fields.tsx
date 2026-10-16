@@ -57,7 +57,7 @@ export function ElevenLabsAccountState({ account }: { account: ElevenLabsAccount
     return (
       <div className="grid gap-2 text-sm">
         <p className="text-destructive">{t.failed}</p>
-        <p className="rounded-2xl border border-destructive/30 bg-destructive/5 px-3 py-2 font-mono text-xs break-words">
+        <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 font-mono text-xs break-words">
           {account.error}
         </p>
       </div>
@@ -89,7 +89,7 @@ export function ElevenLabsVoiceSelect({
   const account = useQuery(elevenLabsAccountQuery(workspace.id))
   const t = m.voice.elevenlabs
 
-  if (account.isPending) return <Skeleton className="h-9 w-full rounded-4xl" />
+  if (account.isPending) return <Skeleton className="h-9 w-full rounded-md" />
   if (account.isError) return <p className="text-sm text-destructive">{t.failed}</p>
   const state = <ElevenLabsAccountState account={account.data} />
   if (!account.data.configured || account.data.error) return state
@@ -178,7 +178,7 @@ export function ElevenLabsFields({
       : undefined
 
   return (
-    <div className="grid gap-5 rounded-3xl border p-4">
+    <div className="grid gap-5 rounded-xl border p-4">
       <div className="grid gap-1">
         <p className="font-medium">{t.title}</p>
         <p className="text-sm text-muted-foreground">{t.billing}</p>

@@ -82,7 +82,7 @@ export const RefsFields = withFieldGroup({
                 return (
                   <div
                     key={i}
-                    className="grid items-start gap-2 rounded-3xl border p-3 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_auto]"
+                    className="grid items-start gap-2 rounded-xl border p-3 sm:grid-cols-[minmax(0,1fr)_7rem_7rem_auto]"
                   >
                     <group.Field name={`refs[${i}].documentId`}>
                       {(field) => (

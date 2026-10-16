@@ -59,7 +59,7 @@ export function VoiceSection() {
 
   let body
   if (engines.isPending || settings.isPending)
-    body = <Skeleton className="h-96 w-full rounded-4xl" />
+    body = <Skeleton className="h-96 w-full rounded-xl" />
   else if (engines.isError || settings.isError)
     body = (
       <ErrorState
@@ -435,7 +435,7 @@ function PreviewPanel({
   }
 
   return (
-    <div className="grid gap-3 rounded-3xl border bg-muted/30 p-4">
+    <div className="grid gap-3 rounded-xl border bg-muted/30 p-4">
       <p className="font-medium">{m.voice.previewTitle}</p>
       <Row
         label={m.voice.sampleLabel}

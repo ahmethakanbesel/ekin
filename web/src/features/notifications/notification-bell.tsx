@@ -134,7 +134,7 @@ export function NotificationBell({
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger
         className={cn(
-          "relative flex size-9 shrink-0 items-center justify-center rounded-full text-sidebar-foreground/80 outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-3 focus-visible:ring-ring/30 aria-expanded:bg-sidebar-accent",
+          "relative flex size-9 shrink-0 items-center justify-center rounded-full text-sidebar-foreground/80 outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring aria-expanded:bg-sidebar-accent",
           className
         )}
         aria-label={unread ? m.notifications.openUnread : m.notifications.open}
@@ -194,7 +194,7 @@ function NotificationItem({
     </>
   )
   const className = cn(
-    "flex gap-3 rounded-2xl px-2.5 py-2 text-sm",
+    "flex gap-3 rounded-lg px-2.5 py-2 text-sm",
     fresh && "bg-amber-500/5"
   )
   return n.storyId ? (
@@ -202,7 +202,7 @@ function NotificationItem({
       to="/w/$workspaceId/stories/$storyId"
       params={{ workspaceId, storyId: n.storyId }}
       onClick={onNavigate}
-      className={cn(className, "outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/30")}
+      className={cn(className, "outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring")}
     >
       {content}
     </Link>

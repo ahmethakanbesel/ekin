@@ -108,7 +108,7 @@ export function VideoPreview({
     <div className="grid gap-6">
       <div className="grid gap-2">
         {video ? (
-          <div className="flex justify-center overflow-hidden rounded-3xl bg-black">
+          <div className="flex justify-center overflow-hidden rounded-xl bg-black">
             {/* No caption track is produced; the script below is the transcript. */}
             {/* oxlint-disable-next-line jsx-a11y/media-has-caption */}
             <video
@@ -127,7 +127,7 @@ export function VideoPreview({
         ) : (
           <div
             className={cn(
-              "mx-auto flex flex-col items-center justify-center gap-2 rounded-3xl border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground",
+              "mx-auto flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-muted/30 p-6 text-center text-sm text-muted-foreground",
               orientation === "horizontal" ? "aspect-video w-full" : "aspect-[9/16] h-[60vh] max-h-[32rem]"
             )}
           >
@@ -155,7 +155,7 @@ export function VideoPreview({
       ) : null}
 
       {has("script.md") ? (
-        <details className="group rounded-3xl border">
+        <details className="group rounded-xl border">
           <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-sm font-medium select-none [&::-webkit-details-marker]:hidden">
             <ChevronRightIcon className="size-4 text-muted-foreground transition-transform group-open:rotate-90" />
             {m.preview.script}
@@ -221,13 +221,13 @@ function MetadataView({ text, onSeek }: { text: string; onSeek?: (seconds: numbe
   const meta = useMemo(() => parseMetadata(text), [text])
   if (!meta) {
     return (
-      <pre className="overflow-x-auto rounded-2xl bg-muted p-3 font-mono text-xs whitespace-pre-wrap">
+      <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs whitespace-pre-wrap">
         {text}
       </pre>
     )
   }
   return (
-    <div className="grid gap-4 rounded-3xl border p-4 md:p-5">
+    <div className="grid gap-4 rounded-xl border p-4 md:p-5">
       {meta.title ? (
         <p className="font-heading text-lg leading-snug font-semibold">{meta.title}</p>
       ) : null}
@@ -244,7 +244,7 @@ function MetadataView({ text, onSeek }: { text: string; onSeek?: (seconds: numbe
                 {onSeek ? (
                   <button
                     type="button"
-                    className="-mx-2 flex w-full items-baseline gap-3 rounded-xl px-2 py-1 text-left text-sm hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none"
+                    className="-mx-2 flex w-full items-baseline gap-3 rounded-xl px-2 py-1 text-left text-sm hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-none"
                     onClick={() => onSeek(c.at)}
                     title={m.preview.seek(formatTimestamp(c.at))}
                   >
@@ -297,7 +297,7 @@ export function ArticlePreview({ artifacts: a, revision }: { artifacts: Artifact
 
   if (!present) {
     return (
-      <div className="rounded-3xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
+      <div className="rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
         {m.preview.noArticle}
       </div>
     )
@@ -313,7 +313,7 @@ export function ArticlePreview({ artifacts: a, revision }: { artifacts: Artifact
 
   return (
     <article className="grid gap-6">
-      <header className="grid gap-3 rounded-3xl border bg-muted/20 p-5 md:p-6">
+      <header className="grid gap-3 rounded-xl border bg-muted/20 p-5 md:p-6">
         {title ? (
           <h2 className="font-heading text-2xl leading-tight font-semibold tracking-tight">{title}</h2>
         ) : null}
@@ -361,7 +361,7 @@ export function FilesList({ artifacts: a, revision }: { artifacts: ArtifactRef; 
             <a
               href={url(a, name, true)}
               download={name}
-              className="inline-flex h-7 items-center gap-1.5 rounded-full border px-3 font-mono text-xs outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/30"
+              className="inline-flex h-7 items-center gap-1.5 rounded-full border px-3 font-mono text-xs outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring"
               aria-label={m.preview.download(name)}
             >
               <DownloadIcon className="size-3.5 text-muted-foreground" />

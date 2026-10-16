@@ -90,7 +90,7 @@ export function PipelinesPage() {
     )
   else
     body = (
-      <div className="rounded-3xl border">
+      <div className="rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>

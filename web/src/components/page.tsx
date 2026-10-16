@@ -43,7 +43,7 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-3 rounded-4xl border border-dashed px-6 py-14 text-center",
+        "flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-6 py-14 text-center",
         className
       )}
     >
@@ -65,7 +65,7 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
   return (
     <div
       role="alert"
-      className="flex flex-col items-center gap-3 rounded-4xl border border-destructive/30 bg-destructive/5 px-6 py-10 text-center"
+      className="flex flex-col items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-6 py-10 text-center"
     >
       <AlertCircleIcon className="size-6 text-destructive" />
       <div className="space-y-1">
@@ -108,7 +108,7 @@ export function Banner({
     <div
       role="alert"
       className={cn(
-        "flex flex-wrap items-start justify-between gap-3 rounded-3xl border px-4 py-3 text-sm",
+        "flex flex-wrap items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm",
         tone === "destructive"
           ? "border-destructive/30 bg-destructive/5"
           : "border-amber-500/40 bg-amber-500/10"

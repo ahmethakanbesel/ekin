@@ -35,7 +35,7 @@ export function TemplatesPage() {
     body = (
       <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true" aria-label={m.common.loading}>
         {Array.from({ length: 6 }, (_, i) => (
-          <Skeleton key={i} className="aspect-[4/5] w-full rounded-4xl" />
+          <Skeleton key={i} className="aspect-[4/5] w-full rounded-xl" />
         ))}
       </div>
     )
@@ -84,7 +84,7 @@ export function TemplatesPage() {
         <div
           key={d.jobId}
           role="status"
-          className="mb-4 flex items-start gap-2.5 rounded-3xl border border-sky-500/30 bg-sky-500/5 px-4 py-3 text-sm"
+          className="mb-4 flex items-start gap-2.5 rounded-lg border border-sky-500/30 bg-sky-500/5 px-4 py-3 text-sm"
         >
           <Loader2Icon className="mt-0.5 size-4 shrink-0 animate-spin text-sky-600 dark:text-sky-400" />
           <div className="min-w-0 space-y-0.5">
@@ -126,7 +126,7 @@ function TemplateCard({ workspaceId, template: t }: { workspaceId: string; templ
     <Link
       to="/w/$workspaceId/templates/$templateId"
       params={{ workspaceId, templateId: t.id }}
-      className="group/template flex h-full flex-col overflow-hidden rounded-4xl bg-card text-card-foreground shadow-md ring-1 ring-foreground/5 transition-shadow outline-none hover:shadow-lg hover:ring-foreground/15 focus-visible:ring-3 focus-visible:ring-ring/50 dark:ring-foreground/10"
+      className="group/template flex h-full flex-col overflow-hidden rounded-xl bg-card text-card-foreground shadow-md ring-1 ring-foreground/5 transition-shadow outline-none hover:shadow-lg hover:ring-foreground/15 focus-visible:ring-[3px] focus-visible:ring-ring dark:ring-foreground/10"
     >
       <TitleCard template={t} />
       <div className="flex flex-1 flex-col gap-3 p-5">

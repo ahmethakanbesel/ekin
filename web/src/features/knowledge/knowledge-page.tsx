@@ -62,7 +62,7 @@ export function KnowledgePage() {
     )
   else
     body = (
-      <div className="rounded-3xl border">
+      <div className="rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -118,7 +118,7 @@ export function KnowledgePage() {
       <UploadQueue items={uploads.items} onCancel={uploads.cancel} onDismiss={uploads.dismiss} />
       {body}
       {drop.over ? (
-        <div className="pointer-events-none absolute -inset-2 z-10 flex items-center justify-center rounded-4xl border-2 border-dashed border-primary bg-background/85 backdrop-blur-sm">
+        <div className="pointer-events-none absolute -inset-2 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/85 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-2 text-primary">
             <UploadIcon className="size-8" />
             <p className="font-heading text-base font-medium">{m.knowledge.dropTitle}</p>
@@ -185,7 +185,7 @@ function UploadQueue({
         <div
           key={it.key}
           className={cn(
-            "flex items-center gap-3 rounded-3xl border px-4 py-2.5 text-sm",
+            "flex items-center gap-3 rounded-xl border px-4 py-2.5 text-sm",
             it.state === "failed" && "border-destructive/30 bg-destructive/5"
           )}
         >

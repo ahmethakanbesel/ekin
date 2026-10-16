@@ -118,7 +118,7 @@ export function YouTubeCard({ youtube }: { youtube: YouTubeIntegration }) {
         )}
         {youtube.connected ? (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3">
               <div className="min-w-0 space-y-0.5">
                 <p className="text-xs text-muted-foreground">{m.youtube.channel}</p>
                 <div className="flex flex-wrap items-center gap-2">
@@ -169,7 +169,7 @@ export function YouTubeCard({ youtube }: { youtube: YouTubeIntegration }) {
             </Field>
           </>
         ) : (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-dashed px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed px-4 py-3">
             <div className="min-w-0 space-y-0.5">
               <p className="font-medium">{m.youtube.notConnected}</p>
               {youtube.configured ? (

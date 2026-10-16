@@ -137,7 +137,7 @@ function DocumentView({ doc }: { doc: Document }) {
         }
       />
       {doc.status === "pending" ? (
-        <div className="flex flex-col items-center gap-3 rounded-4xl border border-dashed px-6 py-14 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed px-6 py-14 text-center">
           <Loader2Icon className="size-6 animate-spin text-muted-foreground" />
           <div className="max-w-md space-y-1">
             <h2 className="font-heading text-base font-medium">{m.knowledge.pendingTitle}</h2>
@@ -253,7 +253,7 @@ function Reader({ doc }: { doc: Document }) {
         <Tabs
           value={view}
           onValueChange={(v) => setView(v === "pdf" ? "pdf" : "text")}
-          className="min-w-0 gap-0 rounded-3xl border"
+          className="min-w-0 gap-0 rounded-xl border"
         >
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-2.5">
             {doc.format === "pdf" ? (
@@ -360,7 +360,7 @@ function RangeBar({
   return (
     <section
       aria-label={t.range}
-      className="flex flex-wrap items-end gap-x-6 gap-y-3 rounded-3xl border px-4 py-3"
+      className="flex flex-wrap items-end gap-x-6 gap-y-3 rounded-xl border px-4 py-3"
     >
       <div className="flex items-end gap-2">
         <div className="grid gap-1.5">
@@ -506,7 +506,7 @@ function PageNavigator({
   return (
     <nav
       aria-label={t.pagesTitle}
-      className="flex flex-col overflow-hidden rounded-3xl border lg:sticky lg:top-4 lg:max-h-[calc(100svh-2rem)]"
+      className="flex flex-col overflow-hidden rounded-xl border lg:sticky lg:top-4 lg:max-h-[calc(100svh-2rem)]"
     >
       <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
         {sections.length > 0 ? (
@@ -593,7 +593,7 @@ function PageNavigator({
                       title={marked ? t.inRange : undefined}
                       onClick={() => onSelect(p.number)}
                       className={cn(
-                        "relative flex w-full items-center gap-2 rounded-xl px-3 py-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/30",
+                        "relative flex w-full items-center gap-2 rounded-xl px-3 py-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring",
                         selected && "bg-accent text-accent-foreground hover:bg-accent",
                         marked &&
                           "before:absolute before:inset-y-1 before:left-0.5 before:w-0.5 before:rounded-full before:bg-primary/60"
@@ -671,7 +671,7 @@ function ContentsList({
                 aria-expanded={open}
                 aria-label={open ? t.collapse(s.title) : t.expand(s.title)}
                 onClick={() => onToggle(i)}
-                className="grid size-6 shrink-0 place-items-center rounded-lg text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30"
+                className="grid size-6 shrink-0 place-items-center rounded-lg text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring"
               >
                 <ChevronRightIcon
                   className={cn("size-3.5 transition-transform", open && "rotate-90")}
@@ -686,7 +686,7 @@ function ContentsList({
               title={`${s.title} · ${m.knowledge.viewer.rangeSummary(s.fromPage, s.toPage)}`}
               onClick={() => onSelect(s.fromPage)}
               className={cn(
-                "flex min-w-0 flex-1 items-baseline gap-2 rounded-xl py-1.5 pr-3 pl-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/30",
+                "flex min-w-0 flex-1 items-baseline gap-2 rounded-xl py-1.5 pr-3 pl-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring",
                 s.level === 1 ? "font-medium" : "text-muted-foreground",
                 around && "text-foreground",
                 selected && "bg-accent text-accent-foreground hover:bg-accent"
@@ -764,7 +764,7 @@ function PdfObject({ blob, page, title }: { blob: Blob; page: number; title: str
       ref={embed}
       type="application/pdf"
       title={title}
-      className="block h-[calc(100svh-14rem)] min-h-96 w-full rounded-b-3xl"
+      className="block h-[calc(100svh-14rem)] min-h-96 w-full rounded-b-xl"
     />
   )
 }

@@ -75,7 +75,7 @@ export function StoriesPage() {
   } else
     body = (
       <>
-        <div className="rounded-3xl border">
+        <div className="rounded-xl border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -178,7 +178,7 @@ function PlanningNote({ count }: { count: number }) {
   return (
     <div
       role="status"
-      className="mb-4 flex items-center gap-2.5 rounded-3xl border border-sky-500/30 bg-sky-500/5 px-4 py-3 text-sm"
+      className="mb-4 flex items-center gap-2.5 rounded-lg border border-sky-500/30 bg-sky-500/5 px-4 py-3 text-sm"
     >
       <Loader2Icon className="size-4 shrink-0 animate-spin text-sky-600 dark:text-sky-400" />
       <div>

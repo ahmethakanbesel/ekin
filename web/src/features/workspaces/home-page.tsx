@@ -33,8 +33,8 @@ export function HomePage() {
   if (isPending) {
     body = (
       <div className="grid gap-2" aria-busy="true" aria-label={m.common.loading}>
-        <Skeleton className="h-16 w-full rounded-3xl" />
-        <Skeleton className="h-16 w-full rounded-3xl" />
+        <Skeleton className="h-16 w-full rounded-xl" />
+        <Skeleton className="h-16 w-full rounded-xl" />
       </div>
     )
   } else if (error) {
@@ -57,7 +57,7 @@ export function HomePage() {
               to="/w/$workspaceId/stories"
               params={{ workspaceId: w.id }}
               aria-label={m.workspace.open(w.name)}
-              className="flex items-center gap-3 rounded-3xl border bg-card px-4 py-3 outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/30"
+              className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 outline-none hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-ring"
             >
               <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground uppercase">
                 {[...w.name][0] ?? "?"}

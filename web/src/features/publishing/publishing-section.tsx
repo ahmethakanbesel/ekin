@@ -18,8 +18,8 @@ export function PublishingSection() {
   if (query.isPending)
     body = (
       <div className="grid gap-6" aria-busy="true" aria-label={m.common.loading}>
-        <Skeleton className="h-40 w-full rounded-4xl" />
-        <Skeleton className="h-72 w-full rounded-4xl" />
+        <Skeleton className="h-40 w-full rounded-xl" />
+        <Skeleton className="h-72 w-full rounded-xl" />
       </div>
     )
   else if (query.isError)

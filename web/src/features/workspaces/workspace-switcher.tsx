@@ -51,7 +51,7 @@ export function WorkspaceSwitcher({ current }: { current: Workspace }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="flex w-full items-center gap-2.5 rounded-2xl px-2.5 py-2 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-3 focus-visible:ring-ring/30 aria-expanded:bg-sidebar-accent"
+          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-[3px] focus-visible:ring-ring aria-expanded:bg-sidebar-accent"
           aria-label={m.nav.switchWorkspace}
         >
           <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground uppercase">

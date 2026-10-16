@@ -94,7 +94,7 @@ export function SeoProfileCard() {
 
   let body
   if (query.isPending || (canManage && status.isPending))
-    body = <Skeleton className="h-64 w-full rounded-3xl" />
+    body = <Skeleton className="h-64 w-full rounded-xl" />
   else if (query.isError)
     body = <ErrorState error={query.error} onRetry={() => void query.refetch()} />
   // Re-mount the form when the stored profile changes underneath it.
@@ -438,7 +438,7 @@ function ProfileForm({
             // Without a key the plugin path spends what the agent decides; no estimate.
             if (status && !direct) return null
             return (
-              <p className="rounded-2xl bg-muted/50 px-3 py-2 text-sm" aria-live="polite">
+              <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm" aria-live="polite">
                 {credits > 0 ? m.seo.estimate(formatInteger(credits)) : m.seo.estimateNone}
               </p>
             )

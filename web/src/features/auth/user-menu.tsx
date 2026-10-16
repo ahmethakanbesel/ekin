@@ -61,7 +61,7 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          "flex items-center gap-2.5 rounded-2xl text-left outline-none hover:bg-sidebar-accent focus-visible:ring-3 focus-visible:ring-ring/30 aria-expanded:bg-sidebar-accent",
+          "flex items-center gap-2.5 rounded-lg text-left outline-none hover:bg-sidebar-accent focus-visible:ring-[3px] focus-visible:ring-ring aria-expanded:bg-sidebar-accent",
           compact ? "rounded-full p-0.5" : "w-full px-2.5 py-2",
         )}
         aria-label={m.auth.userMenu}

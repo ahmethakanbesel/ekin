@@ -143,7 +143,7 @@ export function JobsPage() {
   else
     body = (
       <>
-        <div className="divide-y rounded-3xl border">
+        <div className="divide-y rounded-xl border">
           {requests.map((r) => (
             <RequestRow
               key={r.id}
@@ -277,7 +277,7 @@ function RequestRow({
           aria-expanded={open}
           aria-label={open ? t.collapse(title) : t.expand(title)}
           onClick={onToggle}
-          className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-3 focus-visible:ring-ring/30"
+          className="grid size-6 shrink-0 place-items-center rounded-full text-muted-foreground outline-none after:absolute after:inset-0 after:content-[''] focus-visible:ring-[3px] focus-visible:ring-ring"
         >
           <ChevronRightIcon className={cn("size-4 transition-transform", open && "rotate-90")} />
         </button>
@@ -420,7 +420,7 @@ function Steps({
 }) {
   const t = m.jobs.request
   return (
-    <div className="rounded-2xl border bg-background">
+    <div className="rounded-lg border bg-background">
       <Table>
         <TableHeader>
           <TableRow>

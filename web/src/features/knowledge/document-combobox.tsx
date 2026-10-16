@@ -64,8 +64,8 @@ export function DocumentCombobox({
         disabled={disabled}
         aria-invalid={invalid || undefined}
         className={cn(
-          "flex h-9 w-full min-w-0 items-center justify-between gap-1.5 rounded-3xl border border-transparent bg-input/50 px-3 py-2 text-sm whitespace-nowrap transition-[color,box-shadow,background-color] outline-none",
-          "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30",
+          "flex h-9 w-full min-w-0 items-center justify-between gap-1.5 rounded-md border border-input bg-transparent py-2 pr-2 pl-2.5 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] dark:bg-input/30 dark:hover:bg-input/50 outline-none",
+          "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring",
           "aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20",
           "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
           className

@@ -87,7 +87,7 @@ export function HostProfiles() {
   const [creating, setCreating] = useState(false)
 
   let body
-  if (query.isPending) body = <Skeleton className="h-96 w-full rounded-4xl" />
+  if (query.isPending) body = <Skeleton className="h-96 w-full rounded-xl" />
   else if (query.isError)
     body = <ErrorState error={query.error} onRetry={() => void query.refetch()} />
   else {
@@ -351,7 +351,7 @@ function ProfileCard({ profile, current }: { profile: HostProfile; current: bool
             ).map(([name, label, hint]) => (
               <form.Field key={name} name={name}>
                 {(field) => (
-                  <Field orientation="horizontal" className="rounded-3xl border px-4 py-3">
+                  <Field orientation="horizontal" className="rounded-xl border px-4 py-3">
                     <FieldContent>
                       <FieldLabel htmlFor={id(name)}>{label}</FieldLabel>
                       <FieldDescription>{hint}</FieldDescription>

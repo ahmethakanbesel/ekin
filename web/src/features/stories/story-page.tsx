@@ -311,7 +311,7 @@ function Disclosure({
   children: ReactNode
 }) {
   return (
-    <details className="group self-start rounded-3xl border">
+    <details className="group self-start rounded-xl border">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-sm font-medium select-none [&::-webkit-details-marker]:hidden">
         <ChevronRightIcon className="size-4 text-muted-foreground transition-transform group-open:rotate-90" />
         {title}

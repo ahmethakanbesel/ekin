@@ -84,7 +84,7 @@ export function OutputPanel({
   return (
     <div
       className={cn(
-        "rounded-3xl border p-4 transition-colors",
+        "rounded-xl border p-4 transition-colors",
         enabled ? "border-primary/40 bg-primary/[0.03]" : "bg-muted/30"
       )}
     >

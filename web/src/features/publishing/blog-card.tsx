@@ -195,7 +195,7 @@ export function BlogCard({ blog }: { blog: BlogTarget | undefined }) {
       </CardHeader>
       <CardContent>
         {!blog && !canManage ? (
-          <p className="rounded-3xl border border-dashed px-4 py-6 text-sm text-muted-foreground">
+          <p className="rounded-xl border border-dashed px-4 py-6 text-sm text-muted-foreground">
             {m.blog.notSetReadOnly}
           </p>
         ) : (

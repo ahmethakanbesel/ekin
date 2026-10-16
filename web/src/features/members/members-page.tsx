@@ -66,7 +66,7 @@ export function MembersPage() {
     body = <ErrorState error={members.error} onRetry={() => void members.refetch()} />
   else
     body = (
-      <div className="rounded-3xl border">
+      <div className="rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -294,14 +294,14 @@ function Invitations() {
     body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />
   else if (list.data.length === 0)
     body = (
-      <p className="flex items-center gap-2 rounded-3xl border border-dashed px-4 py-6 text-sm text-muted-foreground">
+      <p className="flex items-center gap-2 rounded-xl border border-dashed px-4 py-6 text-sm text-muted-foreground">
         <MailIcon className="size-4 shrink-0" />
         {m.members.invitationsEmpty}
       </p>
     )
   else
     body = (
-      <div className="rounded-3xl border">
+      <div className="rounded-xl border">
         <Table>
           <TableHeader>
             <TableRow>

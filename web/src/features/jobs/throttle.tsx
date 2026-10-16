@@ -93,7 +93,7 @@ export function PausedBanners({ throttle }: { throttle: Throttle }) {
         <div
           key={p.name}
           role="status"
-          className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-3xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm"
+          className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm"
         >
           <PauseIcon className="size-4 shrink-0 text-amber-700 dark:text-amber-300" />
           <span className="min-w-0 flex-1">
@@ -160,7 +160,7 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
           </div>
         ) : null}
 
-        <label className="flex items-center justify-between gap-3 rounded-2xl border px-3 py-2.5">
+        <label className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
           <span className="flex flex-col">
             <span className="font-medium">{profile.paused ? t.paused : t.running}</span>
             <span className="text-xs text-muted-foreground">

@@ -115,8 +115,8 @@ export function SectionPicker({
         id={id}
         disabled={disabled}
         className={cn(
-          "flex h-8 w-full min-w-0 items-center justify-between gap-1.5 rounded-3xl border border-dashed px-3 text-sm whitespace-nowrap transition-[color,box-shadow,background-color] outline-none",
-          "hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30",
+          "flex h-8 w-full min-w-0 items-center justify-between gap-1.5 rounded-md border border-dashed px-2.5 text-sm whitespace-nowrap transition-[color,box-shadow,background-color] outline-none",
+          "hover:bg-muted focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring",
           "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
           className
         )}

@@ -61,7 +61,7 @@ export function VoiceOverrideSection({
       <CardHeader>
         <button
           type="button"
-          className="-m-2 flex items-start gap-3 rounded-2xl p-2 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+          className="-m-2 flex items-start gap-3 rounded-lg p-2 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
           aria-expanded={open}
           aria-controls={contentId}
           onClick={() => setOpen((o) => !o)}

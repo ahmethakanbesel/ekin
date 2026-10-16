@@ -124,7 +124,7 @@ function Shell({
   children: ReactNode
 }) {
   return (
-    <section className="grid gap-6 rounded-3xl border p-4 md:p-6" aria-label={title}>
+    <section className="grid gap-6 rounded-xl border p-4 md:p-6" aria-label={title}>
       <header className="space-y-1">
         <h3 className="font-heading text-lg font-semibold tracking-tight">{title}</h3>
         {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
@@ -215,7 +215,7 @@ function Footer({
   onSave: () => void
 }) {
   return (
-    <div className="sticky bottom-0 z-10 -mx-4 -mb-4 grid gap-3 rounded-b-3xl border-t bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:-mb-6 md:px-6">
+    <div className="sticky bottom-0 z-10 -mx-4 -mb-4 grid gap-3 rounded-b-xl border-t bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:-mb-6 md:px-6">
       {note}
       <SaveError error={error} onReload={onReload} />
       <div className="flex flex-wrap items-center justify-end gap-3">
@@ -443,7 +443,7 @@ function ArticleEditor(props: InnerProps) {
             {errors.body ? <p className="text-sm text-destructive">{errors.body}</p> : null}
           </TabsContent>
           <TabsContent value="preview">
-            <div className="min-h-[60vh] rounded-3xl border p-5 md:p-8">
+            <div className="min-h-[60vh] rounded-xl border p-5 md:p-8">
               {fields.title ? (
                 <h1 className="mb-6 font-heading text-2xl leading-tight font-semibold tracking-tight">
                   {fields.title}
@@ -562,7 +562,7 @@ function VideoEditor(props: InnerProps) {
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
         <div className="grid gap-3">
           {original === undefined ? (
-            <p className="rounded-3xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+            <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
               {t.noNarration}
             </p>
           ) : (
@@ -595,7 +595,7 @@ function VideoEditor(props: InnerProps) {
           ) : null}
         </div>
 
-        <div className="grid gap-5 rounded-3xl bg-muted/30 p-4">
+        <div className="grid gap-5 rounded-xl bg-muted/30 p-4">
           <h4 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             {t.metadata}
           </h4>
@@ -655,7 +655,7 @@ function VideoEditor(props: InnerProps) {
         saveLabel={narrationChanged ? m.editor.saveRetime : m.editor.save}
         note={
           narrationChanged ? (
-            <p className="flex gap-2 rounded-2xl border border-sky-500/30 bg-sky-500/5 px-3 py-2 text-sm">
+            <p className="flex gap-2 rounded-lg border border-sky-500/30 bg-sky-500/5 px-3 py-2 text-sm">
               <InfoIcon className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400" />
               <span>{m.editor.retimeNote}</span>
             </p>

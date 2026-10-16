@@ -73,7 +73,7 @@ export function ChipInput({
     <div className="grid gap-1.5">
       <div
         className={cn(
-          "flex min-h-9 w-full flex-wrap items-center gap-1.5 rounded-3xl border border-transparent bg-input/50 px-2 py-1 text-base transition-[color,box-shadow,background-color] focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30 md:text-sm",
+          "flex min-h-9 w-full flex-wrap items-center gap-1.5 rounded-md border border-input bg-transparent px-2 py-1 text-base shadow-xs transition-[color,box-shadow] dark:bg-input/30 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring md:text-sm",
           (invalid || refusal) &&
             "border-destructive ring-3 ring-destructive/20 dark:border-destructive/50 dark:ring-destructive/40",
           disabled && "cursor-not-allowed opacity-50",
@@ -90,7 +90,7 @@ export function ChipInput({
               {disabled ? null : (
                 <button
                   type="button"
-                  className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+                  className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none hover:bg-foreground/10 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label={m.editor.removeTag(v)}
                   onClick={() => remove(i)}
                 >

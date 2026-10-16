@@ -30,7 +30,7 @@ export function InvitePage() {
 
   let body
   if (preview.isPending) {
-    body = <Skeleton className="h-96 w-full rounded-4xl" />
+    body = <Skeleton className="h-96 w-full rounded-xl" />
   } else if (preview.isError) {
     body = gone(preview.error) ? (
       <NotFound signedIn={!!me.data} />

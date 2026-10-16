@@ -55,10 +55,10 @@ export function TemplatePage() {
       <div className="grid gap-6">
         <Skeleton className="h-8 w-40" />
         <div className="grid gap-6 lg:grid-cols-[minmax(0,28rem)_1fr]">
-          <Skeleton className="aspect-video w-full rounded-4xl" />
+          <Skeleton className="aspect-video w-full rounded-xl" />
           <Skeleton className="h-40 w-full" />
         </div>
-        <Skeleton className="h-96 w-full rounded-4xl" />
+        <Skeleton className="h-96 w-full rounded-xl" />
       </div>
     )
   }
@@ -102,7 +102,7 @@ function TemplateView({ template: t }: { template: Template }) {
     <div className="min-w-0">
       <BackToTemplates workspaceId={workspace.id} />
       <div className="mb-8 grid items-start gap-6 lg:grid-cols-[minmax(0,30rem)_1fr] lg:gap-10">
-        <div className="overflow-hidden rounded-4xl shadow-md ring-1 ring-foreground/10">
+        <div className="overflow-hidden rounded-xl shadow-md ring-1 ring-foreground/10">
           <TitleCard template={t} size="lg" />
         </div>
         <div className="grid min-w-0 gap-4">

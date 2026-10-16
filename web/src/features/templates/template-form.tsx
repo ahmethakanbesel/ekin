@@ -348,7 +348,7 @@ export function TemplateForm({ initialValues, submitLabel, cancel, banner, onSub
                       />
                     </TabsContent>
                     <TabsContent value="preview">
-                      <div className="min-h-[28rem] rounded-3xl border px-5 py-4">
+                      <div className="min-h-[28rem] rounded-xl border px-5 py-4">
                         {field.state.value.trim() ? (
                           <Markdown source={field.state.value} className="max-w-[72ch] text-[15px]" />
                         ) : (
@@ -390,7 +390,7 @@ export function TemplateForm({ initialValues, submitLabel, cancel, banner, onSub
       </div>
 
       <aside className="order-first lg:sticky lg:top-8 lg:order-none" aria-label={t.livePreview}>
-        <div className="overflow-hidden rounded-4xl bg-card shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10">
+        <div className="overflow-hidden rounded-xl bg-card shadow-md ring-1 ring-foreground/5 dark:ring-foreground/10">
           <TitleCard template={{ name, palette, headingFont }} />
           <div className="grid gap-3 p-5">
             <PaletteStrip palette={palette} />

@@ -229,7 +229,7 @@ export function DeliverablePanel({
         </Suspense>
       ) : null}
       {!showEditor && viewingOld && latest ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-dashed px-4 py-2.5 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed px-4 py-2.5 text-sm">
           <span className="text-muted-foreground">
             {m.revisions.viewingOld(current.number, latest.number)}
           </span>
@@ -418,7 +418,7 @@ function StatusBanner({
       role="status"
       aria-live="polite"
       className={cn(
-        "flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-3xl border px-4 py-3.5 md:px-5",
+        "flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-xl border px-4 py-3.5 md:px-5",
         toneClass[tone]
       )}
     >
@@ -484,7 +484,7 @@ function RevisionList({
         {m.revisions.title}
       </h3>
       {d.pendingFeedback && d.status !== "review" ? (
-        <div className="grid gap-1.5 rounded-3xl border border-dashed border-sky-500/40 p-3.5 text-sm">
+        <div className="grid gap-1.5 rounded-lg border border-dashed border-sky-500/40 p-3.5 text-sm">
           <p className="flex items-center gap-1.5 text-xs font-medium text-sky-700 dark:text-sky-300">
             <MessageSquareIcon className="size-3.5" />
             {m.revisions.pending(d.revision + 1)}
@@ -498,7 +498,7 @@ function RevisionList({
           <Skeleton className="h-16 w-full" />
         </div>
       ) : newestFirst.length === 0 ? (
-        <p className="rounded-3xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+        <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
           {m.revisions.empty}
         </p>
       ) : (
@@ -513,7 +513,7 @@ function RevisionList({
                   aria-pressed={selected}
                   onClick={() => onPick(r.number)}
                   className={cn(
-                    "grid w-full gap-2 rounded-3xl border p-3.5 text-left text-sm transition-colors outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/30",
+                    "grid w-full gap-2 rounded-xl border p-3.5 text-left text-sm transition-colors outline-none hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-ring",
                     selected && "border-primary/50 bg-primary/[0.04] hover:bg-primary/[0.06]"
                   )}
                 >
@@ -532,7 +532,7 @@ function RevisionList({
                     </span>
                   </span>
                   {r.feedback ? (
-                    <span className="grid gap-1 rounded-2xl bg-muted/60 px-3 py-2 text-xs">
+                    <span className="grid gap-1 rounded-lg bg-muted/60 px-3 py-2 text-xs">
                       <span className="font-medium text-muted-foreground">{m.revisions.feedback}</span>
                       <FeedbackLine feedback={r.feedback} kind={d.kind} />
                     </span>
@@ -567,7 +567,7 @@ function RevisionList({
 
 function NoRevisionYet({ deliverable: d }: { deliverable: Deliverable }) {
   return (
-    <div className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-3xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
+    <div className="flex min-h-48 flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
       {d.status === "drafting" || d.status === "queued" ? (
         <Loader2Icon className="size-5 animate-spin" />
       ) : null}
@@ -579,7 +579,7 @@ function NoRevisionYet({ deliverable: d }: { deliverable: Deliverable }) {
 function PreviewSkeleton() {
   return (
     <div className="grid gap-4" aria-busy="true" aria-label={m.common.loading}>
-      <Skeleton className="aspect-video w-full rounded-3xl" />
+      <Skeleton className="aspect-video w-full rounded-xl" />
       <Skeleton className="h-24 w-full" />
     </div>
   )
