@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
+import { m } from "@/i18n"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
@@ -41,9 +42,12 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  closeLabel = m.common.close,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
+  /** The close button's accessible name. */
+  closeLabel?: string
 }) {
   return (
     <DialogPortal>
@@ -69,7 +73,7 @@ function DialogContent({
             }
           >
             <XIcon />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{closeLabel}</span>
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Popup>
@@ -90,10 +94,12 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
 function DialogFooter({
   className,
   showCloseButton = false,
+  closeLabel = m.common.close,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
   showCloseButton?: boolean
+  closeLabel?: string
 }) {
   return (
     <div
@@ -107,7 +113,7 @@ function DialogFooter({
       {children}
       {showCloseButton && (
         <DialogPrimitive.Close render={<Button variant="outline" />}>
-          Close
+          {closeLabel}
         </DialogPrimitive.Close>
       )}
     </div>

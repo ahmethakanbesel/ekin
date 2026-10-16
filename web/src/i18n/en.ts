@@ -23,6 +23,7 @@ export const en = {
     manual: "Manual",
     actions: "Actions",
     back: "Back",
+    close: "Close",
   },
   errors: {
     unknown: "Something went wrong.",

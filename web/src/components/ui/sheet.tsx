@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
+import { m } from "@/i18n"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
@@ -39,10 +40,13 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  closeLabel = m.common.close,
   ...props
 }: SheetPrimitive.Popup.Props & {
   side?: "top" | "right" | "bottom" | "left"
   showCloseButton?: boolean
+  /** The close button's accessible name. */
+  closeLabel?: string
 }) {
   return (
     <SheetPortal>
@@ -70,7 +74,7 @@ function SheetContent({
           >
             <XIcon
             />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{closeLabel}</span>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Popup>
