@@ -91,7 +91,10 @@ export function useThrottle(): Throttle | undefined {
   return { profiles, current: query.data.current, update }
 }
 
-/** One line per paused profile, with a way to resume it. */
+/**
+ * One line per paused profile, with a way to resume it. The surface stays
+ * neutral; marigold is kept for the Resume action itself.
+ */
 export function PausedBanners({ throttle }: { throttle: Throttle }) {
   const paused = throttle.profiles.filter((p) => p.paused)
   if (paused.length === 0) return null
@@ -104,11 +107,11 @@ export function PausedBanners({ throttle }: { throttle: Throttle }) {
           role="status"
           className={cn(
             "flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border px-4 py-3 text-sm",
-            toneClass.attention
+            toneClass.muted
           )}
         >
           <CirclePauseIcon
-            className={cn("size-4 shrink-0", iconClass.attention)}
+            className={cn("size-4 shrink-0", iconClass.muted)}
           />
           <span className="min-w-0 flex-1">
             {p.name === throttle.current
@@ -131,24 +134,20 @@ export function PausedBanners({ throttle }: { throttle: Throttle }) {
 }
 
 /** The Jobs page's quick throttle: pause, slots per queue, heavy exclusivity, cooldown. */
-export function ThrottleControl({ throttle }: { throttle: Throttle }) {
-  const [chosen, setChosen] = useState<string | null>(null)
-  const name = chosen ?? throttle.current
-  const profile =
-    throttle.profiles.find((p) => p.name === name) ??
-    throttle.profiles.find((p) => p.name === throttle.current) ??
-    throttle.profiles[0]
+export function ThrottleControl({
+  throttle,
+  className,
+}: {
+  throttle: Throttle
+  className?: string
+}) {
   const t = m.jobs.throttle
-  if (!profile) return null
-  const set = (edit: (p: HostProfile) => HostProfile) =>
-    throttle.update(profile.name, edit)
-  const slots = (q: string) => profile.concurrency[q] ?? 0
-  const setSlots = (q: string, n: number) =>
-    set((p) => ({ ...p, concurrency: { ...p.concurrency, [q]: n } }))
-
+  if (throttle.profiles.length === 0) return null
   return (
     <Popover>
-      <PopoverTrigger render={<Button variant="outline" size="sm" />}>
+      <PopoverTrigger
+        render={<Button variant="outline" size="sm" className={className} />}
+      >
         <GaugeIcon data-icon="inline-start" />
         {t.button}
         {throttle.profiles.some((p) => p.paused) ? (
@@ -166,144 +165,198 @@ export function ThrottleControl({ throttle }: { throttle: Throttle }) {
           <PopoverTitle>{t.title}</PopoverTitle>
           <PopoverDescription>{t.description}</PopoverDescription>
         </PopoverHeader>
-
-        {throttle.profiles.length > 1 ? (
-          <ToggleGroup
-            variant="outline"
-            size="sm"
-            spacing={0}
-            aria-label={t.profile}
-            value={[profile.name]}
-            onValueChange={(next) => next[0] && setChosen(next[0])}
-            className="flex-wrap"
-          >
-            {throttle.profiles.map((p) => (
-              <ToggleGroupItem
-                key={p.name}
-                value={p.name}
-                className="font-mono font-normal"
-              >
-                {p.name}
-                {p.name === throttle.current ? ` · ${t.thisServer}` : ""}
-                {p.paused ? (
-                  <CirclePauseIcon
-                    className={iconClass.attention}
-                    aria-label={t.paused}
-                  />
-                ) : null}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        ) : null}
-
-        <label className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
-          <span className="flex flex-col">
-            <span className="font-medium">
-              {profile.paused ? t.paused : t.running}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {profile.paused ? t.pausedHint : t.runningHint}
-            </span>
-          </span>
-          <Switch
-            checked={!profile.paused}
-            onCheckedChange={(on) => set((p) => ({ ...p, paused: !on }))}
-            aria-label={t.takeJobs}
-          />
-        </label>
-
-        <fieldset className="grid gap-1.5">
-          <legend className="mb-1.5 text-xs font-medium text-muted-foreground">
-            {t.slots}
-          </legend>
-          {QUEUES.map((q) => (
-            <div key={q} className="flex items-center justify-between gap-3">
-              <span className="flex items-center gap-2">
-                <QueueDot queue={q} />
-                {m.system.queues[q]}
-              </span>
-              <Stepper
-                label={m.system.queues[q]}
-                value={slots(q)}
-                min={0}
-                max={MAX_SLOTS}
-                onChange={(n) => setSlots(q, n)}
-              />
-            </div>
-          ))}
-        </fieldset>
-
-        <label className="flex items-center justify-between gap-3">
-          <span className="flex flex-col">
-            <span>{m.system.heavyExclusive}</span>
-            <span className="text-xs text-muted-foreground">
-              {m.system.heavyExclusiveHint}
-            </span>
-          </span>
-          <Switch
-            checked={profile.heavyExclusive}
-            onCheckedChange={(on) => set((p) => ({ ...p, heavyExclusive: on }))}
-          />
-        </label>
-        {profile.heavyExclusive ? (
-          <div className="grid gap-1.5">
-            <span className="text-xs text-muted-foreground">
-              {t.heavyQueues}
-            </span>
-            <HeavyQueuesPicker
-              value={heavyOf(profile)}
-              onChange={(next) => set((p) => ({ ...p, heavyQueues: next }))}
-            />
-          </div>
-        ) : null}
-
-        <CpuLimit
-          key={`cpu:${profile.name}:${profile.cpuLimit}`}
-          percent={profile.cpuLimit}
-          onChange={(pct) => set((p) => ({ ...p, cpuLimit: pct }))}
-        />
-
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-          <span className="flex flex-col">
-            <span>{t.priority}</span>
-            <span className="text-xs text-muted-foreground">
-              {t.priorityHint}
-            </span>
-          </span>
-          <ToggleGroup
-            variant="outline"
-            size="sm"
-            spacing={0}
-            aria-label={t.priority}
-            value={[String(profile.nice ?? 0)]}
-            onValueChange={(next) =>
-              next[0] !== undefined &&
-              set((p) => ({ ...p, nice: Number(next[0]) }))
-            }
-          >
-            {PRIORITIES.map((pr) => (
-              <ToggleGroupItem key={pr.nice} value={String(pr.nice)}>
-                {pr.label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </div>
-
-        <Cooldown
-          key={`cooldown:${profile.name}:${profile.cooldownSeconds}`}
-          seconds={profile.cooldownSeconds}
-          disabled={!profile.heavyExclusive}
-          onChange={(s) => set((p) => ({ ...p, cooldownSeconds: s }))}
-        />
-
-        <Link
-          to="/system"
-          className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-        >
-          {t.more}
-        </Link>
+        <ThrottleFields throttle={throttle} />
       </PopoverContent>
     </Popover>
+  )
+}
+
+/** The same controls as a standing panel, beside the job list on wide screens. */
+export function ThrottlePanel({
+  throttle,
+  className,
+}: {
+  throttle: Throttle
+  className?: string
+}) {
+  const t = m.jobs.throttle
+  if (throttle.profiles.length === 0) return null
+  return (
+    <section
+      aria-labelledby="throttle-panel-title"
+      className={cn(
+        "flex-col gap-4 rounded-xl border bg-card p-5 text-sm text-card-foreground",
+        className
+      )}
+    >
+      <header className="flex flex-col gap-1">
+        <h2
+          id="throttle-panel-title"
+          className="font-heading text-base font-medium"
+        >
+          {t.title}
+        </h2>
+        <p className="text-muted-foreground">{t.description}</p>
+      </header>
+      <ThrottleFields throttle={throttle} />
+    </section>
+  )
+}
+
+/** The throttle's controls for one host profile, this server's unless another is picked. */
+function ThrottleFields({ throttle }: { throttle: Throttle }) {
+  const [chosen, setChosen] = useState<string | null>(null)
+  const name = chosen ?? throttle.current
+  const profile =
+    throttle.profiles.find((p) => p.name === name) ??
+    throttle.profiles.find((p) => p.name === throttle.current) ??
+    throttle.profiles[0]
+  const t = m.jobs.throttle
+  if (!profile) return null
+  const set = (edit: (p: HostProfile) => HostProfile) =>
+    throttle.update(profile.name, edit)
+  const slots = (q: string) => profile.concurrency[q] ?? 0
+  const setSlots = (q: string, n: number) =>
+    set((p) => ({ ...p, concurrency: { ...p.concurrency, [q]: n } }))
+
+  return (
+    <>
+      {throttle.profiles.length > 1 ? (
+        <ToggleGroup
+          variant="outline"
+          size="sm"
+          spacing={1.5}
+          aria-label={t.profile}
+          value={[profile.name]}
+          onValueChange={(next) => next[0] && setChosen(next[0])}
+          className="flex-wrap"
+        >
+          {throttle.profiles.map((p) => (
+            <ToggleGroupItem
+              key={p.name}
+              value={p.name}
+              className="font-mono font-normal"
+            >
+              {p.name}
+              {p.name === throttle.current ? ` · ${t.thisServer}` : ""}
+              {p.paused ? (
+                <CirclePauseIcon
+                  className={iconClass.attention}
+                  aria-label={t.paused}
+                />
+              ) : null}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      ) : null}
+
+      <label className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
+        <span className="flex flex-col">
+          <span className="font-medium">
+            {profile.paused ? t.paused : t.running}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {profile.paused ? t.pausedHint : t.runningHint}
+          </span>
+        </span>
+        <Switch
+          checked={!profile.paused}
+          onCheckedChange={(on) => set((p) => ({ ...p, paused: !on }))}
+          aria-label={t.takeJobs}
+        />
+      </label>
+
+      <fieldset className="grid gap-1.5">
+        <legend className="mb-1.5 text-xs font-medium text-muted-foreground">
+          {t.slots}
+        </legend>
+        {QUEUES.map((q) => (
+          <div key={q} className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2">
+              <QueueDot queue={q} />
+              {m.system.queues[q]}
+            </span>
+            <Stepper
+              label={m.system.queues[q]}
+              value={slots(q)}
+              min={0}
+              max={MAX_SLOTS}
+              onChange={(n) => setSlots(q, n)}
+            />
+          </div>
+        ))}
+      </fieldset>
+
+      <label className="flex items-center justify-between gap-3">
+        <span className="flex flex-col">
+          <span>{m.system.heavyExclusive}</span>
+          <span className="text-xs text-muted-foreground">
+            {m.system.heavyExclusiveHint}
+          </span>
+        </span>
+        <Switch
+          checked={profile.heavyExclusive}
+          onCheckedChange={(on) => set((p) => ({ ...p, heavyExclusive: on }))}
+        />
+      </label>
+      {profile.heavyExclusive ? (
+        <div className="grid gap-1.5">
+          <span className="text-xs text-muted-foreground">
+            {t.heavyQueues}
+          </span>
+          <HeavyQueuesPicker
+            value={heavyOf(profile)}
+            onChange={(next) => set((p) => ({ ...p, heavyQueues: next }))}
+          />
+        </div>
+      ) : null}
+
+      <CpuLimit
+        key={`cpu:${profile.name}:${profile.cpuLimit}`}
+        percent={profile.cpuLimit}
+        onChange={(pct) => set((p) => ({ ...p, cpuLimit: pct }))}
+      />
+
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <span className="flex flex-col">
+          <span>{t.priority}</span>
+          <span className="text-xs text-muted-foreground">
+            {t.priorityHint}
+          </span>
+        </span>
+        <ToggleGroup
+          variant="outline"
+          size="sm"
+          spacing={0}
+          aria-label={t.priority}
+          value={[String(profile.nice ?? 0)]}
+          onValueChange={(next) =>
+            next[0] !== undefined &&
+            set((p) => ({ ...p, nice: Number(next[0]) }))
+          }
+        >
+          {PRIORITIES.map((pr) => (
+            <ToggleGroupItem key={pr.nice} value={String(pr.nice)}>
+              {pr.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </div>
+
+      <Cooldown
+        key={`cooldown:${profile.name}:${profile.cooldownSeconds}`}
+        seconds={profile.cooldownSeconds}
+        disabled={!profile.heavyExclusive}
+        onChange={(s) => set((p) => ({ ...p, cooldownSeconds: s }))}
+      />
+
+      <Link
+        to="/system"
+        className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+      >
+        {t.more}
+      </Link>
+    </>
   )
 }
 

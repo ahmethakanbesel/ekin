@@ -85,7 +85,12 @@ import {
   parseStatusFilter,
   serializeStatusFilter,
 } from "./search"
-import { PausedBanners, ThrottleControl, useThrottle } from "./throttle"
+import {
+  PausedBanners,
+  ThrottleControl,
+  ThrottlePanel,
+  useThrottle,
+} from "./throttle"
 
 const statusIcon: Record<JobStatus, LucideIcon> = {
   queued: ClockIcon,
@@ -247,71 +252,89 @@ export function JobsPage() {
       <PageHeader
         title={m.jobs.title}
         description={m.jobs.description}
-        actions={throttle ? <ThrottleControl throttle={throttle} /> : null}
+        actions={
+          throttle ? (
+            <ThrottleControl throttle={throttle} className="min-[90rem]:hidden" />
+          ) : null
+        }
       />
       {throttle ? <PausedBanners throttle={throttle} /> : null}
-      <div className="mb-4 flex flex-wrap items-start gap-x-4 gap-y-2">
-        <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
-          <span className="text-sm text-muted-foreground" id="jobs-status">
-            {m.jobs.columns.status}
-          </span>
-          <div className="scroll-area min-w-0 overflow-x-auto">
-            <ToggleGroup
-              multiple
-              variant="outline"
-              size="sm"
-              spacing={0}
-              aria-labelledby="jobs-status"
-              value={status.length ? status : [ALL]}
-              onValueChange={onStatus}
-            >
-              <ToggleGroupItem value={ALL}>{m.jobs.all}</ToggleGroupItem>
-              {JOB_STATUSES.map((s) => (
-                <ToggleGroupItem key={s} value={s}>
-                  {m.jobs.status[s]}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </div>
-          <span className="text-sm text-muted-foreground" id="jobs-queue">
-            {m.jobs.columns.queue}
-          </span>
-          <div className="scroll-area min-w-0 overflow-x-auto">
-            <ToggleGroup
-              variant="outline"
-              size="sm"
-              spacing={0}
-              aria-labelledby="jobs-queue"
-              value={[queue ?? ALL]}
-              onValueChange={(next) => setQueue(parseQueueFilter(next[0]))}
-            >
-              <ToggleGroupItem value={ALL}>{m.jobs.all}</ToggleGroupItem>
-              {QUEUE_ORDER.map((q) => (
-                <ToggleGroupItem
-                  key={q}
-                  value={q}
-                  title={m.system.queues[q]}
+      {/* From 1440px the throttle stays open beside the list (below that the
+          step tables would scroll); narrower screens use the header popover. */}
+      <div
+        className={cn(
+          throttle &&
+            "min-[90rem]:grid min-[90rem]:grid-cols-[minmax(0,1fr)_20rem] min-[90rem]:items-start min-[90rem]:gap-6"
+        )}
+      >
+        <div className="min-w-0">
+          <div className="mb-4 flex flex-wrap items-start gap-x-4 gap-y-2">
+            <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
+              <span className="text-sm text-muted-foreground" id="jobs-status">
+                {m.jobs.columns.status}
+              </span>
+              <div className="scroll-area min-w-0 overflow-x-auto">
+                <ToggleGroup
+                  multiple
+                  variant="outline"
+                  size="sm"
+                  spacing={0}
+                  aria-labelledby="jobs-status"
+                  value={status.length ? status : [ALL]}
+                  onValueChange={onStatus}
                 >
-                  <QueueDot queue={q} />
-                  {q}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+                  <ToggleGroupItem value={ALL}>{m.jobs.all}</ToggleGroupItem>
+                  {JOB_STATUSES.map((s) => (
+                    <ToggleGroupItem key={s} value={s}>
+                      {m.jobs.status[s]}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+              <span className="text-sm text-muted-foreground" id="jobs-queue">
+                {m.jobs.columns.queue}
+              </span>
+              <div className="scroll-area min-w-0 overflow-x-auto">
+                <ToggleGroup
+                  variant="outline"
+                  size="sm"
+                  spacing={0}
+                  aria-labelledby="jobs-queue"
+                  value={[queue ?? ALL]}
+                  onValueChange={(next) => setQueue(parseQueueFilter(next[0]))}
+                >
+                  <ToggleGroupItem value={ALL}>{m.jobs.all}</ToggleGroupItem>
+                  {QUEUE_ORDER.map((q) => (
+                    <ToggleGroupItem
+                      key={q}
+                      value={q}
+                      title={m.system.queues[q]}
+                    >
+                      <QueueDot queue={q} />
+                      {q}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+            </div>
+            {requests.length > 0 ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-auto"
+                onClick={() => setAll(!anyOpen)}
+              >
+                {anyOpen ? <ChevronsDownUpIcon /> : <ChevronsUpDownIcon />}
+                {anyOpen ? m.jobs.request.collapseAll : m.jobs.request.expandAll}
+              </Button>
+            ) : null}
           </div>
+          {body}
         </div>
-        {requests.length > 0 ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto"
-            onClick={() => setAll(!anyOpen)}
-          >
-            {anyOpen ? <ChevronsDownUpIcon /> : <ChevronsUpDownIcon />}
-            {anyOpen ? m.jobs.request.collapseAll : m.jobs.request.expandAll}
-          </Button>
+        {throttle ? (
+          <ThrottlePanel throttle={throttle} className="hidden min-[90rem]:flex" />
         ) : null}
       </div>
-      {body}
       <CancelJobDialog
         job={cancelling}
         onOpenChange={(open) => !open && setCancelling(null)}
@@ -561,7 +584,7 @@ function Steps({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="min-w-52 pl-4">{t.step}</TableHead>
+            <TableHead className="min-w-40 pl-4">{t.step}</TableHead>
             <TableHead>{m.jobs.columns.queue}</TableHead>
             <TableHead>{m.jobs.columns.status}</TableHead>
             <TableHead className="text-right">
@@ -569,7 +592,7 @@ function Steps({
             </TableHead>
             <TableHead className="text-right">{t.waited}</TableHead>
             <TableHead className="text-right">{t.ran}</TableHead>
-            <TableHead className="w-full min-w-48">{t.timeline}</TableHead>
+            <TableHead className="w-full min-w-28">{t.timeline}</TableHead>
             <TableHead className="w-12 pr-4">
               <span className="sr-only">{m.common.actions}</span>
             </TableHead>
