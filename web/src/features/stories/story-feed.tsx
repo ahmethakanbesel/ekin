@@ -519,7 +519,11 @@ export function DraftFrame({
       <div
         className={cn(
           "relative min-h-0 bg-black",
-          orientation === "horizontal" ? "aspect-video" : "flex-1"
+          orientation === "vertical"
+            ? "flex-1"
+            : orientation === "horizontal"
+              ? "aspect-video"
+              : "aspect-square"
         )}
         style={file && player ? undefined : backdrop}
       >
@@ -549,10 +553,10 @@ export function DraftFrame({
             {story.language}
           </Badge>
         </div>
-        <Title className="mt-1.5 line-clamp-2 text-lg leading-snug font-semibold max-sm:line-clamp-1 max-sm:text-base">
+        <Title className="mt-1.5 line-clamp-2 text-lg leading-snug font-semibold max-sm:text-base">
           {story.title}
         </Title>
-        <p className="truncate text-sm text-muted-foreground max-sm:hidden">
+        <p className="line-clamp-2 text-sm text-muted-foreground">
           <span
             className={cn(
               "mr-1.5 inline-block size-2 rounded-[2px] align-[0.05em]",

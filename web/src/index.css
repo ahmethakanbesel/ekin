@@ -200,8 +200,10 @@
 
 /*
  * Review feed geometry (layout only): one draft per snap, sized to the
- * feed's own box, with the next draft peeking below. The frame leaves
- * room for the caption strip under the player.
+ * feed's own box, with the next draft peeking below. Every draft shares
+ * one column: the width of a 9:16 frame as tall as the feed allows, from
+ * one left edge. A 16:9 video grows to the right of it; a 9:16 video
+ * carries its caption strip over its foot.
  */
 .feed {
   position: relative;
@@ -225,18 +227,18 @@
 .feed-item {
   --peek: 72px;
   --rail: 88px;
-  --strip: 8.5rem;
-  --aw: calc(100cqw - 48px - var(--rail));
-  --fh: min(
-    calc(100cqh - var(--peek) - 20px),
-    calc(var(--aw) * 16 / 9 + var(--strip))
+  --gap: 16px;
+  --fh: calc(100cqh - var(--peek) - 20px);
+  --cw: min(
+    calc(var(--fh) * 9 / 16),
+    calc(100cqw - 32px - var(--gap) - var(--rail))
   );
+  --left: max(16px, calc((100cqw - var(--cw) - var(--gap) - var(--rail)) / 2));
   height: calc(100cqh - var(--peek));
   scroll-snap-align: start;
   display: flex;
-  justify-content: center;
   align-items: flex-start;
-  padding: 4px 16px 16px;
+  padding: 4px 16px 16px var(--left);
 }
 .feed-item:last-child,
 .feed-item:only-child {
@@ -245,23 +247,26 @@
 .feed-stage {
   display: flex;
   align-items: flex-end;
-  gap: 16px;
+  gap: var(--gap);
 }
-.frame-v {
-  height: var(--fh);
-  width: calc((var(--fh) - var(--strip)) * 9 / 16);
+.frame-v,
+.frame-paper {
+  width: var(--cw);
+  height: calc(var(--cw) * 16 / 9);
 }
 .frame-sq {
-  height: var(--fh);
-  width: min(var(--aw), calc(var(--fh) - var(--strip)));
+  width: var(--cw);
+  max-height: var(--fh);
 }
 .frame-h {
+  width: max(
+    var(--cw),
+    min(
+      calc(100cqw - var(--left) - 16px - var(--gap) - var(--rail)),
+      calc(var(--fh) * 16 / 9)
+    )
+  );
   max-height: var(--fh);
-  width: min(var(--aw), calc((var(--fh) - var(--strip)) * 16 / 9));
-}
-.frame-paper {
-  height: var(--fh);
-  width: min(var(--aw), 42rem);
 }
 .rail {
   width: var(--rail);
@@ -275,18 +280,22 @@
     --peek: 40px;
     --rail: 0px;
     --railh: 76px;
-    --strip: 5.25rem;
-    --aw: calc(100cqw - 32px);
-    --fh: min(
-      calc(100cqh - var(--peek) - var(--railh) - 24px),
-      calc(var(--aw) * 16 / 9 + var(--strip))
-    );
+    --gap: 12px;
+    --fh: calc(100cqh - var(--peek) - var(--railh) - 24px);
+    --cw: calc(100cqw - 32px);
     padding: 4px 16px 12px;
   }
   .feed-stage {
     flex-direction: column;
     align-items: stretch;
-    gap: 12px;
+    width: 100%;
+  }
+  .frame-v,
+  .frame-paper {
+    height: min(var(--fh), calc(var(--cw) * 16 / 9));
+  }
+  .frame-h {
+    width: var(--cw);
   }
   .rail {
     width: auto;
