@@ -328,7 +328,7 @@ function ProfileForm({
         </form.Field>
 
         <Separator />
-        <h3 className="-mb-1 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+        <h3 className="-mb-1 text-sm font-medium">
           {m.seo.directTitle}
         </h3>
         {status && !direct ? (
