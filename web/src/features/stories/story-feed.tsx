@@ -465,8 +465,16 @@ export function DraftFrame({
       : undefined
 
   if (d?.kind === "article") {
+    // Its own scroller: the wheel reads on and, at either end, a new
+    // gesture moves the feed. Focused (click or Tab), Space and the arrow
+    // keys scroll the article; J and K still move between drafts.
     return (
-      <div className="frame-paper paper scroll-area overflow-y-auto overscroll-contain rounded-xl border bg-card text-card-foreground shadow-sm">
+      <div
+        role={current ? "region" : undefined}
+        aria-label={current ? m.feed.article(story.title) : undefined}
+        tabIndex={current ? 0 : undefined}
+        className="frame-paper paper scroll-area overflow-y-auto rounded-xl border bg-card text-card-foreground shadow-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+      >
         <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-card/95 px-5 py-3">
           <StatusBadge status={d.status} revision={d.revision} />
           <Badge variant="outline">
@@ -477,7 +485,7 @@ export function DraftFrame({
             {measuredWords(measured) ? ` · ${measuredWords(measured)}` : null}
           </Badge>
         </div>
-        <div className="p-5 md:p-6">
+        <div className="p-5 md:px-8 md:py-7">
           {player && artifacts && revision ? (
             <ArticlePreview
               artifacts={artifacts}

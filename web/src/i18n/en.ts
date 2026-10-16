@@ -793,6 +793,7 @@ export const en = {
     back: "Review",
     item: (title: string, kind: string, n: number) =>
       n > 0 ? `${title}, ${kind.toLowerCase()} revision ${n}` : title,
+    article: (title: string) => `Article: ${title}`,
     endTitle: "That was the last draft",
     endBody: "New stories appear in Review when the agent is done.",
     backToReview: "Back to Review",

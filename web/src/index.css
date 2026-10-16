@@ -205,9 +205,9 @@
  * (with its rail) is centred in the room the docked feedback sheet leaves.
  * While the sheet is closed that room is reserved (`data-sheet="closed"`),
  * so opening it, or moving to a draft without one, never moves the draft.
- * A 16:9 video grows to the right of that edge; an article is a paper
- * sheet at the 9:16 size; a 9:16 video carries its caption strip over
- * its foot.
+ * Wider drafts grow to the right of that edge: a 16:9 video, and an
+ * article as a reading column. A 9:16 video carries its caption strip
+ * over its foot.
  */
 .feed {
   position: relative;
@@ -264,10 +264,14 @@
   align-items: flex-end;
   gap: var(--gap);
 }
-.frame-v,
-.frame-paper {
+.frame-v {
   width: var(--cw);
   height: calc(var(--cw) * 16 / 9);
+}
+/* An article reads as a page: a column about 65 characters wide, as tall as the feed allows. */
+.frame-paper {
+  width: max(var(--cw), min(700px, var(--room)));
+  height: var(--fh);
 }
 .frame-sq {
   width: var(--cw);
@@ -303,7 +307,8 @@
   .frame-paper {
     height: min(var(--fh), calc(var(--cw) * 16 / 9));
   }
-  .frame-h {
+  .frame-h,
+  .frame-paper {
     width: var(--cw);
   }
   .rail {

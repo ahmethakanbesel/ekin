@@ -197,7 +197,7 @@ The system is stock shadcn (base-vega style on Base UI) with a short list of del
 - Status tones from one table (`lib/tones.ts`), always with a text or icon cue.
 - Stock shadcn base-vega components; deviations exist only to meet AA.
 - Geist and Geist Mono, one family, weight and size doing the hierarchy.
-- Drafts are judged at their real shape: 9:16, 16:9, square, or a sheet of paper.
+- Drafts are judged at their real shape: 9:16, 16:9, square, or a page of paper at a reading measure.
 
 ## Colors
 
@@ -273,12 +273,12 @@ Spacing runs on the 4px Tailwind step: 4 and 8 inside controls, 12 to 16 between
 
 **The review inbox** is a poster grid: two columns, four from `lg`, 16px gutters (24px from `lg`) and 32px between rows. Every poster is 9:16 regardless of the draft's own shape.
 
-**The story feed** is a vertical snap scroller of drafts, one per snap, with the next draft peeking below (48px, 40px on phones). A 9:16 frame is as tall as the feed allows. Every draft starts from one left edge: where that 9:16 frame and its rail sit centred in the room the docked feedback sheet leaves. While the sheet is closed its 340px stays reserved to the right, so opening it, closing it or moving to a draft without one never moves the draft. A 16:9 draft grows rightward from that edge into the free width; a 9:16 draft carries its caption strip over its foot; an article is a scrolling paper sheet at the 9:16 size. An 88px action rail stands beside the frame (16px gap); under 640px the rail drops below the frame as a row. From 1280px a script-and-history panel (360px) stands to the right of the feed, and the feedback sheet docks between them only while it is open.
+**The story feed** is a vertical snap scroller of drafts, one per snap, with the next draft peeking below (48px, 40px on phones). A 9:16 frame is as tall as the feed allows. Every draft starts from one left edge: where that 9:16 frame and its rail sit centred in the room the docked feedback sheet leaves. While the sheet is closed its 340px stays reserved to the right, so opening it, closing it or moving to a draft without one never moves the draft. A 16:9 draft grows rightward from that edge into the free width; a 9:16 draft carries its caption strip over its foot; an article is a paper reading column up to 700px wide (about 65 characters of body text) and as tall as the feed, also growing rightward from the edge. The article scrolls on its own: the wheel reads on and, at either end, a new gesture moves the feed; focused (click or Tab), Space and the arrow keys scroll it, while J and K still move between drafts. An 88px action rail stands beside the frame (16px gap); under 640px the rail drops below the frame as a row. From 1280px a script-and-history panel (360px) stands to the right of the feed, and the feedback sheet docks between them only while it is open.
 
 **Jobs** pairs the list with the throttle panel side by side from 1440px; below that the throttle opens from a button.
 
 ### Named Rules
-**The Real Shape Rule.** A draft is shown at its delivered aspect (9:16, 16:9, square, or a page), never cropped to fit a card.
+**The Real Shape Rule.** A draft is shown at its delivered aspect (9:16, 16:9, square, or a page), never cropped to fit a card. An article is a page to read, not a phone screen: it gets a reading column, not a 9:16 sheet (the inbox poster is the one exception).
 
 ## Elevation & Depth
 
