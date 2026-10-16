@@ -578,6 +578,9 @@ export const en = {
     planning: (n: number) =>
       n === 1 ? "The agent is planning 1 request…" : `The agent is planning ${n} requests…`,
     planningBody: "New stories appear here when it is done.",
+    startSitting: "Start review sitting",
+    ratio: { vertical: "9:16", horizontal: "16:9", square: "1:1" } as Record<string, string>,
+    posterFormat: (format: string, ratio: string) => `${format} · ${ratio}`,
   },
   story: {
     notFound: "This story does not exist.",

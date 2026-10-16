@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
-import { InboxIcon, Loader2Icon, PlusIcon } from "lucide-react"
+import { InboxIcon, Loader2Icon, PlayIcon, PlusIcon } from "lucide-react"
 
 import type { Job, Pipeline, Story } from "@/api/client"
 import {
@@ -9,33 +9,52 @@ import {
   ErrorState,
   PageHeader,
   ReadOnlyNote,
-  TableSkeleton,
 } from "@/components/page"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
-import { formatDateTime, formatRelative, useNow } from "@/lib/time"
+import { useNow } from "@/lib/time"
 import { jobsQuery } from "@/queries/jobs"
 import { keys } from "@/queries/keys"
 import { pipelinesQuery } from "@/queries/pipelines"
 import { STORY_LIST_LIMIT, storiesQuery } from "@/queries/stories"
-import { DeliverableChip } from "./badges"
 import { STORY_TABS, TAB_STATUSES, type StoryTab } from "./model"
+import { PosterCard } from "./poster-card"
 
 const ROUTE = "/w/$workspaceId/stories"
 
 /** Job kinds that turn into new stories when they finish. */
 const PLANNING_KINDS = new Set(["story.adhoc", "pipeline.run"])
 const POLL_PLANNING_MS = 5_000
+
+/**
+ * Stories per tab, counted from the unfiltered list (it shares its cache
+ * with the All tab). A list cut off at the limit makes every count a floor.
+ */
+function useTabCounts(workspaceId: string, review: Story[] | undefined) {
+  const all = useQuery(storiesQuery(workspaceId, TAB_STATUSES.all))
+  return useMemo(() => {
+    if (!all.data) return undefined
+    const capped = all.data.length >= STORY_LIST_LIMIT
+    const label = (n: number, cut = capped) => (cut ? `${n}+` : String(n))
+    const counts = {} as Record<StoryTab, string>
+    for (const tab of STORY_TABS) {
+      const statuses = TAB_STATUSES[tab]
+      const n =
+        statuses.length === 0
+          ? all.data.length
+          : all.data.filter((s) => statuses.includes(s.status)).length
+      counts[tab] = label(n)
+    }
+    // Its own query, so it stays exact while the All list is cut off.
+    if (review)
+      counts.review = label(review.length, review.length >= STORY_LIST_LIMIT)
+    return counts
+  }, [all.data, review])
+}
 
 export function StoriesPage() {
   const workspace = useWorkspace()
@@ -46,6 +65,7 @@ export function StoriesPage() {
   const list = useQuery(storiesQuery(workspace.id, TAB_STATUSES[tab]))
   // Shares its cache with the nav badge.
   const review = useQuery(storiesQuery(workspace.id, TAB_STATUSES.review))
+  const counts = useTabCounts(workspace.id, review.data)
   const pipelines = useQuery(pipelinesQuery(workspace.id))
   const planning = usePlanningJobs(workspace.id)
   const now = useNow()
@@ -58,8 +78,10 @@ export function StoriesPage() {
     [pipelines.data]
   )
 
+  const firstReview = review.data?.[0]
   const newButton = canEdit ? (
     <Button
+      variant={firstReview ? "outline" : "default"}
       render={
         <Link
           to="/w/$workspaceId/stories/new"
@@ -72,9 +94,24 @@ export function StoriesPage() {
       {m.stories.newRequest}
     </Button>
   ) : null
+  const sittingButton =
+    canEdit && firstReview ? (
+      <Button
+        render={
+          <Link
+            to="/w/$workspaceId/stories/$storyId"
+            params={{ workspaceId: workspace.id, storyId: firstReview.id }}
+          />
+        }
+        nativeButton={false}
+      >
+        <PlayIcon data-icon="inline-start" />
+        {m.stories.startSitting}
+      </Button>
+    ) : null
 
   let body
-  if (list.isPending) body = <TableSkeleton rows={5} />
+  if (list.isPending) body = <PosterSkeleton />
   else if (list.isError)
     body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />
   else if (list.data.length === 0) {
@@ -90,54 +127,46 @@ export function StoriesPage() {
   } else
     body = (
       <>
-        <div className="rounded-xl border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="pl-4">
-                  {m.stories.columns.title}
-                </TableHead>
-                <TableHead>{m.stories.columns.outputs}</TableHead>
-                <TableHead>{m.stories.columns.origin}</TableHead>
-                <TableHead>{m.stories.columns.language}</TableHead>
-                <TableHead className="pr-4">
-                  {m.stories.columns.created}
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {list.data.map((s) => (
-                <StoryRow
-                  key={s.id}
-                  workspaceId={workspace.id}
-                  story={s}
-                  pipelineName={
-                    s.pipelineId ? pipelineNames.get(s.pipelineId) : undefined
-                  }
-                  pipelinesLoaded={!!pipelines.data}
-                  timezone={workspace.timezone}
-                  now={now}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <ul
+          aria-label={m.stories.tabs[tab]}
+          className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-4 lg:gap-x-6"
+        >
+          {list.data.map((s) => (
+            <li key={s.id} className="min-w-0">
+              <PosterCard
+                workspaceId={workspace.id}
+                story={s}
+                pipelineName={
+                  s.pipelineId ? pipelineNames.get(s.pipelineId) : undefined
+                }
+                pipelinesLoaded={!!pipelines.data}
+                timezone={workspace.timezone}
+                now={now}
+              />
+            </li>
+          ))}
+        </ul>
         {list.data.length >= STORY_LIST_LIMIT ? (
-          <p className="mt-3 text-xs text-muted-foreground">
+          <p className="mt-6 text-xs text-muted-foreground">
             {m.stories.showing(STORY_LIST_LIMIT)}
           </p>
         ) : null}
       </>
     )
 
-  const reviewCount = review.data?.length ?? 0
-
   return (
     <>
       <PageHeader
         title={m.stories.title}
         description={m.stories.description}
-        actions={newButton}
+        actions={
+          newButton || sittingButton ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {newButton}
+              {sittingButton}
+            </div>
+          ) : null
+        }
       />
       {canEdit ? null : <ReadOnlyNote>{m.stories.readOnlyHint}</ReadOnlyNote>}
       <Tabs
@@ -148,30 +177,52 @@ export function StoriesPage() {
             replace: true,
           })
         }
-        className="mb-4"
+        className="mb-6"
       >
-        <div className="-mx-1 overflow-x-auto px-1 pb-1">
+        <div className="scroll-area -mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
           <TabsList aria-label={m.stories.title}>
             {STORY_TABS.map((t) => (
               <TabsTrigger key={t} value={t} className="flex-none">
                 {m.stories.tabs[t]}
-                {t === "review" && reviewCount > 0 ? (
-                  <span className="tabular rounded-full bg-primary px-1.5 text-[11px] leading-4 font-semibold text-primary-foreground inset-ring inset-ring-primary-ink">
-                    {reviewCount >= STORY_LIST_LIMIT
-                      ? `${STORY_LIST_LIMIT}+`
-                      : reviewCount}
-                  </span>
+                {counts ? (
+                  t === "review" && counts.review !== "0" ? (
+                    <span className="tabular rounded-full bg-primary px-1.5 text-[11px] leading-4 font-semibold text-primary-foreground inset-ring inset-ring-primary-ink">
+                      {counts.review}
+                    </span>
+                  ) : (
+                    <span className="tabular text-xs text-muted-foreground">
+                      {counts[t]}
+                    </span>
+                  )
                 ) : null}
               </TabsTrigger>
             ))}
           </TabsList>
         </div>
       </Tabs>
-      {planning.length > 0 && (tab === "progress" || tab === "all") ? (
+      {planning.length > 0 && tab !== "done" && tab !== "failed" ? (
         <PlanningNote count={planning.length} />
       ) : null}
       {body}
     </>
+  )
+}
+
+function PosterSkeleton() {
+  return (
+    <div
+      className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-4 lg:gap-x-6"
+      aria-busy="true"
+      aria-label={m.common.loading}
+    >
+      {Array.from({ length: 4 }, (_, i) => (
+        <div key={i} className="grid gap-3">
+          <Skeleton className="aspect-[9/16] w-full rounded-xl" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -210,102 +261,10 @@ function usePlanningJobs(workspaceId: string): Job[] {
 
 function PlanningNote({ count }: { count: number }) {
   return (
-    <div
-      role="status"
-      className="mb-4 flex items-center gap-2.5 rounded-lg border border-info/30 bg-info/5 px-4 py-3 text-sm"
-    >
-      <Loader2Icon className="size-4 shrink-0 animate-spin text-info" />
-      <div>
-        <p className="font-medium">{m.stories.planning(count)}</p>
-        <p className="text-muted-foreground">{m.stories.planningBody}</p>
-      </div>
-    </div>
-  )
-}
-
-function StoryRow({
-  workspaceId,
-  story: s,
-  pipelineName,
-  pipelinesLoaded,
-  timezone,
-  now,
-}: {
-  workspaceId: string
-  story: Story
-  pipelineName: string | undefined
-  pipelinesLoaded: boolean
-  timezone: string
-  now: number
-}) {
-  let origin: string
-  if (!s.pipelineId) origin = m.stories.adhoc
-  else if (pipelineName) origin = pipelineName
-  else origin = pipelinesLoaded ? m.stories.deletedPipeline : m.common.none
-
-  return (
-    <TableRow>
-      <TableCell className="max-w-md pl-4 align-top whitespace-normal">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <Link
-            to="/w/$workspaceId/stories/$storyId"
-            params={{ workspaceId: workspaceId, storyId: s.id }}
-            className="font-medium hover:underline"
-          >
-            {s.title}
-          </Link>
-          {s.angle ? (
-            <span
-              className="line-clamp-1 text-xs text-muted-foreground"
-              title={s.angle}
-            >
-              {s.angle}
-            </span>
-          ) : null}
-        </div>
-      </TableCell>
-      <TableCell className="align-top">
-        <ul className="grid gap-1">
-          {s.deliverables.map((d) => (
-            <li key={d.id}>
-              <DeliverableChip deliverable={d} />
-            </li>
-          ))}
-        </ul>
-      </TableCell>
-      <TableCell className="max-w-56 align-top">
-        <div className="flex flex-col gap-0.5">
-          {s.pipelineId && pipelineName ? (
-            <Link
-              to="/w/$workspaceId/pipelines/$pipelineId"
-              params={{ workspaceId: workspaceId, pipelineId: s.pipelineId }}
-              className="truncate text-sm hover:underline"
-            >
-              {origin}
-            </Link>
-          ) : (
-            <span className="truncate text-sm">{origin}</span>
-          )}
-          {s.pipelineId ? (
-            <span className="text-xs text-muted-foreground">
-              {m.stories.origin[s.origin]}
-            </span>
-          ) : null}
-        </div>
-      </TableCell>
-      <TableCell className="align-top text-sm">
-        {m.values.language[s.language] ?? s.language}
-      </TableCell>
-      <TableCell className="pr-4 align-top">
-        <div className="flex flex-col gap-0.5">
-          <span className="tabular text-sm whitespace-nowrap">
-            {formatDateTime(s.createdAt, timezone)}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {formatRelative(s.createdAt, now)}
-          </span>
-        </div>
-      </TableCell>
-    </TableRow>
+    <Alert role="status" className="mb-6 border-info/25 bg-info/10 *:[svg]:text-info">
+      <Loader2Icon className="animate-spin" />
+      <AlertTitle>{m.stories.planning(count)}</AlertTitle>
+      <AlertDescription>{m.stories.planningBody}</AlertDescription>
+    </Alert>
   )
 }

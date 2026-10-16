@@ -29,11 +29,14 @@ const statusIcon: Partial<Record<DeliverableStatus, LucideIcon>> = {
   failed: CircleXIcon,
 }
 
+/** A deliverable status; with `revision`, prefixed by it ("r3 · In review"). */
 export function StatusBadge({
   status,
+  revision,
   className,
 }: {
   status: DeliverableStatus
+  revision?: number
   className?: string
 }) {
   const spinning = isWorking({ status }) && status !== "queued"
@@ -46,6 +49,7 @@ export function StatusBadge({
           className={cn(spinning && "animate-spin")}
         />
       ) : null}
+      {revision ? `${m.stories.revisionShort(revision)} · ` : null}
       {m.stories.status[status] ?? status}
     </Badge>
   )
