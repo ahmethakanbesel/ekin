@@ -107,7 +107,7 @@ export function OutputPanel({
     <div
       className={cn(
         "rounded-xl border p-4 transition-colors",
-        enabled ? "border-primary-ink/50 bg-primary/[0.04]" : "bg-muted/30"
+        enabled ? "border-foreground/50 bg-card" : "bg-muted/30"
       )}
     >
       <div className="flex items-start gap-3">

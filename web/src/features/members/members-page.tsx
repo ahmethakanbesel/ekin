@@ -188,7 +188,7 @@ function MemberRow({
             </SelectContent>
           </Select>
         ) : (
-          <Badge variant={member.role === "owner" ? "default" : "secondary"}>
+          <Badge variant={member.role === "owner" ? "secondary" : "outline"}>
             {m.roles[member.role]}
           </Badge>
         )}

@@ -30,9 +30,10 @@ export function SelfReviewSection({
             key={n}
             type="button"
             size="sm"
-            variant={value === n ? "default" : "outline"}
+            variant="outline"
             role="radio"
             aria-checked={value === n}
+            className="aria-checked:bg-secondary aria-checked:text-foreground aria-checked:inset-ring aria-checked:inset-ring-foreground/70"
             onClick={() => onChange(n)}
           >
             {n === 0 ? t.off : t.rounds(n)}

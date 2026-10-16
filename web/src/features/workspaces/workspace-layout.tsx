@@ -207,7 +207,6 @@ export function WorkspaceLayout() {
                       render={<Link to={item.to} params={params} />}
                       isActive={!!matchRoute({ to: item.to, params, fuzzy: true })}
                       tooltip={item.label}
-                      className="data-active:[&>svg]:text-primary-ink"
                     >
                       <item.icon />
                       <span>{item.label}</span>

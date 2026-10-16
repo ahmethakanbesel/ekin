@@ -139,8 +139,8 @@ export function KnowledgePage() {
       />
       {body}
       {drop.over ? (
-        <div className="pointer-events-none absolute -inset-2 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-primary-ink bg-background/85 backdrop-blur-sm">
-          <div className="flex flex-col items-center gap-2 text-primary-ink">
+        <div className="pointer-events-none absolute -inset-2 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-foreground/50 bg-background/85 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-2 text-foreground">
             <UploadIcon className="size-8" />
             <p className="font-heading text-base font-medium">
               {m.knowledge.dropTitle}

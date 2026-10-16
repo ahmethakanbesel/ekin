@@ -659,14 +659,23 @@ function PageNavigator({
                       title={marked ? t.inRange : undefined}
                       onClick={() => onSelect(p.number)}
                       className={cn(
-                        "relative flex w-full items-center gap-2 rounded-xl px-3 py-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring",
+                        "flex w-full items-center gap-2 rounded-xl px-3 py-1.5 text-left text-sm outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring",
+                        marked && "bg-muted/60",
                         selected &&
-                          "bg-accent text-accent-foreground hover:bg-accent",
-                        marked &&
-                          "before:absolute before:inset-y-1 before:left-0.5 before:w-0.5 before:rounded-full before:bg-primary-ink"
+                          "bg-secondary text-foreground inset-ring inset-ring-foreground/70 hover:bg-secondary"
                       )}
                     >
-                      <span className="tabular w-12">{p.number}</span>
+                      {/* In-range pages read in full ink; the rest recede. */}
+                      <span
+                        className={cn(
+                          "tabular w-12",
+                          marked || selected
+                            ? "font-medium text-foreground"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {p.number}
+                      </span>
                       <span className="tabular ml-auto text-xs text-muted-foreground">
                         {formatCompact(p.tokens)}
                       </span>

@@ -185,13 +185,13 @@ export function SeoPage() {
 
 function difficultyTone(d: number): string {
   if (d < 30) return badgeTone.success
-  if (d < 60) return "bg-primary/15 text-primary-ink"
+  if (d < 60) return badgeTone.neutral
   return badgeTone.danger
 }
 
 const statusVariant = {
   open: "secondary",
-  used: "default",
+  used: "outline",
   dismissed: "outline",
 } as const
 

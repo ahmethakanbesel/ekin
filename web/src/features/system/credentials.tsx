@@ -224,7 +224,7 @@ export function Credentials() {
   )
 }
 
-const sourceVariant = { settings: "default", env: "secondary", default: "outline", unset: "outline" } as const
+const sourceVariant = { settings: "secondary", env: "secondary", default: "outline", unset: "outline" } as const
 
 function CredentialRow({
   credential: c,

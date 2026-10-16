@@ -66,7 +66,7 @@ export function HomePage() {
               aria-label={m.workspace.open(w.name)}
               className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3 outline-none hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-ring"
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground uppercase inset-ring inset-ring-primary-ink">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-sm font-semibold text-foreground uppercase">
                 {[...w.name][0] ?? "?"}
               </span>
               <span className="grid min-w-0 flex-1 leading-tight">
@@ -75,7 +75,7 @@ export function HomePage() {
                   {w.timezone}
                 </span>
               </span>
-              <Badge variant={w.role === "owner" ? "default" : "secondary"}>
+              <Badge variant={w.role === "owner" ? "secondary" : "outline"}>
                 {m.roles[w.role]}
               </Badge>
               <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
