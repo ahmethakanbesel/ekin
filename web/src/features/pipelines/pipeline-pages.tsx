@@ -12,6 +12,7 @@ import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { pipelineQuery, useCreatePipeline, useRedefinePipeline } from "@/queries/pipelines"
+import { PipelineStatusBadge, PipelineSwatch } from "./identity"
 import { defaultValues, fromDefinition } from "./model"
 import { PipelineForm } from "./pipeline-form"
 
@@ -185,7 +186,15 @@ function EditPipeline({
       <BackLink workspaceId={workspace.id} />
       <PageHeader
         title={canEdit ? m.pipelineForm.editTitle : m.pipelineForm.viewTitle}
-        description={base.definition.name}
+        description={
+          <span className="flex flex-wrap items-center gap-2">
+            <PipelineSwatch id={base.id} />
+            <span className="font-medium text-foreground">
+              {base.definition.name}
+            </span>
+            <PipelineStatusBadge status={base.status} />
+          </span>
+        }
       />
       {canEdit ? null : <ReadOnlyNote>{m.pipelineForm.readOnlyHint}</ReadOnlyNote>}
       <PipelineForm

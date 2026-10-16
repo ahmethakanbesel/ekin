@@ -55,6 +55,7 @@ import {
   usePausePipeline,
   useResumePipeline,
 } from "@/queries/pipelines"
+import { PipelineStatusBadge, PipelineSwatch } from "./identity"
 import { RunPipelineDialog } from "./run-dialog"
 import { outputLines } from "./summary"
 
@@ -180,16 +181,19 @@ function PipelineRow({
 
   return (
     <TableRow>
-      <TableCell className="pl-4 align-top">
+      <TableCell className="max-w-64 min-w-48 pl-4 align-top whitespace-normal">
         <div className="flex flex-col gap-1">
-          <Link
-            to="/w/$workspaceId/pipelines/$pipelineId"
-            params={{ workspaceId: p.workspaceId, pipelineId: p.id }}
-            className="font-medium hover:underline"
-          >
-            {def.name}
-          </Link>
-          <span className="text-xs text-muted-foreground">
+          <span className="flex items-start gap-2">
+            <PipelineSwatch id={p.id} className="mt-1.25" />
+            <Link
+              to="/w/$workspaceId/pipelines/$pipelineId"
+              params={{ workspaceId: p.workspaceId, pipelineId: p.id }}
+              className="font-medium hover:underline"
+            >
+              {def.name}
+            </Link>
+          </span>
+          <span className="pl-4.5 text-xs text-muted-foreground">
             {m.values.language[def.language] ?? def.language}
           </span>
         </div>
@@ -233,9 +237,7 @@ function PipelineRow({
         )}
       </TableCell>
       <TableCell className="align-top">
-        <Badge variant={p.status === "active" ? "default" : "secondary"}>
-          {m.pipelines.status[p.status]}
-        </Badge>
+        <PipelineStatusBadge status={p.status} />
       </TableCell>
       <TableCell className="align-top">
         {p.nextRunAt ? (
