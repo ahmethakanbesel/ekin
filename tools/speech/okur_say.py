@@ -131,9 +131,19 @@ def respell(tokens: list[str], lexicon: dict[str, str]) -> list[str]:
             i += 1
         while j > i and not t[j - 1].isalnum():
             j -= 1
-        spoken = lexicon.get(t[i:j].casefold())
+        spoken = lookup(lexicon, t[i:j])
         out.append(t[:i] + spoken + t[j:] if spoken else t)
     return out
+
+
+def lookup(lexicon: dict[str, str], core: str) -> str | None:
+    """A token core's entry. A Turkish suffix after an apostrophe (PHQ-9'da) keeps its stem's entry."""
+    spoken = lexicon.get(core.casefold())
+    if spoken:
+        return spoken
+    k = min((core.find(q) for q in "'’" if q in core), default=-1)
+    stem = lexicon.get(core[:k].casefold()) if k > 0 else None
+    return stem + core[k:] if stem else None
 
 
 def map_tokens(tokens: list[str], spoken: list[str], render) -> list[tuple[int, int, int, int]]:

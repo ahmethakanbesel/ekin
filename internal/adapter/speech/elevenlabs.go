@@ -185,13 +185,27 @@ func respell(tokens []string, lexicon map[string]string) []string {
 		for b > a && !isWordRune(r[b-1]) {
 			b--
 		}
-		if spoken, ok := lex[strings.ToLower(string(r[a:b]))]; ok {
+		if spoken, ok := lookup(lex, string(r[a:b])); ok {
 			out[i] = string(r[:a]) + spoken + string(r[b:])
 		} else {
 			out[i] = t
 		}
 	}
 	return out
+}
+
+// lookup finds a token core's entry. A Turkish suffix after an
+// apostrophe (PHQ-9'da) keeps its stem's entry: "pe ha ku dokuz'da".
+func lookup(lex map[string]string, core string) (string, bool) {
+	if spoken, ok := lex[strings.ToLower(core)]; ok {
+		return spoken, true
+	}
+	if k := strings.IndexAny(core, "'’"); k > 0 {
+		if spoken, ok := lex[strings.ToLower(core[:k])]; ok {
+			return spoken + core[k:], true
+		}
+	}
+	return "", false
 }
 
 func isWordRune(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) }

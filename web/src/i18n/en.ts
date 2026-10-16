@@ -1455,7 +1455,7 @@ export const en = {
     previewForbidden: "Viewers cannot render previews.",
     lexiconTitle: "Pronunciations",
     lexiconHint:
-      "How to say words the voice gets wrong. Captions keep the written word. For example acme → ek mi, CBT → si bi ti.",
+      "How to say words the voice gets wrong. Captions keep the written word, and a suffix after an apostrophe keeps the entry (PHQ-9'da). For example acme → ek mi, CBT → si bi ti.",
     written: "Written",
     spoken: "Spoken",
     writtenPlaceholder: "acme",
