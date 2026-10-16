@@ -698,6 +698,18 @@ export const en = {
     requestChanges: "Request changes",
     reject: "Reject",
     rejectTitle: (kind: string) => `Reject this ${kind}?`,
+    discardsNotes: (n: number) =>
+      n === 1
+        ? "Your unsent note is discarded."
+        : `Your ${n} unsent notes are discarded.`,
+    approveWithNotesTitle: (n: number) =>
+      n === 1 ? "Approve with an unsent note?" : `Approve with ${n} unsent notes?`,
+    approveWithNotesBody: (r: number, n: number) =>
+      n === 1
+        ? `Approving closes r${r} without changes, so the agent never reads it. Send it instead to get a revision.`
+        : `Approving closes r${r} without changes, so the agent never reads them. Send them instead to get a revision.`,
+    keepNotes: "Keep notes",
+    approveAnyway: "Approve anyway",
     rejectBody:
       "The agent stops working on it, and anything waiting to be made from it is rejected too. This cannot be undone.",
     rejected: "Rejected",
@@ -750,7 +762,10 @@ export const en = {
       pinHint: "The video's position when you opened this. Pause where the problem is.",
       submit: "Send to the agent",
       sending: "Sending…",
-      sent: "Feedback sent — the agent is revising",
+      sent: (n: number) =>
+        n === 1
+          ? "Note sent — the agent is revising"
+          : `${n} notes sent — the agent is revising`,
     },
   },
   revisions: {
@@ -784,6 +799,8 @@ export const en = {
     preview: "Preview",
     final: "Final",
     feedbackAt: "Feedback at",
+    unsentMarker: (time: string, scope: string) =>
+      `Play from ${time}, your unsent note about ${scope.toLowerCase()}`,
     marker: (time: string, revision: number, scope: string) =>
       `Play from ${time}, feedback on revision ${revision} about ${scope.toLowerCase()}`,
     rail: (n: number) => `Decide on revision ${n}`,
@@ -804,6 +821,8 @@ export const en = {
     outputs: "Other outputs",
     feedback: "Feedback",
     feedbackToggle: "Feedback for the agent",
+    pinNote: "Pause and pin a note at the playhead",
+    writeNote: "Write a note for the agent",
   },
   player: {
     play: "Play",
@@ -830,8 +849,9 @@ export const en = {
     script: "Script",
     narration: (language: string) => `Narration · ${language}`,
     details: "Details",
-    yourNote: (time: string) => `Your note at ${time}`,
-    noteOn: (n: number, time: string) => `Note on r${n} at ${time}`,
+    yourNote: (time: string) => `Note you are writing, at ${time}`,
+    unsentNote: (time: string, scope: string) => `Unsent note at ${time} · ${scope}`,
+    noteOn: (n: number, time: string, scope: string) => `Note on r${n} at ${time} · ${scope}`,
   },
   feedbackSheet: {
     title: "Feedback",
@@ -849,9 +869,25 @@ export const en = {
     earlier: "Earlier notes on this output",
     addressed: (on: number, n: number) => `On r${on} · addressed in r${n}`,
     pending: (on: number) => `On r${on} · being revised`,
-    submit: "Request changes",
+    add: "Add note",
+    pinKey: "pins a new note at the playhead while you watch",
+    writeKey: "opens a new note while you read",
+    added: (n: number) =>
+      n === 1 ? "Note added. 1 note to send." : `Note added. ${n} notes to send.`,
+    removed: (n: number) =>
+      n === 1 ? "Note removed. 1 note to send." : `Note removed. ${n} notes to send.`,
+    pendingTitle: "Notes to send",
+    pendingCount: (n: number) => (n === 1 ? "1 note" : `${n} notes`),
+    editNote: (time: string | undefined, scope: string, text: string) =>
+      `Edit note${time ? ` at ${time}` : ""} about ${scope.toLowerCase()}: ${text}`,
+    removeNote: (time: string | undefined, scope: string) =>
+      `Remove note${time ? ` at ${time}` : ""} about ${scope.toLowerCase()}`,
+    tooMany: (max: number) =>
+      `A request carries up to ${max} notes. Send these, then write the rest on the next revision.`,
+    submit: (n: number) =>
+      n > 1 ? `Send ${n} notes to the agent` : "Send note to the agent",
     hint: (n: number) =>
-      `Sends this note to the agent, which writes revision ${n + 1}. Approve or reject instead to close r${n} without changes.`,
+      `The agent reads every note before writing revision ${n + 1}. Approve or reject instead to close r${n} without changes.`,
   },
   editor: {
     titleArticle: (n: number) => `Editing the article (revision ${n})`,

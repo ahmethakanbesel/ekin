@@ -1,4 +1,9 @@
-import { useState, type ReactNode, type RefObject } from "react"
+import {
+  useState,
+  type ReactElement,
+  type ReactNode,
+  type RefObject,
+} from "react"
 import {
   CheckIcon,
   ExternalLinkIcon,
@@ -14,6 +19,12 @@ import {
 
 import type { Deliverable } from "@/api/client"
 import { Badge } from "@/components/ui/badge"
+import { Kbd } from "@/components/ui/kbd"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -79,6 +90,13 @@ export function ActionRail({
   let reject: ReactNode = null
 
   const pending = review.pendingApproval
+  // N does what Request changes does: pause, pin the playhead, write.
+  const pinTip = (
+    <>
+      {d.kind === "video" ? m.feed.pinNote : m.feed.writeNote}
+      <Kbd>N</Kbd>
+    </>
+  )
 
   if (reviewing) {
     main.push(
@@ -135,31 +153,48 @@ export function ActionRail({
         </RailItem>
       ),
       <RailItem key="changes" label={m.review.requestChanges}>
-        <Button
-          variant="outline"
-          size="icon-lg"
-          className={cn(round, tones.changes)}
-          aria-label={m.feed.requestChanges(d.revision)}
-          disabled={busy}
-          onClick={onRequestChanges}
+        <RailTip
+          tip={pinTip}
+          button={
+            <Button
+              variant="outline"
+              size="icon-lg"
+              className={cn(round, tones.changes)}
+              aria-label={m.feed.requestChanges(d.revision)}
+              aria-keyshortcuts="N"
+              disabled={busy}
+              onClick={onRequestChanges}
+            />
+          }
         >
           <PencilLineIcon />
-        </Button>
+        </RailTip>
       </RailItem>,
       <RailItem key="feedback" label={m.feed.feedback}>
-        <Button
-          ref={feedbackRef}
-          variant="outline"
-          size="icon-lg"
-          className={cn(round, tones.neutral)}
-          aria-label={m.feed.feedbackToggle}
-          aria-expanded={feedbackOpen}
-          aria-controls="feedback-sheet"
-          disabled={!!pending}
-          onClick={onToggle}
+        <RailTip
+          tip={
+            <>
+              {m.feed.feedbackToggle}
+              <span aria-hidden="true">·</span>
+              {pinTip}
+            </>
+          }
+          button={
+            <Button
+              ref={feedbackRef}
+              variant="outline"
+              size="icon-lg"
+              className={cn(round, tones.neutral)}
+              aria-label={m.feed.feedbackToggle}
+              aria-expanded={feedbackOpen}
+              aria-controls="feedback-sheet"
+              disabled={!!pending}
+              onClick={onToggle}
+            />
+          }
         >
           <MessageSquarePlusIcon />
-        </Button>
+        </RailTip>
       </RailItem>
     )
   } else if (canEdit && d.status === "ready") {
@@ -251,6 +286,25 @@ export function ActionRail({
       ) : null}
       {reject}
     </div>
+  )
+}
+
+/** A rail button with a tooltip that names its key. */
+function RailTip({
+  tip,
+  button,
+  children,
+}: {
+  tip: ReactNode
+  button: ReactElement
+  /** The icon. */
+  children: ReactNode
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={button}>{children}</TooltipTrigger>
+      <TooltipContent side="left">{tip}</TooltipContent>
+    </Tooltip>
   )
 }
 

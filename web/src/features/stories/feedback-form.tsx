@@ -1,6 +1,12 @@
-import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react"
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react"
 import { useForm } from "@tanstack/react-form"
-import { CrosshairIcon } from "lucide-react"
+import { CrosshairIcon, PlusIcon, XIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import type {
@@ -14,6 +20,7 @@ import { Banner } from "@/components/page"
 import { Button } from "@/components/ui/button"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { Kbd, KbdGroup } from "@/components/ui/kbd"
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { m } from "@/i18n"
@@ -22,14 +29,23 @@ import { cn } from "@/lib/utils"
 import { useMemberNames } from "@/queries/members"
 import { useRequestChanges } from "@/queries/stories"
 import { SCOPES, formatTimestamp, parseTimestamp, scopeLabel } from "./model"
-import type { FeedbackDraft } from "./use-deliverable-review"
+import {
+  EMPTY_NOTE,
+  sortNotes,
+  type FeedbackDraft,
+  type NoteDraft,
+  type PendingNote,
+} from "./use-deliverable-review"
 
 /** The server's feedback limit (story/v1 MaxFeedbackRunes). */
 export const MAX_FEEDBACK = 5000
+/** The most notes one request carries (story/v1 MaxFeedbackNotes). */
+export const MAX_NOTES = 20
 
-const textError = (text: string) => {
+/** The note's text problem; an empty note is fine when `optional`. */
+const textError = (text: string, optional = false) => {
   const t = text.trim()
-  if (!t) return m.review.changes.textRequired
+  if (!t) return optional ? undefined : m.review.changes.textRequired
   if ([...t].length > MAX_FEEDBACK) return m.review.changes.textTooLong
   return undefined
 }
@@ -39,22 +55,47 @@ const timeError = (raw: string) =>
     ? m.feedbackSheet.timestampInvalid
     : undefined
 
+/** Seconds to one decimal, as the server keeps them. */
+const tenths = (t: number) => Math.round(t * 10) / 10
+
 /** Asks the open form to pin the note to a time and put the cursor in it. */
 export type FeedbackFocus = { at?: number; n: number }
 
-/** Where the unsent note lives between openings of the form. */
+/** Where the unsent notes live between openings of the form. */
 export type DraftStore = {
-  get: () => FeedbackDraft | undefined
-  save: (v: FeedbackDraft) => void
+  get: () => FeedbackDraft
+  saveCurrent: (v: NoteDraft) => void
+  setNotes: (notes: PendingNote[]) => void
   clear: () => void
 }
 
-const EMPTY: FeedbackDraft = { text: "", scope: "all", at: "" }
+/** What the footer shows: the send button's state. */
+export type FeedbackFooterState = {
+  sending: boolean
+  /** Notes Send would send, the one being written included. */
+  count: number
+}
+
+const isMac =
+  typeof navigator !== "undefined" &&
+  /Mac|iPhone|iPad/.test(navigator.userAgent)
+
+/** ⌘ Enter (Ctrl Enter elsewhere), the key that adds a note. */
+export function AddKeys() {
+  return (
+    <KbdGroup>
+      <Kbd>{isMac ? "⌘" : "Ctrl"}</Kbd>
+      <Kbd>Enter</Kbd>
+    </KbdGroup>
+  )
+}
 
 /**
- * Feedback for the agent on a deliverable in review: what it is about,
- * where in the video, and what should change. The fields scroll in
- * `bodyClassName`; `renderFooter` holds the submit button.
+ * Feedback for the agent on a deliverable in review, written as a list of
+ * notes: each says what it is about, where in the video, and what should
+ * change. Add puts the note on the list; Send sends the list (and the
+ * note being written) as one request. The fields scroll in
+ * `bodyClassName`; `renderFooter` holds the send button.
  */
 export function FeedbackForm({
   workspaceId,
@@ -79,72 +120,158 @@ export function FeedbackForm({
   /** The player's position, when there is a player showing the latest revision. */
   playhead?: () => number | undefined
   focus?: FeedbackFocus | null
-  /** Keeps the note when the form unmounts; cleared once it is sent. */
-  draft?: DraftStore
+  /** Keeps the notes when the form unmounts; cleared once they are sent. */
+  draft: DraftStore
   bodyClassName?: string
-  renderFooter: (submitting: boolean) => ReactNode
+  renderFooter: (state: FeedbackFooterState) => ReactNode
   /** After the server took it, with the updated story. */
   onSent?: (story: Story) => void
 }) {
   const request = useRequestChanges(workspaceId, storyId)
   const video = d.kind === "video"
   const noteRef = useRef<HTMLTextAreaElement>(null)
+  // What a submit is for: adding the note to the list, or sending them all.
+  const intent = useRef<"add" | "send">("send")
+  // Said to screen readers after a note is added or removed.
+  const [announced, setAnnounced] = useState("")
+  const [tooMany, setTooMany] = useState(false)
+  const pending = draft.get().notes
+
+  /** The note being written as a list entry. */
+  const toPending = (v: NoteDraft, notes: PendingNote[]): PendingNote => {
+    const at = video ? parseTimestamp(v.at) : undefined
+    return {
+      id: Math.max(0, ...notes.map((n) => n.id)) + 1,
+      text: v.text.trim(),
+      scope: v.scope,
+      at: at !== undefined ? tenths(at) : undefined,
+    }
+  }
+
+  /** Starts the next note: empty, about everything, at no time. */
+  const startOver = (next: NoteDraft = EMPTY_NOTE) => {
+    form.reset(next, { keepDefaultValues: true })
+    draft.saveCurrent(next)
+  }
+
+  /** Puts the note being written on the list. False when it cannot go yet. */
+  const addNote = (v: NoteDraft): boolean => {
+    const notes = draft.get().notes
+    if (notes.length >= MAX_NOTES) {
+      setTooMany(true)
+      return false
+    }
+    const next = [...notes, toPending(v, notes)]
+    draft.setNotes(next)
+    startOver()
+    setTooMany(false)
+    setAnnounced(m.feedbackSheet.added(next.length))
+    return true
+  }
+
   const form = useForm({
-    defaultValues: {
-      ...(draft?.get() ?? EMPTY),
-      ...(focus?.at ? { at: formatTimestamp(focus.at) } : {}),
-    },
+    // A time asked for by `focus` is set once mounted (below).
+    defaultValues: draft.get().current,
     listeners: {
-      onChange: ({ formApi }) => draft?.save(formApi.state.values),
+      onChange: ({ formApi }) => draft.saveCurrent(formApi.state.values),
     },
     onSubmit: async ({ value }) => {
-      const at = video ? parseTimestamp(value.at) : undefined
+      if (intent.current === "add") {
+        if (addNote(value))
+          requestAnimationFrame(() => noteRef.current?.focus())
+        return
+      }
+      const notes = [...draft.get().notes]
+      if (value.text.trim()) notes.push(toPending(value, notes))
+      if (notes.length > MAX_NOTES) {
+        setTooMany(true)
+        return
+      }
       let updated: Story
       try {
         updated = await request.mutateAsync({
           deliverableId: d.id,
           body: {
-            notes: [
-              {
-                text: value.text.trim(),
-                scope: value.scope,
-                atSeconds:
-                  at !== undefined ? Math.round(at * 10) / 10 : undefined,
-              },
-            ],
+            notes: sortNotes(notes).map((n) => ({
+              text: n.text,
+              scope: n.scope,
+              atSeconds: n.at,
+            })),
           },
         })
       } catch {
         return // shown in the banner
       }
-      toast.success(m.review.changes.sent)
-      draft?.clear()
-      form.reset(EMPTY)
+      toast.success(m.review.changes.sent(notes.length))
+      draft.clear()
+      form.reset(EMPTY_NOTE)
       onSent?.(updated)
     },
   })
 
-  // Asked to focus (Request changes on the rail): pin the time it paused at.
-  const setAt = form.setFieldValue
-  const draftRef = useRef(draft)
+  const add = () => {
+    intent.current = "add"
+    void form.handleSubmit()
+  }
+
+  /** Loads a listed note back into the form; the note being written takes its place on the list. */
+  const edit = (n: PendingNote) => {
+    const cur = form.state.values
+    let rest = draft.get().notes.filter((x) => x.id !== n.id)
+    if (cur.text.trim()) {
+      if (textError(cur.text) || (video && timeError(cur.at))) {
+        add() // shows what is wrong with it
+        return
+      }
+      rest = [...rest, toPending(cur, rest)]
+    }
+    draft.setNotes(rest)
+    startOver({
+      text: n.text,
+      scope: n.scope,
+      at: n.at !== undefined ? formatTimestamp(n.at) : "",
+    })
+    setTooMany(false)
+    requestAnimationFrame(() => noteRef.current?.focus())
+  }
+
+  const remove = (n: PendingNote) => {
+    const rest = draft.get().notes.filter((x) => x.id !== n.id)
+    draft.setNotes(rest)
+    setTooMany(false)
+    setAnnounced(m.feedbackSheet.removed(rest.length))
+    noteRef.current?.focus()
+  }
+
+  // Asked to focus (N, or Request changes on the rail): a new note at the
+  // time the player paused. A note already written goes on the list first.
+  const latest = useRef({ form, draft, video, addNote })
   useLayoutEffect(() => {
-    draftRef.current = draft
+    latest.current = { form, draft, video, addNote }
   })
   const focusN = focus?.n
   const focusAt = focus?.at
   useEffect(() => {
     if (focusN === undefined) return
-    if (video && focusAt) {
+    const now = latest.current
+    if (now.video && focusAt) {
       const at = formatTimestamp(focusAt)
-      setAt("at", at)
-      const store = draftRef.current
-      store?.save({ ...(store.get() ?? EMPTY), at })
+      const cur = now.form.state.values
+      const written =
+        cur.text.trim() !== "" &&
+        !textError(cur.text) &&
+        !timeError(cur.at) &&
+        cur.at.trim() !== at
+      if (!written || now.addNote(cur)) {
+        now.form.setFieldValue("at", at)
+        now.draft.saveCurrent({ ...now.form.state.values, at })
+      }
     }
     const id = requestAnimationFrame(() =>
       noteRef.current?.focus({ preventScroll: true })
     )
     return () => cancelAnimationFrame(id)
-  }, [focusN, focusAt, video, setAt])
+  }, [focusN, focusAt])
 
   const earlier = earlierNotes(d, revisions)
   const nameOf = useMemberNames(workspaceId, earlier.some((e) => e.by))
@@ -155,6 +282,7 @@ export function FeedbackForm({
       className="flex min-h-0 flex-1 flex-col"
       onSubmit={(e) => {
         e.preventDefault()
+        intent.current = "send"
         void form.handleSubmit()
       }}
     >
@@ -245,8 +373,13 @@ export function FeedbackForm({
         <form.Field
           name="text"
           validators={{
-            onChange: ({ value }) => textError(value),
-            onSubmit: ({ value }) => textError(value),
+            onChange: ({ value }) => textError(value, true),
+            // Sending without a new note is fine once the list has some.
+            onSubmit: ({ value }) =>
+              textError(
+                value,
+                intent.current === "send" && draft.get().notes.length > 0
+              ),
           }}
         >
           {(field) => {
@@ -270,6 +403,11 @@ export function FeedbackForm({
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   onBlur={field.handleBlur}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return
+                    e.preventDefault()
+                    add()
+                  }}
                   aria-invalid={invalid || undefined}
                   aria-describedby="feedback-text-count"
                 />
@@ -298,10 +436,40 @@ export function FeedbackForm({
                     )}
                   </span>
                 </div>
+                <div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="max-sm:w-full"
+                    aria-keyshortcuts={isMac ? "Meta+Enter" : "Control+Enter"}
+                    onClick={add}
+                  >
+                    <PlusIcon data-icon="inline-start" />
+                    {m.feedbackSheet.add}
+                    <span className="ml-1 pointer-coarse:hidden" aria-hidden="true">
+                      <AddKeys />
+                    </span>
+                  </Button>
+                </div>
               </Field>
             )
           }}
         </form.Field>
+        {tooMany ? (
+          <Banner title={m.feedbackSheet.tooMany(MAX_NOTES)} />
+        ) : null}
+        {pending.length > 0 ? (
+          <PendingList
+            notes={pending}
+            kind={d.kind}
+            lang={lang}
+            onEdit={edit}
+            onRemove={remove}
+          />
+        ) : null}
+        <p className="sr-only" aria-live="polite">
+          {announced}
+        </p>
         {earlier.length > 0 ? (
           <div className="grid gap-3">
             <p className="text-sm leading-none font-medium">
@@ -345,10 +513,88 @@ export function FeedbackForm({
         ) : null}
         {request.error ? <Banner title={errorMessage(request.error)} /> : null}
       </div>
-      <form.Subscribe selector={(s) => s.isSubmitting}>
-        {(submitting) => renderFooter(submitting)}
+      <form.Subscribe selector={(s) => s.values.text}>
+        {(text) =>
+          renderFooter({
+            sending: request.isPending,
+            count: pending.length + (text.trim() ? 1 : 0),
+          })
+        }
       </form.Subscribe>
     </form>
+  )
+}
+
+/**
+ * The notes waiting to be sent, in reading order. A note opens back in
+ * the form to be changed; the note being written takes its place.
+ */
+function PendingList({
+  notes,
+  kind,
+  lang,
+  onEdit,
+  onRemove,
+}: {
+  notes: PendingNote[]
+  kind: Deliverable["kind"]
+  lang: string
+  onEdit: (n: PendingNote) => void
+  onRemove: (n: PendingNote) => void
+}) {
+  const video = kind === "video"
+  return (
+    <section aria-labelledby="feedback-pending" className="grid gap-3">
+      <h3
+        id="feedback-pending"
+        className="flex items-baseline justify-between gap-2 text-sm leading-none font-medium"
+      >
+        {m.feedbackSheet.pendingTitle}
+        <span className="tabular text-xs font-normal text-muted-foreground">
+          {m.feedbackSheet.pendingCount(notes.length)}
+        </span>
+      </h3>
+      <ul className="divide-y overflow-hidden rounded-xl border">
+        {notes.map((n) => {
+          const time = n.at !== undefined ? formatTimestamp(n.at) : undefined
+          const scope = scopeLabel(n.scope, kind)
+          return (
+            <li key={n.id} className="flex items-start">
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 gap-3 px-3 py-2.5 text-left text-sm outline-none hover:bg-muted/40 focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-inset"
+                aria-label={m.feedbackSheet.editNote(time, scope, n.text)}
+                onClick={() => onEdit(n)}
+              >
+                {video ? (
+                  <span className="tabular w-10 shrink-0 font-mono text-xs leading-5">
+                    {time ?? "—"}
+                  </span>
+                ) : null}
+                <span className="grid min-w-0 gap-0.5">
+                  <span className="text-xs leading-5 text-muted-foreground">
+                    {scope}
+                  </span>
+                  <span lang={lang} className="line-clamp-3 text-foreground/90">
+                    {n.text}
+                  </span>
+                </span>
+              </button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="m-1.5 shrink-0 text-muted-foreground"
+                aria-label={m.feedbackSheet.removeNote(time, scope)}
+                onClick={() => onRemove(n)}
+              >
+                <XIcon />
+              </Button>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 

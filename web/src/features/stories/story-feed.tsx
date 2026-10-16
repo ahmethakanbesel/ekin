@@ -36,13 +36,20 @@ import { cn } from "@/lib/utils"
 import { artifactUrl, revisionsQuery } from "@/queries/stories"
 import { StatusBadge } from "./badges"
 import { PlayerBar, PlayerCorner, usePlayback, type PlaybackStore } from "./player"
-import { formatTimestamp, measuredLength, measuredWords, scopeLabel } from "./model"
+import {
+  formatTimestamp,
+  measuredLength,
+  measuredWords,
+  parseTimestamp,
+  scopeLabel,
+} from "./model"
 import {
   ArticlePreview,
   VideoFrameElement,
   videoFile,
   type ArtifactRef,
 } from "./previews"
+import type { FeedbackDraft } from "./use-deliverable-review"
 
 /** The snap point after the last draft of a sitting. */
 export const FEED_END = "__end"
@@ -51,7 +58,7 @@ const reducedMotion = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
 /** Keys typed here belong to the field, not to the feed. */
-const TYPING =
+export const TYPING =
   'input, textarea, select, [contenteditable=""], [contenteditable="true"], [role="slider"], [role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]'
 
 /**
@@ -353,12 +360,18 @@ export type FeedMarker = {
   revision: number
   scope: string
   text: string
+  /** The reviewer's own note, not sent yet (being written when text is empty). */
+  unsent?: boolean
 }
 
-/** Feedback pinned to a time, from every revision and the pending request. */
+/**
+ * Feedback pinned to a time, from every revision and the pending request,
+ * and on a draft in review the reviewer's unsent notes.
+ */
 export function feedbackMarkers(
   d: Deliverable,
-  revisions: Revision[]
+  revisions: Revision[],
+  draft?: FeedbackDraft
 ): FeedMarker[] {
   const out: FeedMarker[] = []
   const add = (f: Feedback | undefined, revision: number) => {
@@ -374,6 +387,26 @@ export function feedbackMarkers(
   }
   for (const r of revisions) add(r.feedback, r.number - 1)
   add(d.pendingFeedback, d.revision)
+  if (draft && d.status === "review") {
+    for (const n of draft.notes)
+      if (n.at !== undefined)
+        out.push({
+          at: n.at,
+          revision: d.revision,
+          scope: scopeLabel(n.scope, d.kind),
+          text: n.text,
+          unsent: true,
+        })
+    const typed = parseTimestamp(draft.current.at)
+    if (typed !== undefined)
+      out.push({
+        at: typed,
+        revision: d.revision,
+        scope: scopeLabel(draft.current.scope, d.kind),
+        text: "",
+        unsent: true,
+      })
+  }
   return out.toSorted((a, b) => a.at - b.at)
 }
 
@@ -531,7 +564,9 @@ export function DraftFrame({
   // A 9:16 frame fills the column; its caption strip lies over its foot.
   const overlay = orientation === "vertical"
   const controls = !!(player && file && playback && videoRef)
-  const timed = markers.length > 0 && onSeek
+  // The times listed beside the scrubber are the notes the agent has.
+  const sent = markers.filter((k) => !k.unsent)
+  const timed = sent.length > 0 && onSeek
   return (
     <div
       data-player
@@ -627,15 +662,20 @@ export function DraftFrame({
             videoRef={videoRef}
             markers={markers.map((k) => ({
               at: k.at,
-              label: m.feed.marker(formatTimestamp(k.at), k.revision, k.scope),
+              label: !k.unsent
+                ? m.feed.marker(formatTimestamp(k.at), k.revision, k.scope)
+                : k.text
+                  ? m.feed.unsentMarker(formatTimestamp(k.at), k.scope)
+                  : m.panel.yourNote(formatTimestamp(k.at)),
+              unsent: k.unsent,
             }))}
             className="mt-2"
           >
-            {timed ? <FeedbackTimes markers={markers} onSeek={onSeek} /> : null}
+            {timed ? <FeedbackTimes markers={sent} onSeek={onSeek} /> : null}
           </PlayerBar>
         ) : timed ? (
           <p className="flex justify-end">
-            <FeedbackTimes markers={markers} onSeek={onSeek} />
+            <FeedbackTimes markers={sent} onSeek={onSeek} />
           </p>
         ) : null}
       </div>

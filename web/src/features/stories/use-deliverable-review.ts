@@ -13,10 +13,39 @@ import { revisionsQuery, useDeliverableAction } from "@/queries/stories"
 import { startApproval } from "./approval-toast"
 import { cancelApproval, usePendingApproval } from "./pending-approvals"
 import { createPlayback } from "./player"
+import type { DraftStore } from "./feedback-form"
 import type { ArtifactRef } from "./previews"
 
-/** A note for the agent not sent yet, as typed in the feedback form. */
-export type FeedbackDraft = { text: string; scope: FeedbackScope; at: string }
+/** The note being written in the feedback form, as typed. */
+export type NoteDraft = { text: string; scope: FeedbackScope; at: string }
+
+/** A note added to the list, waiting to be sent with the others. */
+export type PendingNote = {
+  id: number
+  text: string
+  scope: FeedbackScope
+  /** Seconds into the video; undefined for the whole draft. */
+  at?: number
+}
+
+/** Unsent feedback on one draft: the listed notes and the one being written. */
+export type FeedbackDraft = { notes: PendingNote[]; current: NoteDraft }
+
+export const EMPTY_NOTE: NoteDraft = { text: "", scope: "all", at: "" }
+const EMPTY_DRAFT: FeedbackDraft = { notes: [], current: EMPTY_NOTE }
+
+/** Reading order: notes about the whole draft first, then by time. */
+export function sortNotes(notes: PendingNote[]): PendingNote[] {
+  return notes.toSorted(
+    (a, b) =>
+      (a.at ?? -1) - (b.at ?? -1) || a.id - b.id
+  )
+}
+
+/** How many notes Send would send: the list, and the note being written if it has text. */
+export function notesToSend(draft: FeedbackDraft): number {
+  return draft.notes.length + (draft.current.text.trim() ? 1 : 0)
+}
 
 /**
  * The state of reviewing one deliverable: its revisions and the one being
@@ -58,11 +87,12 @@ export function useDeliverableReview({
     setConfirmingPublish(false)
     setEditing(false)
   }
-  // Unsent notes per draft (deliverable and revision). They outlive the
+  // Unsent feedback per draft (deliverable and revision). It outlives the
   // feedback sheet, which unmounts its form when it closes. The map is
-  // written in place; only a new timestamp re-renders (the script marks it).
+  // written in place; a change to the list or to the typed note's time
+  // re-renders (the scrubber and the script mark them).
   const [drafts] = useState(() => new Map<string, FeedbackDraft>())
-  const [, draftPinned] = useReducer((n: number) => n + 1, 0)
+  const [, draftChanged] = useReducer((n: number) => n + 1, 0)
   const draftKey = `${d.id}/${d.revision}`
   // Editing applies to the latest revision of a deliverable in review only.
   const showEditor =
@@ -139,18 +169,23 @@ export function useDeliverableReview({
     /** Show revision n; the latest one means "follow the latest". */
     pick: (n: number | null) =>
       setPicked(n === null || n === latest?.number ? null : n),
-    /** The unsent note on the revision in review, kept while the sheet is closed. */
+    /** The unsent notes on the revision in review, kept while the sheet is closed. */
     draft: {
-      get: () => drafts.get(draftKey),
-      save: (v: FeedbackDraft) => {
-        const pinnedBefore = drafts.get(draftKey)?.at ?? ""
-        drafts.set(draftKey, v)
-        if (v.at !== pinnedBefore) draftPinned()
+      get: () => drafts.get(draftKey) ?? EMPTY_DRAFT,
+      saveCurrent: (note: NoteDraft) => {
+        const before = drafts.get(draftKey) ?? EMPTY_DRAFT
+        drafts.set(draftKey, { ...before, current: note })
+        if (note.at !== before.current.at) draftChanged()
+      },
+      setNotes: (notes: PendingNote[]) => {
+        const before = drafts.get(draftKey) ?? EMPTY_DRAFT
+        drafts.set(draftKey, { ...before, notes: sortNotes(notes) })
+        draftChanged()
       },
       clear: () => {
-        if (drafts.delete(draftKey)) draftPinned()
+        if (drafts.delete(draftKey)) draftChanged()
       },
-    },
+    } satisfies DraftStore,
     videoRef,
     playback,
     playhead,

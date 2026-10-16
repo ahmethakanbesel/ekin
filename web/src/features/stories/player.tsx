@@ -89,7 +89,8 @@ export function usePlayback<T>(
   return useSyncExternalStore(store.subscribe, () => select(store.get()))
 }
 
-export type PlayerMarker = { at: number; label: string }
+/** A note pinned to a time; `unsent` for the reviewer's own, not sent yet. */
+export type PlayerMarker = { at: number; label: string; unsent?: boolean }
 
 const STEP = 5
 const PAGE = 10
@@ -192,16 +193,21 @@ export function PlayerBar({
           />
         </span>
         {max > 0
-          ? markers.map((k) => (
+          ? markers.map((k, i) => (
               <span
-                key={`${k.at}-${k.label}`}
+                key={`${k.at}-${k.label}-${i}`}
                 data-at={k.at}
                 title={k.label}
                 aria-hidden="true"
                 className="absolute -top-1 z-10 grid size-4 -translate-x-1/2 place-items-center"
                 style={{ left: pct(k.at) }}
               >
-                <span className="size-2 rounded-full border border-foreground bg-background" />
+                <span
+                  className={cn(
+                    "size-2 rounded-full border border-foreground",
+                    k.unsent ? "bg-foreground" : "bg-background"
+                  )}
+                />
               </span>
             ))
           : null}

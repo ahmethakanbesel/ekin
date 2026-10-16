@@ -216,7 +216,7 @@ export function FeedbackNotes({
   if (f.notes.length === 1)
     return <FeedbackLine note={f.notes[0]} kind={kind} lang={lang} />
   return (
-    <ul className="grid gap-1.5">
+    <ul className="grid gap-2.5">
       {f.notes.map((n, i) => (
         <li key={i}>
           <FeedbackLine note={n} kind={kind} lang={lang} />

@@ -24,12 +24,15 @@ export function RejectDialog({
   workspaceId,
   storyId,
   deliverable,
+  unsent = 0,
   onOpenChange,
   onRejected,
 }: {
   workspaceId: string
   storyId: string
   deliverable: Deliverable | null
+  /** Notes written for it and not sent; rejecting discards them. */
+  unsent?: number
   onOpenChange: (open: boolean) => void
   /** After the server accepted it, with the updated story. */
   onRejected?: (story: Story) => void
@@ -62,7 +65,10 @@ export function RejectDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{m.review.rejectTitle(kind)}</AlertDialogTitle>
-          <AlertDialogDescription>{m.review.rejectBody}</AlertDialogDescription>
+          <AlertDialogDescription>
+            {m.review.rejectBody}
+            {unsent > 0 ? ` ${m.review.discardsNotes(unsent)}` : null}
+          </AlertDialogDescription>
         </AlertDialogHeader>
         {reject.error ? <Banner title={errorMessage(reject.error)} /> : null}
         <AlertDialogFooter>
@@ -73,6 +79,51 @@ export function RejectDialog({
             onClick={() => void confirm()}
           >
             {m.review.reject}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+/**
+ * Asks before approving a draft that has notes written for it and not
+ * sent: approving closes it without changes, so the agent never reads them.
+ */
+export function ApproveWithNotesDialog({
+  count,
+  revision,
+  onOpenChange,
+  onApprove,
+}: {
+  /** The unsent notes; 0 closes the dialog. */
+  count: number
+  revision: number
+  onOpenChange: (open: boolean) => void
+  onApprove: () => void
+}) {
+  // Kept while the dialog animates closed.
+  const kept = useRetained(count > 0 ? count : null) ?? 1
+  return (
+    <AlertDialog open={count > 0} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {m.review.approveWithNotesTitle(kept)}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {m.review.approveWithNotesBody(revision, kept)}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{m.review.keepNotes}</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              onOpenChange(false)
+              onApprove()
+            }}
+          >
+            {m.review.approveAnyway}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

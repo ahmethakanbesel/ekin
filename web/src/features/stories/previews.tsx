@@ -1,6 +1,10 @@
 import { useMemo, useSyncExternalStore, type ReactNode, type RefObject } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { DownloadIcon, MessageSquareIcon } from "lucide-react"
+import {
+  DownloadIcon,
+  MessageSquareDashedIcon,
+  MessageSquareIcon,
+} from "lucide-react"
 
 import type { Revision } from "@/api/client"
 import { Badge } from "@/components/ui/badge"
@@ -216,8 +220,17 @@ export function VideoDetails({
   )
 }
 
-/** A note pinned to a time, shown on the script's scene that holds it. */
-export type ScriptNote = { at: number; label: string }
+/**
+ * A note pinned to a time, shown on the script's scene that holds it:
+ * `label` says whose and when, `text` what it asks. `unsent` marks the
+ * reviewer's own notes that have not gone to the agent yet.
+ */
+export type ScriptNote = {
+  at: number
+  label: string
+  text?: string
+  unsent?: boolean
+}
 
 /**
  * The revision's script (the narration); null when it has none. A script
@@ -384,18 +397,28 @@ function SceneList({
                   lang={lang}
                   className="markdown-compact text-sm leading-relaxed"
                 />
-                {marks?.map((n, j) => (
-                  <p
-                    key={`${n.at}-${j}`}
-                    className="mt-1.5 flex items-center gap-1.5 text-xs font-medium"
-                  >
-                    <MessageSquareIcon
-                      className="size-3.5 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                    {n.label}
-                  </p>
-                ))}
+                {marks?.map((n, j) => {
+                  const Icon = n.unsent ? MessageSquareDashedIcon : MessageSquareIcon
+                  return (
+                    <div key={`${n.at}-${j}`} className="mt-1.5 grid gap-0.5 text-xs">
+                      <p className="flex items-center gap-1.5 font-medium">
+                        <Icon
+                          className="size-3.5 shrink-0 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                        {n.label}
+                      </p>
+                      {n.text ? (
+                        <p
+                          lang={lang}
+                          className="line-clamp-2 pl-5 text-muted-foreground"
+                        >
+                          “{n.text}”
+                        </p>
+                      ) : null}
+                    </div>
+                  )
+                })}
               </div>
             </li>
           )

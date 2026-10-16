@@ -297,7 +297,7 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 
 ### Buttons
 - **Shape:** 8px corners, 36px tall by default (24 / 32 / 40px sizes), 14px medium label, icons at 16px.
-- **Primary:** Cornflower with Cornflower On text and an inset 1px Cornflower Ink boundary; hover drops to 80% fill. One per surface: "Start review sitting", "Request changes" in the feedback sheet.
+- **Primary:** Cornflower with Cornflower On text and an inset 1px Cornflower Ink boundary; hover drops to 80% fill. One per surface: "Start review sitting", "Send 3 notes to the agent" in the feedback sheet.
 - **Outline / Secondary / Ghost:** page fill with hairline border; stone fill; transparent with stone hover. These carry all ordinary actions.
 - **Destructive:** red text on a 10% red tint (20% in dark).
 - **Link:** Cornflower Ink text, underline on hover.
@@ -309,7 +309,14 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 - **Character:** round 40px buttons in a column beside the draft, each with a 12px medium caption beneath; the caption is visual, the button carries the accessible name.
 - **Approve:** Ready Green fill with light text. **Request changes:** Cornflower Ink edge and text with a 10% cornflower hover. **Feedback / Revisions / Open publication:** neutral outline. **Reject:** red edge and text, separated from the rest by a hairline divider and given a red caption.
 - **Revisions** shows the revision on screen as a small secondary badge at its corner.
+- **Request changes** and the **N** key do the same thing: pause the video and open the feedback sheet on a new note pinned at the playhead. Both rail buttons name the key in their tooltips.
 - **Approving** waits six seconds before it is sent: the toast names the story with an Undo action and a green bar draining over the window, and the Approve button turns into a green-edged Undo with a ring draining around it (both hidden when motion is reduced). The feed moves on at the click; a tab closing sends what is waiting.
+
+### Feedback Sheet
+- **Character:** a review round is a list of notes, sent together. The form on top writes one note (scope, timestamp for videos, text); "Add note" (with its ⌘/Ctrl Enter hint, hidden on touch) moves it to "Notes to send", a bordered list with hairline dividers, untimed notes first and then by time, each showing time, scope and text. A listed note opens back in the form when clicked (the note being written takes its place) and has its own remove button.
+- **Sending:** the footer's primary button counts what it sends, the typed note included: "Send note to the agent", "Send 3 notes to the agent". Under it, a line names the N key.
+- **Unsent notes** live with the draft until sent, through closing the sheet and moving through the feed. Approving or rejecting with notes waiting asks first.
+- **Earlier notes** are grouped by round: one line naming the revision, whether it was addressed and who wrote it, then the round's notes.
 
 ### Badges and Status
 - **Style:** fully round, 20px tall, 12px medium label.
@@ -337,7 +344,7 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 
 ### Player
 - **Character:** the video frame is always dark-scoped with a black stage. The caption strip under it holds status, format and language badges, the title, origin and tags, then the scrubber and the "feedback at" timestamps in mono.
-- **Scrubber:** a 6px round track with a field-edge inset outline, a white 16px thumb, and small round markers where feedback notes were pinned. The thumb exposes position and value text to assistive tech.
+- **Scrubber:** a 6px round track with a field-edge inset outline, a white 16px thumb, and small round markers where feedback notes were pinned: hollow for notes the agent has, filled for the reviewer's unsent ones. The times listed beside it are the sent notes only. The thumb exposes position and value text to assistive tech.
 
 ### Inputs / Fields
 - **Style:** transparent field, 1px Field Edge border, 8px corners, 36px tall, extra-small shadow; 30% field-edge fill in dark. Caret in Cornflower Ink.

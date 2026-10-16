@@ -1,4 +1,11 @@
-import { lazy, Suspense, useRef, useState } from "react"
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Link,
@@ -39,6 +46,7 @@ import { TAB_STATUSES, deliverableLabel } from "./model"
 import { seekVideo } from "./previews"
 import { ReviewPanel } from "./review-panel"
 import {
+  ApproveWithNotesDialog,
   DeleteStoryDialog,
   PublishDialog,
   RejectDialog,
@@ -49,10 +57,11 @@ import {
   FeedControls,
   FeedPreview,
   StoryFeed,
+  TYPING,
   feedbackMarkers,
   useFeedNav,
 } from "./story-feed"
-import { useDeliverableReview } from "./use-deliverable-review"
+import { notesToSend, useDeliverableReview } from "./use-deliverable-review"
 
 // Only reviewers who edit need the editor; load it on first use.
 const ContentEditor = lazy(() =>
@@ -214,9 +223,17 @@ function StoryView({
     else if (sitting) nav.next()
   }
 
+  // Notes written for the draft on screen and not sent yet. Typing does
+  // not re-render the page, so this is read again when it matters.
+  const unsentNow = () =>
+    selected.status === "review" ? notesToSend(review.draft.get()) : 0
+  const unsent = unsentNow()
+  const [approvingWithNotes, setApprovingWithNotes] = useState(false)
+
   /**
    * Approving moves on at once, like any decision; the approval itself is
-   * sent a few seconds later unless undone. Undo comes back to the draft.
+   * sent a few seconds later unless undone. Undo comes back to the draft
+   * (and to any unsent notes, which are kept until then).
    */
   const approve = () => {
     const at = { story: story.id, id: selected.id }
@@ -262,11 +279,44 @@ function StoryView({
   const feedbackOpen = reviewing && (wide ? docked : sheetOpen)
   const setFeedbackOpen = wide ? setDocked : setSheetOpen
   const [focus, setFocus] = useState<FeedbackFocus | null>(null)
+  // A request to focus the form belongs to the draft it was made on: the
+  // next draft's form (or this one, remounted later) must not pin its time.
+  const draftKey = `${story.id}/${selected.id}/${selected.revision}`
+  const [focusFor, setFocusFor] = useState(draftKey)
+  if (focusFor !== draftKey) {
+    setFocusFor(draftKey)
+    setFocus(null)
+  }
   const feedbackButton = useRef<HTMLButtonElement>(null)
   const openFeedback = (at?: number) => {
     setFeedbackOpen(true)
     setFocus((f) => ({ at, n: (f?.n ?? 0) + 1 }))
   }
+  /** Request changes, and N: pause and write a note pinned where it stopped. */
+  const pinNote = () => openFeedback(review.pause())
+
+  // N pins a note at the playhead, unless a key belongs to a field or a
+  // dialog is open.
+  const pinRef = useRef(pinNote)
+  useLayoutEffect(() => {
+    pinRef.current = pinNote
+  })
+  const pinning = reviewing && !review.editing && !review.busy
+  useEffect(() => {
+    if (!pinning) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.key.toLowerCase() !== "n" || e.repeat) return
+      const el = e.target instanceof Element ? e.target : null
+      if (el?.closest(TYPING)) return
+      if (document.querySelector('[role="dialog"], [role="alertdialog"]'))
+        return
+      e.preventDefault()
+      pinRef.current()
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [pinning])
 
   return (
     <div
@@ -405,7 +455,11 @@ function StoryView({
                     pipelineName={pipelineName(story)}
                     markers={
                       selected.kind === "video"
-                        ? feedbackMarkers(selected, review.list)
+                        ? feedbackMarkers(
+                            selected,
+                            review.list,
+                            review.draft.get()
+                          )
                         : []
                     }
                     onSeek={(t) => seekVideo(review.videoRef, t)}
@@ -414,8 +468,10 @@ function StoryView({
                     deliverable={selected}
                     review={review}
                     canEdit={canEdit}
-                    onApprove={approve}
-                    onRequestChanges={() => openFeedback(review.pause())}
+                    onApprove={() =>
+                      unsentNow() > 0 ? setApprovingWithNotes(true) : approve()
+                    }
+                    onRequestChanges={pinNote}
                     feedback={{
                       open: feedbackOpen,
                       onToggle: () =>
@@ -480,8 +536,18 @@ function StoryView({
         workspaceId={workspace.id}
         storyId={story.id}
         deliverable={review.rejecting ? selected : null}
+        unsent={unsent}
         onOpenChange={review.setRejecting}
-        onRejected={onDecided}
+        onRejected={(updated) => {
+          review.draft.clear()
+          onDecided(updated)
+        }}
+      />
+      <ApproveWithNotesDialog
+        count={approvingWithNotes ? unsent : 0}
+        revision={selected.revision}
+        onOpenChange={setApprovingWithNotes}
+        onApprove={approve}
       />
       <PublishDialog
         workspaceId={workspace.id}

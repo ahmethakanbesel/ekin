@@ -6,6 +6,7 @@ import { ChevronRightIcon, Trash2Icon } from "lucide-react"
 import {
   isApiError,
   type Deliverable,
+  type FeedbackNote,
   type KnowledgeRef,
   type Revision,
   type Story,
@@ -22,7 +23,12 @@ import { pipelineHue } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { documentsQuery } from "@/queries/documents"
 import { StatusBadge } from "./badges"
-import { deliverableLabel, formatTimestamp, parseTimestamp } from "./model"
+import {
+  deliverableLabel,
+  formatTimestamp,
+  parseTimestamp,
+  scopeLabel,
+} from "./model"
 import {
   FilesList,
   ScriptText,
@@ -266,31 +272,51 @@ export function ReviewPanel({
 }
 
 /**
- * The notes to mark on a revision's script: the one it answers, and on
- * the revision in review the note being revised and the unsent draft.
+ * The notes to mark on a revision's script: those it answers, and on the
+ * revision in review the notes being revised, the reviewer's unsent notes
+ * and the one being written.
  */
 function scriptNotes(
   d: Deliverable,
   shown: Revision,
-  draft: FeedbackDraft | undefined
+  draft: FeedbackDraft
 ): ScriptNote[] {
   const out: ScriptNote[] = []
-  for (const n of shown.feedback?.notes ?? [])
-    if (n.atSeconds !== undefined)
-      out.push({
-        at: n.atSeconds,
-        label: m.panel.noteOn(shown.number - 1, formatTimestamp(n.atSeconds)),
-      })
+  const sent = (notes: FeedbackNote[] | undefined, on: number) => {
+    for (const n of notes ?? [])
+      if (n.atSeconds !== undefined)
+        out.push({
+          at: n.atSeconds,
+          label: m.panel.noteOn(
+            on,
+            formatTimestamp(n.atSeconds),
+            scopeLabel(n.scope, d.kind)
+          ),
+          text: n.text,
+        })
+  }
+  sent(shown.feedback?.notes, shown.number - 1)
   if (shown.number !== d.revision) return out
-  for (const n of d.pendingFeedback?.notes ?? [])
-    if (n.atSeconds !== undefined)
+  sent(d.pendingFeedback?.notes, d.revision)
+  if (d.status !== "review") return out
+  for (const n of draft.notes)
+    if (n.at !== undefined)
       out.push({
-        at: n.atSeconds,
-        label: m.panel.noteOn(d.revision, formatTimestamp(n.atSeconds)),
+        at: n.at,
+        label: m.panel.unsentNote(
+          formatTimestamp(n.at),
+          scopeLabel(n.scope, d.kind)
+        ),
+        text: n.text,
+        unsent: true,
       })
-  const typed = d.status === "review" ? parseTimestamp(draft?.at) : undefined
+  const typed = parseTimestamp(draft.current.at)
   if (typed !== undefined)
-    out.push({ at: typed, label: m.panel.yourNote(formatTimestamp(typed)) })
+    out.push({
+      at: typed,
+      label: m.panel.yourNote(formatTimestamp(typed)),
+      unsent: true,
+    })
   return out
 }
 
