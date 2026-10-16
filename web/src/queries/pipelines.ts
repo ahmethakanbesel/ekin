@@ -29,6 +29,22 @@ export const pipelineQuery = (workspaceId: string, pipelineId: string) =>
       ),
   })
 
+/** The scheduled runs of the next `days` days, soonest first. */
+export const upcomingRunsQuery = (workspaceId: string, days = 7) =>
+  queryOptions({
+    queryKey: keys.upcomingRuns(workspaceId, days),
+    queryFn: ({ signal }) =>
+      call(
+        api.GET("/workspaces/{workspaceId}/upcoming-runs", {
+          params: { path: { workspaceId }, query: { days } },
+          signal,
+        }),
+      ),
+  })
+
+const upcomingPrefix = (workspaceId: string) =>
+  ["workspaces", workspaceId, "upcoming-runs"] as const
+
 /** Writes a changed pipeline into the detail cache and refreshes the list. */
 function useStorePipeline(workspaceId: string) {
   const qc = useQueryClient()
@@ -38,6 +54,7 @@ function useStorePipeline(workspaceId: string) {
       old?.map((x) => (x.id === p.id ? p : x)),
     )
     void qc.invalidateQueries({ queryKey: keys.pipelines(workspaceId), exact: true })
+    void qc.invalidateQueries({ queryKey: upcomingPrefix(workspaceId) })
   }
 }
 
@@ -112,6 +129,7 @@ export function useDeletePipeline(workspaceId: string) {
       )
       qc.removeQueries({ queryKey: keys.pipeline(workspaceId, pipelineId) })
       void qc.invalidateQueries({ queryKey: keys.pipelines(workspaceId), exact: true })
+      void qc.invalidateQueries({ queryKey: upcomingPrefix(workspaceId) })
     },
   })
 }

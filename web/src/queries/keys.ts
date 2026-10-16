@@ -29,6 +29,8 @@ export const keys = {
   pipelines: (workspaceId: string) => ["workspaces", workspaceId, "pipelines"] as const,
   pipeline: (workspaceId: string, pipelineId: string) =>
     ["workspaces", workspaceId, "pipelines", pipelineId] as const,
+  upcomingRuns: (workspaceId: string, days: number) =>
+    ["workspaces", workspaceId, "upcoming-runs", days] as const,
   documents: (workspaceId: string) => ["workspaces", workspaceId, "documents"] as const,
   document: (workspaceId: string, documentId: string) =>
     ["workspaces", workspaceId, "documents", documentId] as const,

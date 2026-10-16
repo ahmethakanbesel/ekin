@@ -370,6 +370,15 @@ export const en = {
     runQueued: "Run queued",
     viewJobs: "View jobs",
     notScheduled: "Not scheduled",
+    week: {
+      title: "Coming week",
+      description: (timezone: string) => `Scheduled runs. Times in ${timezone}.`,
+      today: "Today",
+      noMoreToday: "No more runs today.",
+      ranAt: (name: string, time: string) => `${name} ran at ${time}.`,
+      nothing: "Nothing scheduled",
+      loadFailed: "The coming week could not be loaded.",
+    },
   },
   pipelineForm: {
     selfReview: {

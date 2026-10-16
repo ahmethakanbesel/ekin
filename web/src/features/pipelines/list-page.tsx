@@ -55,6 +55,7 @@ import {
   usePausePipeline,
   useResumePipeline,
 } from "@/queries/pipelines"
+import { ComingWeek } from "./coming-week"
 import { PipelineStatusBadge, PipelineSwatch } from "./identity"
 import { RunPipelineDialog } from "./run-dialog"
 import { outputLines, scheduleText } from "./summary"
@@ -131,6 +132,14 @@ export function PipelinesPage() {
         actions={list.data?.length ? newButton : null}
       />
       {body}
+      {list.data?.length ? (
+        <ComingWeek
+          workspaceId={workspace.id}
+          pipelines={list.data}
+          timezone={workspace.timezone}
+          now={now}
+        />
+      ) : null}
       <RunPipelineDialog pipeline={running} onOpenChange={(open) => !open && setRunning(null)} />
       <DeletePipelineDialog pipeline={deleting} onOpenChange={(open) => !open && setDeleting(null)} />
     </>
