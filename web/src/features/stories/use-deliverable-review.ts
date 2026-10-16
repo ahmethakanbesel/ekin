@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 
@@ -38,6 +38,16 @@ export function useDeliverableReview({
   )
   const [rejecting, setRejecting] = useState(false)
   const [editing, setEditing] = useState(false)
+  // Another story or deliverable starts afresh (the feed keeps this mounted).
+  const key = `${story.id}/${d.id}`
+  const [shown, setShown] = useState(key)
+  if (shown !== key) {
+    setShown(key)
+    setPicked(null)
+    setChanging(null)
+    setRejecting(false)
+    setEditing(false)
+  }
   // Editing applies to the latest revision of a deliverable in review only.
   const showEditor =
     editing && canEdit && d.status === "review" && d.revision > 0
@@ -52,17 +62,27 @@ export function useDeliverableReview({
     latest
   const viewingOld = !!current && !!latest && current.number !== latest.number
 
+  // A publish error belongs to the deliverable it was about.
+  const resetPublish = publish.reset
+  const publishedFor = useRef(key)
+  useEffect(() => {
+    if (publishedFor.current === key) return
+    publishedFor.current = key
+    resetPublish()
+  }, [key, resetPublish])
+
+  /** Runs an action; the story it returns, or null when it failed (toasted). */
   const run = async (
     action: { mutateAsync: (id: string) => Promise<Story> },
     success: string
-  ): Promise<boolean> => {
+  ): Promise<Story | null> => {
     try {
-      await action.mutateAsync(d.id)
+      const updated = await action.mutateAsync(d.id)
       toast.success(success)
-      return true
+      return updated
     } catch (err) {
       toast.error(errorMessage(err))
-      return false
+      return null
     }
   }
 

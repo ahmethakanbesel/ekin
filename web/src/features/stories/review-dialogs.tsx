@@ -62,11 +62,14 @@ export function RejectDialog({
   storyId,
   deliverable,
   onOpenChange,
+  onRejected,
 }: {
   workspaceId: string
   storyId: string
   deliverable: Deliverable | null
   onOpenChange: (open: boolean) => void
+  /** After the server accepted it, with the updated story. */
+  onRejected?: (story: Story) => void
 }) {
   const target = useRetained(deliverable)
   const reject = useDeliverableAction(workspaceId, storyId, "reject")
@@ -74,13 +77,15 @@ export function RejectDialog({
 
   const confirm = async () => {
     if (!target) return
+    let updated: Story
     try {
-      await reject.mutateAsync(target.id)
+      updated = await reject.mutateAsync(target.id)
     } catch {
       return // shown in the dialog
     }
     toast.success(m.review.rejected)
     onOpenChange(false)
+    onRejected?.(updated)
   }
 
   return (

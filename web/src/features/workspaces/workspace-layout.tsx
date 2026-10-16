@@ -296,8 +296,9 @@ export function WorkspaceLayout() {
           <main
             id="main"
             className={cn(
-              "w-full min-w-0 flex-1 p-4",
-              onStory ? "md:p-6" : "mx-auto max-w-7xl md:p-8"
+              "w-full min-w-0 flex-1",
+              // The story page lays out its own feed and panel edge to edge.
+              !onStory && "mx-auto max-w-7xl p-4 md:p-8"
             )}
           >
             <Outlet />

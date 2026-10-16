@@ -1,52 +1,75 @@
-import { useMemo, useState, type ReactNode } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { lazy, Suspense, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
-import { ChevronRightIcon, Trash2Icon } from "lucide-react"
+import {
+  ChevronLeftIcon,
+  EllipsisIcon,
+  PencilIcon,
+  Trash2Icon,
+} from "lucide-react"
 
-import {
-  isApiError,
-  type Deliverable,
-  type KnowledgeRef,
-  type Story,
-} from "@/api/client"
-import {
-  EmptyState,
-  ErrorState,
-  PageHeader,
-  ReadOnlyNote,
-} from "@/components/page"
-import { Badge } from "@/components/ui/badge"
+import { isApiError, type Deliverable, type Story } from "@/api/client"
+import { EmptyState, ErrorState } from "@/components/page"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
-import { formatDateTime, formatRelative, useNow } from "@/lib/time"
 import { cn } from "@/lib/utils"
-import { documentsQuery } from "@/queries/documents"
 import { pipelinesQuery } from "@/queries/pipelines"
-import { storyQuery } from "@/queries/stories"
+import { storiesQuery, storyQuery } from "@/queries/stories"
+import { ActionRail } from "./action-rail"
 import { BackToStories } from "./back-link"
-import { KindIcon, statusTone } from "./badges"
 import { DiscardChangesDialog } from "./discard-dialog"
-import { DeliverablePanel } from "./deliverable-panel"
-import { deliverableLabel } from "./model"
-import { DeleteStoryDialog } from "./review-dialogs"
+import { TAB_STATUSES, deliverableLabel } from "./model"
+import { seekVideo } from "./previews"
+import { ReviewPanel } from "./review-panel"
+import {
+  DeleteStoryDialog,
+  RejectDialog,
+  RequestChangesDialog,
+} from "./review-dialogs"
+import {
+  DraftFrame,
+  FEED_END,
+  FeedControls,
+  FeedPreview,
+  StoryFeed,
+  feedbackMarkers,
+  useFeedNav,
+} from "./story-feed"
+import { useDeliverableReview } from "./use-deliverable-review"
+
+// Only reviewers who edit need the editor; load it on first use.
+const ContentEditor = lazy(() =>
+  import("./content-editor").then((mod) => ({ default: mod.ContentEditor }))
+)
 
 const ROUTE = "/w/$workspaceId/stories/$storyId"
 
 export function StoryPage() {
   const workspace = useWorkspace()
   const { storyId } = useParams({ from: ROUTE })
-  const query = useQuery(storyQuery(workspace.id, storyId))
+  // The drafts waiting for review (shared with the inbox and its count).
+  const review = useQuery(storiesQuery(workspace.id, TAB_STATUSES.review))
+  const query = useQuery({
+    ...storyQuery(workspace.id, storyId),
+    // Moving through the feed shows the listed story while it loads.
+    placeholderData: () => review.data?.find((s) => s.id === storyId),
+  })
 
   if (query.isPending) {
     return (
-      <div className="grid gap-4">
+      <div className="grid gap-4 p-4 md:p-6">
         <Skeleton className="h-8 w-2/3" />
         <Skeleton className="h-5 w-1/2" />
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="aspect-video w-full max-w-3xl" />
+        <Skeleton className="aspect-[9/16] w-full max-w-sm" />
       </div>
     )
   }
@@ -56,17 +79,27 @@ export function StoryPage() {
       (query.error.status === 404 || query.error.status === 400)
     ) {
       return (
-        <div className="max-w-5xl">
+        <div className="max-w-5xl p-4 md:p-6">
           <BackToStories workspaceId={workspace.id} />
           <EmptyState title={m.story.notFound} />
         </div>
       )
     }
     return (
-      <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+      <div className="p-4 md:p-6">
+        <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+      </div>
     )
   }
-  return <StoryView story={query.data} />
+  if (query.data.deliverables.length === 0) {
+    return (
+      <div className="max-w-5xl p-4 md:p-6">
+        <BackToStories workspaceId={workspace.id} />
+        <EmptyState title={m.story.noDeliverables} />
+      </div>
+    )
+  }
+  return <StoryView story={query.data} reviewList={review.data} />
 }
 
 /** The deliverable to open first: one waiting for review, else the first. */
@@ -77,107 +110,302 @@ function firstToOpen(story: Story): Deliverable | undefined {
   )
 }
 
-function StoryView({ story }: { story: Story }) {
+/**
+ * The stories of a review sitting, in the order they were first listed.
+ * A story keeps its place after it is decided, so the feed does not jump;
+ * stories that arrive later join at the end. Null outside a sitting (the
+ * story is not waiting for review).
+ */
+function sittingOrder(
+  order: string[] | null,
+  list: Story[] | undefined,
+  currentId: string
+): string[] | null {
+  if (!list) return order
+  if (!order || !order.includes(currentId)) {
+    return list.some((s) => s.id === currentId) ? list.map((s) => s.id) : null
+  }
+  const added = list.filter((s) => !order.includes(s.id)).map((s) => s.id)
+  return added.length > 0 ? [...order, ...added] : order
+}
+
+function StoryView({
+  story,
+  reviewList,
+}: {
+  story: Story
+  reviewList: Story[] | undefined
+}) {
   const workspace = useWorkspace()
   const canEdit = useCan("edit")
   const canManage = useCan("manage")
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const [deleting, setDeleting] = useState(false)
-  const [picked, setPicked] = useState<string | null>(null)
-  // The deliverable whose editor holds unsaved changes, and the tab the
-  // reviewer asked for meanwhile (switching tabs unmounts the editor).
-  const [dirtyId, setDirtyId] = useState<string | null>(null)
+
+  const [order, setOrder] = useState<string[] | null>(null)
+  const nextOrder = sittingOrder(order, reviewList, story.id)
+  if (nextOrder !== order) setOrder(nextOrder)
+  const sitting = nextOrder !== null
+  const listed = new Map((reviewList ?? []).map((s) => [s.id, s]))
+  const stories = sitting
+    ? nextOrder.flatMap((id) => {
+        if (id === story.id) return [story]
+        // A decided story has left the list; the cache has its new state.
+        const s =
+          listed.get(id) ??
+          qc.getQueryData(storyQuery(workspace.id, id).queryKey)
+        return s ? [s] : []
+      })
+    : [story]
+
+  const pipelines = useQuery(pipelinesQuery(workspace.id))
+  const pipelineName = (s: Story) =>
+    s.pipelineId
+      ? pipelines.data?.find((p) => p.id === s.pipelineId)?.definition.name
+      : undefined
+
+  // The output on screen, per story; the editor's unsaved changes guard
+  // switching it (switching unmounts the editor).
+  const [picked, setPicked] = useState<{ story: string; id: string } | null>(
+    null
+  )
+  const [dirty, setDirty] = useState(false)
   const [pendingTab, setPendingTab] = useState<string | null>(null)
   const selected =
-    (picked && story.deliverables.find((d) => d.id === picked)?.id) ||
-    firstToOpen(story)?.id
+    (picked?.story === story.id
+      ? story.deliverables.find((d) => d.id === picked.id)
+      : undefined) ??
+    firstToOpen(story) ??
+    story.deliverables[0]
+
+  const review = useDeliverableReview({
+    workspaceId: workspace.id,
+    story,
+    deliverable: selected,
+    canEdit,
+  })
+
+  const nav = useFeedNav({
+    ids: sitting ? [...stories.map((s) => s.id), FEED_END] : [story.id],
+    currentId: story.id,
+    onCurrent: (id) =>
+      void navigate({
+        to: ROUTE,
+        params: { workspaceId: workspace.id, storyId: id },
+        replace: true,
+      }),
+    active: !review.editing && !dirty,
+  })
+
+  /** After a decision: stay on what still needs one, else move on. */
+  const onDecided = (updated: Story) => {
+    const waiting = updated.deliverables.find((d) => d.status === "review")
+    if (waiting) setPicked({ story: updated.id, id: waiting.id })
+    else if (sitting) nav.next()
+  }
+
+  const pick = (id: string) => {
+    if (id === selected.id) return
+    if (dirty) setPendingTab(id)
+    else setPicked({ story: story.id, id })
+  }
+
+  const canEditContent =
+    canEdit && selected.status === "review" && selected.revision > 0
 
   return (
-    <div className="min-w-0">
-      <BackToStories workspaceId={workspace.id} />
-      <PageHeader title={story.title} description={story.angle || undefined} />
-      <StoryFacts
-        story={story}
-        workspaceId={workspace.id}
-        timezone={workspace.timezone}
-        actions={
-          canEdit ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-destructive"
-              onClick={() => setDeleting(true)}
+    <div className="min-w-0 xl:grid xl:h-[calc(100svh-3rem-1px)] xl:grid-cols-[minmax(0,1fr)_360px] xl:overflow-hidden">
+      <section
+        aria-label={story.title}
+        className="flex min-h-0 min-w-0 flex-col"
+      >
+        <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            render={
+              <Link
+                to="/w/$workspaceId/stories"
+                params={{ workspaceId: workspace.id }}
+              />
+            }
+            nativeButton={false}
+          >
+            <ChevronLeftIcon data-icon="inline-start" />
+            {m.feed.back}
+          </Button>
+          {story.deliverables.length > 1 ? (
+            <ToggleGroup
+              aria-label={m.story.deliverables}
+              value={[selected.id]}
+              onValueChange={(next) => next[0] && pick(String(next[0]))}
+              spacing={1}
+              className="order-last w-full rounded-lg bg-muted p-[3px] sm:order-none sm:mx-auto sm:w-auto"
             >
-              <Trash2Icon data-icon="inline-start" />
-              {m.story.delete}
-            </Button>
-          ) : null
-        }
-      />
-      {canEdit ? null : (
-        <ReadOnlyNote className="mt-4">{m.story.readOnlyHint}</ReadOnlyNote>
-      )}
-
-      {story.deliverables.length === 0 ? (
-        <EmptyState className="mt-6" title={m.story.noDeliverables} />
-      ) : (
-        <Tabs
-          value={selected}
-          onValueChange={(v) => {
-            const next = String(v)
-            if (dirtyId && dirtyId !== next) setPendingTab(next)
-            else setPicked(next)
-          }}
-          className="mt-6 gap-5"
-        >
-          <div className="-mx-1 overflow-x-auto px-1 pb-1">
-            <TabsList aria-label={m.story.deliverables}>
               {story.deliverables.map((d) => (
-                <TabsTrigger
+                <ToggleGroupItem
                   key={d.id}
                   value={d.id}
-                  className="flex-none gap-2"
+                  className="h-8 flex-1 gap-1.5 border border-transparent px-2.5 text-foreground hover:bg-background/60 aria-pressed:border-border aria-pressed:bg-background dark:text-muted-foreground dark:aria-pressed:border-input dark:aria-pressed:bg-input/30 dark:aria-pressed:text-foreground"
                 >
-                  <KindIcon kind={d.kind} className="text-current" />
                   {deliverableLabel(d)}
                   <span
                     className={cn(
-                      "rounded-full border border-transparent px-1.5 text-[11px] leading-4 font-medium",
-                      statusTone(d.status)
+                      "hidden text-xs font-normal sm:inline",
+                      d.status === "review"
+                        ? "text-primary-ink"
+                        : "text-muted-foreground"
                     )}
                   >
+                    {d.revision > 0
+                      ? `${m.stories.revisionShort(d.revision)} · `
+                      : null}
                     {m.stories.status[d.status] ?? d.status}
                   </span>
-                </TabsTrigger>
+                </ToggleGroupItem>
               ))}
-            </TabsList>
+            </ToggleGroup>
+          ) : null}
+          <div
+            className={cn(
+              "ml-auto flex items-center gap-1",
+              story.deliverables.length > 1 && "sm:ml-0"
+            )}
+          >
+            {sitting ? (
+              <FeedControls nav={nav} count={stories.length} />
+            ) : null}
+            {canEdit ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={m.feed.more}
+                    />
+                  }
+                >
+                  <EllipsisIcon />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-44">
+                  {canEditContent ? (
+                    <DropdownMenuItem onClick={() => review.setEditing(true)}>
+                      <PencilIcon />
+                      {m.review.edit}
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setDeleting(true)}
+                  >
+                    <Trash2Icon />
+                    {m.story.delete}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </div>
-          {story.deliverables.map((d) => (
-            <TabsContent key={d.id} value={d.id}>
-              <DeliverablePanel
+        </div>
+        {review.editing ? (
+          <div className="min-h-0 flex-1 px-4 pb-6 xl:overflow-y-auto">
+            <Suspense fallback={<Skeleton className="h-[60vh] w-full" />}>
+              <ContentEditor
                 workspaceId={workspace.id}
-                timezone={workspace.timezone}
                 story={story}
-                deliverable={d}
-                canEdit={canEdit}
-                canManage={canManage}
-                onDirtyChange={(dirty) =>
-                  setDirtyId((cur) =>
-                    dirty ? d.id : cur === d.id ? null : cur
-                  )
-                }
+                deliverable={selected}
+                onClose={() => review.setEditing(false)}
+                onDirtyChange={setDirty}
               />
-            </TabsContent>
-          ))}
-        </Tabs>
-      )}
+            </Suspense>
+          </div>
+        ) : (
+          <StoryFeed
+            nav={nav}
+            stories={stories}
+            currentId={story.id}
+            sitting={sitting}
+            workspaceId={workspace.id}
+            renderItem={(s, near) =>
+              s.id === story.id ? (
+                <div className="feed-stage">
+                  <DraftFrame
+                    workspaceId={workspace.id}
+                    story={story}
+                    deliverable={selected}
+                    revision={review.current}
+                    loading={review.revisions.isPending && selected.revision > 0}
+                    current
+                    player
+                    videoRef={review.videoRef}
+                    pipelineName={pipelineName(story)}
+                    markers={
+                      selected.kind === "video"
+                        ? feedbackMarkers(selected, review.list)
+                        : []
+                    }
+                    onSeek={(t) => seekVideo(review.videoRef, t)}
+                  />
+                  <ActionRail
+                    deliverable={selected}
+                    review={review}
+                    canEdit={canEdit}
+                    onDecided={onDecided}
+                  />
+                </div>
+              ) : (
+                <FeedPreview
+                  workspaceId={workspace.id}
+                  story={s}
+                  deliverable={firstToOpen(s)}
+                  near={near}
+                  pipelineName={pipelineName(s)}
+                />
+              )
+            }
+          />
+        )}
+      </section>
+      <aside
+        aria-label={m.feed.details}
+        className="scroll-area min-h-0 border-t xl:overflow-y-auto xl:border-t-0 xl:border-l"
+      >
+        <ReviewPanel
+          workspaceId={workspace.id}
+          timezone={workspace.timezone}
+          story={story}
+          deliverable={selected}
+          review={review}
+          canEdit={canEdit}
+          canManage={canManage}
+          pipelineName={pipelineName(story)}
+          pipelinesLoaded={!!pipelines.data}
+          onDelete={() => setDeleting(true)}
+        />
+      </aside>
 
+      <RequestChangesDialog
+        workspaceId={workspace.id}
+        storyId={story.id}
+        deliverable={review.changing ? selected : null}
+        atSeconds={review.changing?.atSeconds}
+        onOpenChange={(open) => !open && review.closeChanges()}
+      />
+      <RejectDialog
+        workspaceId={workspace.id}
+        storyId={story.id}
+        deliverable={review.rejecting ? selected : null}
+        onOpenChange={review.setRejecting}
+        onRejected={onDecided}
+      />
       <DiscardChangesDialog
         open={pendingTab !== null}
         onKeep={() => setPendingTab(null)}
         onDiscard={() => {
-          setPicked(pendingTab)
+          if (pendingTab) setPicked({ story: story.id, id: pendingTab })
           setPendingTab(null)
+          setDirty(false)
         }}
       />
       <DeleteStoryDialog
@@ -192,184 +420,5 @@ function StoryView({ story }: { story: Story }) {
         }
       />
     </div>
-  )
-}
-
-function StoryFacts({
-  story: s,
-  workspaceId,
-  timezone,
-  actions,
-}: {
-  story: Story
-  workspaceId: string
-  timezone: string
-  /** Shown at the end of the facts row (delete). */
-  actions?: ReactNode
-}) {
-  const now = useNow()
-  const pipelines = useQuery({
-    ...pipelinesQuery(workspaceId),
-    enabled: !!s.pipelineId,
-  })
-  const pipeline = s.pipelineId
-    ? pipelines.data?.find((p) => p.id === s.pipelineId)
-    : undefined
-
-  let origin: ReactNode
-  if (!s.pipelineId) origin = m.stories.origin.adhoc
-  else if (pipeline)
-    origin = (
-      <>
-        <Link
-          to="/w/$workspaceId/pipelines/$pipelineId"
-          params={{ workspaceId, pipelineId: pipeline.id }}
-          className="font-medium hover:underline"
-        >
-          {pipeline.definition.name}
-        </Link>
-        <span className="text-muted-foreground">
-          {" "}
-          · {m.stories.origin[s.origin]}
-        </span>
-      </>
-    )
-  else origin = pipelines.data ? m.stories.deletedPipeline : m.common.none
-
-  return (
-    <div className="grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-        <dl className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-          <Fact label={m.story.origin}>{origin}</Fact>
-          <Fact label={m.story.language}>
-            {m.values.language[s.language] ?? s.language}
-          </Fact>
-          {s.templateName ? (
-            <Fact label={m.story.template}>{s.templateName}</Fact>
-          ) : null}
-          {s.keyword ? (
-            <Fact label={m.story.keyword}>
-              <span className="font-medium">{s.keyword}</span>
-            </Fact>
-          ) : null}
-          <Fact label={m.story.created}>
-            <span
-              className="tabular"
-              title={formatDateTime(s.createdAt, timezone)}
-            >
-              {formatDateTime(s.createdAt, timezone)}
-            </span>
-            <span className="text-muted-foreground">
-              {" "}
-              · {formatRelative(s.createdAt, now)}
-            </span>
-          </Fact>
-        </dl>
-        {actions}
-      </div>
-      {s.keywords.length > 0 ? (
-        <ul className="flex flex-wrap gap-1.5" aria-label={m.story.keywords}>
-          {s.keywords.map((k) => (
-            <li key={k}>
-              <Badge variant="secondary" className="font-normal">
-                {k}
-              </Badge>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {s.instructions || s.refs?.length ? (
-        <div className="grid gap-2 md:grid-cols-2">
-          {s.instructions ? (
-            <Disclosure title={m.story.instructions}>
-              <p className="max-h-80 overflow-y-auto font-mono text-[13px] whitespace-pre-wrap">
-                {s.instructions}
-              </p>
-            </Disclosure>
-          ) : null}
-          {s.refs?.length ? (
-            <Disclosure title={m.story.refs(s.refs.length)}>
-              <RefList workspaceId={workspaceId} refs={s.refs} />
-            </Disclosure>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  )
-}
-
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-baseline gap-2">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd>{children}</dd>
-    </div>
-  )
-}
-
-function Disclosure({
-  title,
-  children,
-}: {
-  title: string
-  children: ReactNode
-}) {
-  return (
-    <details className="group self-start rounded-xl border">
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-sm font-medium select-none [&::-webkit-details-marker]:hidden">
-        <ChevronRightIcon className="size-4 text-muted-foreground transition-transform group-open:rotate-90" />
-        {title}
-      </summary>
-      <div className="border-t px-4 py-3">{children}</div>
-    </details>
-  )
-}
-
-function RefList({
-  workspaceId,
-  refs,
-}: {
-  workspaceId: string
-  refs: KnowledgeRef[]
-}) {
-  const documents = useQuery(documentsQuery(workspaceId))
-  const byId = useMemo(
-    () => new Map((documents.data ?? []).map((d) => [d.id.toLowerCase(), d])),
-    [documents.data]
-  )
-  return (
-    <ul className="grid gap-1.5 text-sm">
-      {refs.map((r, i) => {
-        const doc = byId.get(r.documentId.toLowerCase())
-        const range =
-          r.fromPage && r.toPage
-            ? m.knowledge.viewer.rangeSummary(r.fromPage, r.toPage)
-            : m.story.wholeDocument
-        return (
-          <li
-            key={`${r.documentId}-${i}`}
-            className="flex flex-wrap items-baseline gap-x-2"
-          >
-            {doc ? (
-              <Link
-                to="/w/$workspaceId/knowledge/$documentId"
-                params={{ workspaceId, documentId: doc.id }}
-                search={r.fromPage ? { page: r.fromPage } : {}}
-                className="font-medium hover:underline"
-              >
-                {doc.title}
-              </Link>
-            ) : (
-              <span className="text-muted-foreground">
-                {m.pipelineForm.unknownDocument}
-              </span>
-            )}
-            <span className="tabular text-xs text-muted-foreground">
-              {range}
-            </span>
-          </li>
-        )
-      })}
-    </ul>
   )
 }

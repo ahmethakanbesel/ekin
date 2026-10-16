@@ -187,6 +187,7 @@
   --background: oklch(0.975 0.012 80);
   --secondary: oklch(0.925 0.016 78);
   --secondary-foreground: oklch(0.22 0.01 60);
+  --muted: oklch(0.945 0.014 80);
   --muted-foreground: oklch(0.48 0.012 60);
   --accent: oklch(0.925 0.016 78);
   --accent-foreground: oklch(0.22 0.01 60);
@@ -195,6 +196,101 @@
   --primary-ink: oklch(0.52 0.12 62);
   --ring: oklch(0.47 0.11 60);
   color-scheme: light;
+}
+
+/*
+ * Review feed geometry (layout only): one draft per snap, sized to the
+ * feed's own box, with the next draft peeking below. The frame leaves
+ * room for the caption strip under the player.
+ */
+.feed {
+  position: relative;
+  container-type: size;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  height: min(calc(100svh - 7rem), 860px);
+}
+.feed::-webkit-scrollbar {
+  display: none;
+}
+@media (min-width: 1280px) {
+  .feed {
+    height: auto;
+    flex: 1 1 0%;
+    min-height: 0;
+  }
+}
+.feed-item {
+  --peek: 72px;
+  --rail: 88px;
+  --strip: 8.5rem;
+  --aw: calc(100cqw - 48px - var(--rail));
+  --fh: min(
+    calc(100cqh - var(--peek) - 20px),
+    calc(var(--aw) * 16 / 9 + var(--strip))
+  );
+  height: calc(100cqh - var(--peek));
+  scroll-snap-align: start;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 4px 16px 16px;
+}
+.feed-item:last-child,
+.feed-item:only-child {
+  height: 100cqh;
+}
+.feed-stage {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+}
+.frame-v {
+  height: var(--fh);
+  width: calc((var(--fh) - var(--strip)) * 9 / 16);
+}
+.frame-sq {
+  height: var(--fh);
+  width: min(var(--aw), calc(var(--fh) - var(--strip)));
+}
+.frame-h {
+  max-height: var(--fh);
+  width: min(var(--aw), calc((var(--fh) - var(--strip)) * 16 / 9));
+}
+.frame-paper {
+  height: var(--fh);
+  width: min(var(--aw), 42rem);
+}
+.rail {
+  width: var(--rail);
+  flex: none;
+}
+@media (max-width: 639px) {
+  .feed {
+    height: calc(100svh - 11rem);
+  }
+  .feed-item {
+    --peek: 40px;
+    --rail: 0px;
+    --railh: 76px;
+    --strip: 5.25rem;
+    --aw: calc(100cqw - 32px);
+    --fh: min(
+      calc(100cqh - var(--peek) - var(--railh) - 24px),
+      calc(var(--aw) * 16 / 9 + var(--strip))
+    );
+    padding: 4px 16px 12px;
+  }
+  .feed-stage {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .rail {
+    width: auto;
+  }
 }
 
 /* ScrollArea look for native scrollers */

@@ -154,7 +154,6 @@ export function VideoFrame({
   deliverable: Deliverable
   videoRef: RefObject<HTMLVideoElement | null>
 }) {
-  const has = (name: string) => revision.artifacts.includes(name)
   const video = videoFile(revision)
   const orientation = d.video?.orientation ?? "horizontal"
 
@@ -162,20 +161,13 @@ export function VideoFrame({
     <div className="grid gap-2">
       {video ? (
         <div className="flex justify-center overflow-hidden rounded-xl bg-black">
-          {/* No caption track is produced; the script below is the transcript. */}
-          {/* oxlint-disable-next-line jsx-a11y/media-has-caption */}
-          <video
-            // A new source (another revision, or the final render) starts afresh.
-            key={url(a, video)}
-            ref={videoRef}
-            controls
-            playsInline
-            preload="metadata"
-            poster={has("poster.jpg") ? url(a, "poster.jpg") : undefined}
-            className={cn("block bg-black", frame[orientation])}
-          >
-            <source src={url(a, video)} type="video/mp4" />
-          </video>
+          <VideoFrameElement
+            artifacts={a}
+            revision={revision}
+            file={video}
+            videoRef={videoRef}
+            className={frame[orientation]}
+          />
         </div>
       ) : (
         <div
@@ -200,6 +192,41 @@ export function VideoFrame({
         </p>
       ) : null}
     </div>
+  )
+}
+
+/** The <video> of a revision's render, with its poster frame. */
+export function VideoFrameElement({
+  artifacts: a,
+  revision,
+  file,
+  videoRef,
+  className,
+}: {
+  artifacts: ArtifactRef
+  revision: Revision
+  file: string
+  videoRef?: RefObject<HTMLVideoElement | null>
+  className?: string
+}) {
+  const poster = revision.artifacts.includes("poster.jpg")
+    ? url(a, "poster.jpg")
+    : undefined
+  return (
+    // No caption track is produced; the script is the transcript.
+    // oxlint-disable-next-line jsx-a11y/media-has-caption
+    <video
+      // A new source (another revision, or the final render) starts afresh.
+      key={url(a, file)}
+      ref={videoRef}
+      controls
+      playsInline
+      preload="metadata"
+      poster={poster}
+      className={cn("block bg-black", className)}
+    >
+      <source src={url(a, file)} type="video/mp4" />
+    </video>
   )
 }
 
