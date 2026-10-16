@@ -180,6 +180,20 @@ func (p *Pipeline) RunNow(count int, now time.Time) (Run, error) {
 	}, nil
 }
 
+// Upcoming lists the scheduled runs before until, starting with the
+// planned next run (which may already be due). A paused or unscheduled
+// pipeline has none.
+func (p *Pipeline) Upcoming(until time.Time) []time.Time {
+	if p.status != StatusActive || p.def.Schedule == nil {
+		return nil
+	}
+	var out []time.Time
+	for at := p.nextRunAt; !at.IsZero() && at.Before(until); at = p.def.Schedule.Next(at) {
+		out = append(out, at)
+	}
+	return out
+}
+
 func (p *Pipeline) planNextRun(now time.Time) {
 	p.nextRunAt = time.Time{}
 	if p.status == StatusActive && p.def.Schedule != nil {

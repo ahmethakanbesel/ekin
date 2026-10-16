@@ -966,6 +966,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspaceId}/upcoming-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        /** @description The scheduled runs of the workspace's active pipelines from now until `days` days ahead, soonest first. Each pipeline's list starts with its planned next run, which may already be due. */
+        get: operations["listUpcomingRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/pipelines/{pipelineId}": {
         parameters: {
             query?: never;
@@ -1734,6 +1753,14 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        UpcomingRun: {
+            /** Format: uuid */
+            pipelineId: string;
+            /** Format: date-time */
+            at: string;
+            /** @description Items the run produces. */
+            count: number;
         };
         /** @enum {string} */
         JobStatus: "queued" | "running" | "succeeded" | "failed" | "cancelled";
@@ -3698,6 +3725,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Pipeline"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listUpcomingRuns: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The upcoming runs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: date-time
+                         * @description End of the window (exclusive).
+                         */
+                        until: string;
+                        runs: components["schemas"]["UpcomingRun"][];
+                    };
                 };
             };
             default: components["responses"]["Error"];

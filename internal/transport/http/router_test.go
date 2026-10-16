@@ -220,6 +220,13 @@ func TestPipelineLifecycle(t *testing.T) {
 		t.Fatalf("list = %d", len(list.Pipelines))
 	}
 
+	var upcoming gen.ListUpcomingRuns200JSONResponse
+	c.call("GET", "/api/v1/workspaces/"+ws.Id.String()+"/upcoming-runs?days=2", nil, 200, &upcoming)
+	if len(upcoming.Runs) != 2 || upcoming.Runs[0].PipelineId != p.Id || !upcoming.Runs[0].At.Equal(*p.NextRunAt) || upcoming.Runs[0].Count != 5 {
+		t.Fatalf("upcoming = %+v", upcoming)
+	}
+	c.call("GET", "/api/v1/workspaces/"+ws.Id.String()+"/upcoming-runs?days=15", nil, 400, nil)
+
 	def := shortsDefinition()
 	def["name"] = "Renamed"
 	var updated gen.Pipeline

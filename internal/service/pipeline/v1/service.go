@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -123,6 +124,38 @@ func (s *Service) Get(ctx context.Context, workspaceID, pipelineID uuid.UUID) (*
 // List returns a workspace's pipelines.
 func (s *Service) List(ctx context.Context, workspaceID uuid.UUID) ([]*pipelinedomain.Pipeline, error) {
 	return s.repo.List(ctx, workspaceID)
+}
+
+// UpcomingRun is one scheduled run ahead.
+type UpcomingRun struct {
+	PipelineID uuid.UUID
+	At         time.Time
+	Count      int
+}
+
+// MaxUpcomingDays bounds how far ahead Upcoming looks.
+const MaxUpcomingDays = 14
+
+// Upcoming returns the workspace's scheduled runs in the next days days,
+// soonest first, and the end of that window.
+func (s *Service) Upcoming(ctx context.Context, workspaceID uuid.UUID, days int) ([]UpcomingRun, time.Time, error) {
+	if days < 1 || days > MaxUpcomingDays {
+		return nil, time.Time{}, apperror.New(apperror.ValidationFailed, fmt.Sprintf("days must be between 1 and %d", MaxUpcomingDays))
+	}
+	until := s.now().UTC().Add(time.Duration(days) * 24 * time.Hour)
+	ps, err := s.repo.List(ctx, workspaceID)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+	var out []UpcomingRun
+	for _, p := range ps {
+		sch, _ := p.Schedule()
+		for _, at := range p.Upcoming(until) {
+			out = append(out, UpcomingRun{PipelineID: p.ID(), At: at, Count: sch.Batch()})
+		}
+	}
+	slices.SortStableFunc(out, func(a, b UpcomingRun) int { return a.At.Compare(b.At) })
+	return out, until, nil
 }
 
 // Redefine replaces a pipeline's definition. version is the version the

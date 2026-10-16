@@ -217,6 +217,54 @@ func TestRedefineKeepsSlotUnlessScheduleChanges(t *testing.T) {
 	}
 }
 
+func TestUpcoming(t *testing.T) {
+	night := func(day int) time.Time { return time.Date(2026, 10, day, 23, 0, 0, 0, time.UTC) }
+	week := t0.Add(7 * 24 * time.Hour)
+	tests := []struct {
+		name  string
+		setup func(t *testing.T) *pipeline.Pipeline
+		until time.Time
+		want  []time.Time
+	}{
+		{
+			name:  "nightly over a week",
+			setup: func(t *testing.T) *pipeline.Pipeline { return newPipeline(t, nightly(t, 1)) },
+			until: week,
+			want:  []time.Time{night(13), night(14), night(15), night(16), night(17), night(18), night(19)},
+		},
+		{
+			name:  "until is exclusive",
+			setup: func(t *testing.T) *pipeline.Pipeline { return newPipeline(t, nightly(t, 1)) },
+			until: night(14),
+			want:  []time.Time{night(13)},
+		},
+		{
+			name: "paused",
+			setup: func(t *testing.T) *pipeline.Pipeline {
+				p := newPipeline(t, nightly(t, 1))
+				if err := p.Pause(t0); err != nil {
+					t.Fatal(err)
+				}
+				return p
+			},
+			until: week,
+		},
+		{
+			name:  "unscheduled",
+			setup: func(t *testing.T) *pipeline.Pipeline { return newPipeline(t, nil) },
+			until: week,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.setup(t).Upcoming(tt.until)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("upcoming = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestDedupKeyIsStablePerSlot(t *testing.T) {
 	a := newPipeline(t, nightly(t, 1))
 	slot := a.NextRunAt()

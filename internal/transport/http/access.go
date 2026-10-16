@@ -90,6 +90,7 @@ var workspaceActions = map[string]identitydomain.Action{
 	"PausePipeline":    identitydomain.ActionEdit,
 	"ResumePipeline":   identitydomain.ActionEdit,
 	"RunPipeline":      identitydomain.ActionEdit,
+	"ListUpcomingRuns": identitydomain.ActionView,
 
 	"ListJobs":  identitydomain.ActionView,
 	"GetJob":    identitydomain.ActionView,

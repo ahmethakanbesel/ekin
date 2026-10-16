@@ -94,3 +94,19 @@ func (h *Handler) RunPipeline(ctx context.Context, req gen.RunPipelineRequestObj
 	}
 	return gen.RunPipeline202JSONResponse(jobhandler.ToWire(j)), nil
 }
+
+func (h *Handler) ListUpcomingRuns(ctx context.Context, req gen.ListUpcomingRunsRequestObject) (gen.ListUpcomingRunsResponseObject, error) {
+	days := 7
+	if req.Params.Days != nil {
+		days = *req.Params.Days
+	}
+	runs, until, err := h.svc.Upcoming(ctx, req.WorkspaceId, days)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]gen.UpcomingRun, 0, len(runs))
+	for _, r := range runs {
+		out = append(out, gen.UpcomingRun{PipelineId: r.PipelineID, At: r.At, Count: r.Count})
+	}
+	return gen.ListUpcomingRuns200JSONResponse{Until: until, Runs: out}, nil
+}

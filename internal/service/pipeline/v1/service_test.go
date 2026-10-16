@@ -2,6 +2,7 @@ package pipeline_test
 
 import (
 	"context"
+	"reflect"
 	"encoding/json"
 	"sync"
 	"testing"
@@ -163,6 +164,61 @@ func TestPausedPipelineIsNotTriggered(t *testing.T) {
 	f.clock.Set(firstRun.Add(time.Hour))
 	if n, _ := f.svc.TriggerDue(ctx); n != 0 {
 		t.Fatalf("paused pipeline triggered: %d", n)
+	}
+}
+
+func TestUpcomingMergesPipelinesSoonestFirst(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	nightly, _ := f.svc.Create(ctx, f.ws, definition(t, "0 2 * * *"))
+	morning, _ := f.svc.Create(ctx, f.ws, definition(t, "30 9 * * 1")) // Monday 06:30 UTC
+	paused, _ := f.svc.Create(ctx, f.ws, definition(t, "0 12 * * *"))
+	if _, err := f.svc.Pause(ctx, f.ws, paused.ID()); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.svc.Create(ctx, f.ws, definition(t, "")) // manual only
+
+	runs, until, err := f.svc.Upcoming(ctx, f.ws, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := t0.Add(72 * time.Hour); !until.Equal(want) {
+		t.Fatalf("until = %v, want %v", until, want)
+	}
+	night := func(day int) time.Time { return time.Date(2026, 10, day, 23, 0, 0, 0, time.UTC) }
+	want := []pipelinesvc.UpcomingRun{
+		{PipelineID: nightly.ID(), At: night(13), Count: 5},
+		{PipelineID: nightly.ID(), At: night(14), Count: 5},
+		{PipelineID: nightly.ID(), At: night(15), Count: 5},
+	}
+	if !reflect.DeepEqual(runs, want) {
+		t.Fatalf("runs = %+v, want %+v", runs, want)
+	}
+
+	runs, _, _ = f.svc.Upcoming(ctx, f.ws, 7)
+	var mondays int
+	for i, r := range runs {
+		if i > 0 && r.At.Before(runs[i-1].At) {
+			t.Fatalf("runs out of order at %d: %v", i, runs)
+		}
+		if r.PipelineID == paused.ID() {
+			t.Fatal("paused pipeline listed")
+		}
+		if r.PipelineID == morning.ID() {
+			mondays++
+			if want := time.Date(2026, 10, 19, 6, 30, 0, 0, time.UTC); !r.At.Equal(want) {
+				t.Fatalf("monday run at %v, want %v", r.At, want)
+			}
+		}
+	}
+	if mondays != 1 || len(runs) != 8 {
+		t.Fatalf("got %d runs with %d Monday runs, want 8 and 1", len(runs), mondays)
+	}
+
+	for _, days := range []int{0, pipelinesvc.MaxUpcomingDays + 1} {
+		if _, _, err := f.svc.Upcoming(ctx, f.ws, days); !apperror.Is(err, apperror.ValidationFailed) {
+			t.Fatalf("days %d err = %v", days, err)
+		}
 	}
 }
 
