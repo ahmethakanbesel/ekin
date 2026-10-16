@@ -93,6 +93,14 @@ export function useDeliverableReview({
     return el.currentTime
   }
 
+  /** Pauses the player where the reviewer is; that position, for pinning a note. */
+  const pause = (): number | undefined => {
+    const el = videoRef.current
+    if (d.kind !== "video" || !el || viewingOld) return undefined
+    el.pause()
+    return el.currentTime
+  }
+
   const openChanges = () => {
     const el = videoRef.current
     let atSeconds: number | undefined
@@ -125,6 +133,7 @@ export function useDeliverableReview({
       setPicked(n === null || n === latest?.number ? null : n),
     videoRef,
     playhead,
+    pause,
     changing,
     openChanges,
     closeChanges: () => setChanging(null),

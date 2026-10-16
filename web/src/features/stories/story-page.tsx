@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react"
+import { lazy, Suspense, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import {
@@ -20,6 +20,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
+import { useMediaQuery } from "@/hooks/use-media-query"
 import { m } from "@/i18n"
 import { cn } from "@/lib/utils"
 import { pipelinesQuery } from "@/queries/pipelines"
@@ -27,14 +28,12 @@ import { storiesQuery, storyQuery } from "@/queries/stories"
 import { ActionRail } from "./action-rail"
 import { BackToStories } from "./back-link"
 import { DiscardChangesDialog } from "./discard-dialog"
+import type { FeedbackFocus } from "./feedback-form"
+import { FeedbackSheet } from "./feedback-sheet"
 import { TAB_STATUSES, deliverableLabel } from "./model"
 import { seekVideo } from "./previews"
 import { ReviewPanel } from "./review-panel"
-import {
-  DeleteStoryDialog,
-  RejectDialog,
-  RequestChangesDialog,
-} from "./review-dialogs"
+import { DeleteStoryDialog, RejectDialog } from "./review-dialogs"
 import {
   DraftFrame,
   FEED_END,
@@ -214,8 +213,30 @@ function StoryView({
   const canEditContent =
     canEdit && selected.status === "review" && selected.revision > 0
 
+  // The feedback sheet: docked from xl up (open unless closed), a sheet
+  // over the page below. Only for a draft an editor can send back.
+  const wide = useMediaQuery("(min-width: 1280px)")
+  const reviewing = canEdit && selected.status === "review"
+  const [docked, setDocked] = useState(true)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const feedbackOpen = reviewing && (wide ? docked : sheetOpen)
+  const setFeedbackOpen = wide ? setDocked : setSheetOpen
+  const [focus, setFocus] = useState<FeedbackFocus | null>(null)
+  const feedbackButton = useRef<HTMLButtonElement>(null)
+  const openFeedback = (at?: number) => {
+    setFeedbackOpen(true)
+    setFocus((f) => ({ at, n: (f?.n ?? 0) + 1 }))
+  }
+
   return (
-    <div className="min-w-0 xl:grid xl:h-[calc(100svh-3rem-1px)] xl:grid-cols-[minmax(0,1fr)_360px] xl:overflow-hidden">
+    <div
+      className={cn(
+        "min-w-0 xl:grid xl:h-[calc(100svh-3rem-1px)] xl:overflow-hidden",
+        feedbackOpen
+          ? "xl:grid-cols-[minmax(0,1fr)_340px_360px]"
+          : "xl:grid-cols-[minmax(0,1fr)_360px]"
+      )}
+    >
       <section
         aria-label={story.title}
         className="flex min-h-0 min-w-0 flex-col"
@@ -352,6 +373,15 @@ function StoryView({
                     review={review}
                     canEdit={canEdit}
                     onDecided={onDecided}
+                    onRequestChanges={() => openFeedback(review.pause())}
+                    feedback={{
+                      open: feedbackOpen,
+                      onToggle: () =>
+                        feedbackOpen
+                          ? setFeedbackOpen(false)
+                          : openFeedback(),
+                      ref: feedbackButton,
+                    }}
                   />
                 </div>
               ) : (
@@ -367,6 +397,24 @@ function StoryView({
           />
         )}
       </section>
+      {reviewing && !review.editing ? (
+        <FeedbackSheet
+          docked={wide}
+          workspaceId={workspace.id}
+          story={story}
+          deliverable={selected}
+          revisions={review.list}
+          playhead={review.playhead}
+          focus={focus}
+          open={feedbackOpen}
+          onOpenChange={setFeedbackOpen}
+          returnFocus={feedbackButton}
+          onSent={(updated) => {
+            setSheetOpen(false)
+            onDecided(updated)
+          }}
+        />
+      ) : null}
       <aside
         aria-label={m.feed.details}
         className="scroll-area min-h-0 border-t xl:overflow-y-auto xl:border-t-0 xl:border-l"
@@ -385,13 +433,6 @@ function StoryView({
         />
       </aside>
 
-      <RequestChangesDialog
-        workspaceId={workspace.id}
-        storyId={story.id}
-        deliverable={review.changing ? selected : null}
-        atSeconds={review.changing?.atSeconds}
-        onOpenChange={(open) => !open && review.closeChanges()}
-      />
       <RejectDialog
         workspaceId={workspace.id}
         storyId={story.id}

@@ -1,29 +1,20 @@
+import { useEffect, useRef, type ReactNode } from "react"
 import { useForm } from "@tanstack/react-form"
+import { CrosshairIcon } from "lucide-react"
 import { toast } from "sonner"
 
-import type { Deliverable, FeedbackScope } from "@/api/client"
+import type { Deliverable, FeedbackScope, Revision, Story } from "@/api/client"
 import { Banner } from "@/components/page"
 import { Button } from "@/components/ui/button"
-import {
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Field, FieldContent, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
+import { Field, FieldError, FieldLabel } from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
+import { cn } from "@/lib/utils"
 import { useRequestChanges } from "@/queries/stories"
-import { SCOPES, formatTimestamp, scopeLabel } from "./model"
+import { SCOPES, formatTimestamp, parseTimestamp, scopeLabel } from "./model"
 
 /** The server's feedback limit (story/v1 MaxFeedbackRunes). */
 export const MAX_FEEDBACK = 5000
@@ -35,149 +26,302 @@ const textError = (text: string) => {
   return undefined
 }
 
+const timeError = (raw: string) =>
+  raw.trim() && parseTimestamp(raw) === undefined
+    ? m.feedbackSheet.timestampInvalid
+    : undefined
+
+/** Asks the open form to pin the note to a time and put the cursor in it. */
+export type FeedbackFocus = { at?: number; n: number }
+
 /**
- * Feedback for the agent on a deliverable in review: what should change,
- * what it is about and, for a video, where.
+ * Feedback for the agent on a deliverable in review: what it is about,
+ * where in the video, and what should change. The fields scroll in
+ * `bodyClassName`; `renderFooter` holds the submit button.
  */
 export function FeedbackForm({
   workspaceId,
   storyId,
   deliverable: d,
-  atSeconds,
-  onDone,
+  revisions,
+  playhead,
+  focus,
+  bodyClassName,
+  renderFooter,
+  onSent,
 }: {
   workspaceId: string
   storyId: string
   deliverable: Deliverable
-  atSeconds?: number
-  onDone: () => void
+  /** For the earlier notes on this deliverable. */
+  revisions: Revision[]
+  /** The player's position, when there is a player showing the latest revision. */
+  playhead?: () => number | undefined
+  focus?: FeedbackFocus | null
+  bodyClassName?: string
+  renderFooter: (submitting: boolean) => ReactNode
+  /** After the server took it, with the updated story. */
+  onSent?: (story: Story) => void
 }) {
   const request = useRequestChanges(workspaceId, storyId)
-  const canPin = d.kind === "video" && atSeconds !== undefined
-  const scopes = SCOPES[d.kind]
-  const scopeItems = scopes.map((s) => ({ value: s, label: scopeLabel(s, d.kind) }))
+  const video = d.kind === "video"
+  const noteRef = useRef<HTMLTextAreaElement>(null)
   const form = useForm({
-    defaultValues: { text: "", scope: "all" as FeedbackScope, pinned: false },
+    defaultValues: {
+      text: "",
+      scope: "all" as FeedbackScope,
+      at: focus?.at ? formatTimestamp(focus.at) : "",
+    },
     onSubmit: async ({ value }) => {
+      const at = video ? parseTimestamp(value.at) : undefined
+      let updated: Story
       try {
-        await request.mutateAsync({
+        updated = await request.mutateAsync({
           deliverableId: d.id,
           body: {
             text: value.text.trim(),
             scope: value.scope,
-            atSeconds:
-              canPin && value.pinned ? Math.round((atSeconds ?? 0) * 10) / 10 : undefined,
+            atSeconds: at !== undefined ? Math.round(at * 10) / 10 : undefined,
           },
         })
       } catch {
         return // shown in the banner
       }
       toast.success(m.review.changes.sent)
-      onDone()
+      form.reset()
+      onSent?.(updated)
     },
   })
+
+  // Asked to focus (Request changes on the rail): pin the time it paused at.
+  const setAt = form.setFieldValue
+  const focusN = focus?.n
+  const focusAt = focus?.at
+  useEffect(() => {
+    if (focusN === undefined) return
+    if (video && focusAt) setAt("at", formatTimestamp(focusAt))
+    const id = requestAnimationFrame(() =>
+      noteRef.current?.focus({ preventScroll: true })
+    )
+    return () => cancelAnimationFrame(id)
+  }, [focusN, focusAt, video, setAt])
+
+  const earlier = earlierNotes(d, revisions)
 
   return (
     <form
       noValidate
-      className="grid gap-6"
+      className="flex min-h-0 flex-1 flex-col"
       onSubmit={(e) => {
         e.preventDefault()
         void form.handleSubmit()
       }}
     >
-      <DialogHeader>
-        <DialogTitle>{m.review.changes.title}</DialogTitle>
-        <DialogDescription>{m.review.changes.description(d.revision)}</DialogDescription>
-      </DialogHeader>
-      <form.Field
-        name="text"
-        validators={{
-          onChange: ({ value }) => textError(value),
-          onSubmit: ({ value }) => textError(value),
-        }}
-      >
-        {(field) => {
-          const invalid = field.state.meta.isTouched && !field.state.meta.isValid
-          return (
-            <Field data-invalid={invalid || undefined}>
-              <FieldLabel htmlFor="changes-text">{m.review.changes.text}</FieldLabel>
-              <Textarea
-                id="changes-text"
-                rows={5}
-                className="min-h-28"
-                placeholder={
-                  d.kind === "video"
-                    ? m.review.changes.placeholderVideo
-                    : m.review.changes.placeholderArticle
-                }
-                value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
-                onBlur={field.handleBlur}
-                aria-invalid={invalid || undefined}
-              />
-              {invalid ? <FieldError>{String(field.state.meta.errors[0])}</FieldError> : null}
-            </Field>
-          )
-        }}
-      </form.Field>
-      <form.Field name="scope">
-        {(field) => (
-          <Field>
-            <FieldLabel htmlFor="changes-scope">{m.review.changes.scope}</FieldLabel>
-            <Select
-              items={scopeItems}
-              value={field.state.value}
-              onValueChange={(v) => v && field.handleChange(v as FeedbackScope)}
-            >
-              <SelectTrigger id="changes-scope" className="w-full sm:w-64">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {scopeItems.map((it) => (
-                  <SelectItem key={it.value} value={it.value}>
-                    {it.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <FieldDescription>{m.review.changes.scopeHint}</FieldDescription>
-          </Field>
-        )}
-      </form.Field>
-      {canPin ? (
-        <form.Field name="pinned">
+      <div className={cn("grid content-start gap-6", bodyClassName)}>
+        <form.Field name="scope">
           {(field) => (
-            <Field orientation="horizontal">
-              <Switch
-                id="changes-pin"
-                aria-label={m.review.changes.pin(formatTimestamp(atSeconds ?? 0))}
-                checked={field.state.value}
-                onCheckedChange={(v) => field.handleChange(v)}
-              />
-              <FieldContent>
-                <FieldLabel htmlFor="changes-pin" className="tabular">
-                  {m.review.changes.pin(formatTimestamp(atSeconds ?? 0))}
-                </FieldLabel>
-                <FieldDescription>{m.review.changes.pinHint}</FieldDescription>
-              </FieldContent>
+            <Field>
+              <FieldLabel id="feedback-scope">
+                {m.review.changes.scope}
+              </FieldLabel>
+              <ToggleGroup
+                aria-labelledby="feedback-scope"
+                variant="outline"
+                size="sm"
+                className="flex-wrap"
+                value={[field.state.value]}
+                onValueChange={(next) =>
+                  next[0] && field.handleChange(next[0] as FeedbackScope)
+                }
+              >
+                {SCOPES[d.kind].map((s) => (
+                  <ToggleGroupItem key={s} value={s}>
+                    {scopeLabel(s, d.kind)}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
             </Field>
           )}
         </form.Field>
-      ) : null}
-      {request.error ? <Banner title={errorMessage(request.error)} /> : null}
-      <DialogFooter>
-        <Button type="button" variant="outline" onClick={onDone}>
-          {m.common.cancel}
-        </Button>
-        <form.Subscribe selector={(s) => s.isSubmitting}>
-          {(submitting) => (
-            <Button type="submit" disabled={submitting}>
-              {submitting ? m.review.changes.sending : m.review.changes.submit}
-            </Button>
-          )}
-        </form.Subscribe>
-      </DialogFooter>
+        {video ? (
+          <form.Field
+            name="at"
+            validators={{
+              onChange: ({ value }) => timeError(value),
+              onSubmit: ({ value }) => timeError(value),
+            }}
+          >
+            {(field) => {
+              const invalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+              return (
+                <Field data-invalid={invalid || undefined}>
+                  <FieldLabel htmlFor="feedback-at">
+                    {m.feedbackSheet.timestamp}
+                  </FieldLabel>
+                  <div className="flex gap-2">
+                    <Input
+                      id="feedback-at"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      placeholder={m.feedbackSheet.timestampPlaceholder}
+                      className="tabular w-24 font-mono"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      aria-invalid={invalid || undefined}
+                      aria-describedby="feedback-at-hint"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!playhead}
+                      onClick={() => {
+                        const t = playhead?.()
+                        if (t !== undefined)
+                          field.handleChange(formatTimestamp(t))
+                      }}
+                    >
+                      <CrosshairIcon data-icon="inline-start" />
+                      {m.feedbackSheet.usePlayhead}
+                    </Button>
+                  </div>
+                  {invalid ? (
+                    <FieldError>{String(field.state.meta.errors[0])}</FieldError>
+                  ) : (
+                    <p
+                      id="feedback-at-hint"
+                      className="text-xs text-muted-foreground"
+                    >
+                      {m.feedbackSheet.timestampHint}
+                    </p>
+                  )}
+                </Field>
+              )
+            }}
+          </form.Field>
+        ) : null}
+        <form.Field
+          name="text"
+          validators={{
+            onChange: ({ value }) => textError(value),
+            onSubmit: ({ value }) => textError(value),
+          }}
+        >
+          {(field) => {
+            const invalid =
+              field.state.meta.isTouched && !field.state.meta.isValid
+            return (
+              <Field data-invalid={invalid || undefined}>
+                <FieldLabel htmlFor="feedback-text">
+                  {m.feedbackSheet.note}
+                </FieldLabel>
+                <Textarea
+                  ref={noteRef}
+                  id="feedback-text"
+                  rows={5}
+                  className="min-h-28"
+                  placeholder={
+                    video
+                      ? m.review.changes.placeholderVideo
+                      : m.review.changes.placeholderArticle
+                  }
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  aria-invalid={invalid || undefined}
+                  aria-describedby="feedback-text-count"
+                />
+                <div className="flex justify-between gap-3 text-xs text-muted-foreground">
+                  {invalid ? (
+                    <FieldError>{String(field.state.meta.errors[0])}</FieldError>
+                  ) : (
+                    <form.Subscribe selector={(s) => [s.values.scope, s.values.at]}>
+                      {([scope, at]) => (
+                        <span>
+                          {scopeLabel(scope as FeedbackScope, d.kind)}
+                          {video && parseTimestamp(at) !== undefined ? (
+                            <>
+                              {" · "}
+                              <span className="font-mono">{at.trim()}</span>
+                            </>
+                          ) : null}
+                        </span>
+                      )}
+                    </form.Subscribe>
+                  )}
+                  <span id="feedback-text-count" className="tabular shrink-0">
+                    {m.feedbackSheet.count(
+                      [...field.state.value].length,
+                      MAX_FEEDBACK
+                    )}
+                  </span>
+                </div>
+              </Field>
+            )
+          }}
+        </form.Field>
+        {earlier.length > 0 ? (
+          <div className="grid gap-3">
+            <p className="text-sm leading-none font-medium">
+              {m.feedbackSheet.earlier}
+            </p>
+            <ul className="grid gap-2 text-sm text-muted-foreground">
+              {earlier.map((e) => (
+                <li key={`${e.on}-${e.text}`} className="flex gap-3">
+                  <span className="tabular w-10 shrink-0 font-mono text-foreground">
+                    {e.at !== undefined ? formatTimestamp(e.at) : "—"}
+                  </span>
+                  <span className="min-w-0">
+                    {e.addressedIn !== undefined
+                      ? m.feedbackSheet.addressed(e.on, e.scope, e.addressedIn)
+                      : m.feedbackSheet.pending(e.on, e.scope)}
+                    <span className="mt-0.5 line-clamp-2 text-xs text-foreground/80">
+                      “{e.text}”
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {request.error ? <Banner title={errorMessage(request.error)} /> : null}
+      </div>
+      <form.Subscribe selector={(s) => s.isSubmitting}>
+        {(submitting) => renderFooter(submitting)}
+      </form.Subscribe>
     </form>
   )
+}
+
+type EarlierNote = {
+  /** The revision the note was given on. */
+  on: number
+  addressedIn?: number
+  scope: string
+  at?: number
+  text: string
+}
+
+/** Feedback already given on the deliverable, newest first. */
+function earlierNotes(d: Deliverable, revisions: Revision[]): EarlierNote[] {
+  const out: EarlierNote[] = []
+  for (const r of revisions) {
+    if (!r.feedback) continue
+    out.push({
+      on: r.number - 1,
+      addressedIn: r.number,
+      scope: scopeLabel(r.feedback.scope, d.kind),
+      at: r.feedback.atSeconds,
+      text: r.feedback.text,
+    })
+  }
+  if (d.pendingFeedback)
+    out.push({
+      on: d.revision,
+      scope: scopeLabel(d.pendingFeedback.scope, d.kind),
+      at: d.pendingFeedback.atSeconds,
+      text: d.pendingFeedback.text,
+    })
+  return out.toReversed()
 }

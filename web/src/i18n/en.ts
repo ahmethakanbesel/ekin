@@ -730,6 +730,29 @@ export const en = {
     details: "Details",
     story: "Story",
     outputs: "Other outputs",
+    feedback: "Feedback",
+    feedbackToggle: "Feedback for the agent",
+  },
+  feedbackSheet: {
+    title: "Feedback",
+    description: (n: number) =>
+      `On revision ${n}. The agent reads it before writing revision ${n + 1}.`,
+    close: "Close feedback",
+    timestamp: "Timestamp",
+    timestampPlaceholder: "0:00",
+    timestampHint: "Where in the video. Leave it empty for the whole video.",
+    timestampInvalid: "Use minutes and seconds, like 0:14.",
+    usePlayhead: "Use playhead",
+    note: "Note",
+    count: (n: number, max: number) =>
+      `${n.toLocaleString("en-GB")} / ${max.toLocaleString("en-GB")}`,
+    earlier: "Earlier notes on this output",
+    addressed: (on: number, scope: string, n: number) =>
+      `r${on} · ${scope} · addressed in r${n}`,
+    pending: (on: number, scope: string) => `r${on} · ${scope} · being revised`,
+    submit: "Request changes",
+    hint: (n: number) =>
+      `Sends this note to the agent, which writes revision ${n + 1}. Approve or reject instead to close r${n} without changes.`,
   },
   editor: {
     titleArticle: (n: number) => `Editing the article (revision ${n})`,

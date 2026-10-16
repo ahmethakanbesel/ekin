@@ -1,8 +1,9 @@
-import type { ReactElement, ReactNode } from "react"
+import type { ReactElement, ReactNode, RefObject } from "react"
 import {
   CheckIcon,
   ExternalLinkIcon,
   LayersIcon,
+  MessageSquarePlusIcon,
   PencilLineIcon,
   RotateCwIcon,
   SendIcon,
@@ -48,17 +49,25 @@ export function ActionRail({
   review,
   canEdit,
   onDecided,
-  extra,
+  onRequestChanges,
+  feedback,
 }: {
   deliverable: Deliverable
   review: DeliverableReview
   canEdit: boolean
   /** After an approval went through, with the updated story. */
   onDecided: (story: Story) => void
-  /** More rail actions, after the decisions (the feedback sheet). */
-  extra?: ReactNode
+  /** Opens the feedback sheet on the note, pinned where the player paused. */
+  onRequestChanges: () => void
+  /** The feedback sheet's toggle. */
+  feedback: {
+    open: boolean
+    onToggle: () => void
+    ref: RefObject<HTMLButtonElement | null>
+  }
 }) {
   const busy = review.busy
+  const { ref: feedbackRef, open: feedbackOpen, onToggle } = feedback
   const reviewing = canEdit && d.status === "review"
   const shown = review.current?.number ?? d.revision
   const main: ReactNode[] = []
@@ -86,9 +95,23 @@ export function ActionRail({
           className={cn(round, tones.changes)}
           aria-label={m.feed.requestChanges(d.revision)}
           disabled={busy}
-          onClick={review.openChanges}
+          onClick={onRequestChanges}
         >
           <PencilLineIcon />
+        </Button>
+      </RailItem>,
+      <RailItem key="feedback" label={m.feed.feedback}>
+        <Button
+          ref={feedbackRef}
+          variant="outline"
+          size="icon-lg"
+          className={cn(round, tones.neutral)}
+          aria-label={m.feed.feedbackToggle}
+          aria-expanded={feedbackOpen}
+          aria-controls="feedback-sheet"
+          onClick={onToggle}
+        >
+          <MessageSquarePlusIcon />
         </Button>
       </RailItem>
     )
@@ -139,7 +162,6 @@ export function ActionRail({
       </RailItem>
     )
   }
-  if (extra) main.push(extra)
   if (review.list.length > 0) {
     main.push(
       <RailItem key="revisions" label={m.feed.revisions}>
