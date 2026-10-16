@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import {
   AlertCircleIcon,
   CheckCircle2Icon,
+  ChevronRightIcon,
   ClockIcon,
   Loader2Icon,
   XCircleIcon,
@@ -13,7 +14,12 @@ import { m } from "@/i18n"
 import { formatDateTime, formatRelative, useNow } from "@/lib/time"
 import { iconClass, toneClass, type BannerTone } from "@/lib/tones"
 import { cn } from "@/lib/utils"
-import { formatTimestamp, scopeLabel, sourceOf } from "./model"
+import {
+  failureSummary,
+  formatTimestamp,
+  scopeLabel,
+  sourceOf,
+} from "./model"
 
 /** What is happening to the deliverable, in plain words. */
 export function StatusBanner({
@@ -118,11 +124,7 @@ export function StatusBanner({
     case "failed":
       tone = "danger"
       title = t.failed(t.steps[d.failedStep ?? ""] ?? t.steps.unknown)
-      body = (
-        <span className="block max-h-40 overflow-y-auto font-mono text-xs whitespace-pre-wrap">
-          {d.failure || t.noFailure}
-        </span>
-      )
+      body = <FailureBody deliverable={d} canEdit={canEdit} />
       break
   }
 
@@ -165,6 +167,38 @@ export function StatusBanner({
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * What failed in plain words, whether Retry is likely to help (for those
+ * who can retry), and the raw error tucked away for whoever debugs it.
+ */
+function FailureBody({
+  deliverable: d,
+  canEdit,
+}: {
+  deliverable: Deliverable
+  canEdit: boolean
+}) {
+  const { what, next } = failureSummary(d)
+  return (
+    <>
+      <span className="block text-foreground/90">{what}</span>
+      {canEdit ? <span className="mt-1 block">{next}</span> : null}
+      <details className="group mt-2">
+        <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-sm text-xs font-medium text-foreground/80 outline-none select-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+          <ChevronRightIcon
+            className="size-3.5 transition-transform group-open:rotate-90"
+            aria-hidden="true"
+          />
+          {m.banner.technicalDetails}
+        </summary>
+        <span className="mt-1.5 block max-h-40 overflow-y-auto font-mono text-xs whitespace-pre-wrap">
+          {d.failure || m.banner.noFailure}
+        </span>
+      </details>
+    </>
   )
 }
 

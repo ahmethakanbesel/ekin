@@ -318,6 +318,7 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 
 ### Banners
 - **Style:** a bordered callout with a leading icon in the tone colour: working (5% violet tint, 30% violet edge), attention (10% cornflower tint, 40% Cornflower Ink edge), done, failed, muted.
+- **Failed:** leads with what failed in plain words and, for editors, whether Retry is likely to help, phrased as guidance; the raw error sits in a closed "Technical details" disclosure in small mono.
 
 ### Tabs and Toggles
 - **Tab list:** stone track, 10px corners, 3px inset, 36px tall. Inactive tabs are Ink at 60% (Stone Text in dark).
@@ -331,7 +332,7 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 - **Lists** (the jobs list) are a single bordered 14px container with hairline dividers between rows and a 40% stone hover.
 
 ### Posters
-- **Character:** the inbox shows each story as a 9:16 poster of its lead output: the video's poster frame over a pipeline-hue gradient, or the article as a paper sheet. A format badge sits top left; the lead's status badge and title sit in a strip over the foot on the page colour at 85%. Under the poster: output lines, the failure if any (red, with the reason in Stone Text), origin with the pipeline swatch, language badge and relative age.
+- **Character:** the inbox shows each story as a 9:16 poster of its lead output: the video's poster frame over a pipeline-hue gradient, or the article as a paper sheet. A format badge sits top left; the lead's status badge and title sit in a strip over the foot on the page colour at 85%. Under the poster: output lines, the failure if any (red, with a plain sentence of what failed in Stone Text, never the raw error), origin with the pipeline swatch, language badge and relative age.
 - **Hover / Focus:** shadow rises from small to medium; focus draws the 3px ring around the whole poster.
 
 ### Player

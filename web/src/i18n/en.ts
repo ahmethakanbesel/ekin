@@ -660,6 +660,29 @@ export const en = {
       unknown: "A step",
     } as Record<string, string>,
     noFailure: "No reason was recorded.",
+    /** What failed, in plain words, per failed step. */
+    failedWhat: {
+      drafting: "The agent stopped before it finished the draft.",
+      rendering: "The preview could not be put together from the draft.",
+      finalizing: "The approved draft could not be rendered at full resolution.",
+      publishingVideo: "It could not be uploaded to YouTube.",
+      publishingArticle: "It could not be written to the blog.",
+      unknown: "A step stopped with an error.",
+    } as Record<string, string>,
+    /** Whether Retry is likely to help, as guidance, per failed step. */
+    failedNext: {
+      drafting:
+        "Retry starts the draft again; passing problems such as a timeout or a busy model often clear. If it keeps failing the same way, the agent's setup may need a look in System checks.",
+      rendering:
+        "Retrying often works. If it fails again the same way, the composition may be too heavy to render; rejecting it and requesting the story again lets the agent start afresh.",
+      finalizing:
+        "Retrying often works. The approval stands, so nothing needs reviewing again.",
+      publishing:
+        "This is often an expired connection or a missing permission, so check publishing in workspace settings first. Retry then puts it back as ready to publish.",
+      unknown:
+        "Retry runs the step again. If it keeps failing the same way, it likely needs a fix rather than another try.",
+    } as Record<string, string>,
+    technicalDetails: "Technical details",
     updates: "The page updates by itself.",
   },
   review: {

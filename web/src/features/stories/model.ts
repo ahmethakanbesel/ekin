@@ -24,6 +24,28 @@ import { emptyOverride, toOverride, type VoiceOverrideValues } from "@/features/
 import { DEFAULT_SELF_REVIEW } from "@/features/pipelines/self-review-section"
 import { m } from "@/i18n"
 
+// ---- Failures ----
+
+/**
+ * A failed deliverable in plain words: what failed, and (for someone who
+ * can retry) whether retrying is likely to help.
+ */
+export function failureSummary(d: Pick<Deliverable, "failedStep" | "kind">): {
+  what: string
+  next: string
+} {
+  const t = m.banner
+  let step = d.failedStep === "queued" ? "drafting" : (d.failedStep ?? "")
+  if (!Object.hasOwn(t.failedNext, step)) step = "unknown"
+  const what =
+    step === "publishing"
+      ? d.kind === "video"
+        ? t.failedWhat.publishingVideo
+        : t.failedWhat.publishingArticle
+      : t.failedWhat[step]
+  return { what, next: t.failedNext[step] }
+}
+
 // ---- List tabs ----
 
 export const STORY_TABS = ["review", "progress", "done", "failed", "all"] as const

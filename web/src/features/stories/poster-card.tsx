@@ -16,7 +16,12 @@ import { pipelineHue } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { artifactUrl } from "@/queries/stories"
 import { StatusBadge } from "./badges"
-import { deliverableLabel, measuredLength, measuredWords } from "./model"
+import {
+  deliverableLabel,
+  failureSummary,
+  measuredLength,
+  measuredWords,
+} from "./model"
 
 const orientationIcon: Record<string, LucideIcon> = {
   vertical: SmartphoneIcon,
@@ -103,14 +108,9 @@ export function PosterCard({
             <span className="font-medium">
               {m.banner.failed(m.banner.steps[failed.failedStep ?? ""] ?? m.banner.steps.unknown)}
             </span>
-            {failed.failure ? (
-              <span
-                className="mt-0.5 line-clamp-2 text-xs text-muted-foreground"
-                title={failed.failure}
-              >
-                {failed.failure}
-              </span>
-            ) : null}
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              {failureSummary(failed).what}
+            </span>
           </p>
         ) : null}
         <p className="text-muted-foreground">
