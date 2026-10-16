@@ -25,7 +25,7 @@ export function StatusBadge({ status }: { status: DocumentStatus }) {
 
 export function FormatBadge({ format }: { format: DocumentFormat }) {
   return (
-    <Badge variant="outline" className="font-mono text-[11px] tracking-wide">
+    <Badge variant="outline" className="font-mono tracking-wide">
       {m.values.documentFormat[format] ?? format}
     </Badge>
   )

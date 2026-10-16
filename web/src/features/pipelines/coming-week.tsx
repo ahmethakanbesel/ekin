@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import type { Pipeline, UpcomingRun } from "@/api/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { m } from "@/i18n"
 import { upcomingRunsQuery } from "@/queries/pipelines"
@@ -70,9 +70,16 @@ export function ComingWeek({
     .toSorted((a, b) => (b.lastRunAt ?? "").localeCompare(a.lastRunAt ?? ""))[0]
 
   return (
-    <Card className="mt-6" aria-labelledby="coming-week-title">
+    <Card role="region" className="mt-6" aria-labelledby="coming-week-title">
       <CardHeader>
-        <CardTitle id="coming-week-title">{m.pipelines.week.title}</CardTitle>
+        {/* The card's title is the page's h2, so the day headings (h3) sit under it. */}
+        <h2
+          id="coming-week-title"
+          data-slot="card-title"
+          className="font-heading text-base leading-normal font-medium"
+        >
+          {m.pipelines.week.title}
+        </h2>
         <CardDescription>{m.pipelines.week.description(timezone)}</CardDescription>
       </CardHeader>
       <CardContent>

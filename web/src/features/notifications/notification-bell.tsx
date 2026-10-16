@@ -166,7 +166,7 @@ export function NotificationBell({
         <BellIcon className="size-4" />
         {unreadCount > 0 ? (
           <span
-            className="tabular absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 font-semibold text-primary-foreground inset-ring inset-ring-primary-ink"
+            className="tabular absolute -top-1 -right-1 h-[18px] min-w-[18px] rounded-full bg-primary px-1 text-center text-xs leading-[18px] font-semibold text-primary-foreground inset-ring inset-ring-primary-ink"
             aria-hidden="true"
           >
             {unreadCount > 9 ? "9+" : unreadCount}

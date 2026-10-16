@@ -187,7 +187,7 @@ export function StoriesPage() {
                 {m.stories.tabs[t]}
                 {counts ? (
                   t === "review" && counts.review !== "0" ? (
-                    <span className="tabular rounded-full bg-primary px-1.5 text-[11px] leading-4 font-semibold text-primary-foreground inset-ring inset-ring-primary-ink">
+                    <span className="tabular rounded-full bg-primary px-1.5 text-xs leading-4 font-semibold text-primary-foreground inset-ring inset-ring-primary-ink">
                       {counts.review}
                     </span>
                   ) : (

@@ -218,7 +218,7 @@ function PipelineRow({
               )}
               <span>{line.text}</span>
               {line.lead ? (
-                <Badge variant="outline" className="mt-0.5 h-4 shrink-0 px-1.5 text-[10px]">
+                <Badge variant="outline" className="shrink-0">
                   {m.pipelines.lead}
                 </Badge>
               ) : null}

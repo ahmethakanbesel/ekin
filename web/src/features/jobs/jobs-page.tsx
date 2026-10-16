@@ -449,7 +449,7 @@ function RequestRow({
           <span className="tabular text-sm font-medium">
             {formatSpan(r.end - r.start)}
           </span>
-          <span className="tabular text-[11px] text-muted-foreground">
+          <span className="tabular text-xs text-muted-foreground">
             {t.busy(formatSpan(r.busy))}
           </span>
         </div>
@@ -612,7 +612,7 @@ function Steps({
                   <div className="flex flex-col gap-0.5">
                     <span className="text-sm">{stepLabel(s, lookup)}</span>
                     <span
-                      className="font-mono text-[11px] text-muted-foreground"
+                      className="font-mono text-xs text-muted-foreground"
                       title={`${job.kind} · ${job.id}`}
                     >
                       {job.id.slice(0, 8)}

@@ -321,7 +321,7 @@ function CredentialRow({
             ) : null}
           </div>
           {c.source === "env" ? null : (
-            <p className="font-mono text-[11px] break-all text-muted-foreground/80">{c.env}</p>
+            <p className="font-mono text-xs break-all text-muted-foreground/80">{c.env}</p>
           )}
         </div>
       </TableCell>

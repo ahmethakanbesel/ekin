@@ -239,7 +239,7 @@ export function FeedbackLine({
 }) {
   return (
     <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-      <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
+      <Badge variant="outline">
         {scopeLabel(f.scope, kind)}
       </Badge>
       {f.atSeconds !== undefined ? (

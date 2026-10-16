@@ -259,7 +259,7 @@ Every queue and pipeline hue clears 3:1 against the page in both themes (lowest:
 - **Title** (600, 1.125rem, snug): a draft's title under its frame, sheet and dialog titles, empty-state headings. Poster titles step down to 0.875rem semibold over the poster foot.
 - **Body** (400, 0.875rem): the working size of the app: lists, forms, metadata, descriptions.
 - **Reading** (400, 1rem, 1.7 line height): rendered Markdown for articles and scripts. Headings inside it are 600 with -0.01em tracking at 1.6 / 1.3 / 1.1em; in the compact script column beside the feed, headings mark scenes and shrink to 1.1em and 1em.
-- **Label** (500, 0.75rem): badges, action-rail captions, counts, small metadata.
+- **Label** (500, 0.75rem): badges, action-rail captions, counts, small metadata. It is the smallest step: no functional text (scope and lead badges, count pills, the notification count, ids, env names) goes below 12px; only the decorative, hidden "Aa" template swatch does.
 - **Data** (Geist Mono, tabular figures): timestamps such as 0:21, queue badges, durations. Counts that change in place use tabular figures in the sans.
 
 ### Named Rules

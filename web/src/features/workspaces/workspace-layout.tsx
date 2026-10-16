@@ -282,7 +282,7 @@ export function WorkspaceLayout() {
                   {item.label}
                   {item.to === "/w/$workspaceId/stories" && badge ? (
                     <span
-                      className="tabular min-w-5 rounded-full bg-primary px-1.5 text-center text-[11px] leading-5 font-semibold text-primary-foreground inset-ring inset-ring-primary-ink"
+                      className="tabular min-w-5 rounded-full bg-primary px-1.5 text-center text-xs leading-5 font-semibold text-primary-foreground inset-ring inset-ring-primary-ink"
                       aria-label={m.nav.reviewCount(reviewCount)}
                     >
                       {badge}
