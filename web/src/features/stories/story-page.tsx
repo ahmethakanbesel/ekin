@@ -360,7 +360,9 @@ function StoryView({
         aria-label={story.title}
         className="flex min-h-0 min-w-0 flex-col"
       >
-        <div className="flex flex-wrap items-center gap-2 px-4 py-3">
+        {/* As tall with or without the outputs switch (38px), so the feed
+            below keeps its height from story to story. */}
+        <div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:min-h-[62px]">
           <Button
             variant="ghost"
             size="sm"
