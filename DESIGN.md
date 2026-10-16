@@ -2,8 +2,10 @@
 name: Kurgu
 description: A warm, quiet review desk for content pipelines, where the drafts carry the colour and cornflower means a person is needed.
 colors:
-  cornflower: "oklch(0.8 0.08 250)"
-  cornflower-on: "oklch(0.25 0.05 262)"
+  cornflower: "oklch(0.74 0.1 254)"
+  cornflower-dark: "oklch(0.8 0.08 250)"
+  cornflower-on: "oklch(0.22 0.06 262)"
+  cornflower-on-dark: "oklch(0.25 0.05 262)"
   cornflower-ink: "oklch(0.5 0.13 262)"
   cornflower-ink-dark: "oklch(0.8 0.08 250)"
   focus-ring: "oklch(0.5 0.13 262)"
@@ -204,8 +206,8 @@ The system is stock shadcn (base-vega style on Base UI) with a short list of del
 A warm off-white desk with a single cornflower signal, three status tones, and two small categorical hue sets (queues and pipelines) that live only in dots, swatches and bars.
 
 ### Primary
-- **Cornflower** (cornflower): the needs-you signal and the primary action. Fills the primary button, the attention badge ("In review"), the review-count pill in the sidebar and tab list, the unread notification count, and the feedback sheet's send button. Identical in both themes. As a fill it sits at 1.82:1 against the light page, so it never stands alone: every cornflower fill carries a 1px inset boundary in Cornflower Ink.
-- **Cornflower On** (cornflower-on): the deep navy text on any cornflower fill (8.6:1).
+- **Cornflower** (cornflower / cornflower-dark): the needs-you signal and the primary action. Fills the primary button, the attention badge ("In review"), the review-count pill in the sidebar and tab list, the unread notification count, and the feedback sheet's send button. Still a soft blue in both themes, but the light theme's is a step deeper (`oklch(0.74 0.1 254)` against dark's `oklch(0.8 0.08 250)`): at the dark value's 1.82:1 against the light page, a primary button read as nearly disabled beside an outline button. The light fill sits at 2.25:1 against the page (2.30:1 on Card White, 2.18:1 on Sidebar Linen), so it still never stands alone: every cornflower fill carries a 1px inset boundary in Cornflower Ink, which gives the 3:1 boundary (5.98:1 against the page; 2.65:1 against the fill itself). In dark the fill is 10.5:1 against the page and needs no help.
+- **Cornflower On** (cornflower-on / cornflower-on-dark): the deep navy text on any cornflower fill: `oklch(0.22 0.06 262)` at 7.56:1 on the light fill, `oklch(0.25 0.05 262)` at 8.64:1 on the dark one.
 - **Cornflower Ink** (cornflower-ink, cornflower-ink-dark): cornflower as text, edge and dot. Used for cornflower boundaries, the review count beside the Review nav item, the attention banner icon, "request changes" on the action rail, the in-review status beside a deliverable in the story switcher, link text in rendered Markdown, the text caret, and small "needs a look" dots (fresh notification, paused throttle). 6.0:1 on the light page; in dark it equals Cornflower itself (10.5:1).
 - **Focus Ring** (focus-ring, focus-ring-dark): Cornflower Ink in light (6.0:1) and Cornflower in dark. It is the only ring colour; see Components.
 
@@ -378,7 +380,7 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 
 ### Don't:
 - **Don't** use Cornflower for a selected tab, the active nav item, a pressed filter, a checked control, a slider or progress fill, hover, or decoration.
-- **Don't** put a bare Cornflower fill or Cornflower text on the light page; it is 1.82:1.
+- **Don't** put a bare Cornflower fill or Cornflower text on the light page; it is 2.25:1.
 - **Don't** let a state rest on a tinted fill alone; the stone fill is about 1.1:1 against the page.
 - **Don't** invent metrics, scores or counts the API does not return.
 - **Don't** add a second type family, a display face, or uppercase labels for headings or sections.
