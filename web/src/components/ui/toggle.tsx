@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 
 // Pressed draws a neutral inset edge (foreground/70: 7.5:1 light, 9.9:1 dark
 // against the page) on top of the fill, so the state never rests on a 1.1:1
-// tint alone (WCAG 1.4.11). Marigold stays reserved for needs-you and focus.
+// tint alone (WCAG 1.4.11). The primary blue stays reserved for needs-you and focus.
 const toggleVariants = cva(
   "group/toggle inline-flex items-center justify-center gap-1 rounded-md text-sm font-medium whitespace-nowrap transition-[color,box-shadow] outline-none hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 aria-pressed:bg-secondary aria-pressed:text-foreground aria-pressed:inset-ring aria-pressed:inset-ring-foreground/70 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {

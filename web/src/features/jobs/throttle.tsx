@@ -93,7 +93,7 @@ export function useThrottle(): Throttle | undefined {
 
 /**
  * One line per paused profile, with a way to resume it. The surface stays
- * neutral; marigold is kept for the Resume action itself.
+ * neutral; the primary blue is kept for the Resume action itself.
  */
 export function PausedBanners({ throttle }: { throttle: Throttle }) {
   const paused = throttle.profiles.filter((p) => p.paused)

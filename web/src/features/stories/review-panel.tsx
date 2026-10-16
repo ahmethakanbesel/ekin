@@ -124,7 +124,7 @@ export function ReviewPanel({
             >
               {review.list.map((r) => {
                 const label = m.stories.revisionShort(r.number)
-                // Marigold marks the revision waiting for a decision only.
+                // The primary blue marks the revision waiting for a decision only.
                 const inReview = d.status === "review" && r.number === d.revision
                 return (
                   <ToggleGroupItem

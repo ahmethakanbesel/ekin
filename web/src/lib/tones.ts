@@ -2,7 +2,7 @@ import type { DeliverableStatus, JobStatus } from "@/api/client"
 
 /*
  * Colour roles, all drawn from theme tokens (index.css):
- * info = the system is working, attention = marigold, it needs a person,
+ * info = the system is working (violet), attention = the primary blue, it needs a person,
  * success = done, danger = failed, neutral/muted = waiting or set aside.
  */
 export type Tone =

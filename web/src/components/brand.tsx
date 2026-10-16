@@ -4,7 +4,7 @@ import { ClapperboardIcon } from "lucide-react"
 import { m } from "@/i18n"
 import { cn } from "@/lib/utils"
 
-/** The marigold logo square. */
+/** The blue logo square. */
 export function BrandMark({ className }: { className?: string }) {
   return (
     <span

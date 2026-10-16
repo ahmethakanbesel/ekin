@@ -95,7 +95,7 @@ const STEP = 5
 const PAGE = 10
 
 /**
- * The scrubber under a draft: a track with the progress in marigold and
+ * The scrubber under a draft: a track with the progress in the primary blue and
  * a dot at every note pinned to a time (a click there plays from it),
  * then play / pause and the time.
  */
