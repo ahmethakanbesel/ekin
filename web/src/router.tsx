@@ -276,13 +276,18 @@ const routeTree = rootRoute.addChildren([
   ]),
 ])
 
+const STORY_PAGE = /^\/w\/[^/]+\/stories\/(?!new$)[^/]+\/?$/
+
 export const router = createRouter({
   routeTree,
   // Filled in by <AppRouter>; the router itself is a module singleton so
   // its type can be registered below.
   context: { queryClient: undefined! },
   defaultPreload: "intent",
-  scrollRestoration: true,
+  // The story page's feed scrolls itself as J / K move between drafts (each
+  // a navigation); restoring the feed's old position after them would undo
+  // the move. Everywhere else the router restores scroll.
+  scrollRestoration: ({ location }) => !STORY_PAGE.test(location.pathname),
 })
 
 declare module "@tanstack/react-router" {
