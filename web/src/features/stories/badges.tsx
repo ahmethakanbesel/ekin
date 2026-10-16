@@ -12,7 +12,7 @@ import {
 import type { Deliverable, DeliverableStatus } from "@/api/client"
 import { Badge } from "@/components/ui/badge"
 import { m } from "@/i18n"
-import { deliverableBadge } from "@/lib/tones"
+import { badgeTone, deliverableBadge } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { isWorking } from "@/queries/stories"
 
@@ -28,20 +28,32 @@ const statusIcon: Partial<Record<DeliverableStatus, LucideIcon>> = {
   failed: CircleXIcon,
 }
 
-/** A deliverable status; with `revision`, prefixed by it ("r3 · In review"). */
+/**
+ * A deliverable status; with `revision`, prefixed by it ("r3 · In review").
+ * `quiet` drops the cornflower from "In review" where something nearby
+ * (a tab, the deliverable switcher, the panel's banner) already says it.
+ */
 export function StatusBadge({
   status,
   revision,
+  quiet = false,
   className,
 }: {
   status: DeliverableStatus
   revision?: number
+  quiet?: boolean
   className?: string
 }) {
   const spinning = isWorking({ status }) && status !== "queued"
   const Icon = spinning ? Loader2Icon : statusIcon[status]
   return (
-    <Badge variant="secondary" className={cn(statusTone(status), className)}>
+    <Badge
+      variant="secondary"
+      className={cn(
+        quiet && status === "review" ? badgeTone.neutral : statusTone(status),
+        className
+      )}
+    >
       {Icon ? (
         <Icon
           data-icon="inline-start"

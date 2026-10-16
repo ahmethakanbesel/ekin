@@ -206,7 +206,7 @@ A warm off-white desk with a single cornflower signal, three status tones, and t
 ### Primary
 - **Cornflower** (cornflower): the needs-you signal and the primary action. Fills the primary button, the attention badge ("In review"), the review-count pill in the sidebar and tab list, the unread notification count, and the feedback sheet's send button. Identical in both themes. As a fill it sits at 1.82:1 against the light page, so it never stands alone: every cornflower fill carries a 1px inset boundary in Cornflower Ink.
 - **Cornflower On** (cornflower-on): the deep navy text on any cornflower fill (8.6:1).
-- **Cornflower Ink** (cornflower-ink, cornflower-ink-dark): cornflower as text, edge and dot. Used for cornflower boundaries, the review count beside the Review nav item, the attention banner icon, "request changes" on the action rail, the in-review revision label, link text in rendered Markdown, the text caret, and small "needs a look" dots (fresh notification, paused throttle). 6.0:1 on the light page; in dark it equals Cornflower itself (10.5:1).
+- **Cornflower Ink** (cornflower-ink, cornflower-ink-dark): cornflower as text, edge and dot. Used for cornflower boundaries, the review count beside the Review nav item, the attention banner icon, "request changes" on the action rail, the in-review status beside a deliverable in the story switcher, link text in rendered Markdown, the text caret, and small "needs a look" dots (fresh notification, paused throttle). 6.0:1 on the light page; in dark it equals Cornflower itself (10.5:1).
 - **Focus Ring** (focus-ring, focus-ring-dark): Cornflower Ink in light (6.0:1) and Cornflower in dark. It is the only ring colour; see Components.
 
 ### Neutral
@@ -323,7 +323,8 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 
 ### Badges and Status
 - **Style:** fully round, 20px tall, 12px medium label.
-- **Tones:** attention is solid Cornflower with the ink boundary (only for "In review"); working, done and failed are tinted; waiting and queued are outlined with Ink text; rejected and cancelled are outlined with Stone Text, and a rejected output is also struck through.
+- **Tones:** attention is solid Cornflower with the ink boundary (only for "In review", and only where status varies around it); working, done and failed are tinted; waiting and queued are outlined with Ink text; rejected and cancelled are outlined with Stone Text, and a rejected output is also struck through.
+- **Said once:** where something nearby already says "in review", the badge keeps its words and drops the cornflower. On the Needs review tab a poster shows a neutral outline revision label ("r3") instead of "r3 · In review"; in the story feed the caption's and the article header's status badge is neutral for "In review", because the deliverable switcher, the panel's banner and the action rail carry it. The All and In progress tabs, the switcher's status text and the panel's other-outputs list keep the attention tone.
 - **Mapping:** waiting, queued: neutral. drafting, rendering, finalizing, publishing, running: working. review: attention. ready, published, succeeded: done. failed: failed. rejected, cancelled: muted. Pipelines: active is done with a check icon, paused is neutral with a pause icon. Running jobs spin their icon.
 
 ### Banners
@@ -333,7 +334,7 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 ### Tabs and Toggles
 - **Tab list:** stone track, 10px corners, 3px inset, 36px tall. Inactive tabs are Ink at 60% (Stone Text in dark).
 - **Selected tab:** page fill, Ink text, and a 1px inset edge in Ink at 70% (6.6:1 light, 8.1:1 dark against the list) so selection never rests on a 1.1:1 fill. Counts sit beside the label in Stone Text; only the review count is a Cornflower pill.
-- **Pressed toggle:** stone fill, Ink text, the same 1px Ink-at-70% inset edge (7.5:1 light, 9.9:1 dark). Revision toggles use Ink at 60%, except the revision waiting for a decision, which takes the Cornflower Ink edge and text on a 10% cornflower tint.
+- **Pressed toggle:** stone fill, Ink text, the same 1px Ink-at-70% inset edge (7.5:1 light, 9.9:1 dark). Revision toggles use Ink at 60% for every revision, the one waiting for a decision included: picking a revision is selection, and the attention banner right above them already names the revision that waits.
 
 ### Cards / Containers
 - **Corner Style:** 14px.
@@ -342,7 +343,7 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 - **Lists** (the jobs list) are a single bordered 14px container with hairline dividers between rows and a 40% stone hover.
 
 ### Posters
-- **Character:** the inbox shows each story as a 9:16 poster of its lead output: the video's poster frame over a pipeline-hue gradient, or the article as a paper sheet. A format badge sits top left; the lead's status badge and title sit in a strip over the foot on the page colour at 85%. Under the poster: output lines, the failure if any (red, with a plain sentence of what failed in Stone Text, never the raw error), origin with the pipeline swatch, language badge and relative age.
+- **Character:** the inbox shows each story as a 9:16 poster of its lead output: the video's poster frame over a pipeline-hue gradient, or the article as a paper sheet. A format badge sits top left; the lead's status badge (on the Needs review tab, just its neutral revision label) and title sit in a strip over the foot on the page colour at 85%. Under the poster: output lines, the failure if any (red, with a plain sentence of what failed in Stone Text, never the raw error), origin with the pipeline swatch, language badge and relative age.
 - **Hover / Focus:** shadow rises from small to medium; focus draws the 3px ring around the whole poster.
 
 ### Player

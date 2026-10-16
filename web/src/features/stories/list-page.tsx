@@ -142,6 +142,7 @@ export function StoriesPage() {
                 pipelinesLoaded={!!pipelines.data}
                 timezone={workspace.timezone}
                 now={now}
+                inReviewTab={tab === "review"}
               />
             </li>
           ))}

@@ -455,7 +455,7 @@ export function DraftFrame({
         className="frame-paper paper scroll-area overflow-y-auto rounded-xl border bg-card text-card-foreground shadow-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-card/95 px-5 py-3">
-          <StatusBadge status={d.status} revision={d.revision} />
+          <StatusBadge status={d.status} revision={d.revision} quiet />
           <Badge variant="outline">
             <FileTextIcon data-icon="inline-start" />
             {m.values.kind.article}
@@ -610,7 +610,9 @@ export function DraftFrame({
           playback={controls && overlay ? playback : undefined}
         >
           <div className="flex flex-wrap items-center gap-1.5">
-            {d ? <StatusBadge status={d.status} revision={d.revision} /> : null}
+            {d ? (
+              <StatusBadge status={d.status} revision={d.revision} quiet />
+            ) : null}
             {d?.video ? (
               <Badge variant="secondary" className="tabular">
                 {m.stories.posterFormat(

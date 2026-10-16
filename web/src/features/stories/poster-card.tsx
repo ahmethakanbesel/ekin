@@ -46,6 +46,7 @@ export function PosterCard({
   pipelinesLoaded,
   timezone,
   now,
+  inReviewTab = false,
 }: {
   workspaceId: string
   story: Story
@@ -53,6 +54,8 @@ export function PosterCard({
   pipelinesLoaded: boolean
   timezone: string
   now: number
+  /** On the Needs review tab the tab says "in review"; the poster does not repeat it. */
+  inReviewTab?: boolean
 }) {
   const lead = leadOf(s)
   const hue = pipelineHue(s.pipelineId)
@@ -70,13 +73,14 @@ export function PosterCard({
         className="group block rounded-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
       >
         {lead?.kind === "article" ? (
-          <ArticlePoster story={s} lead={lead} />
+          <ArticlePoster story={s} lead={lead} quiet={inReviewTab} />
         ) : (
           <VideoPoster
             workspaceId={workspaceId}
             story={s}
             lead={lead}
             hue={hue.color}
+            quiet={inReviewTab}
           />
         )}
       </Link>
@@ -161,16 +165,26 @@ function PosterStrip({
   story,
   lead,
   title = true,
+  quiet = false,
   className,
 }: {
   story: Story
   lead: Deliverable | undefined
   title?: boolean
+  quiet?: boolean
   className?: string
 }) {
+  let badge = null
+  if (lead && quiet && lead.status === "review")
+    badge = (
+      <Badge variant="outline" className="tabular">
+        {m.stories.revisionShort(lead.revision)}
+      </Badge>
+    )
+  else if (lead) badge = <StatusBadge status={lead.status} revision={lead.revision} />
   return (
     <div className={cn("absolute inset-x-0 bottom-0 space-y-2 border-t p-3", className)}>
-      {lead ? <StatusBadge status={lead.status} revision={lead.revision} /> : null}
+      {badge}
       {title ? (
         <h2
           id={`story-${story.id}`}
@@ -192,11 +206,13 @@ function VideoPoster({
   story,
   lead,
   hue,
+  quiet,
 }: {
   workspaceId: string
   story: Story
   lead: Deliverable | undefined
   hue: string
+  quiet: boolean
 }) {
   const video = lead?.video
   const orientation = video?.orientation ?? "vertical"
@@ -242,7 +258,12 @@ function VideoPoster({
           {length ? ` · ${length}` : null}
         </Badge>
       </div>
-      <PosterStrip story={story} lead={lead} className="bg-background/85" />
+      <PosterStrip
+        story={story}
+        lead={lead}
+        quiet={quiet}
+        className="bg-background/85"
+      />
     </div>
   )
 }
@@ -285,7 +306,15 @@ function PosterTitle({ title, lang }: { title: string; lang: string }) {
   )
 }
 
-function ArticlePoster({ story, lead }: { story: Story; lead: Deliverable }) {
+function ArticlePoster({
+  story,
+  lead,
+  quiet,
+}: {
+  story: Story
+  lead: Deliverable
+  quiet: boolean
+}) {
   return (
     <div className={cn("paper bg-card text-card-foreground", frame)}>
       <div className="absolute inset-x-3 top-3 flex items-center justify-between gap-2">
@@ -312,7 +341,13 @@ function ArticlePoster({ story, lead }: { story: Story; lead: Deliverable }) {
           </p>
         ) : null}
       </div>
-      <PosterStrip story={story} lead={lead} title={false} className="bg-card" />
+      <PosterStrip
+        story={story}
+        lead={lead}
+        title={false}
+        quiet={quiet}
+        className="bg-card"
+      />
     </div>
   )
 }
