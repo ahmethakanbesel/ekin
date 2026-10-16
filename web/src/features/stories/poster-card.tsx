@@ -172,7 +172,11 @@ function PosterStrip({
     <div className={cn("absolute inset-x-0 bottom-0 space-y-2 border-t p-3", className)}>
       {lead ? <StatusBadge status={lead.status} revision={lead.revision} /> : null}
       {title ? (
-        <h2 id={`story-${story.id}`} className="line-clamp-3 text-sm leading-snug font-semibold">
+        <h2
+          id={`story-${story.id}`}
+          lang={story.language}
+          className="line-clamp-3 text-sm leading-snug font-semibold"
+        >
           {story.title}
         </h2>
       ) : null}
@@ -215,6 +219,7 @@ function VideoPoster({
           key={src}
           src={src}
           title={story.title}
+          lang={story.language}
           className={
             orientation === "vertical"
               ? "absolute inset-0 size-full"
@@ -225,7 +230,7 @@ function VideoPoster({
           }
         />
       ) : (
-        <PosterTitle title={story.title} />
+        <PosterTitle title={story.title} lang={story.language} />
       )}
       <div className="absolute inset-x-3 top-3 flex items-center justify-between gap-2">
         <Badge variant="secondary">
@@ -246,14 +251,16 @@ function VideoPoster({
 function PosterImage({
   src,
   title,
+  lang,
   className,
 }: {
   src: string
   title: string
+  lang: string
   className: string
 }) {
   const [broken, setBroken] = useState(false)
-  if (broken) return <PosterTitle title={title} />
+  if (broken) return <PosterTitle title={title} lang={lang} />
   return (
     <img
       src={src}
@@ -266,9 +273,10 @@ function PosterImage({
   )
 }
 
-function PosterTitle({ title }: { title: string }) {
+function PosterTitle({ title, lang }: { title: string; lang: string }) {
   return (
     <p
+      lang={lang}
       className="absolute inset-x-[9%] top-[24%] line-clamp-5 text-[clamp(1.1rem,9cqw,1.8rem)] leading-[1.1] font-semibold tracking-tight text-balance text-white"
       aria-hidden="true"
     >
@@ -290,12 +298,16 @@ function ArticlePoster({ story, lead }: { story: Story; lead: Deliverable }) {
       <div className="px-4 pt-14">
         <h2
           id={`story-${story.id}`}
+          lang={story.language}
           className="line-clamp-5 text-xl leading-tight font-semibold tracking-tight text-balance"
         >
           {story.title}
         </h2>
         {story.angle ? (
-          <p className="mt-3 line-clamp-6 text-xs leading-relaxed text-muted-foreground">
+          <p
+            lang={story.language}
+            className="mt-3 line-clamp-6 text-xs leading-relaxed text-muted-foreground"
+          >
             {story.angle}
           </p>
         ) : null}

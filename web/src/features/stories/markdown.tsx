@@ -13,12 +13,23 @@ DOMPurify.addHook("afterSanitizeAttributes", (node) => {
 })
 
 /** Markdown from the agent, rendered and sanitised. */
-export function Markdown({ source, className }: { source: string; className?: string }) {
+export function Markdown({
+  source,
+  className,
+  lang,
+}: {
+  source: string
+  className?: string
+  /** The content's language, when it is not the UI's. */
+  lang?: string
+}) {
   const html = useMemo(
     () => DOMPurify.sanitize(marked.parse(source, { async: false, gfm: true })),
     [source]
   )
-  return <div className={cn("markdown", className)} dangerouslySetInnerHTML={{ __html: html }} />
+  return (
+    <div lang={lang} className={cn("markdown", className)} dangerouslySetInnerHTML={{ __html: html }} />
+  )
 }
 
 export type Frontmatter = Record<string, string | string[]>

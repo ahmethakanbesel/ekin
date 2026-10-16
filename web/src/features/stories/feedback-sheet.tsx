@@ -70,6 +70,7 @@ function Form({
       key={`${story.id}/${d.id}/${d.revision}`}
       workspaceId={workspaceId}
       storyId={story.id}
+      lang={story.language}
       deliverable={d}
       revisions={revisions}
       playhead={d.kind === "video" ? playhead : undefined}

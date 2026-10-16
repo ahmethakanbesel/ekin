@@ -444,16 +444,25 @@ export function DraftFrame({
         </div>
         <div className="p-5 md:p-6">
           {player && artifacts && revision ? (
-            <ArticlePreview artifacts={artifacts} revision={revision} />
+            <ArticlePreview
+              artifacts={artifacts}
+              revision={revision}
+              lang={d.language}
+            />
           ) : loading ? (
             <FrameLoading />
           ) : (
             <div className="grid gap-3">
-              <Title className="text-2xl leading-tight font-semibold tracking-tight text-balance">
+              <Title
+                lang={story.language}
+                className="text-2xl leading-tight font-semibold tracking-tight text-balance"
+              >
                 {story.title}
               </Title>
               {story.angle ? (
-                <p className="text-muted-foreground">{story.angle}</p>
+                <p lang={story.language} className="text-muted-foreground">
+                  {story.angle}
+                </p>
               ) : null}
               {d.revision === 0 ? <NothingYet deliverable={d} /> : null}
             </div>
@@ -500,7 +509,14 @@ export function DraftFrame({
     )
   else if (loading) screen = <Skeleton className="size-full rounded-none" />
   else if (poster && (!revision || file))
-    screen = <PosterImage key={poster} src={poster} title={story.title} />
+    screen = (
+      <PosterImage
+        key={poster}
+        src={poster}
+        title={story.title}
+        lang={story.language}
+      />
+    )
   else
     screen = (
       <div className="flex size-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
@@ -584,7 +600,10 @@ export function DraftFrame({
               {story.language}
             </Badge>
           </div>
-          <Title className="mt-1.5 line-clamp-2 text-lg leading-snug font-semibold max-sm:text-base">
+          <Title
+            lang={story.language}
+            className="mt-1.5 line-clamp-2 text-lg leading-snug font-semibold max-sm:text-base"
+          >
             {story.title}
           </Title>
           <p className="line-clamp-2 text-sm text-muted-foreground">
@@ -603,7 +622,7 @@ export function DraftFrame({
               className="truncate text-sm text-muted-foreground"
               aria-label={m.story.keywords}
             >
-              {story.keywords.join(" · ")}
+              <span lang={story.language}>{story.keywords.join(" · ")}</span>
             </p>
           ) : null}
         </Caption>
@@ -767,11 +786,20 @@ function FeedPreviewOf({
 }
 
 /** The revision's poster frame; on a missing or broken image, the title instead. */
-function PosterImage({ src, title }: { src: string; title: string }) {
+function PosterImage({
+  src,
+  title,
+  lang,
+}: {
+  src: string
+  title: string
+  lang: string
+}) {
   const [broken, setBroken] = useState(false)
   if (broken)
     return (
       <p
+        lang={lang}
         className="absolute inset-x-[9%] top-[24%] line-clamp-5 text-2xl leading-[1.1] font-semibold tracking-tight text-balance text-white"
         aria-hidden="true"
       >

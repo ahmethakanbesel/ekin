@@ -402,6 +402,7 @@ function ArticleEditor(props: InnerProps) {
         <EditField id="edit-title" label={t.title} error={errors.title}>
           <Input
             id="edit-title"
+            lang={d.language}
             value={fields.title}
             onChange={(e) => set("title", e.target.value)}
             aria-invalid={!!errors.title || undefined}
@@ -421,6 +422,7 @@ function ArticleEditor(props: InnerProps) {
         >
           <Textarea
             id="edit-description"
+            lang={d.language}
             rows={2}
             value={fields.description}
             onChange={(e) =>
@@ -460,6 +462,7 @@ function ArticleEditor(props: InnerProps) {
           >
             <Input
               id="edit-seo-title"
+              lang={d.language}
               value={fields.seoTitle}
               onChange={(e) => set("seoTitle", e.target.value)}
               aria-invalid={!!errors.seoTitle || undefined}
@@ -474,6 +477,7 @@ function ArticleEditor(props: InnerProps) {
         >
           <ChipInput
             id="edit-tags"
+            lang={d.language}
             value={fields.tags}
             onChange={(tags) => set("tags", tags)}
             placeholder={m.editor.tagsAdd}
@@ -507,6 +511,7 @@ function ArticleEditor(props: InnerProps) {
           <TabsContent value="write" className="grid gap-2">
             <Textarea
               aria-label={t.body}
+              lang={d.language}
               spellCheck
               className="min-h-[60vh] font-mono text-[13px] leading-relaxed md:text-[13px]"
               value={body}
@@ -520,12 +525,19 @@ function ArticleEditor(props: InnerProps) {
           <TabsContent value="preview">
             <div className="min-h-[60vh] rounded-xl border p-5 md:p-8">
               {fields.title ? (
-                <h1 className="mb-6 font-heading text-2xl leading-tight font-semibold tracking-tight">
+                <h1
+                  lang={d.language}
+                  className="mb-6 font-heading text-2xl leading-tight font-semibold tracking-tight"
+                >
                   {fields.title}
                 </h1>
               ) : null}
               {body.trim() ? (
-                <Markdown source={body} className="max-w-[72ch] text-[15px]" />
+                <Markdown
+                  source={body}
+                  lang={d.language}
+                  className="max-w-[72ch] text-[15px]"
+                />
               ) : (
                 <p className="text-sm text-muted-foreground">
                   {t.emptyPreview}
@@ -666,6 +678,7 @@ function VideoEditor(props: InnerProps) {
             >
               <Textarea
                 id="edit-narration"
+                lang={d.language}
                 spellCheck
                 className="min-h-[50vh] text-[15px] leading-relaxed md:text-[15px]"
                 value={narration}
@@ -705,6 +718,7 @@ function VideoEditor(props: InnerProps) {
               >
                 <Input
                   id="edit-video-title"
+                  lang={d.language}
                   value={meta.title}
                   onChange={(e) => setMetaField("title", e.target.value)}
                   aria-invalid={!!metaErrors.title || undefined}
@@ -723,6 +737,7 @@ function VideoEditor(props: InnerProps) {
               >
                 <Textarea
                   id="edit-video-description"
+                  lang={d.language}
                   rows={8}
                   className="max-h-[50vh] overflow-y-auto"
                   value={meta.description}
@@ -738,6 +753,7 @@ function VideoEditor(props: InnerProps) {
               >
                 <ChipInput
                   id="edit-video-tags"
+                  lang={d.language}
                   value={meta.tags}
                   onChange={(tags) => setMetaField("tags", tags)}
                   placeholder={m.editor.tagsAdd}

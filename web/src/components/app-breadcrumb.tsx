@@ -63,7 +63,12 @@ export function AppBreadcrumb({
       ? sections[part as keyof typeof sections]
       : undefined
   let detail: string | undefined
-  if (onStory) detail = story.data?.title
+  // A story's title is in its own language, not the UI's.
+  let detailLang: string | undefined
+  if (onStory) {
+    detail = story.data?.title
+    detailLang = story.data?.language
+  }
   else if (leaf.routeId === NEW_STORY_ROUTE) detail = m.stories.newRequest
   // A deeper page of a section (a pipeline, a document) links back to it.
   const atSectionRoot =
@@ -95,7 +100,7 @@ export function AppBreadcrumb({
     )
   if (detail)
     crumbs.push(
-      <BreadcrumbPage key="detail" className="truncate">
+      <BreadcrumbPage key="detail" lang={detailLang} className="truncate">
         {detail}
       </BreadcrumbPage>
     )

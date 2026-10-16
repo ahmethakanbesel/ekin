@@ -51,7 +51,11 @@ export function StatusBanner({
       title =
         d.revision === 0 ? t.queuedFirst : t.queuedRevision(d.revision + 1)
       body = d.pendingFeedback ? (
-        <FeedbackLine feedback={d.pendingFeedback} kind={d.kind} />
+        <FeedbackLine
+          feedback={d.pendingFeedback}
+          kind={d.kind}
+          lang={story.language}
+        />
       ) : (
         t.updates
       )
@@ -168,9 +172,12 @@ export function StatusBanner({
 export function FeedbackLine({
   feedback: f,
   kind,
+  lang,
 }: {
   feedback: Feedback
   kind: Deliverable["kind"]
+  /** The note's language: the story's, which reviewers write in. */
+  lang: string
 }) {
   return (
     <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
@@ -182,7 +189,9 @@ export function FeedbackLine({
           @{formatTimestamp(f.atSeconds)}
         </span>
       ) : null}
-      <span className="whitespace-pre-wrap text-foreground/90">“{f.text}”</span>
+      <span lang={lang} className="whitespace-pre-wrap text-foreground/90">
+        “{f.text}”
+      </span>
     </span>
   )
 }

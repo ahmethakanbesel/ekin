@@ -178,6 +178,7 @@ export function ReviewPanel({
             <ScriptText
               artifacts={artifacts}
               revision={current}
+              lang={d.language}
               notes={scriptNotes(d, current, review.draft.get())}
               playback={videoFile(current) ? review.playback : undefined}
               onSeek={
@@ -207,6 +208,7 @@ export function ReviewPanel({
               loading={review.revisions.isPending}
               shown={current?.number}
               timezone={timezone}
+              lang={story.language}
             />
           </Section>
         </>
@@ -220,6 +222,7 @@ export function ReviewPanel({
                 <VideoDetails
                   artifacts={artifacts}
                   revision={current}
+                  lang={d.language}
                   videoRef={review.videoRef}
                 />
               ) : null}
@@ -392,7 +395,9 @@ function StoryFacts({
         {s.keyword ? (
           <>
             <dt className="text-muted-foreground">{m.story.keyword}</dt>
-            <dd className="font-medium">{s.keyword}</dd>
+            <dd lang={s.language} className="font-medium">
+              {s.keyword}
+            </dd>
           </>
         ) : null}
         <dt className="text-muted-foreground">{m.story.created}</dt>
@@ -410,7 +415,11 @@ function StoryFacts({
               <ul className="flex flex-wrap gap-1.5" aria-label={m.story.keywords}>
                 {s.keywords.map((k) => (
                   <li key={k}>
-                    <Badge variant="secondary" className="font-normal">
+                    <Badge
+                      variant="secondary"
+                      className="font-normal"
+                      lang={s.language}
+                    >
                       {k}
                     </Badge>
                   </li>

@@ -21,6 +21,7 @@ export function ChipInput({
   disabled,
   invalid,
   className,
+  lang,
   "aria-describedby": describedBy,
 }: {
   id: string
@@ -35,6 +36,8 @@ export function ChipInput({
   disabled?: boolean
   invalid?: boolean
   className?: string
+  /** The items' language: chips are marked with it and compared in it (İ/i in Turkish). */
+  lang?: string
   "aria-describedby"?: string
 }) {
   const [text, setText] = useState("")
@@ -50,7 +53,8 @@ export function ChipInput({
     for (const part of raw.split(/[,\n]/)) {
       const item = normalize(part)
       if (!item) continue
-      if (next.some((v) => v.toLowerCase() === item.toLowerCase())) continue
+      const key = item.toLocaleLowerCase(lang)
+      if (next.some((v) => v.toLocaleLowerCase(lang) === key)) continue
       const problem = validate?.(item)
       if (problem || (max !== undefined && next.length >= max)) {
         reason ??= problem
@@ -86,7 +90,9 @@ export function ChipInput({
               key={v}
               className="inline-flex h-6 max-w-full items-center gap-0.5 rounded-full bg-secondary pr-2.5 pl-2.5 text-xs font-medium text-secondary-foreground has-[button]:pr-0.5"
             >
-              <span className="truncate">{v}</span>
+              <span lang={lang} className="truncate">
+                {v}
+              </span>
               {disabled ? null : (
                 <button
                   type="button"
@@ -103,6 +109,7 @@ export function ChipInput({
         <input
           ref={inputRef}
           id={id}
+          lang={lang}
           autoComplete="off"
           spellCheck={false}
           disabled={disabled}

@@ -53,6 +53,7 @@ const EMPTY: FeedbackDraft = { text: "", scope: "all", at: "" }
 export function FeedbackForm({
   workspaceId,
   storyId,
+  lang,
   deliverable: d,
   revisions,
   playhead,
@@ -64,6 +65,8 @@ export function FeedbackForm({
 }: {
   workspaceId: string
   storyId: string
+  /** The story's language, which notes are written in. */
+  lang: string
   deliverable: Deliverable
   /** For the earlier notes on this deliverable. */
   revisions: Revision[]
@@ -304,7 +307,10 @@ export function FeedbackForm({
                       ? m.feedbackSheet.addressed(e.on, e.scope, e.addressedIn)
                       : m.feedbackSheet.pending(e.on, e.scope)}
                     {nameOf(e.by) ? ` · ${nameOf(e.by)}` : null}
-                    <span className="mt-0.5 line-clamp-2 text-xs text-foreground/80">
+                    <span
+                      lang={lang}
+                      className="mt-0.5 line-clamp-2 text-xs text-foreground/80"
+                    >
                       “{e.text}”
                     </span>
                   </span>

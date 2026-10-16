@@ -274,7 +274,9 @@ function OpportunityRow({
       <TableCell className="max-w-sm pl-4 align-top whitespace-normal">
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="flex flex-wrap items-center gap-1.5">
-            <span className="font-medium">{o.keyword}</span>
+            <span lang={o.language} className="font-medium">
+              {o.keyword}
+            </span>
             <Badge
               variant="outline"
               className="uppercase"

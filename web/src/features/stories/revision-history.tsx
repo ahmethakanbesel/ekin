@@ -37,9 +37,12 @@ export function RevisionHistory({
   loading,
   shown,
   timezone,
+  lang,
 }: {
   workspaceId: string
   deliverable: Deliverable
+  /** The story's language, which notes are written in. */
+  lang: string
   revisions: Revision[]
   loading: boolean
   /** The revision on screen. */
@@ -79,7 +82,7 @@ export function RevisionHistory({
             </p>
           ) : null}
           <div className="mt-1 text-sm">
-            <FeedbackLine feedback={pending} kind={d.kind} />
+            <FeedbackLine feedback={pending} kind={d.kind} lang={lang} />
           </div>
         </Entry>
       ) : null}
@@ -118,7 +121,11 @@ export function RevisionHistory({
                 <span className="text-xs font-medium text-muted-foreground">
                   {m.history.askedOn(r.number - 1, nameOf(r.feedback.by))}
                 </span>
-                <FeedbackLine feedback={r.feedback} kind={d.kind} />
+                <FeedbackLine
+                  feedback={r.feedback}
+                  kind={d.kind}
+                  lang={lang}
+                />
                 <span className="flex items-center gap-1.5 text-xs text-success">
                   <CheckIcon className="size-3.5" />
                   {m.history.addressedIn(r.number)}

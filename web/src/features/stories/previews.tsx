@@ -171,10 +171,13 @@ export function VideoDetails({
   artifacts: a,
   revision,
   videoRef,
+  lang,
 }: {
   artifacts: ArtifactRef
   revision: Revision
   videoRef: RefObject<HTMLVideoElement | null>
+  /** The video's language (the metadata is written in it). */
+  lang: string
 }) {
   const has = (name: string) => revision.artifacts.includes(name)
   const video = videoFile(revision)
@@ -188,6 +191,7 @@ export function VideoDetails({
           {metadata.data !== undefined ? (
             <MetadataView
               text={metadata.data}
+              lang={lang}
               onSeek={video ? seek : undefined}
             />
           ) : (
@@ -225,12 +229,15 @@ export type ScriptNote = { at: number; label: string }
 export function ScriptText({
   artifacts: a,
   revision,
+  lang,
   notes = [],
   playback,
   onSeek,
 }: {
   artifacts: ArtifactRef
   revision: Revision
+  /** The script's language. */
+  lang: string
   notes?: ScriptNote[]
   playback?: PlaybackStore
   onSeek?: (seconds: number) => void
@@ -244,9 +251,16 @@ export function ScriptText({
   if (!present) return null
   if (script.data === undefined) return <TextState query={script} />
   if (!parsed)
-    return <Markdown source={script.data} className="markdown-compact text-sm" />
+    return (
+      <Markdown
+        source={script.data}
+        lang={lang}
+        className="markdown-compact text-sm"
+      />
+    )
   return (
     <SceneList
+      lang={lang}
       intro={parsed.intro}
       scenes={parsed.scenes}
       notes={notes}
@@ -300,12 +314,14 @@ function sceneAt(scenes: Scene[], t: number): number {
 }
 
 function SceneList({
+  lang,
   intro,
   scenes,
   notes,
   playback,
   onSeek,
 }: {
+  lang: string
   intro: string
   scenes: Scene[]
   notes: ScriptNote[]
@@ -321,7 +337,11 @@ function SceneList({
   return (
     <div className="grid gap-3">
       {intro ? (
-        <Markdown source={intro} className="markdown-compact text-sm" />
+        <Markdown
+          source={intro}
+          lang={lang}
+          className="markdown-compact text-sm"
+        />
       ) : null}
       <ol className="-mx-2 grid gap-1">
         {scenes.map((sc, i) => {
@@ -354,9 +374,14 @@ function SceneList({
                 </span>
               )}
               <div className="min-w-0">
-                {sc.label ? <span className="sr-only">{sc.label}</span> : null}
+                {sc.label ? (
+                  <span lang={lang} className="sr-only">
+                    {sc.label}
+                  </span>
+                ) : null}
                 <Markdown
                   source={sc.body}
+                  lang={lang}
                   className="markdown-compact text-sm leading-relaxed"
                 />
                 {marks?.map((n) => (
@@ -434,15 +459,20 @@ function parseMetadata(text: string): Metadata | undefined {
 
 function MetadataView({
   text,
+  lang,
   onSeek,
 }: {
   text: string
+  lang: string
   onSeek?: (seconds: number) => void
 }) {
   const meta = useMemo(() => parseMetadata(text), [text])
   if (!meta) {
     return (
-      <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs whitespace-pre-wrap">
+      <pre
+        lang={lang}
+        className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs whitespace-pre-wrap"
+      >
         {text}
       </pre>
     )
@@ -450,17 +480,23 @@ function MetadataView({
   return (
     <div className="grid gap-4 rounded-xl border p-4 md:p-5">
       {meta.title ? (
-        <p className="font-heading text-lg leading-snug font-semibold">
+        <p
+          lang={lang}
+          className="font-heading text-lg leading-snug font-semibold"
+        >
           {meta.title}
         </p>
       ) : null}
       {meta.description ? (
-        <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+        <p
+          lang={lang}
+          className="text-sm whitespace-pre-wrap text-muted-foreground"
+        >
           {meta.description}
         </p>
       ) : null}
       {meta.tags.length > 0 ? (
-        <Tags tags={meta.tags} label={m.preview.tags} />
+        <Tags tags={meta.tags} label={m.preview.tags} lang={lang} />
       ) : null}
       {meta.chapters.length > 0 ? (
         <div className="grid gap-1.5">
@@ -480,14 +516,14 @@ function MetadataView({
                     <span className="tabular w-12 shrink-0 font-mono text-xs text-muted-foreground">
                       {formatTimestamp(c.at)}
                     </span>
-                    <span>{c.title}</span>
+                    <span lang={lang}>{c.title}</span>
                   </button>
                 ) : (
                   <span className="flex items-baseline gap-3 py-1 text-sm">
                     <span className="tabular w-12 shrink-0 font-mono text-xs text-muted-foreground">
                       {formatTimestamp(c.at)}
                     </span>
-                    <span>{c.title}</span>
+                    <span lang={lang}>{c.title}</span>
                   </span>
                 )}
               </li>
@@ -499,12 +535,20 @@ function MetadataView({
   )
 }
 
-function Tags({ tags, label }: { tags: string[]; label: string }) {
+function Tags({
+  tags,
+  label,
+  lang,
+}: {
+  tags: string[]
+  label: string
+  lang: string
+}) {
   return (
     <ul className="flex flex-wrap gap-1.5" aria-label={label}>
       {tags.map((t) => (
         <li key={t}>
-          <Badge variant="outline" className="font-normal">
+          <Badge variant="outline" className="font-normal" lang={lang}>
             {t}
           </Badge>
         </li>
@@ -519,9 +563,12 @@ function Tags({ tags, label }: { tags: string[]; label: string }) {
 export function ArticlePreview({
   artifacts: a,
   revision,
+  lang,
 }: {
   artifacts: ArtifactRef
   revision: Revision
+  /** The article's language. */
+  lang: string
 }) {
   const present = revision.artifacts.includes("article.md")
   const article = useArtifactText(a, "article.md", present)
@@ -551,12 +598,17 @@ export function ArticlePreview({
     <article className="grid gap-6">
       <header className="grid gap-3 rounded-xl border bg-muted/20 p-5 md:p-6">
         {title ? (
-          <h2 className="font-heading text-2xl leading-tight font-semibold tracking-tight">
+          <h2
+            lang={lang}
+            className="font-heading text-2xl leading-tight font-semibold tracking-tight"
+          >
             {title}
           </h2>
         ) : null}
         {description ? (
-          <p className="text-muted-foreground">{description}</p>
+          <p lang={lang} className="text-muted-foreground">
+            {description}
+          </p>
         ) : null}
         <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[auto_1fr]">
           {slug ? (
@@ -570,20 +622,20 @@ export function ArticlePreview({
           {seoTitle ? (
             <>
               <dt className="text-muted-foreground">{m.preview.seoTitle}</dt>
-              <dd>{seoTitle}</dd>
+              <dd lang={lang}>{seoTitle}</dd>
             </>
           ) : null}
           {tags.length > 0 ? (
             <>
               <dt className="text-muted-foreground">{m.preview.tags}</dt>
               <dd>
-                <Tags tags={tags} label={m.preview.tags} />
+                <Tags tags={tags} label={m.preview.tags} lang={lang} />
               </dd>
             </>
           ) : null}
         </dl>
       </header>
-      <Markdown source={body} className="max-w-[72ch] text-[15px]" />
+      <Markdown source={body} lang={lang} className="max-w-[72ch] text-[15px]" />
     </article>
   )
 }
