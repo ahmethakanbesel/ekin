@@ -1,12 +1,15 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useReducer, useRef, useState } from "react"
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
 import { toast } from "sonner"
 
-import type { Deliverable, Story } from "@/api/client"
+import type { Deliverable, FeedbackScope, Story } from "@/api/client"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { revisionsQuery, useDeliverableAction } from "@/queries/stories"
 import type { ArtifactRef } from "./previews"
+
+/** A note for the agent not sent yet, as typed in the feedback form. */
+export type FeedbackDraft = { text: string; scope: FeedbackScope; at: string }
 
 /**
  * The state of reviewing one deliverable: its revisions and the one being
@@ -44,6 +47,12 @@ export function useDeliverableReview({
     setRejecting(false)
     setEditing(false)
   }
+  // Unsent notes per draft (deliverable and revision). They outlive the
+  // feedback sheet, which unmounts its form when it closes. The map is
+  // written in place; only a new timestamp re-renders (the script marks it).
+  const [drafts] = useState(() => new Map<string, FeedbackDraft>())
+  const [, draftPinned] = useReducer((n: number) => n + 1, 0)
+  const draftKey = `${d.id}/${d.revision}`
   // Editing applies to the latest revision of a deliverable in review only.
   const showEditor =
     editing && canEdit && d.status === "review" && d.revision > 0
@@ -116,6 +125,18 @@ export function useDeliverableReview({
     /** Show revision n; the latest one means "follow the latest". */
     pick: (n: number | null) =>
       setPicked(n === null || n === latest?.number ? null : n),
+    /** The unsent note on the revision in review, kept while the sheet is closed. */
+    draft: {
+      get: () => drafts.get(draftKey),
+      save: (v: FeedbackDraft) => {
+        const pinnedBefore = drafts.get(draftKey)?.at ?? ""
+        drafts.set(draftKey, v)
+        if (v.at !== pinnedBefore) draftPinned()
+      },
+      clear: () => {
+        if (drafts.delete(draftKey)) draftPinned()
+      },
+    },
     videoRef,
     playhead,
     pause,

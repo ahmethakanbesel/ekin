@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react"
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react"
 import { useForm } from "@tanstack/react-form"
 import { CrosshairIcon } from "lucide-react"
 import { toast } from "sonner"
@@ -15,6 +15,7 @@ import { errorMessage } from "@/lib/errors"
 import { cn } from "@/lib/utils"
 import { useRequestChanges } from "@/queries/stories"
 import { SCOPES, formatTimestamp, parseTimestamp, scopeLabel } from "./model"
+import type { FeedbackDraft } from "./use-deliverable-review"
 
 /** The server's feedback limit (story/v1 MaxFeedbackRunes). */
 export const MAX_FEEDBACK = 5000
@@ -34,6 +35,15 @@ const timeError = (raw: string) =>
 /** Asks the open form to pin the note to a time and put the cursor in it. */
 export type FeedbackFocus = { at?: number; n: number }
 
+/** Where the unsent note lives between openings of the form. */
+export type DraftStore = {
+  get: () => FeedbackDraft | undefined
+  save: (v: FeedbackDraft) => void
+  clear: () => void
+}
+
+const EMPTY: FeedbackDraft = { text: "", scope: "all", at: "" }
+
 /**
  * Feedback for the agent on a deliverable in review: what it is about,
  * where in the video, and what should change. The fields scroll in
@@ -46,6 +56,7 @@ export function FeedbackForm({
   revisions,
   playhead,
   focus,
+  draft,
   bodyClassName,
   renderFooter,
   onSent,
@@ -58,6 +69,8 @@ export function FeedbackForm({
   /** The player's position, when there is a player showing the latest revision. */
   playhead?: () => number | undefined
   focus?: FeedbackFocus | null
+  /** Keeps the note when the form unmounts; cleared once it is sent. */
+  draft?: DraftStore
   bodyClassName?: string
   renderFooter: (submitting: boolean) => ReactNode
   /** After the server took it, with the updated story. */
@@ -68,9 +81,11 @@ export function FeedbackForm({
   const noteRef = useRef<HTMLTextAreaElement>(null)
   const form = useForm({
     defaultValues: {
-      text: "",
-      scope: "all" as FeedbackScope,
-      at: focus?.at ? formatTimestamp(focus.at) : "",
+      ...(draft?.get() ?? EMPTY),
+      ...(focus?.at ? { at: formatTimestamp(focus.at) } : {}),
+    },
+    listeners: {
+      onChange: ({ formApi }) => draft?.save(formApi.state.values),
     },
     onSubmit: async ({ value }) => {
       const at = video ? parseTimestamp(value.at) : undefined
@@ -88,18 +103,28 @@ export function FeedbackForm({
         return // shown in the banner
       }
       toast.success(m.review.changes.sent)
-      form.reset()
+      draft?.clear()
+      form.reset(EMPTY)
       onSent?.(updated)
     },
   })
 
   // Asked to focus (Request changes on the rail): pin the time it paused at.
   const setAt = form.setFieldValue
+  const draftRef = useRef(draft)
+  useLayoutEffect(() => {
+    draftRef.current = draft
+  })
   const focusN = focus?.n
   const focusAt = focus?.at
   useEffect(() => {
     if (focusN === undefined) return
-    if (video && focusAt) setAt("at", formatTimestamp(focusAt))
+    if (video && focusAt) {
+      const at = formatTimestamp(focusAt)
+      setAt("at", at)
+      const store = draftRef.current
+      store?.save({ ...(store.get() ?? EMPTY), at })
+    }
     const id = requestAnimationFrame(() =>
       noteRef.current?.focus({ preventScroll: true })
     )

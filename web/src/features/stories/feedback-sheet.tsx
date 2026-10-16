@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sheet"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { m } from "@/i18n"
-import { FeedbackForm, type FeedbackFocus } from "./feedback-form"
+import { FeedbackForm, type DraftStore, type FeedbackFocus } from "./feedback-form"
 
 type Props = {
   workspaceId: string
@@ -22,6 +22,7 @@ type Props = {
   revisions: Revision[]
   playhead: () => number | undefined
   focus: FeedbackFocus | null
+  draft: DraftStore
   open: boolean
   onOpenChange: (open: boolean) => void
   /** The rail button that opened it; focus goes back there on close. */
@@ -31,8 +32,9 @@ type Props = {
 
 /**
  * Feedback for the agent on the draft in review. From xl up it is docked
- * between the feed and the panel (`docked`) and keeps its draft while
- * hidden; below, it is a sheet over the page (from the bottom on phones).
+ * between the feed and the panel (`docked`); below, it is a sheet over the
+ * page (from the bottom on phones). The unsent note lives in `draft`, so it
+ * survives closing either.
  */
 export function FeedbackSheet({ docked, ...props }: Props & { docked: boolean }) {
   return docked ? <DockedSheet {...props} /> : <ModalSheet {...props} />
@@ -59,6 +61,7 @@ function Form({
   revisions,
   playhead,
   focus,
+  draft,
   onSent,
 }: Props) {
   return (
@@ -71,6 +74,7 @@ function Form({
       revisions={revisions}
       playhead={d.kind === "video" ? playhead : undefined}
       focus={focus}
+      draft={draft}
       bodyClassName="scroll-area min-h-0 flex-1 overflow-y-auto px-4 pt-2 pb-6"
       renderFooter={(submitting) => <Footer n={d.revision} submitting={submitting} />}
       onSent={onSent}

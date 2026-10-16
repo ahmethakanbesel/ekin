@@ -407,6 +407,7 @@ function StoryView({
           revisions={review.list}
           playhead={review.playhead}
           focus={focus}
+          draft={review.draft}
           open={feedbackOpen}
           onOpenChange={setFeedbackOpen}
           returnFocus={feedbackButton}
