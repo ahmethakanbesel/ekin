@@ -1,4 +1,10 @@
-import { queryOptions, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query"
+import {
+  MutationObserver,
+  queryOptions,
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query"
 
 import {
   API_BASE,
@@ -187,22 +193,28 @@ function postAction(
 /**
  * Approves a deliverable outside a component (a delayed approval outlives
  * the rail that started it) and stores the story it returns. keepalive lets
- * the request finish while the page unloads.
+ * the request finish while the page unloads. It still runs through the
+ * mutation cache, so a 401 signs the reviewer out and a 403 refreshes their
+ * role like any other mutation.
  */
-export async function approveDeliverable(
+export function approveDeliverable(
   qc: QueryClient,
   path: { workspaceId: string; storyId: string; deliverableId: string },
   keepalive = false
 ): Promise<Story> {
-  const s = await call(
-    api.POST("/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/approve", {
-      params: { path },
-      keepalive,
-    })
-  )
-  qc.setQueryData(keys.story(path.workspaceId, s.id), s)
-  void qc.invalidateQueries({ queryKey: keys.storyLists(path.workspaceId) })
-  return s
+  return new MutationObserver(qc, {
+    mutationFn: () =>
+      call(
+        api.POST("/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/approve", {
+          params: { path },
+          keepalive,
+        })
+      ),
+    onSuccess: (s: Story) => {
+      qc.setQueryData(keys.story(path.workspaceId, s.id), s)
+      void qc.invalidateQueries({ queryKey: keys.storyLists(path.workspaceId) })
+    },
+  }).mutate()
 }
 
 /** Approve, reject, retry or publish one deliverable. */
