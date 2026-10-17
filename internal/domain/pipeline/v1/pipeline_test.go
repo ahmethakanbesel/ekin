@@ -79,8 +79,8 @@ func TestDefinitionRules(t *testing.T) {
 			a, _ := pipeline.NewArticleSpec(1000, []pipeline.Language{pipeline.Turkish})
 			d.Outputs, _ = pipeline.NewOutputs(nil, &a, "")
 		}},
-		{"too many self-review rounds", func(d *pipeline.Definition) { d.SelfReview = pipeline.MaxSelfReview + 1 }},
-		{"negative self-review rounds", func(d *pipeline.Definition) { d.SelfReview = -1 }},
+		{"too many self-review rounds", func(d *pipeline.Definition) { d.Production.SelfReview = pipeline.MaxSelfReview + 1 }},
+		{"self-review below off", func(d *pipeline.Definition) { d.Production.SelfReview = pipeline.SelfReviewOff - 1 }},
 		{"unknown drafting effort", func(d *pipeline.Definition) { d.Production.Agent.Effort = "turbo" }},
 		{"bad drafting model", func(d *pipeline.Definition) { d.Production.Agent.Model = "-x" }},
 	}
@@ -293,8 +293,7 @@ func TestSnapshotRoundTrip(t *testing.T) {
 	def := definition(t, nightly(t, 3))
 	def.Source = source
 	def.Outputs = outputs
-	def.SelfReview = 3
-	def.Production = pipeline.Production{Agent: pipeline.Agent{Model: "claude-opus-5-5", Effort: pipeline.EffortMedium}}
+	def.Production = pipeline.Production{Agent: pipeline.Agent{Model: "claude-opus-5-5", Effort: pipeline.EffortMedium}, SelfReview: 3}
 	p, err := pipeline.New(uuid.New(), uuid.New(), def, t0)
 	if err != nil {
 		t.Fatal(err)

@@ -31,7 +31,7 @@ func NewSQLite(q db.QuerierSource) *SQLite {
 
 const pipelineColumns = `id, workspace_id, name, language, outputs, source,
 	schedule_cron, schedule_tz, schedule_batch, status, next_run_at, last_run_at,
-	created_at, updated_at, version, template_id, voice, self_review, production`
+	created_at, updated_at, version, template_id, voice, production`
 
 // outputsJSON is the stored shape of the outputs column.
 type outputsJSON struct {
@@ -50,7 +50,6 @@ type row struct {
 	createdAt, updatedAt, version                    int64
 	templateID                                       sql.NullString
 	voice                                            sql.NullString
-	selfReview                                       int64
 	production                                       sql.NullString
 }
 
@@ -76,7 +75,6 @@ func toRow(s pipelinedomain.Snapshot) (row, error) {
 		createdAt:   timeutil.ToMillis(s.CreatedAt),
 		updatedAt:   timeutil.ToMillis(s.UpdatedAt),
 		version:     s.Version,
-		selfReview:  int64(s.SelfReview),
 	}
 	if s.TemplateID != uuid.Nil {
 		r.templateID = sql.NullString{String: s.TemplateID.String(), Valid: true}
@@ -103,10 +101,10 @@ func (r *SQLite) Create(ctx context.Context, p *pipelinedomain.Pipeline) error {
 		return err
 	}
 	_, err = r.q.W(ctx).ExecContext(ctx, `INSERT INTO pipelines (`+pipelineColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		v.id, v.workspaceID, v.name, v.language, v.outputs, v.source,
 		v.cron, v.tz, v.batch, v.status, v.nextRunAt, v.lastRunAt,
-		v.createdAt, v.updatedAt, v.version, v.templateID, v.voice, v.selfReview, v.production)
+		v.createdAt, v.updatedAt, v.version, v.templateID, v.voice, v.production)
 	if err != nil {
 		return fmt.Errorf("insert pipeline: %w", err)
 	}
@@ -122,11 +120,11 @@ func (r *SQLite) Update(ctx context.Context, p *pipelinedomain.Pipeline) (*pipel
 	res, err := r.q.W(ctx).ExecContext(ctx, `UPDATE pipelines SET
 			name = ?, language = ?, outputs = ?, source = ?,
 			schedule_cron = ?, schedule_tz = ?, schedule_batch = ?, status = ?,
-			next_run_at = ?, last_run_at = ?, updated_at = ?, template_id = ?, voice = ?, self_review = ?, production = ?, version = version + 1
+			next_run_at = ?, last_run_at = ?, updated_at = ?, template_id = ?, voice = ?, production = ?, version = version + 1
 		WHERE id = ? AND workspace_id = ? AND version = ?`,
 		v.name, v.language, v.outputs, v.source,
 		v.cron, v.tz, v.batch, v.status,
-		v.nextRunAt, v.lastRunAt, v.updatedAt, v.templateID, v.voice, v.selfReview, v.production,
+		v.nextRunAt, v.lastRunAt, v.updatedAt, v.templateID, v.voice, v.production,
 		v.id, v.workspaceID, v.version)
 	if err != nil {
 		return nil, fmt.Errorf("update pipeline: %w", err)
@@ -200,7 +198,7 @@ func scanPipeline(s scanner) (*pipelinedomain.Pipeline, error) {
 	var v row
 	err := s.Scan(&v.id, &v.workspaceID, &v.name, &v.language, &v.outputs, &v.source,
 		&v.cron, &v.tz, &v.batch, &v.status, &v.nextRunAt, &v.lastRunAt,
-		&v.createdAt, &v.updatedAt, &v.version, &v.templateID, &v.voice, &v.selfReview, &v.production)
+		&v.createdAt, &v.updatedAt, &v.version, &v.templateID, &v.voice, &v.production)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -247,7 +245,6 @@ func fromRow(v row) (pipelinedomain.Snapshot, error) {
 		UpdatedAt:   timeutil.FromMillis(v.updatedAt),
 		TemplateID:  parseTemplateID(v.templateID),
 		Voice:       parseVoice(v.voice),
-		SelfReview:  int(v.selfReview),
 		Production:  parseProduction(v.production),
 		Version:     v.version,
 	}

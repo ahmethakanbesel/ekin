@@ -34,8 +34,7 @@ func parseDefinition(in gen.PipelineDefinition) (pipelinedomain.Definition, erro
 		def.TemplateID = *in.TemplateId
 	}
 	def.Voice = voicehandler.OverrideOf(in.Voice)
-	def.SelfReview = SelfReviewOf(in.SelfReviewRounds)
-	if def.Production, err = ProductionOf(in.Production); err != nil {
+	if def.Production, err = ProductionOf(in.Production, in.SelfReviewRounds); err != nil {
 		return pipelinedomain.Definition{}, err
 	}
 	if in.Schedule != nil {
@@ -183,16 +182,21 @@ func definitionToWire(p *pipelinedomain.Pipeline) gen.PipelineDefinition {
 		def.TemplateId = &tid
 	}
 	def.Voice = voicehandler.OverrideToWire(p.Voice())
-	rounds := p.SelfReview()
-	def.SelfReviewRounds = &rounds
+	def.SelfReviewRounds = p.Production().SelfReview.Wire()
 	def.Production = ProductionToWire(p.Production())
 	return def
 }
 
-// ProductionOf parses wire production settings (shared with ad-hoc
-// story requests); nil takes every default.
-func ProductionOf(in *gen.Production) (pipelinedomain.Production, error) {
+// ProductionOf parses wire production settings and self-review rounds,
+// which the wire keeps apart (shared with ad-hoc story requests and the
+// workspace defaults); nil takes every default.
+func ProductionOf(in *gen.Production, selfReviewRounds *int) (pipelinedomain.Production, error) {
 	var out pipelinedomain.Production
+	rounds, err := pipelinedomain.ParseSelfReview(selfReviewRounds)
+	if err != nil {
+		return out, err
+	}
+	out.SelfReview = rounds
 	if in == nil {
 		return out, nil
 	}
@@ -203,11 +207,10 @@ func ProductionOf(in *gen.Production) (pipelinedomain.Production, error) {
 	if in.DraftEffort != nil {
 		effort = string(*in.DraftEffort)
 	}
-	agent, err := pipelinedomain.NewAgent(model, effort)
+	out.Agent, err = pipelinedomain.NewAgent(model, effort)
 	if err != nil {
 		return out, err
 	}
-	out.Agent = agent
 	if in.PreviewQuality != nil {
 		if out.PreviewQuality, err = pipelinedomain.ParsePreviewQuality(string(*in.PreviewQuality)); err != nil {
 			return out, err
@@ -252,9 +255,10 @@ func ProductionOf(in *gen.Production) (pipelinedomain.Production, error) {
 	return out, nil
 }
 
-// ProductionToWire converts production settings; nil when all are
-// defaults.
+// ProductionToWire converts production settings, leaving out what is
+// unset; nil when all are. Self-review rounds travel apart (Wire).
 func ProductionToWire(p pipelinedomain.Production) *gen.Production {
+	p.SelfReview = 0
 	if p == (pipelinedomain.Production{}) {
 		return nil
 	}
@@ -282,12 +286,15 @@ func ProductionToWire(p pipelinedomain.Production) *gen.Production {
 		fps := gen.ProductionFinalFps(n)
 		out.FinalFps = &fps
 	}
-	if p.ReviewAt == pipelinedomain.ReviewScript {
-		at := gen.ProductionReviewAtScript
+	if p.ReviewAt != "" {
+		at := gen.ProductionReviewAt(p.ReviewAt)
 		out.ReviewAt = &at
 	}
 	if p.Media != (librarydomain.Policy{}) {
 		source := func(m librarydomain.Mode) *gen.MediaSource {
+			if m == "" {
+				return nil
+			}
 			s := gen.MediaSource(m.String())
 			return &s
 		}
@@ -295,14 +302,6 @@ func ProductionToWire(p pipelinedomain.Production) *gen.Production {
 	}
 	out.Thumbnails = p.Thumbnails.Wire()
 	return out
-}
-
-// SelfReviewOf reads selfReviewRounds, which defaults to one round.
-func SelfReviewOf(rounds *int) int {
-	if rounds == nil {
-		return pipelinedomain.DefaultSelfReview
-	}
-	return *rounds
 }
 
 func optTime(t time.Time) *time.Time {

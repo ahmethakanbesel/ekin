@@ -24,7 +24,6 @@ type Snapshot struct {
 	Schedule    *ScheduleSnapshot
 	TemplateID  uuid.UUID
 	Voice       *voicedomain.Override
-	SelfReview  int
 	Production  Production
 	Status      string
 	NextRunAt   time.Time
@@ -75,7 +74,6 @@ func (p *Pipeline) Snapshot() Snapshot {
 		Source:      p.def.Source.snapshot(),
 		TemplateID:  p.def.TemplateID,
 		Voice:       p.Voice(),
-		SelfReview:  p.def.SelfReview,
 		Production:  p.def.Production,
 		Status:      string(p.status),
 		NextRunAt:   p.nextRunAt,
@@ -191,7 +189,7 @@ func DefinitionFromSnapshot(s Snapshot) (Definition, error) {
 		}
 		schedule = &sc
 	}
-	return Definition{Name: s.Name, Language: lang, Outputs: outputs, Source: source, Schedule: schedule, TemplateID: s.TemplateID, Voice: s.Voice, SelfReview: s.SelfReview,
+	return Definition{Name: s.Name, Language: lang, Outputs: outputs, Source: source, Schedule: schedule, TemplateID: s.TemplateID, Voice: s.Voice,
 		Production: s.Production}, nil
 }
 

@@ -28,6 +28,7 @@ import (
 	"kurgu/internal/db"
 	"kurgu/internal/db/dbtest"
 	jobdomain "kurgu/internal/domain/job/v1"
+	librarydomain "kurgu/internal/domain/library/v1"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	seodomain "kurgu/internal/domain/seo/v1"
 	storydomain "kurgu/internal/domain/story/v1"
@@ -42,6 +43,7 @@ import (
 	storyrepo "kurgu/internal/repository/story/v1"
 	templaterepo "kurgu/internal/repository/template/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
+	defaultssvc "kurgu/internal/service/defaults/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
@@ -431,6 +433,10 @@ type fixture struct {
 	hostConfigured func(config func(*production.Config), adjust func(*production.Deps)) *production.Service
 	blobs          blob.Store
 	tx             *db.SQLiteTxManager
+	// defaults are the workspace's production defaults; the fixture's
+	// workspace turns self-review off, so drafts get none unless a test
+	// asks for it.
+	defaults *defaultssvc.Service
 }
 
 func newFixture(t *testing.T) fixture {
@@ -450,10 +456,15 @@ func newFixture(t *testing.T) fixture {
 	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, agent, t.TempDir())
 	voices := voicesvc.NewService(settingsrepo.NewSQLite(tx), jobs, nil, blobs)
 	pipelines.WithTemplates(templates).WithVoices(voices)
+	defaults := defaultssvc.NewService(settingsrepo.NewSQLite(tx), nil, defaultssvc.Config{})
+	if _, err := defaults.Put(context.Background(), w.ID(), pipelinedomain.Production{SelfReview: pipelinedomain.SelfReviewOff}, id.New()); err != nil {
+		t.Fatal(err)
+	}
 	hostConfigured := func(config func(*production.Config), adjust func(*production.Deps)) *production.Service {
 		deps := production.Deps{
 			Stories: storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx,
 			Blobs: blobs, Agent: agent, Renderer: fakeRenderer{}, SEO: seo, Templates: templates, Voices: voices,
+			Defaults: defaults,
 		}
 		if adjust != nil {
 			adjust(&deps)
@@ -478,7 +489,7 @@ func newFixture(t *testing.T) fixture {
 		})
 	}
 	return fixture{voices: voices, seo: seo, svc: svc, jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID(), host: host,
-		blobs: blobs, hostWith: hostWith, hostConfigured: hostConfigured, tx: tx}
+		blobs: blobs, hostWith: hostWith, hostConfigured: hostConfigured, tx: tx, defaults: defaults}
 }
 
 // drain runs queued jobs until none are left, like a worker would.
@@ -974,8 +985,13 @@ func selfReviewFixture(t *testing.T, rounds int, setup func(*fakeAgent)) (fixtur
 	article, _ := pipelinedomain.NewArticleSpec(900, nil)
 	outputs, _ := pipelinedomain.NewOutputs(nil, &article, "")
 	source, _ := pipelinedomain.NewPromptSource("Kaygı üzerine.")
+	selfReview, err := pipelinedomain.ParseSelfReview(&rounds)
+	if err != nil {
+		t.Fatal(err)
+	}
 	p, err := f.pipelines.Create(ctx, f.ws, pipelinedomain.Definition{
-		Name: "A", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source, SelfReview: rounds,
+		Name: "A", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source,
+		Production: pipelinedomain.Production{SelfReview: selfReview},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -1537,7 +1553,7 @@ func TestDraftingAgentReachesEveryTurn(t *testing.T) {
 		f.agent.verdicts = []string{reviseOnce}
 		source, _ := pipelinedomain.NewPromptSource("Kaygı üzerine.")
 		p, err := f.pipelines.Create(ctx, f.ws, pipelinedomain.Definition{Name: "A", Language: pipelinedomain.Turkish,
-			Outputs: outputs, Source: source, SelfReview: 1, Production: pipelinedomain.Production{Agent: agent}})
+			Outputs: outputs, Source: source, Production: pipelinedomain.Production{Agent: agent, SelfReview: 1}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1553,7 +1569,7 @@ func TestDraftingAgentReachesEveryTurn(t *testing.T) {
 		f := newFixture(t)
 		f.agent.verdicts = []string{reviseOnce}
 		req := production.AdHocRequest{Idea: "Kaygı ve endişe farkı", Count: 1, Language: pipelinedomain.Turkish,
-			Outputs: outputs, SelfReview: 1, Production: pipelinedomain.Production{Agent: agent}}
+			Outputs: outputs, Production: pipelinedomain.Production{Agent: agent, SelfReview: 1}}
 		if _, err := f.svc.QueueAdHoc(ctx, f.ws, id.New(), req); err != nil {
 			t.Fatal(err)
 		}
@@ -1688,7 +1704,7 @@ func TestScriptReviewThenVideo(t *testing.T) {
 	video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
 	outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
 	req := production.AdHocRequest{Idea: "Kaygı ve endişe farkı", Count: 1, Language: pipelinedomain.Turkish, Outputs: outputs,
-		SelfReview: 1, Production: pipelinedomain.Production{ReviewAt: pipelinedomain.ReviewScript}}
+		Production: pipelinedomain.Production{ReviewAt: pipelinedomain.ReviewScript, SelfReview: 1}}
 	if _, err := svc.QueueAdHoc(ctx, f.ws, id.New(), req); err != nil {
 		t.Fatal(err)
 	}
@@ -1790,5 +1806,90 @@ func TestScriptReviewNeedsAVideo(t *testing.T) {
 		Production: pipelinedomain.Production{ReviewAt: pipelinedomain.ReviewScript}}
 	if _, err := f.svc.QueueAdHoc(context.Background(), f.ws, id.New(), req); !apperror.Is(err, apperror.ValidationFailed) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// A story's brief takes its pipeline's or request's production settings
+// over the workspace's defaults, resolved when the story is planned.
+func TestWorkspaceDefaultsResolveAtPlanning(t *testing.T) {
+	ctx := context.Background()
+	video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
+	withVideo, _ := pipelinedomain.NewOutputs(&video, nil, "")
+	article, _ := pipelinedomain.NewArticleSpec(900, nil)
+	articleOnly, _ := pipelinedomain.NewOutputs(nil, &article, "")
+	workspace := pipelinedomain.Production{
+		Agent:        pipelinedomain.Agent{Model: "opus", Effort: pipelinedomain.EffortHigh},
+		FinalQuality: pipelinedomain.Quality1440p, ReviewAt: pipelinedomain.ReviewScript,
+		Media:      librarydomain.Policy{Video: librarydomain.ModeMixed},
+		Thumbnails: 2, SelfReview: 3,
+	}
+	with := func(p pipelinedomain.Production, change func(*pipelinedomain.Production)) pipelinedomain.Production {
+		change(&p)
+		return p
+	}
+	tests := []struct {
+		name       string
+		adHoc      bool
+		defaults   pipelinedomain.Production
+		outputs    pipelinedomain.Outputs
+		own        pipelinedomain.Production
+		want       pipelinedomain.Production
+		wantRounds int
+	}{
+		{name: "the workspace fills a pipeline's unset fields", defaults: workspace, outputs: withVideo,
+			want: workspace, wantRounds: 3},
+		{name: "the workspace fills an ad-hoc request's unset fields", adHoc: true, defaults: workspace, outputs: withVideo,
+			want: workspace, wantRounds: 3},
+		{name: "a pipeline's explicit values win", defaults: workspace, outputs: withVideo,
+			own: pipelinedomain.Production{Agent: pipelinedomain.Agent{Model: "sonnet"}, ReviewAt: pipelinedomain.ReviewVideo,
+				Media: librarydomain.Policy{Video: librarydomain.ModeFresh}, SelfReview: 2},
+			want: with(workspace, func(p *pipelinedomain.Production) {
+				p.Agent.Model, p.ReviewAt, p.Media.Video, p.SelfReview = "sonnet", pipelinedomain.ReviewVideo, librarydomain.ModeFresh, 2
+			}), wantRounds: 2},
+		{name: "an ad-hoc request's explicit values win", adHoc: true, defaults: workspace, outputs: withVideo,
+			own: pipelinedomain.Production{FinalQuality: pipelinedomain.Quality2160p, Thumbnails: pipelinedomain.ThumbnailsOff, SelfReview: 1},
+			want: with(workspace, func(p *pipelinedomain.Production) {
+				p.FinalQuality, p.Thumbnails, p.SelfReview = pipelinedomain.Quality2160p, pipelinedomain.ThumbnailsOff, 1
+			}), wantRounds: 1},
+		{name: "self-review off at the pipeline beats the workspace's three rounds", defaults: workspace, outputs: withVideo,
+			own:  pipelinedomain.Production{SelfReview: pipelinedomain.SelfReviewOff},
+			want: with(workspace, func(p *pipelinedomain.Production) { p.SelfReview = pipelinedomain.SelfReviewOff }), wantRounds: 0},
+		{name: "a workspace's script review leaves an article-only pipeline reviewing as usual", defaults: workspace, outputs: articleOnly,
+			want: with(workspace, func(p *pipelinedomain.Production) { p.ReviewAt = pipelinedomain.ReviewVideo }), wantRounds: 3},
+		{name: "no workspace defaults leave a pipeline's brief as before", outputs: withVideo,
+			own:  pipelinedomain.Production{Agent: pipelinedomain.Agent{Model: "sonnet"}, PreviewFPS: 15},
+			want: pipelinedomain.Production{Agent: pipelinedomain.Agent{Model: "sonnet"}, PreviewFPS: 15}, wantRounds: 1},
+		{name: "no workspace defaults leave an ad-hoc brief as before", adHoc: true, outputs: withVideo,
+			want: pipelinedomain.Production{}, wantRounds: 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			if _, err := f.defaults.Put(ctx, f.ws, tt.defaults, id.New()); err != nil {
+				t.Fatal(err)
+			}
+			if tt.adHoc {
+				req := production.AdHocRequest{Idea: "Kaygı ve endişe farkı", Count: 1, Language: pipelinedomain.Turkish,
+					Outputs: tt.outputs, Production: tt.own}
+				if _, err := f.svc.QueueAdHoc(ctx, f.ws, id.New(), req); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				source, _ := pipelinedomain.NewPromptSource("Kaygı üzerine.")
+				p, err := f.pipelines.Create(ctx, f.ws, pipelinedomain.Definition{Name: "A", Language: pipelinedomain.Turkish,
+					Outputs: tt.outputs, Source: source, Production: tt.own})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := f.pipelines.RunNow(ctx, f.ws, p.ID(), 1); err != nil {
+					t.Fatal(err)
+				}
+			}
+			f.drain(t)
+			brief := f.story(t).Brief()
+			if brief.Production != tt.want || brief.SelfReview != tt.wantRounds {
+				t.Fatalf("brief production %+v, %d rounds\nwant %+v, %d rounds", brief.Production, brief.SelfReview, tt.want, tt.wantRounds)
+			}
+		})
 	}
 }

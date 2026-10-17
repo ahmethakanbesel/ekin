@@ -38,25 +38,9 @@ type Definition struct {
 	TemplateID uuid.UUID
 	// Voice overrides the workspace's narration voice; nil for none.
 	Voice *voicedomain.Override
-	// SelfReview is how many times, at most, a fresh agent reviews each
-	// draft and the author fixes what it finds; 0 turns it off.
-	SelfReview int
-	// Production overrides how the stories are made; zero for defaults.
+	// Production overrides how the stories are made (self-review rounds
+	// among them); zero for the workspace defaults.
 	Production Production
-}
-
-// Self-review bounds: rounds per draft.
-const (
-	MaxSelfReview     = 5
-	DefaultSelfReview = 1
-)
-
-// CheckSelfReview validates a number of self-review rounds.
-func CheckSelfReview(n int) error {
-	if n < 0 || n > MaxSelfReview {
-		return apperror.New(apperror.ValidationFailed, "self-review rounds must be 0 to 5")
-	}
-	return nil
 }
 
 // Pipeline is the aggregate root.
@@ -217,7 +201,6 @@ func (p *Pipeline) Voice() *voicedomain.Override {
 	v := *p.def.Voice
 	return &v
 }
-func (p *Pipeline) SelfReview() int        { return p.def.SelfReview }
 func (p *Pipeline) Production() Production { return p.def.Production }
 func (p *Pipeline) Status() Status         { return p.status }
 func (p *Pipeline) NextRunAt() time.Time   { return p.nextRunAt }
@@ -254,9 +237,6 @@ func checkDefinition(def Definition) (Definition, error) {
 	}
 	if article, ok := def.Outputs.Article(); ok && article.TranslatesTo(def.Language) {
 		return Definition{}, apperror.New(apperror.ValidationFailed, "an article cannot be translated into its own language")
-	}
-	if err := CheckSelfReview(def.SelfReview); err != nil {
-		return Definition{}, err
 	}
 	if err := def.Production.CheckFor(def.Outputs); err != nil {
 		return Definition{}, err

@@ -197,7 +197,7 @@ func TestLibrary(t *testing.T) {
 }
 
 // A pipeline's production settings carry each kind's media source; an
-// absent kind reads back as fresh.
+// absent kind is unset (the workspace default) and reads back absent.
 func TestPipelineMediaSources(t *testing.T) {
 	srv := newServer(t)
 	owner := srv.signedIn(t, "owner@example.com")
@@ -209,15 +209,19 @@ func TestPipelineMediaSources(t *testing.T) {
 	var p gen.Pipeline
 	owner.call("POST", base, def, 201, &p)
 	m := p.Definition.Production.Media
-	if m == nil || *m.Music != gen.MediaSourceLibrary || *m.Video != gen.MediaSourceMixed || *m.Photo != gen.MediaSourceFresh {
+	if m == nil || *m.Music != gen.MediaSourceLibrary || *m.Video != gen.MediaSourceMixed || m.Photo != nil {
 		t.Fatalf("media = %+v", m)
 	}
 
 	def["production"] = map[string]any{"media": map[string]any{"music": "fresh"}}
 	var redefined gen.Pipeline
 	owner.call("PUT", base+"/"+p.Id.String(), map[string]any{"version": p.Version, "definition": def}, 200, &redefined)
+	m = nil
 	if redefined.Definition.Production != nil {
-		t.Fatalf("all fresh should read as defaults: %+v", redefined.Definition.Production)
+		m = redefined.Definition.Production.Media
+	}
+	if m == nil || m.Music == nil || *m.Music != gen.MediaSourceFresh || m.Video != nil || m.Photo != nil {
+		t.Fatalf("explicit fresh should read back as fresh, the rest unset: %+v", m)
 	}
 
 	def["production"] = map[string]any{"media": map[string]any{"photo": "everything"}}

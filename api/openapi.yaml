@@ -25,6 +25,7 @@ tags:
   - name: seo
   - name: templates
   - name: voice
+  - name: production
   - name: pipelines
   - name: jobs
 
@@ -1229,6 +1230,43 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/VoiceSettings" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/production:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: getWorkspaceProduction
+      tags: [production]
+      description: >-
+        The workspace's production defaults, which every pipeline and ad-hoc
+        request takes where it sets nothing, and the server's values, which
+        apply where the workspace sets nothing either.
+      responses:
+        "200":
+          description: The defaults and the server's values.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkspaceProduction" }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      operationId: saveWorkspaceProduction
+      tags: [production]
+      description: >-
+        Replaces the workspace's production defaults; an absent field goes
+        back to the server's value. Stories already planned keep the
+        settings they were planned with.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkspaceProductionInput" }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WorkspaceProduction" }
         default: { $ref: "#/components/responses/Error" }
 
   /workspaces/{workspaceId}/voice/elevenlabs:
@@ -2911,20 +2949,27 @@ components:
     DraftEffort:
       type: string
       enum: [low, medium, high, xhigh, max]
-      description: How hard the authoring agent thinks while drafting (Claude Code's --effort).
+      description: >-
+        How hard the authoring agent thinks while drafting (Claude Code's
+        --effort). Absent on a pipeline or request: the workspace default
+        (Settings › Production), then the server's (KURGU_CLAUDE_EFFORT, then
+        Claude Code's own); on ServerProduction, absent means Claude Code's
+        own.
 
     MediaSource:
       type: string
       enum: [fresh, library, mixed]
       description: >-
-        Where a video's media of one kind comes from. fresh (the default): the
-        agent composes music and searches Pexels for stock. library: only the
-        workspace's library. mixed: the library first, fresh when nothing there
-        fits.
+        Where a video's media of one kind comes from. fresh: the agent
+        composes music and searches Pexels for stock (what a kind set nowhere
+        does). library: only the workspace's library. mixed: the library
+        first, fresh when nothing there fits.
 
     MediaSources:
       type: object
-      description: Each kind's media source; an absent kind is fresh.
+      description: >-
+        Each kind's media source. Absent: the workspace default (Settings ›
+        Production), then fresh.
       properties:
         music: { $ref: "#/components/schemas/MediaSource" }
         video: { $ref: "#/components/schemas/MediaSource" }
@@ -2933,8 +2978,11 @@ components:
     Production:
       type: object
       description: >-
-        How stories are made, set per pipeline or request. Every absent
-        field takes the workspace default.
+        How stories are made, set per pipeline or request, or as a
+        workspace's defaults. Every absent field takes the layer below: a
+        pipeline's or request's the workspace default (Settings ›
+        Production), the workspace's the server's. Self-review rounds travel
+        beside it (selfReviewRounds).
       properties:
         draftModel:
           type: string
@@ -2942,8 +2990,9 @@ components:
           pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(\[[0-9a-z]{1,8}\])?$'
           description: >-
             Claude model the agent drafts and revises with: a model id
-            (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace's
-            model (System → Credentials, then KURGU_CLAUDE_MODEL).
+            (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace
+            default (Settings › Production), then the server's (System ›
+            Credentials, then KURGU_CLAUDE_MODEL, then Claude Code's own).
         draftEffort: { $ref: "#/components/schemas/DraftEffort" }
         previewQuality:
           type: string
@@ -2952,35 +3001,42 @@ components:
             Resolution of the review render (the short side of a 1080p frame).
             When it is at least the final quality, at the final frame rate,
             approving reuses the preview as the final video instead of
-            rendering again. Absent: the host
-            profile's preview scale.
+            rendering again. Absent: the workspace default (Settings ›
+            Production), then the server's (the host profile's preview
+            scale).
         finalQuality:
           type: string
           enum: ["720p", "1080p", "1440p", "2160p"]
           description: >-
             Resolution of the final render after approval (the short side of a
-            1080p frame). Absent: the host profile's final scale.
+            1080p frame). Absent: the workspace default (Settings ›
+            Production), then the server's (the host profile's final scale).
         previewFps:
           type: integer
           enum: [15, 24, 30]
           description: >-
             Frame rate of the review render. Fewer frames render faster and
             look choppier; a preview below the final frame rate is never
-            reused as the final video. Absent: the host profile's.
+            reused as the final video. Absent: the workspace default
+            (Settings › Production), then the server's (the host profile's).
         finalFps:
           type: integer
           enum: [30, 60]
           description: >-
             Frame rate of the final render; 60 takes about twice as long.
-            Absent: the host profile's.
+            Absent: the workspace default (Settings › Production), then the
+            server's (the host profile's).
         reviewAt:
           type: string
           enum: [video, script]
           description: >-
-            When a person first reviews a video. video (the default): the
-            rendered preview. script: the script, narration text and metadata
-            first; approving them has the agent build the video, which is then
-            reviewed as usual. script needs a video output.
+            When a person first reviews a video. video: the rendered preview.
+            script: the script, narration text and metadata first; approving
+            them has the agent build the video, which is then reviewed as
+            usual. On a pipeline or request, script needs a video output; a
+            workspace default of script leaves stories without a video
+            reviewing as usual. Absent: the workspace default (Settings ›
+            Production), then video.
         media: { $ref: "#/components/schemas/MediaSources" }
         thumbnails:
           type: integer
@@ -2989,7 +3045,61 @@ components:
           description: >-
             How many designed thumbnail variants a long video gets, for the
             reviewer to pick from; 0 keeps a frame grabbed from the video.
-            Shorts always keep that frame. Absent: 3.
+            Shorts always keep that frame. Absent: the workspace default
+            (Settings › Production), then 3.
+
+    SelfReviewRounds:
+      type: integer
+      minimum: 0
+      maximum: 5
+      description: >-
+        Rounds of self-review per draft, at most: a fresh agent reviews the
+        draft and the author fixes what it reports, until it passes or the
+        rounds run out. 0 turns it off. Absent: the server's 1.
+
+    WorkspaceProductionInput:
+      type: object
+      required: [defaults]
+      properties:
+        defaults: { $ref: "#/components/schemas/Production" }
+        selfReviewRounds: { $ref: "#/components/schemas/SelfReviewRounds" }
+
+    WorkspaceProduction:
+      type: object
+      required: [defaults, server]
+      properties:
+        defaults: { $ref: "#/components/schemas/Production" }
+        selfReviewRounds: { $ref: "#/components/schemas/SelfReviewRounds" }
+        server: { $ref: "#/components/schemas/ServerProduction" }
+
+    ServerProduction:
+      type: object
+      description: >-
+        What stories get where neither the workspace nor a pipeline or
+        request sets a value.
+      required: [draftModelSource, previewHeight, finalHeight, previewFps, finalFps, profile]
+      properties:
+        draftModel:
+          type: string
+          description: The model drafts run with; absent when Claude Code picks its own.
+        draftModelSource:
+          type: string
+          enum: [settings, env, unset]
+          description: >-
+            Where draftModel comes from: settings (System › Credentials), env
+            (KURGU_CLAUDE_MODEL) or unset (Claude Code's own default).
+        draftEffort: { $ref: "#/components/schemas/DraftEffort" }
+        previewHeight:
+          type: integer
+          description: Short side of the review render of a 1080p composition, in pixels.
+        finalHeight:
+          type: integer
+          description: Short side of the final render of a 1080p composition, in pixels.
+        previewFps: { type: integer }
+        finalFps: { type: integer }
+        profile:
+          type: string
+          description: The host profile the render values come from (System › Hosts).
 
     AdHocInput:
       type: object
@@ -3021,7 +3131,8 @@ components:
           description: >-
             Rounds of self-review per draft, at most: a fresh agent reviews the
             draft and the author fixes what it reports, until it passes or the
-            rounds run out. 0 turns it off; omitted means 1.
+            rounds run out. 0 turns it off; omitted means the workspace
+            default (Settings › Production), then 1.
         production: { $ref: "#/components/schemas/Production" }
 
     SystemCheck:
@@ -3601,7 +3712,8 @@ components:
           description: >-
             Rounds of self-review per draft, at most: a fresh agent reviews the
             draft and the author fixes what it reports, until it passes or the
-            rounds run out. 0 turns it off; omitted means 1.
+            rounds run out. 0 turns it off; omitted means the workspace
+            default (Settings › Production), then 1.
         production: { $ref: "#/components/schemas/Production" }
 
     Pipeline:

@@ -7,8 +7,9 @@ type Mode string
 
 const (
 	// ModeFresh composes music and searches Pexels for stock, as drafts
-	// always have (the default).
-	ModeFresh Mode = ""
+	// always have. The zero Mode is unset: it takes the next layer's
+	// mode (the workspace default) and, set nowhere, behaves as fresh.
+	ModeFresh Mode = "fresh"
 	// ModeLibrary uses the library only: no composing, no searching.
 	ModeLibrary Mode = "library"
 	// ModeMixed looks in the library first and composes or searches only
@@ -16,10 +17,12 @@ const (
 	ModeMixed Mode = "mixed"
 )
 
-// ParseMode parses a mode; "" and "fresh" are the default.
+// ParseMode parses a mode; "" is unset.
 func ParseMode(s string) (Mode, error) {
 	switch s {
-	case "", "fresh":
+	case "":
+		return "", nil
+	case string(ModeFresh):
 		return ModeFresh, nil
 	case string(ModeLibrary):
 		return ModeLibrary, nil
@@ -29,16 +32,24 @@ func ParseMode(s string) (Mode, error) {
 	return "", apperror.New(apperror.ValidationFailed, "media source must be fresh, library or mixed")
 }
 
-// String is the mode's wire name.
+// String is the mode's wire name; unset reads as fresh, which is how
+// it behaves.
 func (m Mode) String() string {
-	if m == ModeFresh {
-		return "fresh"
+	if m == "" {
+		return string(ModeFresh)
 	}
 	return string(m)
 }
 
+func (m Mode) over(base Mode) Mode {
+	if m == "" {
+		return base
+	}
+	return m
+}
+
 // Policy picks a Mode per kind for a pipeline's or a request's drafts.
-// The zero value makes everything fresh.
+// An unset kind takes the workspace default; set nowhere, it is fresh.
 type Policy struct {
 	Music Mode `json:"music,omitempty"`
 	Video Mode `json:"video,omitempty"`
@@ -68,8 +79,16 @@ func (p Policy) Mode(k Kind) Mode {
 	return ModeFresh
 }
 
+// Over fills p's unset kinds from base.
+func (p Policy) Over(base Policy) Policy {
+	return Policy{Music: p.Music.over(base.Music), Video: p.Video.over(base.Video), Photo: p.Photo.over(base.Photo)}
+}
+
 // UsesLibrary reports whether drafts may take kind k from the library.
-func (p Policy) UsesLibrary(k Kind) bool { return p.Mode(k) != ModeFresh }
+func (p Policy) UsesLibrary(k Kind) bool {
+	m := p.Mode(k)
+	return m == ModeLibrary || m == ModeMixed
+}
 
 // AllowsFresh reports whether drafts may compose or search for kind k.
 func (p Policy) AllowsFresh(k Kind) bool { return p.Mode(k) != ModeLibrary }

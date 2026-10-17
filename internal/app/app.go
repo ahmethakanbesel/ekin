@@ -36,6 +36,7 @@ import (
 	storyrepo "kurgu/internal/repository/story/v1"
 	templaterepo "kurgu/internal/repository/template/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
+	defaultssvc "kurgu/internal/service/defaults/v1"
 	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
@@ -84,6 +85,7 @@ type App struct {
 	seo        *seosvc.Service
 	templates  *templatesvc.Service
 	voices     *voicesvc.Service
+	defaults   *defaultssvc.Service
 	version    string
 }
 
@@ -143,7 +145,10 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		WithElevenLabs(func(ctx context.Context) *elevenlabs.Client { return &elevenlabs.Client{APIKey: elevenLabsKey(ctx)} })
 	pipelines.WithTemplates(templates).WithVoices(voices)
 	hostProfile := func(ctx context.Context) settingsdomain.Profile { return settings.Cached(ctx, cfg.Worker.Profile) }
+	defaults := defaultssvc.NewService(settingsrepo.NewSQLite(tx), settings,
+		defaultssvc.Config{Profile: cfg.Worker.Profile, Effort: cfg.Production.ClaudeEffort})
 	production, err := newProduction(cfg, settings, hostProfile, productionsvc.Deps{
+		Defaults:  defaults,
 		SEO:       seo,
 		Templates: templates,
 		Voices:    voices,
@@ -177,6 +182,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		seo:        seo,
 		templates:  templates,
 		voices:     voices,
+		defaults:   defaults,
 	}, nil
 }
 
@@ -316,6 +322,7 @@ func (a *App) Router() (http.Handler, error) {
 		SEO:         a.seo,
 		Templates:   a.templates,
 		Voices:      a.voices,
+		Defaults:    a.defaults,
 		WorkerToken: a.cfg.Remote.Token,
 		Profiles:    a.settings,
 		System:      systemhandler.New(a.settings, a.cfg.Worker.Profile, a.version, a.checks).OnCredentialsChange(resetChecks),

@@ -52,8 +52,10 @@ type AdHocPayload struct {
 	Refs        []storydomain.Ref               `json:"refs,omitempty"`
 	TemplateID  uuid.UUID                       `json:"templateId,omitempty"`
 	Voice       *voicedomain.Override           `json:"voice,omitempty"`
-	SelfReview  int                             `json:"selfReview,omitempty"`
-	Production  pipelinedomain.Production       `json:"production,omitzero"`
+	// LegacySelfReview is the rounds a payload queued before
+	// self-review joined Production carries; read only.
+	LegacySelfReview int                       `json:"selfReview,omitempty"`
+	Production       pipelinedomain.Production `json:"production,omitzero"`
 }
 
 // AdHocRequest is a parsed ad-hoc request.
@@ -68,9 +70,8 @@ type AdHocRequest struct {
 	TemplateID uuid.UUID
 	// Voice overrides the narration voice; nil for none.
 	Voice *voicedomain.Override
-	// SelfReview is the most self-review rounds per draft; 0 for none.
-	SelfReview int
-	// Production overrides how the stories are made; zero for defaults.
+	// Production overrides how the stories are made (self-review rounds
+	// among them); zero for the workspace defaults.
 	Production pipelinedomain.Production
 }
 
@@ -88,16 +89,13 @@ func (s *Service) QueueAdHoc(ctx context.Context, workspaceID, actorID uuid.UUID
 	if req.Count < 1 || req.Count > MaxAdHocCount {
 		return nil, apperror.New(apperror.ValidationFailed, "count must be between 1 and 10")
 	}
-	if err := pipelinedomain.CheckSelfReview(req.SelfReview); err != nil {
-		return nil, err
-	}
 	if err := req.Production.CheckFor(req.Outputs); err != nil {
 		return nil, err
 	}
 	p := AdHocPayload{
 		WorkspaceID: workspaceID, ActorID: actorID, Idea: strings.TrimSpace(req.Idea), Count: req.Count,
 		Language: string(req.Language), Style: strings.TrimSpace(req.Style), Lead: string(req.Outputs.Lead()), Refs: req.Refs,
-		TemplateID: req.TemplateID, Voice: req.Voice, SelfReview: req.SelfReview, Production: req.Production,
+		TemplateID: req.TemplateID, Voice: req.Voice, Production: req.Production,
 	}
 	if req.Voice != nil && s.voices != nil {
 		if err := s.voices.CheckOverride(ctx, string(req.Language), *req.Voice); err != nil {
@@ -158,17 +156,39 @@ func (s *Service) PlanAdHoc(ctx context.Context, p AdHocPayload) error {
 	if err != nil {
 		return err
 	}
+	own := p.Production
+	if own.SelfReview == 0 && p.LegacySelfReview > 0 {
+		own.SelfReview = pipelinedomain.SelfReviewRounds(p.LegacySelfReview)
+	}
+	prod, err := s.resolveProduction(ctx, p.WorkspaceID, own, outputs)
+	if err != nil {
+		return err
+	}
 	plans := make([]storydomain.Plan, 0, len(ideas))
 	for _, idea := range ideas {
 		plans = append(plans, storydomain.Plan{
 			WorkspaceID: p.WorkspaceID, Origin: storydomain.OriginAdHoc, Language: lang, Idea: idea.Idea,
 			Brief: storydomain.Brief{Instructions: p.Idea, Style: p.Style, Refs: p.Refs, Template: tmpl, Voice: p.Voice,
-				SelfReview: p.SelfReview, Production: p.Production},
+				SelfReview: prod.SelfReview.Count(), Production: prod},
 			Outputs: outputs, CreatedBy: p.ActorID,
 		})
 	}
 	_, err = s.createStories(ctx, plans, "Ad-hoc request")
 	return err
+}
+
+// resolveProduction lays a pipeline's or request's settings over the
+// workspace's defaults, fitted to the outputs.
+func (s *Service) resolveProduction(ctx context.Context, workspaceID uuid.UUID, own pipelinedomain.Production,
+	outputs pipelinedomain.Outputs) (pipelinedomain.Production, error) {
+	var base pipelinedomain.Production
+	if s.defaults != nil {
+		var err error
+		if base, err = s.defaults.Get(ctx, workspaceID); err != nil {
+			return pipelinedomain.Production{}, err
+		}
+	}
+	return own.Over(base).For(outputs), nil
 }
 
 func outputsFromPayload(p AdHocPayload) (pipelinedomain.Outputs, error) {
@@ -253,10 +273,14 @@ func (s *Service) PlanRun(ctx context.Context, run pipelinesvc.RunPayload) error
 	if err != nil {
 		return err
 	}
+	prod, err := s.resolveProduction(ctx, p.WorkspaceID(), p.Production(), p.Outputs())
+	if err != nil {
+		return err
+	}
 	plans := make([]storydomain.Plan, 0, len(ideas))
 	for _, idea := range ideas {
-		brief := storydomain.Brief{Instructions: src.Instructions(), Template: tmpl, Voice: p.Voice(), SelfReview: p.SelfReview(),
-			Production: p.Production()}
+		brief := storydomain.Brief{Instructions: src.Instructions(), Template: tmpl, Voice: p.Voice(), SelfReview: prod.SelfReview.Count(),
+			Production: prod}
 		if idea.Window >= 0 && idea.Window < len(windows) {
 			brief.Refs = windows[idea.Window]
 		}

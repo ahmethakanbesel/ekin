@@ -115,6 +115,12 @@ type Voices interface {
 	CheckOverride(ctx context.Context, language string, o voicedomain.Override) error
 }
 
+// Defaults reads a workspace's production defaults (the defaults
+// service).
+type Defaults interface {
+	Get(ctx context.Context, workspaceID uuid.UUID) (pipelinedomain.Production, error)
+}
+
 // Notifier tells people that something needs them (M5: email digests).
 type Notifier interface {
 	Notify(ctx context.Context, e Event) error
@@ -195,6 +201,7 @@ type Service struct {
 	templates  Templates
 	voices     Voices
 	library    Library
+	defaults   Defaults
 	publishers map[pipelinedomain.Kind]Publisher
 	log        *slog.Logger
 	now        func() time.Time
@@ -217,7 +224,10 @@ type Deps struct {
 	Voices    Voices
 	// Library is optional: without it drafts compose and search as ever.
 	Library Library
-	Log     *slog.Logger
+	// Defaults is optional: without it stories take only their pipeline's
+	// or request's settings over the server's.
+	Defaults Defaults
+	Log      *slog.Logger
 }
 
 // NewService returns a Service.
@@ -251,7 +261,7 @@ func NewService(cfg Config, d Deps) *Service {
 	return &Service{
 		cfg: cfg, stories: d.Stories, pipelines: d.Pipelines, knowledge: d.Knowledge, jobs: d.Jobs, tx: d.Tx,
 		blobs: d.Blobs, agent: d.Agent, renderer: d.Renderer, notifier: notifier, dedupe: d.Dedupe, seo: d.SEO, templates: d.Templates, voices: d.Voices,
-		library: d.Library, publishers: map[pipelinedomain.Kind]Publisher{}, log: log, now: time.Now,
+		library: d.Library, defaults: d.Defaults, publishers: map[pipelinedomain.Kind]Publisher{}, log: log, now: time.Now,
 	}
 }
 

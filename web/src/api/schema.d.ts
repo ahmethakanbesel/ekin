@@ -723,6 +723,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspaceId}/production": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        /** @description The workspace's production defaults, which every pipeline and ad-hoc request takes where it sets nothing, and the server's values, which apply where the workspace sets nothing either. */
+        get: operations["getWorkspaceProduction"];
+        /** @description Replaces the workspace's production defaults; an absent field goes back to the server's value. Stories already planned keep the settings they were planned with. */
+        put: operations["saveWorkspaceProduction"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/voice/elevenlabs": {
         parameters: {
             query?: never;
@@ -1875,54 +1895,84 @@ export interface components {
             metadata?: components["schemas"]["VideoMetadataContent"];
         };
         /**
-         * @description How hard the authoring agent thinks while drafting (Claude Code's --effort).
+         * @description How hard the authoring agent thinks while drafting (Claude Code's --effort). Absent on a pipeline or request: the workspace default (Settings › Production), then the server's (KURGU_CLAUDE_EFFORT, then Claude Code's own); on ServerProduction, absent means Claude Code's own.
          * @enum {string}
          */
         DraftEffort: "low" | "medium" | "high" | "xhigh" | "max";
         /**
-         * @description Where a video's media of one kind comes from. fresh (the default): the agent composes music and searches Pexels for stock. library: only the workspace's library. mixed: the library first, fresh when nothing there fits.
+         * @description Where a video's media of one kind comes from. fresh: the agent composes music and searches Pexels for stock (what a kind set nowhere does). library: only the workspace's library. mixed: the library first, fresh when nothing there fits.
          * @enum {string}
          */
         MediaSource: "fresh" | "library" | "mixed";
-        /** @description Each kind's media source; an absent kind is fresh. */
+        /** @description Each kind's media source. Absent: the workspace default (Settings › Production), then fresh. */
         MediaSources: {
             music?: components["schemas"]["MediaSource"];
             video?: components["schemas"]["MediaSource"];
             photo?: components["schemas"]["MediaSource"];
         };
-        /** @description How stories are made, set per pipeline or request. Every absent field takes the workspace default. */
+        /** @description How stories are made, set per pipeline or request, or as a workspace's defaults. Every absent field takes the layer below: a pipeline's or request's the workspace default (Settings › Production), the workspace's the server's. Self-review rounds travel beside it (selfReviewRounds). */
         Production: {
-            /** @description Claude model the agent drafts and revises with: a model id (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace's model (System → Credentials, then KURGU_CLAUDE_MODEL). */
+            /** @description Claude model the agent drafts and revises with: a model id (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace default (Settings › Production), then the server's (System › Credentials, then KURGU_CLAUDE_MODEL, then Claude Code's own). */
             draftModel?: string;
             draftEffort?: components["schemas"]["DraftEffort"];
             /**
-             * @description Resolution of the review render (the short side of a 1080p frame). When it is at least the final quality, at the final frame rate, approving reuses the preview as the final video instead of rendering again. Absent: the host profile's preview scale.
+             * @description Resolution of the review render (the short side of a 1080p frame). When it is at least the final quality, at the final frame rate, approving reuses the preview as the final video instead of rendering again. Absent: the workspace default (Settings › Production), then the server's (the host profile's preview scale).
              * @enum {string}
              */
             previewQuality?: "360p" | "540p" | "720p" | "1080p";
             /**
-             * @description Resolution of the final render after approval (the short side of a 1080p frame). Absent: the host profile's final scale.
+             * @description Resolution of the final render after approval (the short side of a 1080p frame). Absent: the workspace default (Settings › Production), then the server's (the host profile's final scale).
              * @enum {string}
              */
             finalQuality?: "720p" | "1080p" | "1440p" | "2160p";
             /**
-             * @description Frame rate of the review render. Fewer frames render faster and look choppier; a preview below the final frame rate is never reused as the final video. Absent: the host profile's.
+             * @description Frame rate of the review render. Fewer frames render faster and look choppier; a preview below the final frame rate is never reused as the final video. Absent: the workspace default (Settings › Production), then the server's (the host profile's).
              * @enum {integer}
              */
             previewFps?: 15 | 24 | 30;
             /**
-             * @description Frame rate of the final render; 60 takes about twice as long. Absent: the host profile's.
+             * @description Frame rate of the final render; 60 takes about twice as long. Absent: the workspace default (Settings › Production), then the server's (the host profile's).
              * @enum {integer}
              */
             finalFps?: 30 | 60;
             /**
-             * @description When a person first reviews a video. video (the default): the rendered preview. script: the script, narration text and metadata first; approving them has the agent build the video, which is then reviewed as usual. script needs a video output.
+             * @description When a person first reviews a video. video: the rendered preview. script: the script, narration text and metadata first; approving them has the agent build the video, which is then reviewed as usual. On a pipeline or request, script needs a video output; a workspace default of script leaves stories without a video reviewing as usual. Absent: the workspace default (Settings › Production), then video.
              * @enum {string}
              */
             reviewAt?: "video" | "script";
             media?: components["schemas"]["MediaSources"];
-            /** @description How many designed thumbnail variants a long video gets, for the reviewer to pick from; 0 keeps a frame grabbed from the video. Shorts always keep that frame. Absent: 3. */
+            /** @description How many designed thumbnail variants a long video gets, for the reviewer to pick from; 0 keeps a frame grabbed from the video. Shorts always keep that frame. Absent: the workspace default (Settings › Production), then 3. */
             thumbnails?: number;
+        };
+        /** @description Rounds of self-review per draft, at most: a fresh agent reviews the draft and the author fixes what it reports, until it passes or the rounds run out. 0 turns it off. Absent: the server's 1. */
+        SelfReviewRounds: number;
+        WorkspaceProductionInput: {
+            defaults: components["schemas"]["Production"];
+            selfReviewRounds?: components["schemas"]["SelfReviewRounds"];
+        };
+        WorkspaceProduction: {
+            defaults: components["schemas"]["Production"];
+            selfReviewRounds?: components["schemas"]["SelfReviewRounds"];
+            server: components["schemas"]["ServerProduction"];
+        };
+        /** @description What stories get where neither the workspace nor a pipeline or request sets a value. */
+        ServerProduction: {
+            /** @description The model drafts run with; absent when Claude Code picks its own. */
+            draftModel?: string;
+            /**
+             * @description Where draftModel comes from: settings (System › Credentials), env (KURGU_CLAUDE_MODEL) or unset (Claude Code's own default).
+             * @enum {string}
+             */
+            draftModelSource: "settings" | "env" | "unset";
+            draftEffort?: components["schemas"]["DraftEffort"];
+            /** @description Short side of the review render of a 1080p composition, in pixels. */
+            previewHeight: number;
+            /** @description Short side of the final render of a 1080p composition, in pixels. */
+            finalHeight: number;
+            previewFps: number;
+            finalFps: number;
+            /** @description The host profile the render values come from (System › Hosts). */
+            profile: string;
         };
         AdHocInput: {
             /** @description Free text — what you want made. */
@@ -1939,7 +1989,7 @@ export interface components {
              */
             templateId?: string;
             voice?: components["schemas"]["VoiceOverride"];
-            /** @description Rounds of self-review per draft, at most: a fresh agent reviews the draft and the author fixes what it reports, until it passes or the rounds run out. 0 turns it off; omitted means 1. */
+            /** @description Rounds of self-review per draft, at most: a fresh agent reviews the draft and the author fixes what it reports, until it passes or the rounds run out. 0 turns it off; omitted means the workspace default (Settings › Production), then 1. */
             selfReviewRounds?: number;
             production?: components["schemas"]["Production"];
         };
@@ -2355,7 +2405,7 @@ export interface components {
              */
             templateId?: string;
             voice?: components["schemas"]["VoiceOverride"];
-            /** @description Rounds of self-review per draft, at most: a fresh agent reviews the draft and the author fixes what it reports, until it passes or the rounds run out. 0 turns it off; omitted means 1. */
+            /** @description Rounds of self-review per draft, at most: a fresh agent reviews the draft and the author fixes what it reports, until it passes or the rounds run out. 0 turns it off; omitted means the workspace default (Settings › Production), then 1. */
             selfReviewRounds?: number;
             production?: components["schemas"]["Production"];
         };
@@ -3999,6 +4049,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VoiceSettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getWorkspaceProduction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The defaults and the server's values. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceProduction"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    saveWorkspaceProduction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkspaceProductionInput"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceProduction"];
                 };
             };
             default: components["responses"]["Error"];

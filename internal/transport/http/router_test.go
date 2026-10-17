@@ -36,6 +36,7 @@ import (
 	storyrepo "kurgu/internal/repository/story/v1"
 	templaterepo "kurgu/internal/repository/template/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
+	defaultssvc "kurgu/internal/service/defaults/v1"
 	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
@@ -113,6 +114,7 @@ func newServer(t *testing.T) *server {
 		Jobs:       jobs,
 		Knowledge:  knowledge,
 		Library:    library,
+		Defaults:   defaultssvc.NewService(settingsrepo.NewSQLite(tx), settings, defaultssvc.Config{Profile: "default", Effort: "high"}),
 		PublicURL:  publicURL,
 		UI:         fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Kurgu</title>")}},
 		Log:        slog.New(slog.NewJSONHandler(logs, nil)),

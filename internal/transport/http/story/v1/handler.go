@@ -138,8 +138,7 @@ func (h *Handler) CreateStories(ctx context.Context, req gen.CreateStoriesReques
 		in.TemplateID = *req.Body.TemplateId
 	}
 	in.Voice = voicehandler.OverrideOf(req.Body.Voice)
-	in.SelfReview = pipelinehandler.SelfReviewOf(req.Body.SelfReviewRounds)
-	if in.Production, err = pipelinehandler.ProductionOf(req.Body.Production); err != nil {
+	if in.Production, err = pipelinehandler.ProductionOf(req.Body.Production, req.Body.SelfReviewRounds); err != nil {
 		return nil, err
 	}
 	if req.Body.Style != nil {
