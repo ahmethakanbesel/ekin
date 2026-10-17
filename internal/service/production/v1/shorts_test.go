@@ -354,3 +354,81 @@ func TestShortsDraftMayMoveItsCut(t *testing.T) {
 		})
 	}
 }
+
+func TestAgentFindsMomentsOfALongVideo(t *testing.T) {
+	ctx := context.Background()
+	long := strings.Repeat("Uzun bir başlık ", 20)
+	answer := `{"moments": [
+		{"first": 3, "last": 8, "hook": "Öfkeyi adlandır", "reason": "Tek başına anlaşılıyor.", "score": 90},
+		{"first": 20, "last": 26, "hook": "` + long + `", "reason": "Somut bir sahne.", "score": 70},
+		{"first": 22, "last": 27, "hook": "Çakışan", "reason": "x", "score": 60},
+		{"first": 0, "last": 3, "hook": "Sıfırdan", "reason": "x", "score": 99},
+		{"first": 100, "last": 200, "hook": "Dışarıda", "reason": "x", "score": 99},
+		{"first": 50, "last": 52, "hook": "Kısa", "reason": "x", "score": 95}
+	]}`
+	tests := []struct {
+		name       string
+		make       int
+		wantShorts int
+	}{
+		{"suggests only", 0, 0},
+		{"makes the best", 1, 1},
+		{"makes no more than it found", 5, 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			f.agent.moments = answer
+			st, long := longVideo(t, f, 10*time.Minute, true, map[string][]byte{
+				"narration/timings.json": timingsJSON(600), "script.md": []byte("Sahne 1: Trafikte öfke."),
+				"metadata.json": []byte(`{"title":"Duyguyu adlandırmak"}`),
+			})
+			if tt.make == 0 {
+				if _, err := f.svc.ScanMoments(ctx, f.ws, st.ID(), long); err != nil {
+					t.Fatal(err)
+				}
+				f.drain(t)
+			} else if err := f.svc.FindMoments(ctx, production.MomentsPayload{StoryID: st.ID(), SourceID: long, Make: tt.make}); err != nil {
+				t.Fatal(err)
+			}
+
+			if len(f.agent.momentPrompts) != 1 {
+				t.Fatalf("moment requests = %d", len(f.agent.momentPrompts))
+			}
+			prompt := f.agent.momentPrompts[0]
+			for _, want := range []string{"3. [10.0–14.6] Cümle 3.", "lasts 20–60 seconds", "at least 30 seconds apart", "Sahne 1: Trafikte öfke.", "Duyguyu adlandırmak"} {
+				if !strings.Contains(prompt, want) {
+					t.Fatalf("prompt lacks %q:\n%s", want, prompt)
+				}
+			}
+			got, _ := f.svc.Get(ctx, f.ws, st.ID())
+			moments := got.Moments(long)
+			if len(moments) != 2 {
+				t.Fatalf("moments = %d, want 2", len(moments))
+			}
+			first, second := moments[0], moments[1]
+			if first.Clip().Start() != 10*time.Second || first.Clip().End() != sec(39.6) || first.Score() != 90 ||
+				first.Hook() != "Öfkeyi adlandır" || first.Reason() != "Tek başına anlaşılıyor." || first.Origin() != storydomain.MomentByAgent {
+				t.Fatalf("first moment = %v %d %q", first.Clip(), first.Score(), first.Hook())
+			}
+			if second.Clip().Start() != 95*time.Second || len([]rune(second.Hook())) != storydomain.MaxHookLength {
+				t.Fatalf("second moment = %v, hook of %d runes", second.Clip(), len([]rune(second.Hook())))
+			}
+			shorts := got.Shorts(long)
+			if len(shorts) != tt.wantShorts {
+				t.Fatalf("shorts = %d, want %d", len(shorts), tt.wantShorts)
+			}
+			if tt.wantShorts > 0 && (*shorts[0].Clip() != first.Clip() || shorts[0].Status() != storydomain.StatusQueued) {
+				t.Fatalf("best short = %v %s", shorts[0].Clip(), shorts[0].Status())
+			}
+		})
+	}
+}
+
+func TestScanNeedsALiveLongVideo(t *testing.T) {
+	f := newFixture(t)
+	st, long := longVideo(t, f, 10*time.Minute, false, map[string][]byte{"narration/timings.json": timingsJSON(600)})
+	if _, err := f.svc.ScanMoments(context.Background(), f.ws, st.ID(), long); !apperror.Is(err, apperror.InvalidTransition) {
+		t.Fatalf("scan of a video in review = %v", err)
+	}
+}

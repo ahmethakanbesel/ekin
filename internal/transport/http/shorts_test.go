@@ -88,6 +88,12 @@ func TestShortsAPI(t *testing.T) {
 		t.Fatalf("sentence = %+v", s)
 	}
 
+	var scan gen.Job
+	owner.call("POST", moments+"/scan", nil, 202, &scan)
+	if scan.Kind != "story.moments" || scan.Status != gen.JobStatusQueued {
+		t.Fatalf("scan job = %+v", scan)
+	}
+
 	var first, second gen.Moment
 	owner.call("POST", moments, map[string]any{"startSeconds": 12.3, "endSeconds": 41, "hook": "Adını koy"}, 201, &first)
 	if first.Clip.StartSeconds != 10 || first.Clip.EndSeconds != 39.6 || first.Origin != gen.MomentOriginManual ||
@@ -134,6 +140,7 @@ func TestShortsAPI(t *testing.T) {
 		t.Fatalf("moments of a short = %+v", view)
 	}
 	owner.fail("GET", fmt.Sprintf("%s/deliverables/%s/moments", story, id.New()), nil, 404, "NotFound")
+	owner.fail("POST", fmt.Sprintf("%s/deliverables/%s/moments/scan", story, short.Id), nil, 400, "ValidationFailed")
 
 	// Another workspace's member sees nothing.
 	stranger := srv.signedIn(t, "stranger@example.com")

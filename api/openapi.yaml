@@ -1631,6 +1631,27 @@ paths:
               schema: { $ref: "#/components/schemas/Moment" }
         default: { $ref: "#/components/responses/Error" }
 
+  /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/moments/scan:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+      - $ref: "#/components/parameters/DeliverableId"
+    post:
+      operationId: scanMoments
+      tags: [stories]
+      description: >
+        Queues the agent to suggest moments of a live long video. Its new
+        suggestions replace its earlier ones; moments a person added or
+        adjusted, and those made into shorts, stay. Follow the returned job
+        and list the moments when it has succeeded.
+      responses:
+        "202":
+          description: The scan job.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        default: { $ref: "#/components/responses/Error" }
+
   /workspaces/{workspaceId}/stories/{storyId}/moments/{momentId}:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"

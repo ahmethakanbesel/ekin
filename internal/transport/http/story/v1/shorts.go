@@ -10,6 +10,7 @@ import (
 	"kurgu/internal/apperror"
 	storydomain "kurgu/internal/domain/story/v1"
 	"kurgu/internal/gen"
+	jobhandler "kurgu/internal/transport/http/job/v1"
 )
 
 func (h *Handler) ListMoments(ctx context.Context, req gen.ListMomentsRequestObject) (gen.ListMomentsResponseObject, error) {
@@ -34,6 +35,14 @@ func (h *Handler) ListMoments(ctx context.Context, req gen.ListMomentsRequestObj
 		out.Sentences = append(out.Sentences, gen.Sentence{Text: s.Text, StartSeconds: s.Start.Seconds(), EndSeconds: s.End.Seconds()})
 	}
 	return out, nil
+}
+
+func (h *Handler) ScanMoments(ctx context.Context, req gen.ScanMomentsRequestObject) (gen.ScanMomentsResponseObject, error) {
+	j, err := h.svc.ScanMoments(ctx, req.WorkspaceId, req.StoryId, req.DeliverableId)
+	if err != nil {
+		return nil, err
+	}
+	return gen.ScanMoments202JSONResponse(jobhandler.ToWire(j)), nil
 }
 
 func (h *Handler) AddMoment(ctx context.Context, req gen.AddMomentRequestObject) (gen.AddMomentResponseObject, error) {

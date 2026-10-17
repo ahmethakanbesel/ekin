@@ -77,6 +77,10 @@ type fakeAgent struct {
 	// moveClip, when set, has the next short's draft move its cut to
 	// these window sentences with kurgu tool clip.
 	moveClip []string
+	// moments is the answer to a request for moments of a long video;
+	// momentPrompts are the requests.
+	moments       string
+	momentPrompts []string
 }
 
 func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result, error) {
@@ -90,6 +94,12 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 	if stop != nil && len(req.JSONSchema) == 0 {
 		stop()
 		return claude.Result{}, ctx.Err()
+	}
+	if strings.Contains(string(req.JSONSchema), `"moments"`) {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		a.momentPrompts = append(a.momentPrompts, req.Prompt)
+		return claude.Result{SessionID: "moments", Structured: json.RawMessage(a.moments)}, nil
 	}
 	if strings.Contains(string(req.JSONSchema), `"verdict"`) {
 		a.mu.Lock()
@@ -323,7 +333,7 @@ func (f fixture) drain(t *testing.T) {
 func (f fixture) drainOn(t *testing.T, svc *production.Service) {
 	t.Helper()
 	ctx := context.Background()
-	kinds := []string{pipelinesvc.KindRun, production.KindAdHoc, production.KindDraft, production.KindRender, production.KindPublish}
+	kinds := []string{pipelinesvc.KindRun, production.KindAdHoc, production.KindMoments, production.KindDraft, production.KindRender, production.KindPublish}
 	for range 50 {
 		j, err := f.jobs.Claim(ctx, jobdomain.Queues, kinds, "test", time.Minute)
 		if err != nil {
@@ -343,6 +353,10 @@ func (f fixture) drainOn(t *testing.T, svc *production.Service) {
 			var p production.AdHocPayload
 			_ = json.Unmarshal(j.Payload(), &p)
 			runErr = svc.PlanAdHoc(ctx, p)
+		case production.KindMoments:
+			var p production.MomentsPayload
+			_ = json.Unmarshal(j.Payload(), &p)
+			runErr = svc.FindMoments(ctx, p)
 		default:
 			var p production.DeliverablePayload
 			_ = json.Unmarshal(j.Payload(), &p)

@@ -987,6 +987,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/moments/scan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Queues the agent to suggest moments of a live long video. Its new suggestions replace its earlier ones; moments a person added or adjusted, and those made into shorts, stay. Follow the returned job and list the moments when it has succeeded. */
+        post: operations["scanMoments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/stories/{storyId}/moments/{momentId}": {
         parameters: {
             query?: never;
@@ -4249,6 +4270,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Moment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    scanMoments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The scan job. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
                 };
             };
             default: components["responses"]["Error"];

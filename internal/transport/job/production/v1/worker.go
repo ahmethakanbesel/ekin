@@ -17,6 +17,7 @@ func Register(r *jobsvc.Runner, svc *productionsvc.Service) {
 		return svc.PlanRun(ctx, p)
 	}))
 	r.Register(productionsvc.KindAdHoc, handle(svc.PlanAdHoc))
+	r.Register(productionsvc.KindMoments, handle(svc.FindMoments))
 	r.Register(productionsvc.KindDraft, handle(svc.Draft))
 	r.Register(productionsvc.KindRender, handle(svc.Render))
 	r.Register(productionsvc.KindPublish, func(ctx context.Context, j *jobdomain.Job) error {
