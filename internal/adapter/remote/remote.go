@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"kurgu/internal/apperror"
 	jobdomain "kurgu/internal/domain/job/v1"
 	settingsdomain "kurgu/internal/domain/settings/v1"
 	productionsvc "kurgu/internal/service/production/v1"
@@ -70,7 +71,13 @@ func (c *Client) do(req *http.Request, out any) (int, error) {
 		}
 		raw, _ := io.ReadAll(io.LimitReader(res.Body, 4096))
 		_ = json.Unmarshal(raw, &e)
-		return res.StatusCode, fmt.Errorf("remote: %s answered %d %s: %s", req.URL.Path, res.StatusCode, e.Code, e.Message)
+		msg := fmt.Sprintf("remote: %s answered %d %s: %s", req.URL.Path, res.StatusCode, e.Code, e.Message)
+		if e.Code != "" {
+			// Keep the server's code, so callers can tell a refusal (the
+			// job is no longer ours) from a failure worth retrying.
+			return res.StatusCode, apperror.New(apperror.Code(e.Code), msg)
+		}
+		return res.StatusCode, errors.New(msg)
 	}
 	if out != nil && res.StatusCode == http.StatusOK {
 		return res.StatusCode, json.NewDecoder(res.Body).Decode(out)

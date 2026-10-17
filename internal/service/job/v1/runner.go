@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"kurgu/internal/apperror"
 	jobdomain "kurgu/internal/domain/job/v1"
 )
 
@@ -263,25 +264,48 @@ func (r *Runner) run(ctx context.Context, j *jobdomain.Job) (err error) {
 
 // heartbeat extends the lease every third of it. When the job is
 // cancelled or another worker took it over, it cancels the handler and
-// closes lost.
+// closes lost. A heartbeat that fails for another reason (a busy
+// database, the server out of reach) is tried again at the next tick
+// while the lease it last extended holds; only once that lease ran out
+// may another worker have taken the job, so only then is the job given up.
 func (r *Runner) heartbeat(ctx context.Context, j *jobdomain.Job, cancel context.CancelFunc, lost chan<- struct{}, log *slog.Logger) {
 	t := time.NewTicker(r.cfg.Lease / 3)
 	defer t.Stop()
+	held := time.Now().Add(r.cfg.Lease) // the lease the claim gave
+	giveUp := func(msg string, err error) {
+		log.WarnContext(ctx, msg, slog.Any("error", err))
+		close(lost)
+		cancel()
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
+			sent := time.Now()
 			err := r.svc.Heartbeat(ctx, j.ID(), r.cfg.Owner, r.cfg.Lease)
-			if err == nil || errors.Is(err, context.Canceled) {
-				continue
+			switch {
+			case err == nil:
+				held = sent.Add(r.cfg.Lease)
+			case errors.Is(err, context.Canceled):
+			case leaseGone(err):
+				giveUp("heartbeat refused; stopping job", err)
+				return
+			case time.Now().Before(held):
+				log.WarnContext(ctx, "heartbeat failed; trying again", slog.Any("error", err))
+			default:
+				giveUp("lease ran out without a heartbeat; stopping job", err)
+				return
 			}
-			log.WarnContext(ctx, "heartbeat refused; stopping job", slog.Any("error", err))
-			close(lost)
-			cancel()
-			return
 		}
 	}
+}
+
+// leaseGone reports whether a heartbeat error means the job is no longer
+// this worker's: it was cancelled, finished or taken over, or is gone.
+func leaseGone(err error) bool {
+	return apperror.Is(err, apperror.InvalidTransition) || apperror.Is(err, apperror.JobNotFound) ||
+		apperror.Is(err, apperror.Conflict)
 }
 
 func (r *Runner) sweep(ctx context.Context) {

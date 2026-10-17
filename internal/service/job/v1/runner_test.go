@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"kurgu/internal/apperror"
 	"kurgu/internal/db/dbtest"
 	jobdomain "kurgu/internal/domain/job/v1"
 	workspacedomain "kurgu/internal/domain/workspace/v1"
@@ -356,4 +357,78 @@ func TestThrottleChangeWakesWaitingSlots(t *testing.T) {
 	}
 	set(func(t *jobsvc.Throttle) { t.Cooldown = 0 })
 	f.waitFor(t, second, status(jobdomain.StatusSucceeded))
+}
+
+// flakyHeartbeats fails heartbeats with err while fails says so.
+type flakyHeartbeats struct {
+	*jobsvc.Service
+	err   error
+	fails func(n int) bool // n counts heartbeats from 1
+	n     atomic.Int32
+}
+
+func (q *flakyHeartbeats) Heartbeat(ctx context.Context, jobID uuid.UUID, owner string, lease time.Duration) error {
+	if q.fails(int(q.n.Add(1))) {
+		return q.err
+	}
+	return q.Service.Heartbeat(ctx, jobID, owner, lease)
+}
+
+// A heartbeat that fails while the lease still holds (a busy database,
+// the server briefly out of reach) does not stop the job; one refused,
+// or failing until the lease ran out, does.
+func TestRunnerRidesOutFailedHeartbeats(t *testing.T) {
+	const lease = 150 * time.Millisecond
+	tests := []struct {
+		name        string
+		err         error
+		fails       func(n int) bool
+		wantStopped bool
+	}{
+		{name: "one blip", err: errors.New("database is locked"), fails: func(n int) bool { return n == 1 }},
+		{name: "blips short of the lease", err: errors.New("connection refused"), fails: func(n int) bool { return n%2 == 1 }},
+		{name: "failing past the lease", err: errors.New("connection refused"), fails: func(int) bool { return true }, wantStopped: true},
+		{name: "refused", err: apperror.New(apperror.InvalidTransition, "job is not held by this worker"), fails: func(n int) bool { return n == 1 }, wantStopped: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			q := &flakyHeartbeats{Service: f.svc, err: tt.err, fails: tt.fails}
+			j := f.enqueue(t, jobdomain.QueueIO, "long")
+			var stopped, runs atomic.Int32
+			r := jobsvc.NewRunner(q, jobsvc.RunnerConfig{Owner: "test", Throttle: one(jobdomain.QueueIO), Lease: lease, Poll: 5 * time.Millisecond, SweepEach: time.Hour}, quietLog())
+			r.Register("long", func(ctx context.Context, _ *jobdomain.Job) error {
+				if runs.Add(1) > 1 {
+					<-ctx.Done() // a reclaim after giving up; not under test
+					return ctx.Err()
+				}
+				select {
+				case <-time.After(4 * lease):
+					return nil
+				case <-ctx.Done():
+					stopped.Store(1)
+					return ctx.Err()
+				}
+			})
+			ctx, cancel := context.WithCancel(context.Background())
+			done := make(chan struct{})
+			go func() { _ = r.Run(ctx); close(done) }()
+			t.Cleanup(func() { cancel(); <-done })
+
+			if tt.wantStopped {
+				deadline := time.Now().Add(5 * time.Second)
+				for stopped.Load() == 0 && time.Now().Before(deadline) {
+					time.Sleep(5 * time.Millisecond)
+				}
+				if stopped.Load() == 0 {
+					t.Fatal("the job kept running")
+				}
+				return
+			}
+			f.waitFor(t, j, status(jobdomain.StatusSucceeded))
+			if stopped.Load() != 0 {
+				t.Fatal("the job was stopped")
+			}
+		})
+	}
 }
