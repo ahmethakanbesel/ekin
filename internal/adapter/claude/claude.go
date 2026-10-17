@@ -1,4 +1,4 @@
-// Package claude runs Claude Code headless (`claude -p`) as Kurgu's
+// Package claude runs Claude Code headless (`claude -p`) as Ekin's
 // authoring agent. Each call is one non-interactive session in a working
 // directory with an explicit tool allow-list; a later call can resume the
 // session to apply review feedback with the earlier context intact.
@@ -25,7 +25,7 @@ type Runner struct {
 	// empty leaves the CLI's default.
 	Effort string
 	// Env is added to the inherited environment (CLAUDE_CODE_OAUTH_TOKEN
-	// on a server, tool locations for `kurgu tool`).
+	// on a server, tool locations for `ekin tool`).
 	Env []string
 }
 
@@ -38,7 +38,7 @@ type Request struct {
 	// Tools are the built-in tools the session may use at all, e.g.
 	// Read, Write, Edit, Glob, Grep, Bash. Empty means no tools.
 	Tools []string
-	// Allowed are pre-approved tool patterns, e.g. "Bash(/usr/bin/kurgu tool:*)".
+	// Allowed are pre-approved tool patterns, e.g. "Bash(/usr/bin/ekin tool:*)".
 	// Anything else that needs permission is denied (headless).
 	Allowed []string
 	// Resume continues an earlier session.

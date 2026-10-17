@@ -19,14 +19,14 @@ import (
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 
-	"kurgu/internal/adapter/claude"
-	"kurgu/internal/apperror"
-	jobdomain "kurgu/internal/domain/job/v1"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	templatedomain "kurgu/internal/domain/template/v1"
-	templaterepo "kurgu/internal/repository/template/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/adapter/claude"
+	"ekin/internal/apperror"
+	jobdomain "ekin/internal/domain/job/v1"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	templatedomain "ekin/internal/domain/template/v1"
+	templaterepo "ekin/internal/repository/template/v1"
+	"ekin/pkg/id"
 )
 
 // KindGenerate is the job that drafts a template from a channel.

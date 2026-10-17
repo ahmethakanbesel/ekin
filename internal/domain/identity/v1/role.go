@@ -2,7 +2,7 @@
 // memberships in workspaces and the invitations that create memberships.
 package identity
 
-import "kurgu/internal/apperror"
+import "ekin/internal/apperror"
 
 // Role is a member's role in one workspace.
 type Role string

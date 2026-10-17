@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"kurgu/internal/adapter/elevenlabs"
+	"ekin/internal/adapter/elevenlabs"
 )
 
 func TestClient(t *testing.T) {

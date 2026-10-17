@@ -19,15 +19,15 @@ import (
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 
-	"kurgu/internal/adapter/github"
-	"kurgu/internal/adapter/youtube"
-	"kurgu/internal/apperror"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	publishingdomain "kurgu/internal/domain/publishing/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	publishingrepo "kurgu/internal/repository/publishing/v1"
-	productionsvc "kurgu/internal/service/production/v1"
-	"kurgu/pkg/secretbox"
+	"ekin/internal/adapter/github"
+	"ekin/internal/adapter/youtube"
+	"ekin/internal/apperror"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	publishingdomain "ekin/internal/domain/publishing/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	publishingrepo "ekin/internal/repository/publishing/v1"
+	productionsvc "ekin/internal/service/production/v1"
+	"ekin/pkg/secretbox"
 )
 
 // stateTTL bounds how long an OAuth round trip may take.
@@ -67,7 +67,7 @@ type oauthState struct {
 // ConnectURL starts connecting a YouTube channel to the workspace.
 func (s *Service) ConnectURL(ctx context.Context, workspaceID, userID uuid.UUID) (string, error) {
 	if !s.yt(ctx).Configured() {
-		return "", apperror.New(apperror.ValidationFailed, "YouTube is not set up on this server (KURGU_YOUTUBE_CLIENT_ID and KURGU_YOUTUBE_CLIENT_SECRET)")
+		return "", apperror.New(apperror.ValidationFailed, "YouTube is not set up on this server (EKIN_YOUTUBE_CLIENT_ID and EKIN_YOUTUBE_CLIENT_SECRET)")
 	}
 	raw, _ := json.Marshal(oauthState{WorkspaceID: workspaceID, UserID: userID, Expires: s.now().Add(stateTTL).Unix()})
 	return s.yt(ctx).AuthURL(s.box.Sign(string(raw))), nil

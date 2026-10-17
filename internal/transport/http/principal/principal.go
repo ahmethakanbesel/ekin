@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"time"
 
-	"kurgu/internal/apperror"
-	identitydomain "kurgu/internal/domain/identity/v1"
+	"ekin/internal/apperror"
+	identitydomain "ekin/internal/domain/identity/v1"
 )
 
 // CookieName is the session cookie (api/openapi.yaml securitySchemes).
-const CookieName = "kurgu_session"
+const CookieName = "ekin_session"
 
 // Principal is who is calling and, on workspace routes, their membership.
 type Principal struct {

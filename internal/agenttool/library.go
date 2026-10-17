@@ -14,8 +14,8 @@ import (
 	"slices"
 	"strings"
 
-	librarydomain "kurgu/internal/domain/library/v1"
-	"kurgu/pkg/fold"
+	librarydomain "ekin/internal/domain/library/v1"
+	"ekin/pkg/fold"
 )
 
 // CatalogPath is where a draft's library catalog lies in its working
@@ -117,7 +117,7 @@ func LibraryIDs(dir string) []string {
 // maxListed bounds one library search's answer.
 const maxListed = 20
 
-// library runs `kurgu tool library`: search the catalog, or `use` an item.
+// library runs `ekin tool library`: search the catalog, or `use` an item.
 func (e Env) library(ctx context.Context, args []string, kind, query string) error {
 	items, err := ReadCatalog(e.Dir)
 	if err != nil {
@@ -131,7 +131,7 @@ func (e Env) library(ctx context.Context, args []string, kind, query string) err
 	}
 	if len(args) > 0 {
 		if args[0] != "use" || len(args) != 2 {
-			return errors.New("usage: kurgu tool library use <id>")
+			return errors.New("usage: ekin tool library use <id>")
 		}
 		return e.useLibrary(ctx, items, args[1])
 	}
@@ -173,7 +173,7 @@ func (e Env) library(ctx context.Context, args []string, kind, query string) err
 		}
 		_, _ = fmt.Fprintln(e.Stdout, describeItem(h.item))
 	}
-	_, _ = fmt.Fprintln(e.Stdout, "\nTake one with: kurgu tool library use <id>")
+	_, _ = fmt.Fprintln(e.Stdout, "\nTake one with: ekin tool library use <id>")
 	return nil
 }
 
@@ -206,7 +206,7 @@ func describeItem(it CatalogItem) string {
 func (e Env) useLibrary(ctx context.Context, items []CatalogItem, id string) error {
 	i := slices.IndexFunc(items, func(it CatalogItem) bool { return it.ID == id })
 	if i < 0 {
-		return fmt.Errorf("%s is not in this video's library; list it with kurgu tool library", id)
+		return fmt.Errorf("%s is not in this video's library; list it with ekin tool library", id)
 	}
 	it := items[i]
 	if e.Library == nil {
@@ -232,9 +232,9 @@ func (e Env) useLibrary(ctx context.Context, items []CatalogItem, id string) err
 	case it.Kind == "music" && it.Format == "js":
 		_ = os.Remove(e.path(MusicTrackPath))
 		if e.Spec.Media.AllowsFresh(librarydomain.KindMusic) {
-			msg += " (a composed score from the library; you may adapt it, then run kurgu tool music)"
+			msg += " (a composed score from the library; you may adapt it, then run ekin tool music)"
 		} else {
-			msg += " (a composed score from the library; use it as it is and run kurgu tool music)"
+			msg += " (a composed score from the library; use it as it is and run ekin tool music)"
 		}
 	case it.Kind == "music":
 		removed := os.Remove(e.path("music.js")) == nil
@@ -248,7 +248,7 @@ func (e Env) useLibrary(ctx context.Context, items []CatalogItem, id string) err
 			msg += "\nmusic.js was removed: the track replaces it"
 		}
 	case it.Kind == "video":
-		msg += fmt.Sprintf(" (%dx%d, %.0f s, loop it with Kurgu.video(el).seek(t))", it.Width, it.Height, it.Seconds)
+		msg += fmt.Sprintf(" (%dx%d, %.0f s, loop it with Ekin.video(el).seek(t))", it.Width, it.Height, it.Seconds)
 	default:
 		msg += fmt.Sprintf(" (%dx%d)", it.Width, it.Height)
 	}
@@ -310,7 +310,7 @@ func CheckMedia(dir string, spec Spec) []string {
 			kind = kindFromFile(c.File)
 		}
 		if c.Library == "" && !spec.Media.AllowsFresh(librarydomain.Kind(kind)) && referenced(dir, c.File) {
-			problems = append(problems, fmt.Sprintf("%s comes from Pexels, but this video takes %ss from the library only; replace it with kurgu tool library --type %s", c.File, kind, kind))
+			problems = append(problems, fmt.Sprintf("%s comes from Pexels, but this video takes %ss from the library only; replace it with ekin tool library --type %s", c.File, kind, kind))
 		}
 		if c.Library != "" && !inCatalog(c.Library) && !exists(dir, c.File) {
 			problems = append(problems, fmt.Sprintf("%s names library item %s, which is neither in this video's library nor here", c.File, c.Library))
@@ -327,12 +327,12 @@ func CheckMedia(dir string, spec Spec) []string {
 		problems = append(problems, "music.js and music.json both exist; keep one music source")
 	case hasTrack && err == nil:
 		if !exists(dir, track.File) {
-			problems = append(problems, "music.json names "+track.File+", which is missing; run kurgu tool library use again")
+			problems = append(problems, "music.json names "+track.File+", which is missing; run ekin tool library use again")
 		}
 	case hasScore && !spec.Media.AllowsFresh(librarydomain.KindMusic):
 		sum := fileSHA256(filepath.Join(dir, "music.js"))
 		if !slices.ContainsFunc(items, func(it CatalogItem) bool { return it.Format == "js" && it.SHA256 == sum }) {
-			problems = append(problems, "this video takes its music from the library only; replace music.js with a track from kurgu tool library --type music")
+			problems = append(problems, "this video takes its music from the library only; replace music.js with a track from ekin tool library --type music")
 		}
 	}
 	return problems
@@ -362,7 +362,7 @@ func UsedStock(dir string) []Credit {
 	return out
 }
 
-// pexelsName is how kurgu tool stock names a file: pexels-<kind>-<id>.
+// pexelsName is how ekin tool stock names a file: pexels-<kind>-<id>.
 var pexelsName = regexp.MustCompile(`^pexels-(?:video|photo)-(\d+)\.`)
 
 func exists(dir, file string) bool {

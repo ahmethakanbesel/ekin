@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 
-	jobdomain "kurgu/internal/domain/job/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	seosvc "kurgu/internal/service/seo/v1"
+	jobdomain "ekin/internal/domain/job/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	seosvc "ekin/internal/service/seo/v1"
 )
 
 // Register adds the SEO handlers to r.

@@ -14,9 +14,9 @@ import (
 
 	"github.com/google/uuid"
 
-	notifyrepo "kurgu/internal/repository/notify/v1"
-	productionsvc "kurgu/internal/service/production/v1"
-	"kurgu/pkg/id"
+	notifyrepo "ekin/internal/repository/notify/v1"
+	productionsvc "ekin/internal/service/production/v1"
+	"ekin/pkg/id"
 )
 
 // Recipient is someone who gets digests.
@@ -197,7 +197,7 @@ func (s *Service) digest(ws uuid.UUID, name string, items []Notification) (strin
 			b.WriteString("\n")
 		}
 	}
-	b.WriteString("— Kurgu\nTurn these emails off on your account page.\n")
+	b.WriteString("— Ekin\nTurn these emails off on your account page.\n")
 	return subject, b.String()
 }
 
@@ -207,8 +207,8 @@ func (s *Service) Invite(ctx context.Context, to, workspaceName, inviter, link s
 	if s.mailer == nil || !s.mailer.Enabled() {
 		return false, nil
 	}
-	body := fmt.Sprintf("%s invited you to the %s workspace on Kurgu.\n\nAccept within 7 days:\n%s\n", inviter, workspaceName, link)
-	if err := s.mailer.Send(to, "Join "+workspaceName+" on Kurgu", body); err != nil {
+	body := fmt.Sprintf("%s invited you to the %s workspace on Ekin.\n\nAccept within 7 days:\n%s\n", inviter, workspaceName, link)
+	if err := s.mailer.Send(to, "Join "+workspaceName+" on Ekin", body); err != nil {
 		s.log.WarnContext(ctx, "invitation email failed", slog.Any("error", err))
 		return false, err
 	}

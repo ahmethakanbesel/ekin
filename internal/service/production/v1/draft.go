@@ -17,16 +17,16 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/adapter/claude"
-	"kurgu/internal/agenttool"
-	"kurgu/internal/apperror"
-	jobdomain "kurgu/internal/domain/job/v1"
-	librarydomain "kurgu/internal/domain/library/v1"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	voicedomain "kurgu/internal/domain/voice/v1"
-	"kurgu/pkg/archive"
-	"kurgu/pkg/id"
+	"ekin/internal/adapter/claude"
+	"ekin/internal/agenttool"
+	"ekin/internal/apperror"
+	jobdomain "ekin/internal/domain/job/v1"
+	librarydomain "ekin/internal/domain/library/v1"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	voicedomain "ekin/internal/domain/voice/v1"
+	"ekin/pkg/archive"
+	"ekin/pkg/id"
 )
 
 //go:embed prompts/*.md
@@ -189,7 +189,7 @@ func (s *Service) RunDraft(ctx context.Context, task DraftTask, dir string) (Dra
 	allowed := append([]string(nil), tools...)
 	if task.Video {
 		tools = append(tools, "Bash")
-		allowed = append(allowed, s.kurguAllowed(ctx)...)
+		allowed = append(allowed, s.ekinAllowed(ctx)...)
 	}
 	req := claude.Request{Dir: dir, Tools: tools, Allowed: allowed, Timeout: s.cfg.AgentTimeout, Env: s.toolEnv(ctx, task.Spec),
 		Model: task.Agent.Model, Effort: string(task.Agent.Effort)}
@@ -240,7 +240,7 @@ func (s *Service) turn(ctx context.Context, a *author, prompt string) error {
 	return nil
 }
 
-// settle sends Kurgu's own check failures back to the author until the
+// settle sends Ekin's own check failures back to the author until the
 // output passes, at most FixAttempts times.
 func (s *Service) settle(ctx context.Context, task DraftTask, dir string, a *author) error {
 	for attempt := 0; ; attempt++ {
@@ -251,7 +251,7 @@ func (s *Service) settle(ctx context.Context, task DraftTask, dir string, a *aut
 		if attempt >= s.cfg.FixAttempts {
 			return fmt.Errorf("output still invalid after %d fixes: %s", attempt, strings.Join(problems, "; "))
 		}
-		if err := s.turn(ctx, a, "Kurgu's own check of your output failed:\n\n- "+strings.Join(problems, "\n- ")+
+		if err := s.turn(ctx, a, "Ekin's own check of your output failed:\n\n- "+strings.Join(problems, "\n- ")+
 			"\n\nFix every item, check again, and reply when done."); err != nil {
 			return err
 		}
@@ -409,9 +409,9 @@ func (s *Service) fail(ctx context.Context, st *storydomain.Story, d *storydomai
 }
 
 // toolCmd is how instructions name the agent tools; RunDraft puts a
-// `kurgu` link to this binary first on the agent's PATH, so the same
+// `ekin` link to this binary first on the agent's PATH, so the same
 // instructions work on every host.
-const toolCmd = "kurgu tool"
+const toolCmd = "ekin tool"
 
 // task is what the tools and the validator need to know.
 type task struct {
@@ -425,7 +425,7 @@ type task struct {
 
 func (s *Service) toolEnv(ctx context.Context, spec agenttool.Spec) []string {
 	raw, _ := json.Marshal(spec)
-	env := append(append([]string(nil), s.cfg.ToolEnv...), "KURGU_TOOL_SPEC="+string(raw))
+	env := append(append([]string(nil), s.cfg.ToolEnv...), "EKIN_TOOL_SPEC="+string(raw))
 	if s.cfg.ExtraEnv != nil {
 		env = append(env, s.cfg.ExtraEnv(ctx)...)
 	}
@@ -435,54 +435,54 @@ func (s *Service) toolEnv(ctx context.Context, spec agenttool.Spec) []string {
 	if dir := s.binDir(ctx); dir != "" {
 		// Both: the PATH for the agent's process, and an env file Claude Code
 		// sources before every shell command, so a shell that starts from
-		// another PATH (a resumed session's) still finds kurgu.
+		// another PATH (a resumed session's) still finds ekin.
 		env = append(env, "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"),
 			"CLAUDE_ENV_FILE="+filepath.Join(dir, envFile))
 	}
 	return env
 }
 
-// envFile, beside the kurgu link, puts the link's directory on PATH.
+// envFile, beside the ekin link, puts the link's directory on PATH.
 const envFile = "env.sh"
 
-// kurguAllowed are the agent's pre-approved tool commands: `kurgu tool`
+// ekinAllowed are the agent's pre-approved tool commands: `ekin tool`
 // as the instructions spell it, and by its absolute paths, which an
-// agent falls back to when its shell cannot find kurgu.
-func (s *Service) kurguAllowed(ctx context.Context) []string {
-	allowed := []string{"Bash(kurgu tool:*)"}
+// agent falls back to when its shell cannot find ekin.
+func (s *Service) ekinAllowed(ctx context.Context) []string {
+	allowed := []string{"Bash(ekin tool:*)"}
 	if dir := s.binDir(ctx); dir != "" {
-		allowed = append(allowed, "Bash("+filepath.Join(dir, "kurgu")+" tool:*)")
+		allowed = append(allowed, "Bash("+filepath.Join(dir, "ekin")+" tool:*)")
 	}
-	if bin := s.cfg.KurguBin; bin != "" && !strings.ContainsAny(bin, " ()*") {
+	if bin := s.cfg.EkinBin; bin != "" && !strings.ContainsAny(bin, " ()*") {
 		allowed = append(allowed, "Bash("+bin+" tool:*)")
 	}
 	return allowed
 }
 
-// binDir holds a `kurgu` symlink to this binary for the agent's PATH.
+// binDir holds a `ekin` symlink to this binary for the agent's PATH.
 func (s *Service) binDir(ctx context.Context) string {
-	if s.cfg.KurguBin == "" {
+	if s.cfg.EkinBin == "" {
 		return ""
 	}
 	// Absolute: the agent's shell runs in the deliverable's directory, so
-	// a relative work root (KURGU_DATA_DIR=data) would leave kurgu off it.
+	// a relative work root (EKIN_DATA_DIR=data) would leave ekin off it.
 	dir, err := filepath.Abs(filepath.Join(s.cfg.WorkRoot, ".bin"))
 	if err != nil {
-		s.log.WarnContext(ctx, "cannot link kurgu for the agent", slog.Any("error", err))
+		s.log.WarnContext(ctx, "cannot link ekin for the agent", slog.Any("error", err))
 		return ""
 	}
-	link := filepath.Join(dir, "kurgu")
+	link := filepath.Join(dir, "ekin")
 	env := filepath.Join(dir, envFile)
 	script := "export PATH=" + shellQuote(dir) + `":$PATH"` + "\n"
-	if target, err := os.Readlink(link); err == nil && target == s.cfg.KurguBin {
+	if target, err := os.Readlink(link); err == nil && target == s.cfg.EkinBin {
 		if b, err := os.ReadFile(env); err == nil && string(b) == script { //nolint:gosec // our own file
 			return dir
 		}
 	}
 	_ = os.MkdirAll(dir, 0o750)
 	_ = os.Remove(link)
-	if err := os.Symlink(s.cfg.KurguBin, link); err != nil {
-		s.log.WarnContext(ctx, "cannot link kurgu for the agent", slog.Any("error", err))
+	if err := os.Symlink(s.cfg.EkinBin, link); err != nil {
+		s.log.WarnContext(ctx, "cannot link ekin for the agent", slog.Any("error", err))
 		return ""
 	}
 	if err := os.WriteFile(env, []byte(script), 0o600); err != nil {
@@ -1011,7 +1011,7 @@ func (s *Service) archive(ctx context.Context, st *storydomain.Story, d *storydo
 	if err := os.WriteFile(filepath.Join(dir, revisionMarker), []byte(strconv.Itoa(d.Revision()+1)), 0o600); err != nil {
 		return nil, err
 	}
-	tmp, err := os.CreateTemp("", "kurgu-workdir-*.tar.gz")
+	tmp, err := os.CreateTemp("", "ekin-workdir-*.tar.gz")
 	if err != nil {
 		return nil, err
 	}

@@ -110,7 +110,7 @@ func (c *Client) initialize(ctx context.Context) error {
 	_, err := c.request(ctx, "initialize", map[string]any{
 		"protocolVersion": protocolVersion,
 		"capabilities":    map[string]any{},
-		"clientInfo":      map[string]any{"name": "kurgu", "version": "1"},
+		"clientInfo":      map[string]any{"name": "ekin", "version": "1"},
 	})
 	if err != nil {
 		return err

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"kurgu/internal/apperror"
-	library "kurgu/internal/domain/library/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	library "ekin/internal/domain/library/v1"
+	"ekin/pkg/id"
 )
 
 var now = time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)

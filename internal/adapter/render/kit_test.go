@@ -1,13 +1,14 @@
 package render_test
 
 import (
+	"bytes"
 	"io/fs"
 	"regexp"
 	"strings"
 	"testing"
 
-	"kurgu/internal/adapter/render"
-	templatedomain "kurgu/internal/domain/template/v1"
+	"ekin/internal/adapter/render"
+	templatedomain "ekin/internal/domain/template/v1"
 )
 
 // Every font a template may pick must be bundled, with both the latin
@@ -15,7 +16,7 @@ import (
 // file the kit ships.
 func TestKitBundlesEveryTemplateFont(t *testing.T) {
 	kit := render.Kit()
-	css, err := fs.ReadFile(kit, "kurgu.css")
+	css, err := fs.ReadFile(kit, "ekin.css")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +38,22 @@ func TestKitBundlesEveryTemplateFont(t *testing.T) {
 			}
 		}
 		if !latin || !ext {
-			t.Errorf("%s: want latin and latin-ext faces in kurgu.css, got %v", font, files[font])
+			t.Errorf("%s: want latin and latin-ext faces in ekin.css, got %v", font, files[font])
+		}
+	}
+}
+
+// Compositions written before the rename load kurgu.js and kurgu.css.
+func TestKitServesLegacyNames(t *testing.T) {
+	kit := render.Kit()
+	for legacy, file := range map[string]string{"kurgu.js": "ekin.js", "kurgu.css": "ekin.css"} {
+		got, err := fs.ReadFile(kit, legacy)
+		if err != nil {
+			t.Fatalf("%s: %v", legacy, err)
+		}
+		want, _ := fs.ReadFile(kit, file)
+		if !bytes.Equal(got, want) || len(want) == 0 {
+			t.Errorf("%s does not serve %s", legacy, file)
 		}
 	}
 }

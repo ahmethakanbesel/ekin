@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"kurgu/internal/adapter/smtp"
+	"ekin/internal/adapter/smtp"
 )
 
 // fakeServer speaks just enough SMTP to accept one message.
@@ -68,7 +68,7 @@ func fakeServer(t *testing.T) (int, func() string) {
 
 func TestSend(t *testing.T) {
 	port, got := fakeServer(t)
-	m := smtp.New(smtp.Config{Host: "127.0.0.1", Port: port, From: "Kurgu <kurgu@example.com>", TLS: "none"})
+	m := smtp.New(smtp.Config{Host: "127.0.0.1", Port: port, From: "Ekin <ekin@example.com>", TLS: "none"})
 	if err := m.Send("ada@example.com", "İncelemeye hazır: 2 video", "Merhaba\nİki video hazır."); err != nil {
 		t.Fatal(err)
 	}

@@ -4,7 +4,7 @@ import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
 import { defineConfig, type Plugin } from "vite"
 
-const backend = process.env.KURGU_BACKEND_URL ?? "http://127.0.0.1:8080"
+const backend = process.env.EKIN_BACKEND_URL ?? "http://127.0.0.1:8080"
 const outDir = path.resolve(__dirname, "dist")
 
 // The Go binary embeds web/dist (web/embed.go, `//go:embed all:dist`), so
@@ -13,7 +13,7 @@ const outDir = path.resolve(__dirname, "dist")
 // the placeholder back once the bundle is written.
 function keepGitkeep(): Plugin {
   return {
-    name: "kurgu:keep-gitkeep",
+    name: "ekin:keep-gitkeep",
     apply: "build",
     closeBundle() {
       writeFileSync(path.join(outDir, ".gitkeep"), "")

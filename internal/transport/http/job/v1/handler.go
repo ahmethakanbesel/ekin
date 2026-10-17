@@ -6,9 +6,9 @@ import (
 	"context"
 	"encoding/json"
 
-	jobdomain "kurgu/internal/domain/job/v1"
-	"kurgu/internal/gen"
-	jobsvc "kurgu/internal/service/job/v1"
+	jobdomain "ekin/internal/domain/job/v1"
+	"ekin/internal/gen"
+	jobsvc "ekin/internal/service/job/v1"
 )
 
 // Handler serves jobs.

@@ -1,7 +1,7 @@
 ---
 name: Clinical calm
-description: Kurgu's default for health topics — dark navy, warm amber accent, serif titles, quiet confidence.
-inspiration: Kurgu house style for mental-health education
+description: Ekin's default for health topics — dark navy, warm amber accent, serif titles, quiet confidence.
+inspiration: Ekin house style for mental-health education
 kinds: [video, article]
 palette: ["#0F1B2D", "#1B2B44", "#E8A87C", "#7FB8A4", "#F3EDE4", "#9AA5B1"]
 headingFont: Lora

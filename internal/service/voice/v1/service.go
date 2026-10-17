@@ -14,14 +14,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/adapter/elevenlabs"
-	"kurgu/internal/adapter/speech"
-	"kurgu/internal/apperror"
-	"kurgu/internal/blob"
-	jobdomain "kurgu/internal/domain/job/v1"
-	voicedomain "kurgu/internal/domain/voice/v1"
-	settingsrepo "kurgu/internal/repository/settings/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/adapter/elevenlabs"
+	"ekin/internal/adapter/speech"
+	"ekin/internal/apperror"
+	"ekin/internal/blob"
+	jobdomain "ekin/internal/domain/job/v1"
+	voicedomain "ekin/internal/domain/voice/v1"
+	settingsrepo "ekin/internal/repository/settings/v1"
+	"ekin/pkg/id"
 )
 
 // KindPreview renders a short voice sample.
@@ -223,7 +223,7 @@ func (s *Service) Preview(ctx context.Context, p PreviewPayload) error {
 	if err != nil {
 		return err
 	}
-	dir, err := os.MkdirTemp("", "kurgu-voice-*")
+	dir, err := os.MkdirTemp("", "ekin-voice-*")
 	if err != nil {
 		return err
 	}

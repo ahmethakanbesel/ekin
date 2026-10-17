@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	identitydomain "kurgu/internal/domain/identity/v1"
+	"ekin/internal/apperror"
+	identitydomain "ekin/internal/domain/identity/v1"
 )
 
 type membershipKey struct{ workspaceID, userID uuid.UUID }

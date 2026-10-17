@@ -11,13 +11,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	librarydomain "kurgu/internal/domain/library/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/internal/gen"
-	librarysvc "kurgu/internal/service/library/v1"
-	productionsvc "kurgu/internal/service/production/v1"
-	"kurgu/internal/transport/http/principal"
+	"ekin/internal/apperror"
+	librarydomain "ekin/internal/domain/library/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/internal/gen"
+	librarysvc "ekin/internal/service/library/v1"
+	productionsvc "ekin/internal/service/production/v1"
+	"ekin/internal/transport/http/principal"
 )
 
 // maxDetailsBytes bounds the details part of an upload.

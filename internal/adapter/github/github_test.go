@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"kurgu/internal/adapter/github"
+	"ekin/internal/adapter/github"
 )
 
 func TestCommit(t *testing.T) {

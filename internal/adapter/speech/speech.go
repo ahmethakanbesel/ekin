@@ -34,7 +34,7 @@ type Segment struct {
 type Timings struct {
 	Engine string `json:"engine"`
 	// Voice and Model are what spoke: the voice ID ("" for the engine's
-	// only voice) and the ElevenLabs model. Kurgu adds them after the
+	// only voice) and the ElevenLabs model. Ekin adds them after the
 	// script runs, so the file says who read the narration.
 	Voice      string    `json:"voice,omitempty"`
 	Model      string    `json:"model,omitempty"`
@@ -162,7 +162,7 @@ func (s *Synth) Say(ctx context.Context, lang, textFile, outDir string, o Option
 	cmd := exec.CommandContext(ctx, uv, args...) //nolint:gosec // fixed scripts, arguments built here
 	cmd.Env = os.Environ()
 	if s.Threads > 0 {
-		cmd.Env = append(cmd.Env, "KURGU_SPEECH_THREADS="+strconv.Itoa(s.Threads))
+		cmd.Env = append(cmd.Env, "EKIN_SPEECH_THREADS="+strconv.Itoa(s.Threads))
 	}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr

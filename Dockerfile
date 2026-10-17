@@ -20,7 +20,7 @@ ARG COMMIT=none
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 go build -trimpath \
       -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
-      -o /out/kurgu ./cmd/kurgu \
+      -o /out/ekin ./cmd/ekin \
  && mkdir -p /out/data
 
 # Worker: the same binary plus the tools it drives — Chromium and ffmpeg
@@ -33,35 +33,35 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && npm cache clean --force \
  && curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin INSTALLER_NO_MODIFY_PATH=1 sh \
  && apt-get purge -y npm && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* \
- && useradd --uid 65532 --create-home --home-dir /home/kurgu kurgu
-COPY --from=build /out/kurgu /usr/local/bin/kurgu
-COPY tools/speech /opt/kurgu/speech
+ && useradd --uid 65532 --create-home --home-dir /home/ekin ekin
+COPY --from=build /out/ekin /usr/local/bin/ekin
+COPY tools/speech /opt/ekin/speech
 COPY --from=build --chown=65532:65532 /out/data /data
 # Model weights and the uv cache live on the data volume so they download
 # once, not on every image update.
-ENV KURGU_DATA_DIR=/data \
-    KURGU_LOG_FORMAT=json \
-    KURGU_CHROME=/usr/lib/chromium/headless_shell \
-    KURGU_SPEECH_DIR=/opt/kurgu/speech \
-    KURGU_SPEECH_MODELS=/data/cache/speech \
+ENV EKIN_DATA_DIR=/data \
+    EKIN_LOG_FORMAT=json \
+    EKIN_CHROME=/usr/lib/chromium/headless_shell \
+    EKIN_SPEECH_DIR=/opt/ekin/speech \
+    EKIN_SPEECH_MODELS=/data/cache/speech \
     UV_CACHE_DIR=/data/cache/uv \
     UV_PYTHON_INSTALL_DIR=/data/cache/python \
-    HOME=/home/kurgu
+    HOME=/home/ekin
 USER 65532:65532
 VOLUME /data
-ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/kurgu"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/ekin"]
 CMD ["worker"]
 
 # The API and the scheduler need nothing but the static binary.
 FROM gcr.io/distroless/static-debian12:nonroot AS serve
-COPY --from=build /out/kurgu /kurgu
+COPY --from=build /out/ekin /ekin
 # A named volume copies this directory's ownership on first use, so the
 # nonroot user can write the database.
 COPY --from=build --chown=65532:65532 /out/data /data
-ENV KURGU_DATA_DIR=/data \
-    KURGU_HTTP_ADDR=0.0.0.0:8080 \
-    KURGU_LOG_FORMAT=json
+ENV EKIN_DATA_DIR=/data \
+    EKIN_HTTP_ADDR=0.0.0.0:8080 \
+    EKIN_LOG_FORMAT=json
 VOLUME /data
 EXPOSE 8080
-ENTRYPOINT ["/kurgu"]
+ENTRYPOINT ["/ekin"]
 CMD ["serve"]

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"kurgu/pkg/page"
+	"ekin/pkg/page"
 )
 
 type key struct {

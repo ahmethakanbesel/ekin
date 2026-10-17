@@ -21,7 +21,7 @@ type Config struct {
 	Port     int
 	Username string
 	Password string
-	From     string // "Kurgu <kurgu@example.com>"
+	From     string // "Ekin <ekin@example.com>"
 	// TLS is "starttls" (default), "tls" (implicit, port 465) or "none"
 	// (local relays only).
 	TLS string
@@ -90,7 +90,7 @@ func (m *Mailer) Send(to, subject, body string) error {
 	defer func() { _ = c.Close() }()
 	if m.cfg.TLS != "tls" && m.cfg.TLS != "none" {
 		if ok, _ := c.Extension("STARTTLS"); !ok {
-			return errors.New("smtp: the server does not offer STARTTLS (set KURGU_SMTP_TLS=none only for a local relay)")
+			return errors.New("smtp: the server does not offer STARTTLS (set EKIN_SMTP_TLS=none only for a local relay)")
 		}
 		if err := c.StartTLS(&tls.Config{ServerName: m.cfg.Host, MinVersion: tls.VersionTLS12}); err != nil {
 			return fmt.Errorf("smtp: starttls: %w", err)

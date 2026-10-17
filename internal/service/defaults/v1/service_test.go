@@ -8,18 +8,18 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/db/dbtest"
-	librarydomain "kurgu/internal/domain/library/v1"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	settingsdomain "kurgu/internal/domain/settings/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	templatedomain "kurgu/internal/domain/template/v1"
-	settingsrepo "kurgu/internal/repository/settings/v1"
-	defaultssvc "kurgu/internal/service/defaults/v1"
-	settingssvc "kurgu/internal/service/settings/v1"
-	"kurgu/pkg/id"
-	"kurgu/pkg/secretbox"
+	"ekin/internal/apperror"
+	"ekin/internal/db/dbtest"
+	librarydomain "ekin/internal/domain/library/v1"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	settingsdomain "ekin/internal/domain/settings/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	templatedomain "ekin/internal/domain/template/v1"
+	settingsrepo "ekin/internal/repository/settings/v1"
+	defaultssvc "ekin/internal/service/defaults/v1"
+	settingssvc "ekin/internal/service/settings/v1"
+	"ekin/pkg/id"
+	"ekin/pkg/secretbox"
 )
 
 func TestGetAndPut(t *testing.T) {

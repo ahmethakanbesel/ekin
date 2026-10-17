@@ -10,13 +10,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/db/dbtest"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
-	notifyrepo "kurgu/internal/repository/notify/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	notifysvc "kurgu/internal/service/notify/v1"
-	productionsvc "kurgu/internal/service/production/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/db/dbtest"
+	workspacedomain "ekin/internal/domain/workspace/v1"
+	notifyrepo "ekin/internal/repository/notify/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	notifysvc "ekin/internal/service/notify/v1"
+	productionsvc "ekin/internal/service/production/v1"
+	"ekin/pkg/id"
 )
 
 type dir struct{}
@@ -43,7 +43,7 @@ func (m *mailer) Send(to, subject, body string) error {
 func TestDigest(t *testing.T) {
 	ctx := context.Background()
 	m := &mailer{}
-	svc := notifysvc.NewService(notifyrepo.NewInMemory(), dir{}, m, "https://kurgu.example.com", slog.New(slog.DiscardHandler))
+	svc := notifysvc.NewService(notifyrepo.NewInMemory(), dir{}, m, "https://ekin.example.com", slog.New(slog.DiscardHandler))
 	ws, story := id.New(), id.New()
 	for _, e := range []productionsvc.Event{
 		{WorkspaceID: ws, StoryID: story, Kind: "review", Title: "Ruminasyon", Detail: "video revision 1 is ready for review"},
@@ -64,7 +64,7 @@ func TestDigest(t *testing.T) {
 		t.Fatalf("flush = %d %v %d", n, err, len(m.sent))
 	}
 	msg := m.sent[0]
-	for _, want := range []string{"[acme] 1 ready for review, 1 failed", "Ruminasyon", "https://kurgu.example.com/w/" + ws.String() + "/stories/" + story.String()} {
+	for _, want := range []string{"[acme] 1 ready for review, 1 failed", "Ruminasyon", "https://ekin.example.com/w/" + ws.String() + "/stories/" + story.String()} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("digest lacks %q:\n%s", want, msg)
 		}

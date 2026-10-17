@@ -4,20 +4,20 @@ package handler
 
 import (
 	"context"
-	voicehandler "kurgu/internal/transport/http/voice/v1"
+	voicehandler "ekin/internal/transport/http/voice/v1"
 	"time"
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/internal/gen"
-	notifysvc "kurgu/internal/service/notify/v1"
-	productionsvc "kurgu/internal/service/production/v1"
-	jobhandler "kurgu/internal/transport/http/job/v1"
-	pipelinehandler "kurgu/internal/transport/http/pipeline/v1"
-	"kurgu/internal/transport/http/principal"
+	"ekin/internal/apperror"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/internal/gen"
+	notifysvc "ekin/internal/service/notify/v1"
+	productionsvc "ekin/internal/service/production/v1"
+	jobhandler "ekin/internal/transport/http/job/v1"
+	pipelinehandler "ekin/internal/transport/http/pipeline/v1"
+	"ekin/internal/transport/http/principal"
 )
 
 // Feed lists a workspace's notifications (the notify service).

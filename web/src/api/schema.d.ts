@@ -584,7 +584,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Google redirects here; Kurgu stores the channel and redirects back to the workspace settings. */
+        /** @description Google redirects here; Ekin stores the channel and redirects back to the workspace settings. */
         get: operations["youTubeCallback"];
         put?: never;
         post?: never;
@@ -1735,7 +1735,7 @@ export interface components {
             /** Format: double */
             endSeconds: number;
         };
-        /** @description The server's limits on cutting shorts from long videos (KURGU_SHORTS_*). */
+        /** @description The server's limits on cutting shorts from long videos (EKIN_SHORTS_*). */
         ShortsLimits: {
             /** Format: double */
             sourceMinSeconds: number;
@@ -1895,7 +1895,7 @@ export interface components {
             metadata?: components["schemas"]["VideoMetadataContent"];
         };
         /**
-         * @description How hard the authoring agent thinks while drafting (Claude Code's --effort). Absent on a pipeline or request: the workspace default (Settings › Production), then the server's (KURGU_CLAUDE_EFFORT, then Claude Code's own), resolved when a story is planned so remote workers draft with it too; on ServerProduction, absent means Claude Code's own.
+         * @description How hard the authoring agent thinks while drafting (Claude Code's --effort). Absent on a pipeline or request: the workspace default (Settings › Production), then the server's (EKIN_CLAUDE_EFFORT, then Claude Code's own), resolved when a story is planned so remote workers draft with it too; on ServerProduction, absent means Claude Code's own.
          * @enum {string}
          */
         DraftEffort: "low" | "medium" | "high" | "xhigh" | "max";
@@ -1912,7 +1912,7 @@ export interface components {
         };
         /** @description How stories are made, set per pipeline or request, or as a workspace's defaults. Every absent field takes the layer below: a pipeline's or request's the workspace default (Settings › Production), the workspace's the server's. Self-review rounds travel beside it (selfReviewRounds). */
         Production: {
-            /** @description Claude model the agent drafts and revises with: a model id (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace default (Settings › Production), then the server's (System › Credentials, then KURGU_CLAUDE_MODEL, then Claude Code's own). Resolved when a story is planned, so every worker, remote ones included, drafts with the model shown here. */
+            /** @description Claude model the agent drafts and revises with: a model id (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace default (Settings › Production), then the server's (System › Credentials, then EKIN_CLAUDE_MODEL, then Claude Code's own). Resolved when a story is planned, so every worker, remote ones included, drafts with the model shown here. */
             draftModel?: string;
             draftEffort?: components["schemas"]["DraftEffort"];
             /**
@@ -1967,10 +1967,10 @@ export interface components {
         };
         /** @description What stories get where neither the workspace nor a pipeline or request sets a value. */
         ServerProduction: {
-            /** @description The model drafts run with on every worker, remote ones included (stories take it when planned); absent when Claude Code picks its own, which on a remote worker is that machine's KURGU_CLAUDE_MODEL or Claude Code's default. */
+            /** @description The model drafts run with on every worker, remote ones included (stories take it when planned); absent when Claude Code picks its own, which on a remote worker is that machine's EKIN_CLAUDE_MODEL or Claude Code's default. */
             draftModel?: string;
             /**
-             * @description Where draftModel comes from: settings (System › Credentials), env (KURGU_CLAUDE_MODEL) or unset (Claude Code's own default).
+             * @description Where draftModel comes from: settings (System › Credentials), env (EKIN_CLAUDE_MODEL) or unset (Claude Code's own default).
              * @enum {string}
              */
             draftModelSource: "settings" | "env" | "unset";
@@ -2035,11 +2035,11 @@ export interface components {
             heavyExclusive: boolean;
             /** @description The queues heavyExclusive covers. Always set in responses; omitted on save means the default (agent, tts, render). */
             heavyQueues?: ("control" | "agent" | "tts" | "render" | "extract" | "io")[];
-            /** @description Scheduling priority of the job processes, 0 (normal) to 19 (lowest), so the host's own work comes first. Applied live; the Kurgu server keeps its priority. */
+            /** @description Scheduling priority of the job processes, 0 (normal) to 19 (lowest), so the host's own work comes first. Applied live; the Ekin server keeps its priority. */
             nice?: number;
             cooldownSeconds: number;
             paused: boolean;
-            /** @description Percent of the host's CPUs that job processes (agent, browser, encoder, speech) may use together; 0 means no limit, otherwise 10 to 100. Applied live on Linux hosts; the Kurgu server itself is never limited. */
+            /** @description Percent of the host's CPUs that job processes (agent, browser, encoder, speech) may use together; 0 means no limit, otherwise 10 to 100. Applied live on Linux hosts; the Ekin server itself is never limited. */
             cpuLimit: number;
             /** @description Share of time spent rendering; 0.25 renders four times slower to spare the CPU. */
             renderDuty: number;
@@ -2367,7 +2367,7 @@ export interface components {
             /** @enum {string} */
             orientation: "vertical" | "horizontal" | "square";
             durationSeconds: number;
-            /** @description Long videos only: how many vertical shorts to cut from each video once it is live, from the moments the agent finds (capped by the server's KURGU_SHORTS_MAX_PER_VIDEO). Absent or 0 for none. */
+            /** @description Long videos only: how many vertical shorts to cut from each video once it is live, from the moments the agent finds (capped by the server's EKIN_SHORTS_MAX_PER_VIDEO). Absent or 0 for none. */
             shortsPerVideo?: number;
         };
         ArticleSpec: {
@@ -2524,7 +2524,7 @@ export interface components {
     };
     requestBodies: never;
     headers: {
-        /** @description Sets or clears the HttpOnly `kurgu_session` cookie. */
+        /** @description Sets or clears the HttpOnly `ekin_session` cookie. */
         SetSession: string;
     };
     pathItems: never;

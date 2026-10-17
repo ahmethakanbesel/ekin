@@ -3,8 +3,8 @@ package voice_test
 import (
 	"testing"
 
-	"kurgu/internal/apperror"
-	voice "kurgu/internal/domain/voice/v1"
+	"ekin/internal/apperror"
+	voice "ekin/internal/domain/voice/v1"
 )
 
 func TestSettings(t *testing.T) {

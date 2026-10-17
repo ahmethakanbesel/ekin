@@ -5,11 +5,11 @@ package handler
 import (
 	"context"
 
-	identitydomain "kurgu/internal/domain/identity/v1"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
-	"kurgu/internal/gen"
-	workspacesvc "kurgu/internal/service/workspace/v1"
-	"kurgu/internal/transport/http/principal"
+	identitydomain "ekin/internal/domain/identity/v1"
+	workspacedomain "ekin/internal/domain/workspace/v1"
+	"ekin/internal/gen"
+	workspacesvc "ekin/internal/service/workspace/v1"
+	"ekin/internal/transport/http/principal"
 )
 
 // Handler serves workspaces.

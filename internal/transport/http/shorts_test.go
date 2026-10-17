@@ -12,11 +12,11 @@ import (
 
 	"github.com/google/uuid"
 
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/internal/gen"
-	"kurgu/pkg/archive"
-	"kurgu/pkg/id"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/internal/gen"
+	"ekin/pkg/archive"
+	"ekin/pkg/id"
 )
 
 // liveLongVideo stores a story in ws whose ten-minute long video is

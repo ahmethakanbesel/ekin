@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	workspacedomain "kurgu/internal/domain/workspace/v1"
+	workspacedomain "ekin/internal/domain/workspace/v1"
 )
 
 // Repository persists Workspace aggregates.

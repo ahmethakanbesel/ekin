@@ -7,11 +7,11 @@ import (
 	"context"
 	"io"
 
-	voicedomain "kurgu/internal/domain/voice/v1"
-	"kurgu/internal/gen"
-	voicesvc "kurgu/internal/service/voice/v1"
-	jobhandler "kurgu/internal/transport/http/job/v1"
-	"kurgu/internal/transport/http/principal"
+	voicedomain "ekin/internal/domain/voice/v1"
+	"ekin/internal/gen"
+	voicesvc "ekin/internal/service/voice/v1"
+	jobhandler "ekin/internal/transport/http/job/v1"
+	"ekin/internal/transport/http/principal"
 )
 
 // Handler serves narration settings and previews.

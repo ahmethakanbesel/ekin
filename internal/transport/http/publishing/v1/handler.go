@@ -8,10 +8,10 @@ import (
 
 	"github.com/google/uuid"
 
-	publishingdomain "kurgu/internal/domain/publishing/v1"
-	"kurgu/internal/gen"
-	publishingsvc "kurgu/internal/service/publishing/v1"
-	"kurgu/internal/transport/http/principal"
+	publishingdomain "ekin/internal/domain/publishing/v1"
+	"ekin/internal/gen"
+	publishingsvc "ekin/internal/service/publishing/v1"
+	"ekin/internal/transport/http/principal"
 )
 
 // Handler serves integrations.

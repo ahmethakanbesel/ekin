@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/pkg/id"
 )
 
 // Sentence is one sentence of a long video's narration, as spoken.
@@ -144,7 +144,7 @@ func segments(sentences []Sentence) []storydomain.Segment {
 }
 
 // sentences reads the narration sentences of a video's latest revision
-// from the timings `kurgu tool tts` wrote.
+// from the timings `ekin tool tts` wrote.
 func (s *Service) sentences(ctx context.Context, d *storydomain.Deliverable) ([]Sentence, error) {
 	files, err := s.revisionFiles(ctx, d, narrationTimings)
 	if err != nil {

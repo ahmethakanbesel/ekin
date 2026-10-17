@@ -10,7 +10,7 @@ import (
 )
 
 // clockTicks is USER_HZ, the unit of /proc CPU times: 100 on every
-// Linux architecture Kurgu runs on.
+// Linux architecture Ekin runs on.
 const clockTicks = 100
 
 // Supported reports whether this OS can limit job processes.

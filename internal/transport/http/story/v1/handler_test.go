@@ -8,12 +8,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/internal/gen"
-	notifysvc "kurgu/internal/service/notify/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/internal/gen"
+	notifysvc "ekin/internal/service/notify/v1"
+	"ekin/pkg/id"
 )
 
 func TestFeedbackToWireNamesTheAuthor(t *testing.T) {

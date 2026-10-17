@@ -1,8 +1,8 @@
-/* Kurgu composition runtime.
+/* Ekin composition runtime.
  *
  * A composition is a page whose every frame is a pure function of time.
- * It calls Kurgu.composition({...}); the renderer then calls
- * window.kurgu.renderAt(t) for each frame and screenshots the page.
+ * It calls Ekin.composition({...}); the renderer then calls
+ * window.ekin.renderAt(t) for each frame and screenshots the page.
  * Never use requestAnimationFrame loops, CSS animations, timers or
  * Date.now(): they are not driven by t and will not render.
  */
@@ -39,10 +39,10 @@
     };
   }
 
-  /** Loads narration/timings.json written by `kurgu tool tts`. */
+  /** Loads narration/timings.json written by `ekin tool tts`. */
   async function timings(path = "narration/timings.json") {
     const res = await fetch(path);
-    if (!res.ok) throw new Error("cannot load " + path + ": run kurgu tool tts first");
+    if (!res.ok) throw new Error("cannot load " + path + ": run ekin tool tts first");
     return res.json();
   }
 
@@ -62,7 +62,7 @@
       if (cur.length >= maxWords || /[.!?…:;]$/.test(w.text)) { groups.push(cur); cur = []; }
     }
     if (cur.length) groups.push(cur);
-    el.classList.add("kurgu-captions");
+    el.classList.add("ekin-captions", "kurgu-captions"); // kurgu-: compositions written before the rename
     let shown = -1;
     return function update(t) {
       let gi = -1;
@@ -139,9 +139,9 @@
       if (spec.setup) await spec.setup();
       await preloadImages();
       const duration = typeof spec.duration === "function" ? await spec.duration() : spec.duration;
-      window.kurgu.duration = duration;
+      window.ekin.duration = duration;
     })();
-    window.kurgu = {
+    window.ekin = {
       width: spec.width || 1080,
       height: spec.height || 1920,
       fps: spec.fps || 30,
@@ -152,7 +152,7 @@
         await spec.render(t);
       },
     };
-    return window.kurgu;
+    return window.ekin;
   }
 
   /**
@@ -173,7 +173,7 @@
       if (spec.setup) await spec.setup(data);
       await preloadImages();
     })();
-    window.kurgu = {
+    window.ekin = {
       width: spec.width || 1280,
       height: spec.height || 720,
       fps: 1,
@@ -192,8 +192,12 @@
         await ready;
       },
     };
-    return window.kurgu;
+    return window.ekin;
   }
 
-  window.Kurgu = { clamp, lerp, progress, ease, tween, random, timings, captions, video, scenes, composition, thumbnails };
+  window.Ekin = { clamp, lerp, progress, ease, tween, random, timings, captions, video, scenes, composition, thumbnails };
+  // Compositions written before the product was renamed call Kurgu.* and
+  // read window.kurgu; they keep rendering unchanged.
+  window.Kurgu = window.Ekin;
+  Object.defineProperty(window, "kurgu", { get: () => window.ekin, configurable: true });
 })();

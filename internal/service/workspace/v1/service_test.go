@@ -7,12 +7,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/db/dbtest"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
-	identityrepo "kurgu/internal/repository/identity/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	workspacesvc "kurgu/internal/service/workspace/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/db/dbtest"
+	workspacedomain "ekin/internal/domain/workspace/v1"
+	identityrepo "ekin/internal/repository/identity/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	workspacesvc "ekin/internal/service/workspace/v1"
+	"ekin/pkg/id"
 )
 
 // racingWorkspaces runs race once, right after the next Get.

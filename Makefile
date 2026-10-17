@@ -16,16 +16,16 @@ web:
 	cd web && bun install --frozen-lockfile && bun run build
 
 build: web
-	CGO_ENABLED=0 go build $(LDFLAGS) -o bin/kurgu ./cmd/kurgu
+	CGO_ENABLED=0 go build $(LDFLAGS) -o bin/ekin ./cmd/ekin
 
 # Laptop mode: API, web UI, scheduler and worker in one process.
 run:
-	@$(LOAD_ENV) go run $(LDFLAGS) ./cmd/kurgu all
+	@$(LOAD_ENV) go run $(LDFLAGS) ./cmd/ekin all
 
 # API + worker with the Vite dev server proxying /api to it. Invitation
 # links point at Vite.
 dev:
-	@$(LOAD_ENV) KURGU_PUBLIC_URL=$${KURGU_PUBLIC_URL:-http://localhost:5173} go run ./cmd/kurgu all & cd web && bun run dev; kill %1
+	@$(LOAD_ENV) EKIN_PUBLIC_URL=$${EKIN_PUBLIC_URL:-http://localhost:5173} go run ./cmd/ekin all & cd web && bun run dev; kill %1
 
 test:
 	go test -race ./...
@@ -37,7 +37,7 @@ fmt:
 	gofmt -w cmd internal pkg web/embed.go
 
 migrate:
-	@$(LOAD_ENV) go run ./cmd/kurgu migrate up
+	@$(LOAD_ENV) go run ./cmd/ekin migrate up
 
 clean:
 	rm -rf bin

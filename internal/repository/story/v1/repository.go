@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	storydomain "kurgu/internal/domain/story/v1"
+	storydomain "ekin/internal/domain/story/v1"
 )
 
 // Filter narrows a story listing and picks its page.

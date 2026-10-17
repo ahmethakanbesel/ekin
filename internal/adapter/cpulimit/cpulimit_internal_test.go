@@ -63,7 +63,7 @@ func TestParseStat(t *testing.T) {
 func TestDescendants(t *testing.T) {
 	all := []procStat{
 		{pid: 1, ppid: 0}, {pid: 10, ppid: 1}, // the server, under init
-		{pid: 11, ppid: 10}, {pid: 12, ppid: 11}, {pid: 13, ppid: 12}, // claude → bash → kurgu tool
+		{pid: 11, ppid: 10}, {pid: 12, ppid: 11}, {pid: 13, ppid: 12}, // claude → bash → ekin tool
 		{pid: 20, ppid: 1}, // someone else's
 	}
 	var got []int

@@ -10,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	voicedomain "kurgu/internal/domain/voice/v1"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	voicedomain "ekin/internal/domain/voice/v1"
+	"ekin/pkg/timeutil"
 )
 
 // MaxNameLength bounds a pipeline name, in runes.

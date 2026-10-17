@@ -5,9 +5,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	"ekin/pkg/timeutil"
 )
 
 // Snapshot is the persisted form of a Story.

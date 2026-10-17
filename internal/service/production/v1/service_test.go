@@ -2,13 +2,13 @@ package production_test
 
 import (
 	"context"
+	"ekin/internal/apperror"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
-	"kurgu/internal/apperror"
 	"log/slog"
 	"math"
 	"os"
@@ -21,41 +21,41 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/adapter/claude"
-	"kurgu/internal/adapter/extract"
-	"kurgu/internal/adapter/render"
-	"kurgu/internal/agenttool"
-	"kurgu/internal/blob"
-	"kurgu/internal/db"
-	"kurgu/internal/db/dbtest"
-	jobdomain "kurgu/internal/domain/job/v1"
-	librarydomain "kurgu/internal/domain/library/v1"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	seodomain "kurgu/internal/domain/seo/v1"
-	settingsdomain "kurgu/internal/domain/settings/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	templatedomain "kurgu/internal/domain/template/v1"
-	voicedomain "kurgu/internal/domain/voice/v1"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
-	jobrepo "kurgu/internal/repository/job/v1"
-	knowledgerepo "kurgu/internal/repository/knowledge/v1"
-	pipelinerepo "kurgu/internal/repository/pipeline/v1"
-	seorepo "kurgu/internal/repository/seo/v1"
-	settingsrepo "kurgu/internal/repository/settings/v1"
-	storyrepo "kurgu/internal/repository/story/v1"
-	templaterepo "kurgu/internal/repository/template/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	defaultssvc "kurgu/internal/service/defaults/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	knowledgesvc "kurgu/internal/service/knowledge/v1"
-	pipelinesvc "kurgu/internal/service/pipeline/v1"
-	production "kurgu/internal/service/production/v1"
-	seosvc "kurgu/internal/service/seo/v1"
-	settingssvc "kurgu/internal/service/settings/v1"
-	templatesvc "kurgu/internal/service/template/v1"
-	voicesvc "kurgu/internal/service/voice/v1"
-	"kurgu/pkg/id"
-	"kurgu/pkg/secretbox"
+	"ekin/internal/adapter/claude"
+	"ekin/internal/adapter/extract"
+	"ekin/internal/adapter/render"
+	"ekin/internal/agenttool"
+	"ekin/internal/blob"
+	"ekin/internal/db"
+	"ekin/internal/db/dbtest"
+	jobdomain "ekin/internal/domain/job/v1"
+	librarydomain "ekin/internal/domain/library/v1"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	seodomain "ekin/internal/domain/seo/v1"
+	settingsdomain "ekin/internal/domain/settings/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	templatedomain "ekin/internal/domain/template/v1"
+	voicedomain "ekin/internal/domain/voice/v1"
+	workspacedomain "ekin/internal/domain/workspace/v1"
+	jobrepo "ekin/internal/repository/job/v1"
+	knowledgerepo "ekin/internal/repository/knowledge/v1"
+	pipelinerepo "ekin/internal/repository/pipeline/v1"
+	seorepo "ekin/internal/repository/seo/v1"
+	settingsrepo "ekin/internal/repository/settings/v1"
+	storyrepo "ekin/internal/repository/story/v1"
+	templaterepo "ekin/internal/repository/template/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	defaultssvc "ekin/internal/service/defaults/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	knowledgesvc "ekin/internal/service/knowledge/v1"
+	pipelinesvc "ekin/internal/service/pipeline/v1"
+	production "ekin/internal/service/production/v1"
+	seosvc "ekin/internal/service/seo/v1"
+	settingssvc "ekin/internal/service/settings/v1"
+	templatesvc "ekin/internal/service/template/v1"
+	voicesvc "ekin/internal/service/voice/v1"
+	"ekin/pkg/id"
+	"ekin/pkg/secretbox"
 )
 
 // fakeAgent plays the authoring agent: it answers idea prompts with
@@ -82,14 +82,14 @@ type fakeAgent struct {
 	// draft found in place (path → content).
 	clipDirs []map[string]string
 	// useLibrary, when set, has video drafts take these library assets
-	// with kurgu tool library, fetching through library.
+	// with ekin tool library, fetching through library.
 	useLibrary []string
 	library    agenttool.Fetcher
 	// files, when set, are written into every video draft (path → content):
 	// stock, a score and their credits.
 	files map[string]string
 	// moveClip, when set, has the next short's draft move its cut to
-	// these window sentences with kurgu tool clip.
+	// these window sentences with ekin tool clip.
 	moveClip []string
 	// moments is the answer to a request for moments of a long video;
 	// momentPrompts are the requests.
@@ -186,7 +186,7 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 			}
 		}
 		write("script.md", "Sahne 1: Öfkeyi adlandır.")
-		write("composition.html", `<script src="/kit/kurgu.js"></script>`)
+		write("composition.html", `<script src="/kit/ekin.js"></script>`)
 		write("metadata.json", `{"title":"Öfkeyi adlandır #shorts","description":"Kısa açıklama.","tags":["öfke"]}`)
 	case strings.Contains(string(instructions), "**the script only**"):
 		write("script.md", "Sahne 1: Kaygı nedir? Görsel: bir soru işareti.")
@@ -197,11 +197,11 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 		write("narration/narration.txt", "Kaygı nedir?")
 		write("narration/timings.json", `{"engine": "ema", "voice": "ema", "duration": 120, "words": [{"text":"Kaygı","start":0,"end":0.5}]}`)
 		write("narration/speech.wav", "RIFF")
-		write("composition.html", `<script src="/kit/kurgu.js"></script>`)
+		write("composition.html", `<script src="/kit/ekin.js"></script>`)
 		write("metadata.json", `{"title":"Kaygı nedir?","description":"Uzun açıklama.","tags":["kaygı"],`+
 			`"chapters":[{"at":0,"title":"Giriş"},{"at":30,"title":"Beden"},{"at":60,"title":"Zihin"}]}`)
 		if n := toolSpec(req).Thumbnails; n > 0 {
-			write("thumbnail.html", `<script src="/kit/kurgu.js"></script><script>Kurgu.thumbnails({render(v) {}})</script>`)
+			write("thumbnail.html", `<script src="/kit/ekin.js"></script><script>Ekin.thumbnails({render(v) {}})</script>`)
 			writeThumbnails(req.Dir, n, "Söz")
 		}
 	case strings.Contains(string(instructions), "produce a"):
@@ -209,7 +209,7 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 		write("narration/narration.txt", "Kaygı nedir?")
 		write("narration/timings.json", `{"engine": "ema", "voice": "ema", "duration": 20, "words": [{"text":"Kaygı","start":0,"end":0.5}]}`)
 		write("narration/speech.wav", "RIFF")
-		write("composition.html", `<script src="/kit/kurgu.js"></script>`)
+		write("composition.html", `<script src="/kit/ekin.js"></script>`)
 		write("metadata.json", `{"title":"Kaygı nedir?","description":"Kısa açıklama.","tags":["kaygı"]}`)
 		if err := a.takeFromLibrary(ctx, req); err != nil {
 			return claude.Result{}, err
@@ -235,7 +235,7 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 func toolSpec(req claude.Request) agenttool.Spec {
 	var spec agenttool.Spec
 	for _, kv := range req.Env {
-		if raw, ok := strings.CutPrefix(kv, "KURGU_TOOL_SPEC="); ok {
+		if raw, ok := strings.CutPrefix(kv, "EKIN_TOOL_SPEC="); ok {
 			_ = json.Unmarshal([]byte(raw), &spec)
 		}
 	}
@@ -253,12 +253,12 @@ func writeThumbnails(dir string, n int, word string) {
 	_ = os.WriteFile(filepath.Join(dir, "thumbnails.json"), b, 0o600)
 }
 
-// takeFromLibrary runs kurgu tool library use for each of useLibrary,
+// takeFromLibrary runs ekin tool library use for each of useLibrary,
 // with the tool spec the draft was given.
 func (a *fakeAgent) takeFromLibrary(ctx context.Context, req claude.Request) error {
 	env := agenttool.Env{Dir: req.Dir, Stdout: io.Discard, Stderr: io.Discard, Library: a.library}
 	for _, kv := range req.Env {
-		if raw, ok := strings.CutPrefix(kv, "KURGU_TOOL_SPEC="); ok {
+		if raw, ok := strings.CutPrefix(kv, "EKIN_TOOL_SPEC="); ok {
 			_ = json.Unmarshal([]byte(raw), &env.Spec)
 		}
 	}
@@ -474,7 +474,7 @@ func newFixture(t *testing.T) fixture {
 		if adjust != nil {
 			adjust(&deps)
 		}
-		cfg := production.Config{WorkRoot: t.TempDir(), KurguBin: "/usr/local/bin/kurgu", Shorts: storydomain.DefaultShortsLimits()}
+		cfg := production.Config{WorkRoot: t.TempDir(), EkinBin: "/usr/local/bin/ekin", Shorts: storydomain.DefaultShortsLimits()}
 		if config != nil {
 			config(&cfg)
 		}
@@ -598,7 +598,7 @@ func TestVideoWithDerivedArticleAndTranslation(t *testing.T) {
 		t.Fatalf("measures = %+v / %+v, want %+v", revs[0].Measures, lead.Measures(), want)
 	}
 	brief := f.agent.prompts[1]
-	if !strings.Contains(strings.Join(brief.Allowed, ","), "Bash(kurgu tool:*)") || !strings.Contains(strings.Join(brief.Env, " "), "KURGU_TOOL_SPEC") ||
+	if !strings.Contains(strings.Join(brief.Allowed, ","), "Bash(ekin tool:*)") || !strings.Contains(strings.Join(brief.Env, " "), "EKIN_TOOL_SPEC") ||
 		!strings.Contains(strings.Join(brief.Env, " "), ".bin") {
 		t.Fatalf("agent request = %+v", brief)
 	}
@@ -805,7 +805,7 @@ func TestTemplateReachesTheAgent(t *testing.T) {
 }
 
 // Planning writes the server's drafting model (System › Credentials, then
-// KURGU_CLAUDE_MODEL) and effort (KURGU_CLAUDE_EFFORT) into the brief
+// EKIN_CLAUDE_MODEL) and effort (EKIN_CLAUDE_EFFORT) into the brief
 // where no layer sets one. A remote worker never sees the server's
 // settings and drafts with only what the brief says, so without this it
 // ignored the model the settings pages show.
@@ -818,9 +818,9 @@ func TestServerAgentResolvesAtPlanning(t *testing.T) {
 	tests := []struct {
 		name      string
 		adHoc     bool
-		env       string // KURGU_CLAUDE_MODEL
+		env       string // EKIN_CLAUDE_MODEL
 		saved     string // the model saved on System › Credentials
-		effort    string // KURGU_CLAUDE_EFFORT
+		effort    string // EKIN_CLAUDE_EFFORT
 		workspace pipelinedomain.Agent
 		own       pipelinedomain.Agent
 		want      pipelinedomain.Agent
@@ -1015,7 +1015,7 @@ func TestVoiceReachesTheTTSTool(t *testing.T) {
 		} `json:"speech"`
 	}
 	for _, e := range f.agent.prompts[len(f.agent.prompts)-1].Env {
-		if raw, ok := strings.CutPrefix(e, "KURGU_TOOL_SPEC="); ok {
+		if raw, ok := strings.CutPrefix(e, "EKIN_TOOL_SPEC="); ok {
 			_ = json.Unmarshal([]byte(raw), &spec)
 		}
 	}

@@ -9,15 +9,15 @@ import (
 	"testing"
 	"time"
 
-	"kurgu/internal/adapter/remote"
-	"kurgu/internal/apperror"
-	"kurgu/internal/db/dbtest"
-	jobdomain "kurgu/internal/domain/job/v1"
-	settingsdomain "kurgu/internal/domain/settings/v1"
-	settingsrepo "kurgu/internal/repository/settings/v1"
-	settingssvc "kurgu/internal/service/settings/v1"
-	workerapi "kurgu/internal/transport/http/worker"
-	"kurgu/pkg/id"
+	"ekin/internal/adapter/remote"
+	"ekin/internal/apperror"
+	"ekin/internal/db/dbtest"
+	jobdomain "ekin/internal/domain/job/v1"
+	settingsdomain "ekin/internal/domain/settings/v1"
+	settingsrepo "ekin/internal/repository/settings/v1"
+	settingssvc "ekin/internal/service/settings/v1"
+	workerapi "ekin/internal/transport/http/worker"
+	"ekin/pkg/id"
 )
 
 // A remote worker keeps its own profile until an admin saves one of

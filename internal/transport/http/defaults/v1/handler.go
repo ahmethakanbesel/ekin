@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/gen"
-	defaultssvc "kurgu/internal/service/defaults/v1"
-	pipelinehandler "kurgu/internal/transport/http/pipeline/v1"
-	"kurgu/internal/transport/http/principal"
+	"ekin/internal/gen"
+	defaultssvc "ekin/internal/service/defaults/v1"
+	pipelinehandler "ekin/internal/transport/http/pipeline/v1"
+	"ekin/internal/transport/http/principal"
 )
 
 // Handler serves a workspace's production defaults.

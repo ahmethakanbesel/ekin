@@ -11,12 +11,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/db"
-	identitydomain "kurgu/internal/domain/identity/v1"
-	identityrepo "kurgu/internal/repository/identity/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	"ekin/internal/db"
+	identitydomain "ekin/internal/domain/identity/v1"
+	identityrepo "ekin/internal/repository/identity/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	"ekin/pkg/id"
 )
 
 const (
@@ -206,7 +206,7 @@ func (s *Service) startSession(ctx context.Context, u *identitydomain.User, now 
 // response time does not reveal which emails have accounts.
 func (s *Service) dummy() string {
 	s.dummyOnce.Do(func() {
-		s.dummyHash, _ = s.hasher.Hash("kurgu-timing-equaliser")
+		s.dummyHash, _ = s.hasher.Hash("ekin-timing-equaliser")
 	})
 	return s.dummyHash
 }

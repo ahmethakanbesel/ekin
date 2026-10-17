@@ -2,7 +2,7 @@
 # Full 20 s renders on the Mac. Appends one JSON line per run to out/results.jsonl. Run from bench/render.
 set -u
 export MEASURE_LOG=${MEASURE_LOG:-out/results.jsonl}
-B=./vanilla-go/kurgu-render-bench
+B=./vanilla-go/ekin-render-bench
 HS=${HEADLESS_SHELL:-$HOME/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell}
 FAST=disable-frame-rate-limit,disable-gpu-vsync
 N=0; FROM=${FROM:-0}  # FROM=n skips the first n runs

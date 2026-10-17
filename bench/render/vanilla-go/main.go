@@ -1,4 +1,4 @@
-// Command kurgu-render-bench renders a vanilla composition (window.kurgu.renderAt(t))
+// Command ekin-render-bench renders a vanilla composition (window.ekin.renderAt(t))
 // to MP4 with chromedp + ffmpeg. It is the benchmark prototype of the production driver.
 //
 // Usage (from bench/render):
@@ -239,7 +239,7 @@ func run(c config) error {
 	return nil
 }
 
-// openTab opens a page target, applies the viewport, loads the composition and waits for kurgu.ready.
+// openTab opens a page target, applies the viewport, loads the composition and waits for ekin.ready.
 func openTab(browserCtx context.Context, c config, url string, isolate, first bool) (context.Context, meta, error) {
 	var ctx context.Context
 	switch {
@@ -277,7 +277,7 @@ func openTab(browserCtx context.Context, c config, url string, isolate, first bo
 		chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
 			var err error
 			m, err = chromedp.Run(ctx, chromedp.Evaluate[meta](
-				`window.kurgu.ready.then(() => ({duration: kurgu.duration, fps: kurgu.fps, width: kurgu.width, height: kurgu.height}))`,
+				`window.ekin.ready.then(() => ({duration: ekin.duration, fps: ekin.fps, width: ekin.width, height: ekin.height}))`,
 				chromedp.EvalAwaitPromise))
 			return err
 		}),
@@ -287,7 +287,7 @@ func openTab(browserCtx context.Context, c config, url string, isolate, first bo
 
 func evalAt(ctx context.Context, t float64) error {
 	_, err := chromedp.Run(ctx, chromedp.Evaluate[int](
-		fmt.Sprintf(`Promise.resolve(kurgu.renderAt(%s)).then(() => 0)`, strconv.FormatFloat(t, 'f', -1, 64)),
+		fmt.Sprintf(`Promise.resolve(ekin.renderAt(%s)).then(() => 0)`, strconv.FormatFloat(t, 'f', -1, 64)),
 		chromedp.EvalAwaitPromise))
 	return err
 }

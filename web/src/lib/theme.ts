@@ -5,7 +5,7 @@ export type Theme = "light" | "dark"
 // A choice made with the theme toggle wins over the OS setting. Storage can
 // be unavailable (private mode, blocked site data); then the choice lasts
 // for this page only and the OS setting applies on the next visit.
-const STORAGE_KEY = "kurgu:theme"
+const STORAGE_KEY = "ekin:theme"
 const listeners = new Set<() => void>()
 let chosen: Theme | null = readChoice()
 

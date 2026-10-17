@@ -13,7 +13,7 @@ Long videos only: shorts keep today's poster frame.
 |---|---|
 | `RunRender` grabs `poster.jpg` from the rendered MP4 at `min(1.5 s, duration/3)` (`review.go`) | The thumbnail is whatever is on screen in the first seconds: often half-built, no title text, at preview scale until the final render. |
 | `publishVideo` uploads `poster.jpg` with `thumbnails.set` and logs the error when it fails | The upload path already exists. Only the file it sends changes. |
-| `Renderer.Snapshot` renders a page at given times to JPEGs (`kurgu tool frame`) | A static thumbnail page can be rendered with the same Chromium setup. No new render engine is needed. |
+| `Renderer.Snapshot` renders a page at given times to JPEGs (`ekin tool frame`) | A static thumbnail page can be rendered with the same Chromium setup. No new render engine is needed. |
 | Feedback scopes are `script · voice · visuals · music · metadata` | There is no scope for the thumbnail. Every note leads to a new video render. |
 | `edit.go` carries `preview.mp4` and `poster.jpg` over when an edit leaves the picture unchanged | A thumbnail-only revision can reuse the same carry-over, so it costs no video render. |
 | The inbox poster and `<video poster>` use `poster.jpg` at 9:16 or the real shape | These stay as they are. Thumbnails are a separate artifact. |
@@ -42,13 +42,13 @@ New files in the work dir:
 - `thumbnails.json` — `{"recommended": 2, "variants": [{"n": 1, "concept": "frame",
   "text": "...", "still": 12.4}, ...]}`.
 - `thumbnail.html` — one static page for all variants. It loads the kit and reads
-  `thumbnails.json`, and `window.kurgu.thumbnail(n)` lays out variant n. The words come
+  `thumbnails.json`, and `window.ekin.thumbnail(n)` lays out variant n. The words come
   from the JSON and are never typed into the page, so a person can edit them later
   without the agent (§6).
 - `thumbnails/stills/<t>.jpg` — full-scale composition frames that
-  `kurgu tool thumbnail --stills 12.4,30` renders for the page to use as `<img>`.
+  `ekin tool thumbnail --stills 12.4,30` renders for the page to use as `<img>`.
 
-`kurgu tool thumbnail [--n 2]` renders `thumbnails/<n>.jpg` at full size and
+`ekin tool thumbnail [--n 2]` renders `thumbnails/<n>.jpg` at full size and
 `thumbnails/<n>.small.jpg` at 320×180. The small one is how the thumbnail looks in a
 phone feed, and the agent is told to judge it at that size. The tool checks the
 following. Its errors block the draft, as `check` does:
@@ -124,7 +124,7 @@ conformance suite covers both columns.
 - **Download after publishing.** A published video's variants are download only:
   *Download variants* (a zip of the `thumb-*.jpg` files) and each one on its own.
   A person uploads another one in Studio by hand, for example to start Studio's
-  Test & Compare. Kurgu does not change a published video's thumbnail.
+  Test & Compare. Ekin does not change a published video's thumbnail.
 
 ## 7. API
 
@@ -159,7 +159,7 @@ Each phase ships on its own with tests: domain table tests, repository conforman
 service tests with in-memory repos and a fixed clock, and `httptest` through the router.
 
 1. **Generate.** `Production.Thumbnails`, `ParseThumbnails`, the contract, the kit helper,
-   `kurgu tool thumbnail`, the prompt step, render and store the variants, migration.
+   `ekin tool thumbnail`, the prompt step, render and store the variants, migration.
    Publishing uploads the recommended variant. From here every video gets a designed
    thumbnail.
 2. **Pick and revise.** `PickThumbnail`, `ScopeThumbnail`, `revise-thumbnail.md`,
@@ -201,8 +201,8 @@ Built: phases 1–3. Where the build differs from the plan above:
   rendered with the preview and kept for the final render.
 - **No shorts.** Shorts keep today's poster frame. The Shorts feed shows a frame
   chosen in the app, so designed variants would mostly go unseen.
-- **Download only after publishing.** Kurgu uploads the picked variant once, at
+- **Download only after publishing.** Ekin uploads the picked variant once, at
   publishing. Later changes and Studio's Test & Compare are done by hand with the
   downloaded files. There is no `publishing.thumbnail` job and no change history.
-- **No CTR tracking.** Kurgu does not read click-through rates or rank variants by
+- **No CTR tracking.** Ekin does not read click-through rates or rank variants by
   performance.

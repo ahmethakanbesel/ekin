@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	library "kurgu/internal/domain/library/v1"
-	pipeline "kurgu/internal/domain/pipeline/v1"
+	library "ekin/internal/domain/library/v1"
+	pipeline "ekin/internal/domain/pipeline/v1"
 )
 
 func TestNewAgent(t *testing.T) {

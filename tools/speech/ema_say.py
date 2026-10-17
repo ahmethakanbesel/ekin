@@ -16,9 +16,9 @@ The weights are the ONNX export of canberkkkkkk/ema-lightning (ozcancelik/ema-li
 nor the ema-lightning package is needed.
 
 Environment:
-    KURGU_SPEECH_THREADS  ONNX Runtime intra-op threads (default 0 = all cores)
-    KURGU_EMA_HF_REPO     Hugging Face repo with the ONNX graphs (default ozcancelik/ema-lightning-onnx)
-    KURGU_EMA_REVISION    revision of that repo (default: the one this script was checked against)
+    EKIN_SPEECH_THREADS  ONNX Runtime intra-op threads (default 0 = all cores)
+    EKIN_EMA_HF_REPO     Hugging Face repo with the ONNX graphs (default ozcancelik/ema-lightning-onnx)
+    EKIN_EMA_REVISION    revision of that repo (default: the one this script was checked against)
 """
 
 import argparse
@@ -395,8 +395,8 @@ def ensure_model(model_dir: Path) -> Path:
     """The directory holding meta.json and the three graphs, downloading them if missing."""
     if all((model_dir / f).is_file() for f in FILES):
         return model_dir
-    repo = os.environ.get("KURGU_EMA_HF_REPO", HF_REPO)
-    base = f"https://huggingface.co/{repo}/resolve/{os.environ.get('KURGU_EMA_REVISION', HF_REVISION)}"
+    repo = os.environ.get("EKIN_EMA_HF_REPO", HF_REPO)
+    base = f"https://huggingface.co/{repo}/resolve/{os.environ.get('EKIN_EMA_REVISION', HF_REVISION)}"
     for name in (*FILES, "LICENSE", "NOTICE"):
         if not (model_dir / name).is_file():
             try:
@@ -505,7 +505,7 @@ def main() -> int:
     ap.add_argument("--sentence-pause", type=float, default=SENTENCE_PAUSE, help="seconds between sentences")
     ap.add_argument("--paragraph-pause", type=float, default=PARAGRAPH_PAUSE, help="seconds between paragraphs")
     ap.add_argument("--lexicon", type=Path, default=None, help='JSON {"written": "spoken"} pronunciation dictionary')
-    ap.add_argument("--model-dir", type=Path, default=Path("~/.cache/kurgu/speech/ema"))
+    ap.add_argument("--model-dir", type=Path, default=Path("~/.cache/ekin/speech/ema"))
     args = ap.parse_args()
     t0 = time.perf_counter()
     for name, v in (("--sentence-pause", args.sentence_pause), ("--paragraph-pause", args.paragraph_pause)):
@@ -526,7 +526,7 @@ def main() -> int:
     if args.voice:
         print(f"note: EMA Lightning has one voice, ignoring --voice {args.voice}", file=sys.stderr)
 
-    tts = EMA(ensure_model(args.model_dir.expanduser()), int(os.environ.get("KURGU_SPEECH_THREADS", "0")))
+    tts = EMA(ensure_model(args.model_dir.expanduser()), int(os.environ.get("EKIN_SPEECH_THREADS", "0")))
     frontend = Frontend(tts.meta["vocab"])
     sr = tts.sample_rate
     render = lambda s: frontend(s).split()

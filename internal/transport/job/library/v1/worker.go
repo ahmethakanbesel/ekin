@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 
-	jobdomain "kurgu/internal/domain/job/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	librarysvc "kurgu/internal/service/library/v1"
+	jobdomain "ekin/internal/domain/job/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	librarysvc "ekin/internal/service/library/v1"
 )
 
 // Register adds the library handlers to r.

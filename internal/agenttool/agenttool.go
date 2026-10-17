@@ -1,4 +1,4 @@
-// Package agenttool implements `kurgu tool`, the commands the authoring
+// Package agenttool implements `ekin tool`, the commands the authoring
 // agent runs from its working directory: synthesise narration, look at a
 // frame, check the composition, fetch stock media, render the music.
 // They need no database; the worker passes their settings through the
@@ -6,7 +6,9 @@
 package agenttool
 
 import (
+	"bytes"
 	"context"
+	"ekin/pkg/env"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -21,11 +23,11 @@ import (
 	"strings"
 	"time"
 
-	"kurgu/internal/adapter/pexels"
-	"kurgu/internal/adapter/render"
-	"kurgu/internal/adapter/speech"
-	"kurgu/internal/blob"
-	librarydomain "kurgu/internal/domain/library/v1"
+	"ekin/internal/adapter/pexels"
+	"ekin/internal/adapter/render"
+	"ekin/internal/adapter/speech"
+	"ekin/internal/blob"
+	librarydomain "ekin/internal/domain/library/v1"
 )
 
 // blobFetcher fetches library files straight from the blob store, on the
@@ -50,7 +52,7 @@ func (f blobFetcher) Fetch(ctx context.Context, key, dest string) error {
 }
 
 // Spec is what the deliverable must satisfy, passed as JSON in
-// KURGU_TOOL_SPEC by the worker.
+// EKIN_TOOL_SPEC by the worker.
 type Spec struct {
 	Language    string  `json:"language"`
 	Width       int     `json:"width"`
@@ -87,23 +89,23 @@ type Env struct {
 	Transcode bool
 }
 
-// FromEnviron builds Env from KURGU_* variables.
+// FromEnviron builds Env from EKIN_* variables.
 func FromEnviron() (Env, error) {
 	e := Env{
-		Speech: speech.Synth{UV: os.Getenv("KURGU_UV"), ScriptDir: os.Getenv("KURGU_SPEECH_DIR"), ModelDir: os.Getenv("KURGU_SPEECH_MODELS"),
-			ElevenLabsKey: func(context.Context) string { return os.Getenv("KURGU_ELEVENLABS_API_KEY") }},
-		Pexels:    pexels.Client{APIKey: os.Getenv("KURGU_PEXELS_API_KEY")},
-		Renderer:  render.Renderer{Chrome: os.Getenv("KURGU_CHROME"), FFmpeg: os.Getenv("KURGU_FFMPEG")},
+		Speech: speech.Synth{UV: env.Get("EKIN_UV"), ScriptDir: env.Get("EKIN_SPEECH_DIR"), ModelDir: env.Get("EKIN_SPEECH_MODELS"),
+			ElevenLabsKey: func(context.Context) string { return env.Get("EKIN_ELEVENLABS_API_KEY") }},
+		Pexels:    pexels.Client{APIKey: env.Get("EKIN_PEXELS_API_KEY")},
+		Renderer:  render.Renderer{Chrome: env.Get("EKIN_CHROME"), FFmpeg: env.Get("EKIN_FFMPEG")},
 		Stdout:    os.Stdout,
 		Stderr:    os.Stderr,
 		Transcode: true,
 	}
-	if store, err := blob.FromEnv(os.Getenv); err == nil {
+	if store, err := blob.FromEnv(env.Get); err == nil {
 		e.Library = blobFetcher{store}
 	}
-	if raw := os.Getenv("KURGU_TOOL_SPEC"); raw != "" {
+	if raw := env.Get("EKIN_TOOL_SPEC"); raw != "" {
 		if err := json.Unmarshal([]byte(raw), &e.Spec); err != nil {
-			return e, fmt.Errorf("KURGU_TOOL_SPEC: %w", err)
+			return e, fmt.Errorf("EKIN_TOOL_SPEC: %w", err)
 		}
 	}
 	dir, err := os.Getwd()
@@ -111,7 +113,7 @@ func FromEnviron() (Env, error) {
 	return e, err
 }
 
-const usage = `usage: kurgu tool <command> [flags]
+const usage = `usage: ekin tool <command> [flags]
 
   tts    [--text-file narration/narration.txt]     narration → narration/speech.wav + timings.json
   frame  --at 0,2.5,10 [--page composition.html]   render frames to frames/*.jpg (read them to check)
@@ -161,7 +163,7 @@ func Run(ctx context.Context, e Env, args []string) error {
 		b, _ := json.MarshalIndent(report, "", "  ")
 		_, _ = fmt.Fprintln(e.Stdout, string(b))
 		if !report.OK {
-			return errors.New("check failed: fix every error above and run kurgu tool check again")
+			return errors.New("check failed: fix every error above and run ekin tool check again")
 		}
 		return nil
 	case "stock":
@@ -235,7 +237,7 @@ func (e Env) tts(ctx context.Context, textFile string) error {
 	if err != nil {
 		return err
 	}
-	msg := fmt.Sprintf("narration/speech.wav: %.2f s, %d words; timings in narration/timings.json (load with Kurgu.timings())", t.Duration, len(t.Words))
+	msg := fmt.Sprintf("narration/speech.wav: %.2f s, %d words; timings in narration/timings.json (load with Ekin.timings())", t.Duration, len(t.Words))
 	if e.Spec.MaxDuration > 0 && t.Duration > e.Spec.MaxDuration {
 		msg += fmt.Sprintf("\nWARNING: longer than the %.0f s maximum; shorten the narration and run tts again", e.Spec.MaxDuration)
 	}
@@ -269,7 +271,7 @@ func (e Env) frame(ctx context.Context, pagePath, at string) error {
 	return err
 }
 
-// Report is the result of `kurgu tool check`.
+// Report is the result of `ekin tool check`.
 type Report struct {
 	OK       bool        `json:"ok"`
 	Meta     render.Meta `json:"meta"`
@@ -301,10 +303,10 @@ func Check(ctx context.Context, r Prober, dir, pagePath string, spec Spec) Repor
 		return rep
 	}
 	if externalRef.Match(src) {
-		fail("%s references the network; download media with kurgu tool stock and use relative paths", pagePath)
+		fail("%s references the network; download media with ekin tool stock and use relative paths", pagePath)
 	}
-	if !strings.Contains(string(src), "/kit/kurgu.js") {
-		fail("%s must load /kit/kurgu.js and call Kurgu.composition", pagePath)
+	if !loadsKit(src) {
+		fail("%s must load /kit/ekin.js and call Ekin.composition", pagePath)
 	}
 	for _, banned := range []string{"requestAnimationFrame", "setInterval", "Date.now", "performance.now"} {
 		if strings.Contains(string(src), banned) {
@@ -313,7 +315,7 @@ func Check(ctx context.Context, r Prober, dir, pagePath string, spec Spec) Repor
 	}
 	var narration float64
 	if raw, err := os.ReadFile(filepath.Join(dir, "narration", "timings.json")); err != nil { //nolint:gosec // agent dir
-		fail("narration/timings.json is missing; write narration/narration.txt and run kurgu tool tts")
+		fail("narration/timings.json is missing; write narration/narration.txt and run ekin tool tts")
 	} else {
 		var t speech.Timings
 		if json.Unmarshal(raw, &t) == nil {
@@ -368,7 +370,7 @@ func Check(ctx context.Context, r Prober, dir, pagePath string, spec Spec) Repor
 	rep.Errors = append(rep.Errors, CheckMedia(dir, spec)...)
 	if _, err := os.Stat(filepath.Join(dir, "music.js")); err == nil {
 		if _, err := os.Stat(filepath.Join(dir, "music.wav")); err != nil {
-			rep.Warnings = append(rep.Warnings, "music.js has not been rendered; run kurgu tool music to hear-check its level")
+			rep.Warnings = append(rep.Warnings, "music.js has not been rendered; run ekin tool music to hear-check its level")
 		}
 	}
 	rep.OK = len(rep.Errors) == 0
@@ -490,7 +492,7 @@ func (e Env) stock(ctx context.Context, query, kind string, count int) error {
 		return errors.New("--type must be video or photo")
 	}
 	if !e.Spec.Media.AllowsFresh(librarydomain.Kind(kind)) {
-		return fmt.Errorf("this video takes %ss from the library only: run kurgu tool library --type %s", kind, kind)
+		return fmt.Errorf("this video takes %ss from the library only: run ekin tool library --type %s", kind, kind)
 	}
 	count = max(1, min(count, 5))
 	orientation := pexels.Orientation("portrait")
@@ -548,7 +550,7 @@ func (e Env) stock(ctx context.Context, query, kind string, count int) error {
 			Seconds: int(math.Min(it.Duration, 15))})
 		desc := fmt.Sprintf("%s  (%dx%d", rel, it.Width, it.Height)
 		if it.Kind == "video" {
-			desc += fmt.Sprintf(", %.0f s usable, loop it with Kurgu.video(el).seek(t)", math.Min(it.Duration, 15))
+			desc += fmt.Sprintf(", %.0f s usable, loop it with Ekin.video(el).seek(t)", math.Min(it.Duration, 15))
 		}
 		_, _ = fmt.Fprintln(e.Stdout, desc+")")
 	}
@@ -583,7 +585,7 @@ func (e Env) music(ctx context.Context, duration float64) error {
 	if duration <= 0 {
 		raw, err := os.ReadFile(e.path("narration/timings.json"))
 		if err != nil {
-			return errors.New("pass --duration or run kurgu tool tts first")
+			return errors.New("pass --duration or run ekin tool tts first")
 		}
 		var t speech.Timings
 		_ = json.Unmarshal(raw, &t)
@@ -599,4 +601,11 @@ func (e Env) music(ctx context.Context, duration float64) error {
 	}
 	_, _ = fmt.Fprintln(e.Stdout, msg)
 	return nil
+}
+
+// loadsKit reports whether a page loads the composition runtime, under
+// its name from before the rename (kurgu.js) too: a new revision starts
+// from the previous one's page.
+func loadsKit(src []byte) bool {
+	return bytes.Contains(src, []byte("/kit/ekin.js")) || bytes.Contains(src, []byte("/kit/kurgu.js"))
 }

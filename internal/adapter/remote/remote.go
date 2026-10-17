@@ -1,5 +1,5 @@
 // Package remote is the hybrid worker's side of the worker API: it
-// claims jobs from a Kurgu server over HTTP and moves working
+// claims jobs from a Ekin server over HTTP and moves working
 // directories and renders back and forth.
 package remote
 
@@ -19,17 +19,17 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	jobdomain "kurgu/internal/domain/job/v1"
-	settingsdomain "kurgu/internal/domain/settings/v1"
-	productionsvc "kurgu/internal/service/production/v1"
-	workerapi "kurgu/internal/transport/http/worker"
-	"kurgu/pkg/archive"
+	"ekin/internal/apperror"
+	jobdomain "ekin/internal/domain/job/v1"
+	settingsdomain "ekin/internal/domain/settings/v1"
+	productionsvc "ekin/internal/service/production/v1"
+	workerapi "ekin/internal/transport/http/worker"
+	"ekin/pkg/archive"
 )
 
 // Client talks to one server.
 type Client struct {
-	BaseURL string // https://kurgu.example.com
+	BaseURL string // https://ekin.example.com
 	Token   string
 	Owner   string // this worker's name, e.g. mac-studio
 	HTTP    *http.Client

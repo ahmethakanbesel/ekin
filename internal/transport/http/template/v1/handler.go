@@ -5,11 +5,11 @@ package handler
 import (
 	"context"
 
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	templatedomain "kurgu/internal/domain/template/v1"
-	"kurgu/internal/gen"
-	templatesvc "kurgu/internal/service/template/v1"
-	jobhandler "kurgu/internal/transport/http/job/v1"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	templatedomain "ekin/internal/domain/template/v1"
+	"ekin/internal/gen"
+	templatesvc "ekin/internal/service/template/v1"
+	jobhandler "ekin/internal/transport/http/job/v1"
 )
 
 // Handler serves templates.

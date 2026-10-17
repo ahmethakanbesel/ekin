@@ -14,9 +14,9 @@ import (
 	"strings"
 	"testing"
 
-	"kurgu/internal/adapter/pexels"
-	"kurgu/internal/agenttool"
-	librarydomain "kurgu/internal/domain/library/v1"
+	"ekin/internal/adapter/pexels"
+	"ekin/internal/agenttool"
+	librarydomain "ekin/internal/domain/library/v1"
 )
 
 // fetcher "downloads" a key by writing its name.

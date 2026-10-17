@@ -12,9 +12,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	"ekin/pkg/timeutil"
 )
 
 // Role is how a deliverable relates to the story.

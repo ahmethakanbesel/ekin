@@ -9,10 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	jobdomain "kurgu/internal/domain/job/v1"
-	"kurgu/pkg/page"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	jobdomain "ekin/internal/domain/job/v1"
+	"ekin/pkg/page"
+	"ekin/pkg/timeutil"
 )
 
 // InMemory is a Repository for service tests.

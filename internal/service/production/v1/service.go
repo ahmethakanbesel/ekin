@@ -18,22 +18,22 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/adapter/claude"
-	"kurgu/internal/adapter/render"
-	"kurgu/internal/adapter/speech"
-	"kurgu/internal/apperror"
-	"kurgu/internal/blob"
-	"kurgu/internal/db"
-	jobdomain "kurgu/internal/domain/job/v1"
-	librarydomain "kurgu/internal/domain/library/v1"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	seodomain "kurgu/internal/domain/seo/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	voicedomain "kurgu/internal/domain/voice/v1"
-	storyrepo "kurgu/internal/repository/story/v1"
-	defaultssvc "kurgu/internal/service/defaults/v1"
-	knowledgesvc "kurgu/internal/service/knowledge/v1"
-	librarysvc "kurgu/internal/service/library/v1"
+	"ekin/internal/adapter/claude"
+	"ekin/internal/adapter/render"
+	"ekin/internal/adapter/speech"
+	"ekin/internal/apperror"
+	"ekin/internal/blob"
+	"ekin/internal/db"
+	jobdomain "ekin/internal/domain/job/v1"
+	librarydomain "ekin/internal/domain/library/v1"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	seodomain "ekin/internal/domain/seo/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	voicedomain "ekin/internal/domain/voice/v1"
+	storyrepo "ekin/internal/repository/story/v1"
+	defaultssvc "ekin/internal/service/defaults/v1"
+	knowledgesvc "ekin/internal/service/knowledge/v1"
+	librarysvc "ekin/internal/service/library/v1"
 )
 
 // Job kinds.
@@ -167,8 +167,8 @@ type RenderSettings struct {
 // Config tunes production.
 type Config struct {
 	WorkRoot     string        // per-deliverable working directories
-	KurguBin     string        // absolute path of this binary, for `kurgu tool`
-	ToolEnv      []string      // KURGU_* settings for the tools
+	EkinBin      string        // absolute path of this binary, for `ekin tool`
+	ToolEnv      []string      // EKIN_* settings for the tools
 	PreviewScale float64       // 0.5 = 540p review renders
 	FinalScale   float64       // 1.0 = 1080p
 	PreviewFPS   int           // frame rate of review renders, default 30
@@ -184,7 +184,7 @@ type Config struct {
 	// Shorts bound cutting shorts from long videos; the zero value
 	// allows none.
 	Shorts storydomain.ShortsLimits
-	// LibraryEnv lets `kurgu tool library` reach the library's files:
+	// LibraryEnv lets `ekin tool library` reach the library's files:
 	// the blob store settings, with an absolute directory.
 	LibraryEnv []string
 }

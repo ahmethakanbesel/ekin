@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"kurgu/internal/adapter/media"
-	librarydomain "kurgu/internal/domain/library/v1"
+	"ekin/internal/adapter/media"
+	librarydomain "ekin/internal/domain/library/v1"
 )
 
 func need(t *testing.T) {

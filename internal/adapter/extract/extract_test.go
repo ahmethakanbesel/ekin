@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"kurgu/internal/adapter/extract"
-	knowledgedomain "kurgu/internal/domain/knowledge/v1"
+	"ekin/internal/adapter/extract"
+	knowledgedomain "ekin/internal/domain/knowledge/v1"
 )
 
 func TestPDF(t *testing.T) {
@@ -35,7 +35,7 @@ func TestPDF(t *testing.T) {
 }
 
 func TestMissingPDFTool(t *testing.T) {
-	e := &extract.Extractor{PDFToText: "kurgu-no-such-binary"}
+	e := &extract.Extractor{PDFToText: "ekin-no-such-binary"}
 	if _, err := e.Extract(context.Background(), knowledgedomain.FormatPDF, "testdata/three-pages.pdf"); err == nil || !strings.Contains(err.Error(), "not installed") {
 		t.Fatalf("err = %v", err)
 	}

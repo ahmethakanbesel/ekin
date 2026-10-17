@@ -80,7 +80,7 @@ function SidebarProvider({
         _setOpen(openState)
       }
 
-      // Kurgu keeps the open state in the workspace layout; no cookie.
+      // Ekin keeps the open state in the workspace layout; no cookie.
     },
     [setOpenProp, open]
   )

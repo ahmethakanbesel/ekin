@@ -7,13 +7,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/db/dbtest"
-	identitydomain "kurgu/internal/domain/identity/v1"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
-	identityrepo "kurgu/internal/repository/identity/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	"ekin/internal/db/dbtest"
+	identitydomain "ekin/internal/domain/identity/v1"
+	workspacedomain "ekin/internal/domain/workspace/v1"
+	identityrepo "ekin/internal/repository/identity/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	"ekin/pkg/id"
 )
 
 // harness is a fresh repository plus a way to create the workspace rows

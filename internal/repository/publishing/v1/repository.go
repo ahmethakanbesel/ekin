@@ -11,10 +11,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/db"
-	publishingdomain "kurgu/internal/domain/publishing/v1"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	"ekin/internal/db"
+	publishingdomain "ekin/internal/domain/publishing/v1"
+	"ekin/pkg/timeutil"
 )
 
 // Repository stores one channel and one blog target per workspace.

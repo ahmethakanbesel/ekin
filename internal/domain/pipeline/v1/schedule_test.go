@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	pipeline "kurgu/internal/domain/pipeline/v1"
+	pipeline "ekin/internal/domain/pipeline/v1"
 )
 
 func mustLoc(t *testing.T, name string) *time.Location {

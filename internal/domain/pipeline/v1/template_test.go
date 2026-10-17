@@ -5,9 +5,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	pipeline "kurgu/internal/domain/pipeline/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	pipeline "ekin/internal/domain/pipeline/v1"
+	"ekin/pkg/id"
 )
 
 func TestTemplateChoice(t *testing.T) {

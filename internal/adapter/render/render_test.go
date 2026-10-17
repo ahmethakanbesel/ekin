@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"kurgu/internal/adapter/render"
+	"ekin/internal/adapter/render"
 )
 
 func needTools(t *testing.T) {
@@ -93,9 +93,9 @@ func TestRenderPipeline(t *testing.T) {
 func TestProbeReportsBrokenPage(t *testing.T) {
 	needTools(t)
 	dir := t.TempDir()
-	_ = os.WriteFile(filepath.Join(dir, "composition.html"), []byte(`<script src="/kit/kurgu.js"></script>
+	_ = os.WriteFile(filepath.Join(dir, "composition.html"), []byte(`<script src="/kit/ekin.js"></script>
 <img src="https://example.com/x.png">
-<script>Kurgu.composition({duration: 1, render(t) { if (t > 0.4) throw new Error("boom") }})</script>`), 0o600)
+<script>Ekin.composition({duration: 1, render(t) { if (t > 0.4) throw new Error("boom") }})</script>`), 0o600)
 	_, problems, err := (&render.Renderer{}).Probe(context.Background(), dir, "composition.html")
 	if err != nil {
 		t.Fatal(err)

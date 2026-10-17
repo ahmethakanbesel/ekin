@@ -8,14 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/db/dbtest"
-	jobdomain "kurgu/internal/domain/job/v1"
-	settingsdomain "kurgu/internal/domain/settings/v1"
-	settingsrepo "kurgu/internal/repository/settings/v1"
-	settingssvc "kurgu/internal/service/settings/v1"
-	"kurgu/pkg/id"
-	"kurgu/pkg/secretbox"
+	"ekin/internal/apperror"
+	"ekin/internal/db/dbtest"
+	jobdomain "ekin/internal/domain/job/v1"
+	settingsdomain "ekin/internal/domain/settings/v1"
+	settingsrepo "ekin/internal/repository/settings/v1"
+	settingssvc "ekin/internal/service/settings/v1"
+	"ekin/pkg/id"
+	"ekin/pkg/secretbox"
 )
 
 func defaults() settingsdomain.Profile {

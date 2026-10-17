@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/uuid"
 
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/internal/gen"
-	"kurgu/pkg/id"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/internal/gen"
+	"ekin/pkg/id"
 )
 
 // videoWithThumbnails stores a long video in review whose one revision

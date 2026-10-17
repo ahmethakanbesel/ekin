@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"kurgu/internal/apperror"
-	jobdomain "kurgu/internal/domain/job/v1"
+	"ekin/internal/apperror"
+	jobdomain "ekin/internal/domain/job/v1"
 )
 
 // OnEnded hears about every job that ends without succeeding, inside the

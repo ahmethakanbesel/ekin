@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
+	"ekin/internal/apperror"
+	workspacedomain "ekin/internal/domain/workspace/v1"
 )
 
 // InMemory is a Repository for service tests. It stores snapshots so a

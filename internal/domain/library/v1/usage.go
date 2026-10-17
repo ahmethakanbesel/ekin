@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	"ekin/pkg/timeutil"
 )
 
 // Usage records that a revision of a deliverable used an asset. Reuse is

@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"kurgu/internal/adapter/cpulimit"
-	"kurgu/pkg/broadcast"
+	"ekin/internal/adapter/cpulimit"
+	"ekin/pkg/broadcast"
 )
 
 // niceOf reads a process's nice value with ps.
@@ -43,7 +43,7 @@ func waitNice(t *testing.T, pid, want int) {
 }
 
 // Job processes, grandchildren included, drop to the profile's nice
-// value; a lower priority set later applies live, and the Kurgu process
+// value; a lower priority set later applies live, and the Ekin process
 // keeps its own.
 func TestNicerLowersJobProcesses(t *testing.T) {
 	cmd := exec.Command("sh", "-c", "sleep 30 & wait")
@@ -82,6 +82,6 @@ func TestNicerLowersJobProcesses(t *testing.T) {
 	waitNice(t, grandchild, 12)
 
 	if self := niceOf(t, os.Getpid()); self != 0 {
-		t.Fatalf("the Kurgu process itself was reniced to %d", self)
+		t.Fatalf("the Ekin process itself was reniced to %d", self)
 	}
 }

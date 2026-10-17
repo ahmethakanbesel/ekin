@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	templatedomain "kurgu/internal/domain/template/v1"
-	"kurgu/internal/gen"
+	templatedomain "ekin/internal/domain/template/v1"
+	"ekin/internal/gen"
 )
 
 // A workspace's production defaults: any member reads them with the

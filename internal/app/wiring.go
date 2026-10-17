@@ -2,10 +2,11 @@ package app
 
 import (
 	"context"
+	"ekin/internal/adapter/elevenlabs"
+	"ekin/internal/adapter/openseo"
+	seosvc "ekin/internal/service/seo/v1"
+	"ekin/pkg/env"
 	"fmt"
-	"kurgu/internal/adapter/elevenlabs"
-	"kurgu/internal/adapter/openseo"
-	seosvc "kurgu/internal/service/seo/v1"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -17,25 +18,25 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/adapter/claude"
-	"kurgu/internal/adapter/cpulimit"
-	"kurgu/internal/adapter/openrouter"
-	"kurgu/internal/adapter/remote"
-	"kurgu/internal/adapter/render"
-	"kurgu/internal/adapter/smtp"
-	"kurgu/internal/config"
-	identitydomain "kurgu/internal/domain/identity/v1"
-	settingsdomain "kurgu/internal/domain/settings/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	storyrepo "kurgu/internal/repository/story/v1"
-	identitysvc "kurgu/internal/service/identity/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	notifysvc "kurgu/internal/service/notify/v1"
-	productionsvc "kurgu/internal/service/production/v1"
-	settingssvc "kurgu/internal/service/settings/v1"
-	workspacesvc "kurgu/internal/service/workspace/v1"
-	systemhandler "kurgu/internal/transport/http/system/v1"
-	remoteworker "kurgu/internal/transport/job/remote/v1"
+	"ekin/internal/adapter/claude"
+	"ekin/internal/adapter/cpulimit"
+	"ekin/internal/adapter/openrouter"
+	"ekin/internal/adapter/remote"
+	"ekin/internal/adapter/render"
+	"ekin/internal/adapter/smtp"
+	"ekin/internal/config"
+	identitydomain "ekin/internal/domain/identity/v1"
+	settingsdomain "ekin/internal/domain/settings/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	storyrepo "ekin/internal/repository/story/v1"
+	identitysvc "ekin/internal/service/identity/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	notifysvc "ekin/internal/service/notify/v1"
+	productionsvc "ekin/internal/service/production/v1"
+	settingssvc "ekin/internal/service/settings/v1"
+	workspacesvc "ekin/internal/service/workspace/v1"
+	systemhandler "ekin/internal/transport/http/system/v1"
+	remoteworker "ekin/internal/transport/job/remote/v1"
 )
 
 // directory answers the notify service's questions about people.
@@ -81,7 +82,7 @@ func (i inviter) InviteEmail(ctx context.Context, workspaceID uuid.UUID, to, fro
 	return i.notify.Invite(ctx, to, w.Name(), from, link)
 }
 
-// flushNotifications sends email digests every KURGU_NOTIFY_EVERY.
+// flushNotifications sends email digests every EKIN_NOTIFY_EVERY.
 func (a *App) flushNotifications(ctx context.Context) {
 	t := time.NewTicker(a.cfg.Notify.Every)
 	defer t.Stop()
@@ -138,7 +139,7 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 	if chrome == "" {
 		chrome = render.FindChrome()
 	}
-	add("Chrome", chrome != "", map[bool]string{true: chrome, false: "not found; set KURGU_CHROME"}[chrome != ""])
+	add("Chrome", chrome != "", map[bool]string{true: chrome, false: "not found; set EKIN_CHROME"}[chrome != ""])
 	_, okErr := os.Stat(filepath.Join(p.SpeechDir, "ema_say.py"))
 	add("Speech scripts", okErr == nil, p.SpeechDir)
 	add("CPU limit", cpulimit.Supported(), map[bool]string{
@@ -196,12 +197,12 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 }
 
 // WorkRemote runs a hybrid worker: it claims agent and render jobs from
-// the server at KURGU_REMOTE_URL and runs them on this machine. It opens
+// the server at EKIN_REMOTE_URL and runs them on this machine. It opens
 // no database.
 func WorkRemote(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	client := &remote.Client{BaseURL: cfg.Remote.URL, Token: cfg.Remote.Token, Owner: cfg.Worker.Owner}
 	// The host profile saved on the server (System, or the Jobs page)
-	// wins over this machine's KURGU_* settings, and changes apply live.
+	// wins over this machine's EKIN_* settings, and changes apply live.
 	profile := remote.NewProfileWatcher(client, defaultProfile(cfg), 0, log.With(slog.String("component", "remote-profile")))
 	profile.Refresh(ctx)
 	go profile.Run(ctx)
@@ -251,7 +252,7 @@ func probeTool(ctx context.Context, bin string, args ...string) (bool, string) {
 	return true, line
 }
 
-// envCredentials are the KURGU_* values the settings page overrides.
+// envCredentials are the EKIN_* values the settings page overrides.
 // credentialDefaults are the values config falls back to when a variable
 // is unset; envCredentials leaves those out so they are not reported as
 // coming from the environment.
@@ -270,13 +271,13 @@ func envCredentials(cfg config.Config) settingsdomain.Credentials {
 		SMTPHost: cfg.Notify.SMTPHost, SMTPPort: port, SMTPUsername: cfg.Notify.SMTPUser, SMTPPassword: cfg.Notify.SMTPPassword,
 		SMTPFrom: cfg.Notify.SMTPFrom, SMTPTLS: cfg.Notify.SMTPTLS,
 		YouTubeClientID: cfg.Publishing.YouTubeClientID, YouTubeClientSecret: cfg.Publishing.YouTubeClientSecret,
-		OpenSEOAPIKey: os.Getenv("KURGU_OPENSEO_API_KEY"), OpenSEOURL: os.Getenv("KURGU_OPENSEO_URL"),
+		OpenSEOAPIKey: env.Get("EKIN_OPENSEO_API_KEY"), OpenSEOURL: env.Get("EKIN_OPENSEO_URL"),
 		ElevenLabsAPIKey: cfg.Production.ElevenLabsKey,
 	}
-	if _, ok := os.LookupEnv("KURGU_DECISION_MODEL"); !ok {
+	if _, ok := env.Lookup("EKIN_DECISION_MODEL"); !ok {
 		c.DecisionModel = ""
 	}
-	if _, ok := os.LookupEnv("KURGU_SMTP_TLS"); !ok {
+	if _, ok := env.Lookup("EKIN_SMTP_TLS"); !ok {
 		c.SMTPTLS = ""
 	}
 	return c

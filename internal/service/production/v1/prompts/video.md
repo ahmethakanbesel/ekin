@@ -87,7 +87,7 @@ Work in this order and do not stop until `{{.Tool}} check` passes.
    chart or diagram builds, show its frame and first element at once.
    Prefer typography, shapes, diagrams and data visualisations you build in
    HTML/CSS/SVG.{{if .Long}} For a long video, organise the page as a list of scenes
-   (one per chapter section) driven by `Kurgu.scenes`, show a chapter title card at
+   (one per chapter section) driven by `Ekin.scenes`, show a chapter title card at
    each chapter start, and keep each scene's DOM small so seeking stays fast.{{end}}{{if .Media.Library}} Stock clips and photos are optional;
    **Media sources** below says where they come from. Use them sparingly as
    backgrounds, dimmed under text.{{else}} Stock footage is optional: `{{.Tool}} stock --query "..." --type video`
@@ -128,7 +128,7 @@ Work in this order and do not stop until `{{.Tool}} check` passes.
      the variant uses. `recommended` is the variant you would publish.
    - For stills, run `{{.Tool}} thumbnail --stills 12.4,30`: it writes full-size
      frames to `thumbnails/stills/12.4.jpg` and so on, for the page's `<img>`.
-   - Write `thumbnail.html` with `Kurgu.thumbnails` (see **Thumbnails** in
+   - Write `thumbnail.html` with `Ekin.thumbnails` (see **Thumbnails** in
      `KIT.md`): one 1280×720 page that draws any variant, taking its words from
      `variant.text`, never typed into the page, so a person can change them later.
    - Run `{{.Tool}} thumbnail` and fix every error. Then read the

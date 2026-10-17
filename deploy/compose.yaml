@@ -2,11 +2,11 @@
 # Application runs on Swarm, which drops cpuset and cpu_shares.
 #
 # Give the serve service a domain with HTTPS in Dokploy and set
-# KURGU_PUBLIC_URL to it. Create the first account once deployed:
-#   docker compose exec serve /kurgu user create --email you@example.com --name You
+# EKIN_PUBLIC_URL to it. Create the first account once deployed:
+#   docker compose exec serve /ekin user create --email you@example.com --name You
 
-x-kurgu: &kurgu
-  image: kurgu:${KURGU_VERSION:-latest}
+x-ekin: &ekin
+  image: ekin:${EKIN_VERSION:-latest}
   build:
     context: ..
     dockerfile: Dockerfile
@@ -29,7 +29,7 @@ services:
     restart: "no"
 
   serve:
-    <<: *kurgu
+    <<: *ekin
     command: ["serve"]
     depends_on:
       restore:
@@ -40,8 +40,8 @@ services:
     cpu_shares: 512
 
   worker:
-    <<: *kurgu
-    image: kurgu-worker:${KURGU_VERSION:-latest}
+    <<: *ekin
+    image: ekin-worker:${EKIN_VERSION:-latest}
     build:
       context: ..
       dockerfile: Dockerfile
@@ -51,7 +51,7 @@ services:
       serve:
         condition: service_started
     environment:
-      KURGU_MIGRATE_ON_START: "false"
+      EKIN_MIGRATE_ON_START: "false"
     # PLAN.md §4: keep core 0 for the other sites, yield under contention,
     # never take more than half a core, and never push neighbours into swap.
     cpuset: "1"

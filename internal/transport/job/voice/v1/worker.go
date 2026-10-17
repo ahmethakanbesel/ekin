@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 
-	jobdomain "kurgu/internal/domain/job/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	voicesvc "kurgu/internal/service/voice/v1"
+	jobdomain "ekin/internal/domain/job/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	voicesvc "ekin/internal/service/voice/v1"
 )
 
 // Register adds the voice handlers to r.

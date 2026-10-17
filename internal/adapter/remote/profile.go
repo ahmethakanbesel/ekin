@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	settingsdomain "kurgu/internal/domain/settings/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	"kurgu/pkg/broadcast"
+	settingsdomain "ekin/internal/domain/settings/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	"ekin/pkg/broadcast"
 )
 
 // ProfileWatcher keeps a remote worker's host profile in step with the

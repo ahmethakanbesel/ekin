@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"kurgu/internal/adapter/youtube"
+	"ekin/internal/adapter/youtube"
 )
 
 func TestOAuthAndUpload(t *testing.T) {

@@ -1,12 +1,12 @@
-// Command kurgu runs the Kurgu API, scheduler and job worker.
+// Command ekin runs the Ekin API, scheduler and job worker.
 //
-//	kurgu serve            API + web UI + scheduler
-//	kurgu worker           job runner
-//	kurgu all              serve and worker in one process (laptop mode)
-//	kurgu migrate up|down|status
-//	kurgu user create|reset-password
-//	kurgu tool tts|frame|check|stock|music
-//	kurgu version
+//	ekin serve            API + web UI + scheduler
+//	ekin worker           job runner
+//	ekin all              serve and worker in one process (laptop mode)
+//	ekin migrate up|down|status
+//	ekin user create|reset-password
+//	ekin tool tts|frame|check|stock|music
+//	ekin version
 package main
 
 import (
@@ -19,9 +19,9 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"kurgu/internal/app"
-	"kurgu/internal/config"
-	"kurgu/internal/db"
+	"ekin/internal/app"
+	"ekin/internal/config"
+	"ekin/internal/db"
 )
 
 var (
@@ -29,22 +29,22 @@ var (
 	commit  = "none"
 )
 
-const usage = `usage: kurgu <command>
+const usage = `usage: ekin <command>
 
 commands:
   serve                 run the API, web UI and scheduler
-  worker                run the job worker (remote with KURGU_REMOTE_URL)
+  worker                run the job worker (remote with EKIN_REMOTE_URL)
   all                   run serve and worker in one process
   migrate up|down|status
   user create|reset-password
-                        manage accounts (see kurgu user)
+                        manage accounts (see ekin user)
   tool <command>        agent tools: tts, frame, check, stock, music
   version
 `
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "kurgu:", err)
+		fmt.Fprintln(os.Stderr, "ekin:", err)
 		os.Exit(1)
 	}
 }
@@ -55,7 +55,7 @@ func run(args []string) error {
 		return errors.New("missing command")
 	}
 	if args[0] == "version" {
-		fmt.Printf("kurgu %s (%s)\n", version, commit)
+		fmt.Printf("ekin %s (%s)\n", version, commit)
 		return nil
 	}
 	if args[0] == "tool" {

@@ -9,10 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/db"
-	identitydomain "kurgu/internal/domain/identity/v1"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	"ekin/internal/db"
+	identitydomain "ekin/internal/domain/identity/v1"
+	"ekin/pkg/timeutil"
 )
 
 // SQLite is the production Repository.

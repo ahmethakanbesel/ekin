@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	jobdomain "kurgu/internal/domain/job/v1"
-	librarydomain "kurgu/internal/domain/library/v1"
-	"kurgu/internal/gen"
-	librarysvc "kurgu/internal/service/library/v1"
+	jobdomain "ekin/internal/domain/job/v1"
+	librarydomain "ekin/internal/domain/library/v1"
+	"ekin/internal/gen"
+	librarysvc "ekin/internal/service/library/v1"
 )
 
 // fakeProcessor "ingests" a photo by copying it as main.jpg with a

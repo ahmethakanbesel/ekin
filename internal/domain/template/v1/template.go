@@ -1,6 +1,6 @@
 // Package template models reusable house styles: how a video looks and
 // moves (palette, fonts, motion, structure, narration voice) or how an
-// article reads. Built-in templates ship with Kurgu; a workspace adds its
+// article reads. Built-in templates ship with Ekin; a workspace adds its
 // own, copies a built-in, or has the agent draft one from a channel.
 package template
 
@@ -13,10 +13,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/pkg/timeutil"
 )
 
 // Source says where a template came from.

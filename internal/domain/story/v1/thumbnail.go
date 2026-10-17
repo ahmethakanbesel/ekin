@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	"ekin/pkg/timeutil"
 )
 
 // Limits of a long video's thumbnail variants (docs/thumbnails.md).

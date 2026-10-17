@@ -9,19 +9,19 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/adapter/claude"
-	"kurgu/internal/apperror"
-	"kurgu/internal/db/dbtest"
-	jobdomain "kurgu/internal/domain/job/v1"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	templatedomain "kurgu/internal/domain/template/v1"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
-	jobrepo "kurgu/internal/repository/job/v1"
-	templaterepo "kurgu/internal/repository/template/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	templatesvc "kurgu/internal/service/template/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/adapter/claude"
+	"ekin/internal/apperror"
+	"ekin/internal/db/dbtest"
+	jobdomain "ekin/internal/domain/job/v1"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	templatedomain "ekin/internal/domain/template/v1"
+	workspacedomain "ekin/internal/domain/workspace/v1"
+	jobrepo "ekin/internal/repository/job/v1"
+	templaterepo "ekin/internal/repository/template/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	templatesvc "ekin/internal/service/template/v1"
+	"ekin/pkg/id"
 )
 
 type agent struct{ prompt *string }

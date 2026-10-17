@@ -6,9 +6,9 @@ import (
 
 	"github.com/google/uuid"
 
-	knowledgedomain "kurgu/internal/domain/knowledge/v1"
-	"kurgu/pkg/page"
-	"kurgu/pkg/timeutil"
+	knowledgedomain "ekin/internal/domain/knowledge/v1"
+	"ekin/pkg/page"
+	"ekin/pkg/timeutil"
 )
 
 // Filter narrows a document listing and picks its page.

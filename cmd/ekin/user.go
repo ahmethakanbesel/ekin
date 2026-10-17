@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"ekin/pkg/env"
 	"errors"
 	"flag"
 	"fmt"
@@ -12,15 +13,15 @@ import (
 
 	"golang.org/x/term"
 
-	"kurgu/internal/app"
-	identitydomain "kurgu/internal/domain/identity/v1"
+	"ekin/internal/app"
+	identitydomain "ekin/internal/domain/identity/v1"
 )
 
 const userUsage = `usage:
-  kurgu user create --email <address> --name <name>
-  kurgu user reset-password --email <address>
+  ekin user create --email <address> --name <name>
+  ekin user reset-password --email <address>
 
-The password is read from KURGU_PASSWORD, or prompted for on a terminal,
+The password is read from EKIN_PASSWORD, or prompted for on a terminal,
 or read as one line from stdin.
 `
 
@@ -86,7 +87,7 @@ func user(ctx context.Context, a *app.App, args []string) error {
 }
 
 func readPassword() (identitydomain.Password, error) {
-	if v, ok := os.LookupEnv("KURGU_PASSWORD"); ok {
+	if v, ok := env.Lookup("EKIN_PASSWORD"); ok {
 		return identitydomain.ParsePassword(v)
 	}
 	fd := int(os.Stdin.Fd()) //nolint:gosec // stdin's descriptor fits an int

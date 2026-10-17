@@ -11,12 +11,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	settingsdomain "kurgu/internal/domain/settings/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	settingsrepo "kurgu/internal/repository/settings/v1"
-	settingssvc "kurgu/internal/service/settings/v1"
+	"ekin/internal/apperror"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	settingsdomain "ekin/internal/domain/settings/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	settingsrepo "ekin/internal/repository/settings/v1"
+	settingssvc "ekin/internal/service/settings/v1"
 )
 
 // Settings is the part of the settings service the server's values come
@@ -46,7 +46,7 @@ type Workspace struct {
 type Config struct {
 	// Profile is the host profile this server renders with.
 	Profile string
-	// Effort is the drafting effort from KURGU_CLAUDE_EFFORT; "" leaves
+	// Effort is the drafting effort from EKIN_CLAUDE_EFFORT; "" leaves
 	// Claude Code's own.
 	Effort string
 }
@@ -56,7 +56,7 @@ type ModelSource string
 
 const (
 	ModelFromSettings ModelSource = "settings" // System › Credentials
-	ModelFromEnv      ModelSource = "env"      // KURGU_CLAUDE_MODEL
+	ModelFromEnv      ModelSource = "env"      // EKIN_CLAUDE_MODEL
 	ModelUnset        ModelSource = "unset"    // Claude Code's own default
 )
 
@@ -132,8 +132,8 @@ func (s *Service) Put(ctx context.Context, workspaceID uuid.UUID, w Workspace, b
 
 // ServerAgent is the model and effort drafts run with where neither the
 // workspace nor a pipeline or request sets one: the model from System ›
-// Credentials, then KURGU_CLAUDE_MODEL, and the effort from
-// KURGU_CLAUDE_EFFORT. A blank field leaves Claude Code's own.
+// Credentials, then EKIN_CLAUDE_MODEL, and the effort from
+// EKIN_CLAUDE_EFFORT. A blank field leaves Claude Code's own.
 func (s *Service) ServerAgent(ctx context.Context) (pipelinedomain.Agent, error) {
 	model, _, err := s.model(ctx)
 	if err != nil {

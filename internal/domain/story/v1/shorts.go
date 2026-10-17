@@ -10,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	"ekin/pkg/timeutil"
 )
 
 // Shorts are vertical videos cut from a long video of the same story

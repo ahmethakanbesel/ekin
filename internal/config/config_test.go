@@ -6,15 +6,15 @@ import (
 	"testing"
 	"time"
 
-	jobdomain "kurgu/internal/domain/job/v1"
+	jobdomain "ekin/internal/domain/job/v1"
 )
 
-func env(m map[string]string) func(string) string {
+func vars(m map[string]string) func(string) string {
 	return func(k string) string { return m[k] }
 }
 
 func TestLoadDefaults(t *testing.T) {
-	cfg, err := load(env(nil))
+	cfg, err := load(vars(nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Production.PreviewFPS != 30 || cfg.Production.FinalFPS != 30 {
 		t.Fatalf("default frame rates = %d, %d", cfg.Production.PreviewFPS, cfg.Production.FinalFPS)
 	}
-	cfg, err = load(env(map[string]string{"KURGU_RENDER_PREVIEW_FPS": "15", "KURGU_RENDER_FINAL_FPS": "60"}))
+	cfg, err = load(vars(map[string]string{"EKIN_RENDER_PREVIEW_FPS": "15", "EKIN_RENDER_FINAL_FPS": "60"}))
 	if err != nil || cfg.Production.PreviewFPS != 15 || cfg.Production.FinalFPS != 60 {
 		t.Fatalf("frame rates = %d, %d (%v)", cfg.Production.PreviewFPS, cfg.Production.FinalFPS, err)
 	}
@@ -45,7 +45,7 @@ func TestLoadHeavyQueuesAndNice(t *testing.T) {
 		{"none", []jobdomain.Queue{}},
 	}
 	for _, tt := range tests {
-		cfg, err := load(env(map[string]string{"KURGU_HEAVY_QUEUES": tt.raw, "KURGU_NICE": "10"}))
+		cfg, err := load(vars(map[string]string{"EKIN_HEAVY_QUEUES": tt.raw, "EKIN_NICE": "10"}))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -56,7 +56,7 @@ func TestLoadHeavyQueuesAndNice(t *testing.T) {
 }
 
 func TestLoadShortsLimits(t *testing.T) {
-	cfg, err := load(env(nil))
+	cfg, err := load(vars(nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,9 +64,9 @@ func TestLoadShortsLimits(t *testing.T) {
 		l.ClipMax() != time.Minute || l.MaxPerVideo() != 5 || l.MinGap() != 30*time.Second {
 		t.Fatalf("default shorts limits = %+v", l)
 	}
-	cfg, err = load(env(map[string]string{
-		"KURGU_SHORTS_SOURCE_MIN": "8m", "KURGU_SHORTS_SOURCE_MAX": "30m", "KURGU_SHORTS_CLIP_MIN": "15s",
-		"KURGU_SHORTS_CLIP_MAX": "90s", "KURGU_SHORTS_MAX_PER_VIDEO": "3", "KURGU_SHORTS_MIN_GAP": "0s",
+	cfg, err = load(vars(map[string]string{
+		"EKIN_SHORTS_SOURCE_MIN": "8m", "EKIN_SHORTS_SOURCE_MAX": "30m", "EKIN_SHORTS_CLIP_MIN": "15s",
+		"EKIN_SHORTS_CLIP_MAX": "90s", "EKIN_SHORTS_MAX_PER_VIDEO": "3", "EKIN_SHORTS_MIN_GAP": "0s",
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -83,29 +83,29 @@ func TestLoadRejectsBadValues(t *testing.T) {
 		env  map[string]string
 		want string
 	}{
-		{"bad bool", map[string]string{"KURGU_WORKER_PAUSED": "maybe"}, "KURGU_WORKER_PAUSED"},
-		{"bad duration", map[string]string{"KURGU_HEAVY_COOLDOWN": "soon"}, "KURGU_HEAVY_COOLDOWN"},
-		{"tiny tick", map[string]string{"KURGU_SCHEDULER_TICK": "10ms"}, "KURGU_SCHEDULER_TICK"},
-		{"bad log format", map[string]string{"KURGU_LOG_FORMAT": "xml"}, "KURGU_LOG_FORMAT"},
-		{"bad concurrency", map[string]string{"KURGU_QUEUE_CONCURRENCY": "gpu=1"}, "KURGU_QUEUE_CONCURRENCY"},
-		{"bad heavy queue", map[string]string{"KURGU_HEAVY_QUEUES": "render,gpu"}, "KURGU_HEAVY_QUEUES"},
-		{"nice too low", map[string]string{"KURGU_NICE": "20"}, "KURGU_NICE"},
-		{"bad claude effort", map[string]string{"KURGU_CLAUDE_EFFORT": "turbo"}, "KURGU_CLAUDE_EFFORT"},
-		{"unknown blob driver", map[string]string{"KURGU_BLOB_DRIVER": "gcs"}, "KURGU_BLOB_DRIVER"},
-		{"s3 without bucket", map[string]string{"KURGU_BLOB_DRIVER": "s3", "KURGU_S3_ENDPOINT": "https://x"}, "KURGU_S3_BUCKET"},
-		{"relative public url", map[string]string{"KURGU_PUBLIC_URL": "kurgu.example.com"}, "KURGU_PUBLIC_URL"},
-		{"public url with path", map[string]string{"KURGU_PUBLIC_URL": "https://example.com/kurgu"}, "KURGU_PUBLIC_URL"},
-		{"bad shorts duration", map[string]string{"KURGU_SHORTS_SOURCE_MIN": "long"}, "KURGU_SHORTS_SOURCE_MIN"},
-		{"shorts source minimum above maximum", map[string]string{"KURGU_SHORTS_SOURCE_MIN": "90m"}, "KURGU_SHORTS_*"},
-		{"short over 3 minutes", map[string]string{"KURGU_SHORTS_CLIP_MAX": "4m"}, "KURGU_SHORTS_*"},
-		{"too many shorts per video", map[string]string{"KURGU_SHORTS_MAX_PER_VIDEO": "21"}, "KURGU_SHORTS_MAX_PER_VIDEO"},
-		{"preview fps in range but not offered", map[string]string{"KURGU_RENDER_PREVIEW_FPS": "25"}, "KURGU_RENDER_PREVIEW_FPS"},
-		{"preview fps above 30", map[string]string{"KURGU_RENDER_PREVIEW_FPS": "60"}, "KURGU_RENDER_PREVIEW_FPS"},
-		{"final fps not offered", map[string]string{"KURGU_RENDER_FINAL_FPS": "48"}, "KURGU_RENDER_FINAL_FPS"},
+		{"bad bool", map[string]string{"EKIN_WORKER_PAUSED": "maybe"}, "EKIN_WORKER_PAUSED"},
+		{"bad duration", map[string]string{"EKIN_HEAVY_COOLDOWN": "soon"}, "EKIN_HEAVY_COOLDOWN"},
+		{"tiny tick", map[string]string{"EKIN_SCHEDULER_TICK": "10ms"}, "EKIN_SCHEDULER_TICK"},
+		{"bad log format", map[string]string{"EKIN_LOG_FORMAT": "xml"}, "EKIN_LOG_FORMAT"},
+		{"bad concurrency", map[string]string{"EKIN_QUEUE_CONCURRENCY": "gpu=1"}, "EKIN_QUEUE_CONCURRENCY"},
+		{"bad heavy queue", map[string]string{"EKIN_HEAVY_QUEUES": "render,gpu"}, "EKIN_HEAVY_QUEUES"},
+		{"nice too low", map[string]string{"EKIN_NICE": "20"}, "EKIN_NICE"},
+		{"bad claude effort", map[string]string{"EKIN_CLAUDE_EFFORT": "turbo"}, "EKIN_CLAUDE_EFFORT"},
+		{"unknown blob driver", map[string]string{"EKIN_BLOB_DRIVER": "gcs"}, "EKIN_BLOB_DRIVER"},
+		{"s3 without bucket", map[string]string{"EKIN_BLOB_DRIVER": "s3", "EKIN_S3_ENDPOINT": "https://x"}, "EKIN_S3_BUCKET"},
+		{"relative public url", map[string]string{"EKIN_PUBLIC_URL": "ekin.example.com"}, "EKIN_PUBLIC_URL"},
+		{"public url with path", map[string]string{"EKIN_PUBLIC_URL": "https://example.com/ekin"}, "EKIN_PUBLIC_URL"},
+		{"bad shorts duration", map[string]string{"EKIN_SHORTS_SOURCE_MIN": "long"}, "EKIN_SHORTS_SOURCE_MIN"},
+		{"shorts source minimum above maximum", map[string]string{"EKIN_SHORTS_SOURCE_MIN": "90m"}, "EKIN_SHORTS_*"},
+		{"short over 3 minutes", map[string]string{"EKIN_SHORTS_CLIP_MAX": "4m"}, "EKIN_SHORTS_*"},
+		{"too many shorts per video", map[string]string{"EKIN_SHORTS_MAX_PER_VIDEO": "21"}, "EKIN_SHORTS_MAX_PER_VIDEO"},
+		{"preview fps in range but not offered", map[string]string{"EKIN_RENDER_PREVIEW_FPS": "25"}, "EKIN_RENDER_PREVIEW_FPS"},
+		{"preview fps above 30", map[string]string{"EKIN_RENDER_PREVIEW_FPS": "60"}, "EKIN_RENDER_PREVIEW_FPS"},
+		{"final fps not offered", map[string]string{"EKIN_RENDER_FINAL_FPS": "48"}, "EKIN_RENDER_FINAL_FPS"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := load(env(tt.env))
+			_, err := load(vars(tt.env))
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("err = %v, want mention of %s", err, tt.want)
 			}
@@ -119,12 +119,12 @@ func TestPublicURL(t *testing.T) {
 		want string
 	}{
 		{nil, "http://127.0.0.1:8080"},
-		{map[string]string{"KURGU_HTTP_ADDR": ":9000"}, "http://localhost:9000"},
-		{map[string]string{"KURGU_HTTP_ADDR": "0.0.0.0:8080"}, "http://localhost:8080"},
-		{map[string]string{"KURGU_PUBLIC_URL": "https://kurgu.example.com/"}, "https://kurgu.example.com"},
+		{map[string]string{"EKIN_HTTP_ADDR": ":9000"}, "http://localhost:9000"},
+		{map[string]string{"EKIN_HTTP_ADDR": "0.0.0.0:8080"}, "http://localhost:8080"},
+		{map[string]string{"EKIN_PUBLIC_URL": "https://ekin.example.com/"}, "https://ekin.example.com"},
 	}
 	for _, tt := range tests {
-		cfg, err := load(env(tt.env))
+		cfg, err := load(vars(tt.env))
 		if err != nil || cfg.PublicURL != tt.want {
 			t.Errorf("env %v: public url = %q, %v; want %q", tt.env, cfg.PublicURL, err, tt.want)
 		}
@@ -164,5 +164,20 @@ func TestParseConcurrency(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Hosts set up before the rename keep their KURGU_* variables.
+func TestLoadLegacyNames(t *testing.T) {
+	t.Setenv("EKIN_HTTP_ADDR", "")
+	t.Setenv("KURGU_HTTP_ADDR", "0.0.0.0:9090")
+	t.Setenv("EKIN_LOG_LEVEL", "debug")
+	t.Setenv("KURGU_LOG_LEVEL", "warn")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.HTTPAddr != "0.0.0.0:9090" || cfg.LogLevel != "debug" {
+		t.Fatalf("addr, level = %q, %q; want the KURGU_ address and the EKIN_ level", cfg.HTTPAddr, cfg.LogLevel)
 	}
 }

@@ -1,7 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
-<link rel="stylesheet" href="/kit/kurgu.css">
-<script src="/kit/kurgu.js"></script>
+<link rel="stylesheet" href="/kit/ekin.css">
+<script src="/kit/ekin.js"></script>
 <div id="stage">
   <div id="bg" style="position:absolute;inset:0"></div>
   <h1 id="title" style="position:absolute;top:30%;width:100%;text-align:center;font-size:96px">Kaygı ve endişe</h1>
@@ -9,17 +9,17 @@
 </div>
 <script>
 let words = [];
-const cap = Kurgu.captions(document.getElementById("cap"), [], {});
+const cap = Ekin.captions(document.getElementById("cap"), [], {});
 let update = () => {};
-Kurgu.composition({
+Ekin.composition({
   width: 1080, height: 1920, fps: 30,
-  duration: async () => (await Kurgu.timings()).duration,
+  duration: async () => (await Ekin.timings()).duration,
   async setup() {
-    const t = await Kurgu.timings();
-    update = Kurgu.captions(document.getElementById("cap"), t.words);
+    const t = await Ekin.timings();
+    update = Ekin.captions(document.getElementById("cap"), t.words);
   },
   render(t) {
-    const p = Kurgu.tween(t, 0, 1, Kurgu.ease.outBack);
+    const p = Ekin.tween(t, 0, 1, Ekin.ease.outBack);
     document.getElementById("title").style.transform = `translateY(${(1 - p) * 200}px)`;
     document.getElementById("title").style.opacity = p;
     document.getElementById("bg").style.background = `hsl(${200 + t * 20}, 60%, 30%)`;

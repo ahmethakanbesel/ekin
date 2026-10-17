@@ -1,7 +1,7 @@
 # Media library — plan
 
 A workspace keeps the music, stock videos and stock photos its videos use, so later
-videos can reuse them. Items get into the library in two ways: Kurgu saves what the
+videos can reuse them. Items get into the library in two ways: Ekin saves what the
 agent composed or fetched from Pexels (each kind switched on separately, all off by
 default), or someone uploads them. Each pipeline, and each ad-hoc request, picks per
 kind where media comes from: freshly made or searched, the library only, or library
@@ -11,8 +11,8 @@ first.
 
 | Today | Effect |
 |---|---|
-| `kurgu tool stock` searches Pexels, transcodes clips to a ≤ 15 s VP8 WebM in `assets/` and appends to `assets/credits.json` | Every draft searches and downloads again; a good clip found once is gone after that revision. No Pexels key means no stock at all. |
-| The agent writes `music.js` (Tone.js), `kurgu tool music` and the render step turn it into `music.wav` | A score that worked is never reused; there is no way to use a real track. |
+| `ekin tool stock` searches Pexels, transcodes clips to a ≤ 15 s VP8 WebM in `assets/` and appends to `assets/credits.json` | Every draft searches and downloads again; a good clip found once is gone after that revision. No Pexels key means no stock at all. |
+| The agent writes `music.js` (Tone.js), `ekin tool music` and the render step turn it into `music.wav` | A score that worked is never reused; there is no way to use a real track. |
 | `Renderer.Mix` takes any audio file as music (`volume=0.28`, side-chain ducked under the voice) | A library track can go through the same mix unchanged; only looping, offset and fade are missing. |
 | Work dirs are archived per revision | Items reused from the library are copied into the work dir, so past revisions stay reproducible even after a library item is deleted. |
 
@@ -69,7 +69,7 @@ default. Stored in a `library_settings` row; a missing row means all off.
 
 | Mode | Music | Video / photo |
 |---|---|---|
-| `fresh` (default — today's behaviour) | the agent composes `music.js` | `kurgu tool stock` searches Pexels |
+| `fresh` (default — today's behaviour) | the agent composes `music.js` | `ekin tool stock` searches Pexels |
 | `library` | only library tracks; `music.js` is refused | only library items; Pexels search is refused |
 | `mixed` | library first, compose when nothing fits | library first, search Pexels when nothing fits |
 
@@ -157,25 +157,25 @@ the agent in two steps:
    size and usage count — metadata only, no files. `LIBRARY.md` explains how to use it.
    Music matching the template's mood is listed first.
 2. **Fetch (tool).** The agent runs:
-   - `kurgu tool library --type video --query "sea at dusk"` — searches the local
+   - `ekin tool library --type video --query "sea at dusk"` — searches the local
      catalog (title, tags, description), prints the best matches. No network.
-   - `kurgu tool library use <id>` — puts the file in place and records the credit
+   - `ekin tool library use <id>` — puts the file in place and records the credit
      (with `"library": "<id>"`) in `assets/credits.json`:
      - video / photo → `assets/library-<id>.webm|jpg`
      - generated music → `music.js` (the agent may adapt it)
      - uploaded music → `music.json` `{"asset": "<id>", "file": "assets/library-<id>.opus", "offset": 0}`
 
-   Locally the tool opens the blob store from the inherited `KURGU_BLOB_*` config. On a
+   Locally the tool opens the blob store from the inherited `EKIN_BLOB_*` config. On a
    remote worker it calls `GET /api/v1/worker/jobs/{id}/library/{assetId}`, scoped to
    the leased job's workspace and refused for an item not in that job's catalog. Both
-   cache by sha256 under `KURGU_DATA_DIR/cache/library`.
+   cache by sha256 under `EKIN_DATA_DIR/cache/library`.
 
-**Enforcement** — in the tools and in Kurgu's own `validate`, not only in the prompt.
+**Enforcement** — in the tools and in Ekin's own `validate`, not only in the prompt.
 `agenttool.Spec` gains `Media` (the three modes):
 
-- `kurgu tool stock --type video` fails in `library` video mode: "this pipeline uses
-  library videos only: run kurgu tool library --type video".
-- `kurgu tool music` and `check` fail when `music.js` exists in `library` music mode
+- `ekin tool stock --type video` fails in `library` video mode: "this pipeline uses
+  library videos only: run ekin tool library --type video".
+- `ekin tool music` and `check` fail when `music.js` exists in `library` music mode
   and does not come from a library score (its sha256 is in the catalog).
 - `check` fails when a `credits.json` entry used by the composition has no `library`
   id in `library` mode, and when both `music.js` and `music.json` exist. A library
@@ -190,7 +190,7 @@ shorter, 2 s fade-out) and the result goes through the existing `Mix`.
 writes Usage rows with the revision.
 
 **Prompts.** `video.md` and `kit.md` get the media section per mode: `fresh` reads as
-today; `library` names only `kurgu tool library`; `mixed` says to look in the library
+today; `library` names only `ekin tool library`; `mixed` says to look in the library
 first and search or compose only when nothing fits. When harvesting music is on, the
 prompt asks for `music.meta.json`.
 
@@ -246,13 +246,13 @@ agent tool against a fake blob store and a fake worker API).
 Built: phases 1–3. A composed score keeps a 30 s Opus `preview` rendered from it, for
 listening in the library; saving switches sit in workspace Settings. Only the server's
 own worker can fetch library files until
-phase 4; on a remote worker `kurgu tool library use` says the library is not reachable.
+phase 4; on a remote worker `ekin tool library use` says the library is not reachable.
 
 1. ✅ **Library context and uploads** — Asset aggregate, migration (`library_assets`,
    `library_usages`, `library_settings`), upload + `library.ingest`, list / get / edit /
    delete / media route, Library page with upload. Useful alone as a place to keep media.
 2. ✅ **Using the library** — Policy on pipelines, ad-hoc requests and `Brief`; catalog in
-   `prepare`; `kurgu tool library` (local blob store); `music.json` + `MusicTrack`;
+   `prepare`; `ekin tool library` (local blob store); `music.json` + `MusicTrack`;
    Usage rows; prompts; enforcement in tools and `validate`; Media section in the
    pipeline and ad-hoc forms.
 3. ✅ **Harvest** — collect settings and UI, richer `credits.json` (with `originalUrl`),

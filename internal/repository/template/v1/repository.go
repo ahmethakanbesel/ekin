@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/db"
-	templatedomain "kurgu/internal/domain/template/v1"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	"ekin/internal/db"
+	templatedomain "ekin/internal/domain/template/v1"
+	"ekin/pkg/timeutil"
 )
 
 // Repository stores workspace templates.

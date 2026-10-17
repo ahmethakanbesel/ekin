@@ -1,6 +1,6 @@
 // Package settings models runtime-editable instance settings. A host
 // profile says how hard the workers using it may work (PLAN.md §4); each
-// worker picks its profile by name (KURGU_WORKER_PROFILE), so the VPS and
+// worker picks its profile by name (EKIN_WORKER_PROFILE), so the VPS and
 // a Mac can be throttled differently.
 package settings
 
@@ -9,9 +9,9 @@ import (
 	"slices"
 	"time"
 
-	"kurgu/internal/apperror"
-	jobdomain "kurgu/internal/domain/job/v1"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
+	"ekin/internal/apperror"
+	jobdomain "ekin/internal/domain/job/v1"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
 )
 
 // Profile is a host profile.
@@ -29,7 +29,7 @@ type Profile struct {
 	// at this percent of the host's CPUs; 0 means no cap. Linux only.
 	CPULimit int `json:"cpuLimit"`
 	// Nice is the scheduling priority (0 normal to 19 lowest) of the job
-	// processes, so the host's own work comes first; the Kurgu server
+	// processes, so the host's own work comes first; the Ekin server
 	// keeps its priority.
 	Nice int `json:"nice"`
 	// RenderDuty is the share of wall time spent rendering (0.25 sleeps

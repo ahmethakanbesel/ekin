@@ -6,7 +6,7 @@ LOG=${MEASURE_LOG:-out/results.jsonl}
 FAST=disable-frame-rate-limit,disable-gpu-vsync
 D() { cpus=$1; label=$2; shift 2
   docker run --rm --cpus "$cpus" --memory 1.5g --memory-swap 1.5g --shm-size 1g -e GOMAXPROCS=1 -e KEEP="${KEEP:-}" \
-    -v "$PWD":/bench kurgu-render-bench ./tools/bench-linux.sh "docker cpus=$cpus $label" "$@" | tee -a "$LOG" | cut -c1-200; }
+    -v "$PWD":/bench ekin-render-bench ./tools/bench-linux.sh "docker cpus=$cpus $label" "$@" | tee -a "$LOG" | cut -c1-200; }
 S="-chrome /usr/bin/chromium-headless-shell -preset veryfast -threads 1"
 for cpus in 1.0 0.5; do
   D $cpus "shell+fast 540 x264"  $S -chrome-flags $FAST -scale 0.5

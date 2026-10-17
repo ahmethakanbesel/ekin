@@ -1,9 +1,10 @@
-// Package config loads process configuration from KURGU_* environment
+// Package config loads process configuration from EKIN_* environment
 // variables. Every setting has a default that works for local
 // development on a laptop.
 package config
 
 import (
+	"ekin/pkg/env"
 	"fmt"
 	"net"
 	"net/url"
@@ -14,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"kurgu/internal/apperror"
-	jobdomain "kurgu/internal/domain/job/v1"
-	storydomain "kurgu/internal/domain/story/v1"
+	"ekin/internal/apperror"
+	jobdomain "ekin/internal/domain/job/v1"
+	storydomain "ekin/internal/domain/story/v1"
 )
 
 // Config is the process configuration.
@@ -54,7 +55,7 @@ type Remote struct {
 type Publishing struct {
 	YouTubeClientID, YouTubeClientSecret string
 	// SecretKeyFile holds the key that seals stored tokens; created on
-	// first start. KURGU_SECRET_KEY overrides it.
+	// first start. EKIN_SECRET_KEY overrides it.
 	SecretKeyFile, SecretKey string
 }
 
@@ -131,7 +132,7 @@ const DefaultConcurrency = "control=1,agent=1,tts=1,render=1,extract=1,io=2"
 
 // Load reads the environment.
 func Load() (Config, error) {
-	return load(os.Getenv)
+	return load(env.Get)
 }
 
 // Defaults that the settings page reports as built in.
@@ -173,48 +174,48 @@ func load(getenv func(string) string) (Config, error) {
 		return v
 	}
 
-	dataDir := str("KURGU_DATA_DIR", "data")
-	httpAddr := str("KURGU_HTTP_ADDR", "127.0.0.1:8080")
+	dataDir := str("EKIN_DATA_DIR", "data")
+	httpAddr := str("EKIN_HTTP_ADDR", "127.0.0.1:8080")
 	cfg := Config{
 		HTTPAddr:       httpAddr,
-		PublicURL:      strings.TrimRight(str("KURGU_PUBLIC_URL", defaultPublicURL(httpAddr)), "/"),
+		PublicURL:      strings.TrimRight(str("EKIN_PUBLIC_URL", defaultPublicURL(httpAddr)), "/"),
 		DataDir:        dataDir,
-		DBPath:         str("KURGU_DB_PATH", filepath.Join(dataDir, "kurgu.db")),
-		MigrateOnStart: boolean("KURGU_MIGRATE_ON_START", true),
-		SchedulerTick:  duration("KURGU_SCHEDULER_TICK", 30*time.Second),
-		LogFormat:      str("KURGU_LOG_FORMAT", "text"),
-		LogLevel:       str("KURGU_LOG_LEVEL", "info"),
+		DBPath:         str("EKIN_DB_PATH", filepath.Join(dataDir, "kurgu.db")),
+		MigrateOnStart: boolean("EKIN_MIGRATE_ON_START", true),
+		SchedulerTick:  duration("EKIN_SCHEDULER_TICK", 30*time.Second),
+		LogFormat:      str("EKIN_LOG_FORMAT", "text"),
+		LogLevel:       str("EKIN_LOG_LEVEL", "info"),
 		Worker: Worker{
-			Owner:          str("KURGU_WORKER_OWNER", defaultOwner()),
-			Profile:        str("KURGU_WORKER_PROFILE", "default"),
-			HeavyExclusive: boolean("KURGU_HEAVY_EXCLUSIVE", true),
-			Cooldown:       duration("KURGU_HEAVY_COOLDOWN", 30*time.Second),
-			Paused:         boolean("KURGU_WORKER_PAUSED", false),
-			Lease:          duration("KURGU_JOB_LEASE", 2*time.Minute),
+			Owner:          str("EKIN_WORKER_OWNER", defaultOwner()),
+			Profile:        str("EKIN_WORKER_PROFILE", "default"),
+			HeavyExclusive: boolean("EKIN_HEAVY_EXCLUSIVE", true),
+			Cooldown:       duration("EKIN_HEAVY_COOLDOWN", 30*time.Second),
+			Paused:         boolean("EKIN_WORKER_PAUSED", false),
+			Lease:          duration("EKIN_JOB_LEASE", 2*time.Minute),
 		},
 	}
 	cfg.Blob = Blob{
-		Driver: str("KURGU_BLOB_DRIVER", "fs"),
-		Dir:    str("KURGU_BLOB_DIR", filepath.Join(dataDir, "blobs")),
+		Driver: str("EKIN_BLOB_DRIVER", "fs"),
+		Dir:    str("EKIN_BLOB_DIR", filepath.Join(dataDir, "blobs")),
 		S3: S3{
-			Endpoint:  str("KURGU_S3_ENDPOINT", ""),
-			Region:    str("KURGU_S3_REGION", "auto"),
-			Bucket:    str("KURGU_S3_BUCKET", ""),
-			Prefix:    str("KURGU_S3_PREFIX", ""),
-			AccessKey: str("KURGU_S3_ACCESS_KEY_ID", ""),
-			SecretKey: str("KURGU_S3_SECRET_ACCESS_KEY", ""),
+			Endpoint:  str("EKIN_S3_ENDPOINT", ""),
+			Region:    str("EKIN_S3_REGION", "auto"),
+			Bucket:    str("EKIN_S3_BUCKET", ""),
+			Prefix:    str("EKIN_S3_PREFIX", ""),
+			AccessKey: str("EKIN_S3_ACCESS_KEY_ID", ""),
+			SecretKey: str("EKIN_S3_SECRET_ACCESS_KEY", ""),
 		},
 	}
 	switch cfg.Blob.Driver {
 	case "fs":
 	case "s3":
 		if cfg.Blob.S3.Endpoint == "" || cfg.Blob.S3.Bucket == "" || cfg.Blob.S3.AccessKey == "" || cfg.Blob.S3.SecretKey == "" {
-			errs = append(errs, "KURGU_BLOB_DRIVER=s3 needs KURGU_S3_ENDPOINT, KURGU_S3_BUCKET, KURGU_S3_ACCESS_KEY_ID and KURGU_S3_SECRET_ACCESS_KEY")
+			errs = append(errs, "EKIN_BLOB_DRIVER=s3 needs EKIN_S3_ENDPOINT, EKIN_S3_BUCKET, EKIN_S3_ACCESS_KEY_ID and EKIN_S3_SECRET_ACCESS_KEY")
 		}
 	default:
-		errs = append(errs, "KURGU_BLOB_DRIVER: must be fs or s3")
+		errs = append(errs, "EKIN_BLOB_DRIVER: must be fs or s3")
 	}
-	cfg.Tools = Tools{PDFToText: str("KURGU_PDFTOTEXT", "pdftotext"), PDFToHTML: str("KURGU_PDFTOHTML", "pdftohtml")}
+	cfg.Tools = Tools{PDFToText: str("EKIN_PDFTOTEXT", "pdftotext"), PDFToHTML: str("EKIN_PDFTOHTML", "pdftohtml")}
 	number := func(key string, def, lo, hi float64) float64 {
 		raw := strings.TrimSpace(getenv(key))
 		if raw == "" {
@@ -227,99 +228,99 @@ func load(getenv func(string) string) (Config, error) {
 		}
 		return v
 	}
-	speechDir, _ := filepath.Abs(str("KURGU_SPEECH_DIR", "tools/speech"))
+	speechDir, _ := filepath.Abs(str("EKIN_SPEECH_DIR", "tools/speech"))
 	cfg.Production = Production{
-		WorkDir:       str("KURGU_WORK_DIR", filepath.Join(dataDir, "work")),
-		ClaudeBin:     str("KURGU_CLAUDE_BIN", "claude"),
-		ClaudeModel:   str("KURGU_CLAUDE_MODEL", ""),
-		ClaudeEffort:  str("KURGU_CLAUDE_EFFORT", ""),
-		AgentTimeout:  duration("KURGU_AGENT_TIMEOUT", 45*time.Minute),
+		WorkDir:       str("EKIN_WORK_DIR", filepath.Join(dataDir, "work")),
+		ClaudeBin:     str("EKIN_CLAUDE_BIN", "claude"),
+		ClaudeModel:   str("EKIN_CLAUDE_MODEL", ""),
+		ClaudeEffort:  str("EKIN_CLAUDE_EFFORT", ""),
+		AgentTimeout:  duration("EKIN_AGENT_TIMEOUT", 45*time.Minute),
 		SpeechDir:     speechDir,
-		SpeechModels:  str("KURGU_SPEECH_MODELS", ""),
-		UV:            str("KURGU_UV", "uv"),
-		PexelsKey:     str("KURGU_PEXELS_API_KEY", ""),
-		ElevenLabsKey: str("KURGU_ELEVENLABS_API_KEY", ""),
-		Chrome:        str("KURGU_CHROME", ""),
-		FFmpeg:        str("KURGU_FFMPEG", "ffmpeg"),
-		Encoder:       str("KURGU_RENDER_ENCODER", "libx264"),
-		Chunks:        int(number("KURGU_RENDER_CHUNKS", 1, 1, 16)),
-		Duty:          number("KURGU_RENDER_DUTY", 1, 0.05, 1),
-		Threads:       int(number("KURGU_RENDER_THREADS", 0, 0, 64)),
-		PreviewScale:  number("KURGU_RENDER_PREVIEW_SCALE", 0.5, 0.25, 1),
-		FinalScale:    number("KURGU_RENDER_FINAL_SCALE", 1, 0.25, 2),
-		PreviewFPS:    int(number("KURGU_RENDER_PREVIEW_FPS", 30, 15, 30)),
-		FinalFPS:      int(number("KURGU_RENDER_FINAL_FPS", 30, 30, 60)),
-		GPU:           boolean("KURGU_RENDER_GPU", false),
+		SpeechModels:  str("EKIN_SPEECH_MODELS", ""),
+		UV:            str("EKIN_UV", "uv"),
+		PexelsKey:     str("EKIN_PEXELS_API_KEY", ""),
+		ElevenLabsKey: str("EKIN_ELEVENLABS_API_KEY", ""),
+		Chrome:        str("EKIN_CHROME", ""),
+		FFmpeg:        str("EKIN_FFMPEG", "ffmpeg"),
+		Encoder:       str("EKIN_RENDER_ENCODER", "libx264"),
+		Chunks:        int(number("EKIN_RENDER_CHUNKS", 1, 1, 16)),
+		Duty:          number("EKIN_RENDER_DUTY", 1, 0.05, 1),
+		Threads:       int(number("EKIN_RENDER_THREADS", 0, 0, 64)),
+		PreviewScale:  number("EKIN_RENDER_PREVIEW_SCALE", 0.5, 0.25, 1),
+		FinalScale:    number("EKIN_RENDER_FINAL_SCALE", 1, 0.25, 2),
+		PreviewFPS:    int(number("EKIN_RENDER_PREVIEW_FPS", 30, 15, 30)),
+		FinalFPS:      int(number("EKIN_RENDER_FINAL_FPS", 30, 30, 60)),
+		GPU:           boolean("EKIN_RENDER_GPU", false),
 	}
 	if !slices.Contains([]int{15, 24, 30}, cfg.Production.PreviewFPS) {
-		errs = append(errs, "KURGU_RENDER_PREVIEW_FPS: must be 15, 24 or 30")
+		errs = append(errs, "EKIN_RENDER_PREVIEW_FPS: must be 15, 24 or 30")
 	}
 	if !slices.Contains([]int{30, 60}, cfg.Production.FinalFPS) {
-		errs = append(errs, "KURGU_RENDER_FINAL_FPS: must be 30 or 60")
+		errs = append(errs, "EKIN_RENDER_FINAL_FPS: must be 30 or 60")
 	}
-	cfg.Worker.CPULimit = int(number("KURGU_CPU_LIMIT", 0, 0, 100))
-	cfg.Worker.Nice = int(number("KURGU_NICE", 0, 0, 19))
+	cfg.Worker.CPULimit = int(number("EKIN_CPU_LIMIT", 0, 0, 100))
+	cfg.Worker.Nice = int(number("EKIN_NICE", 0, 0, 19))
 	cfg.Notify = Notify{
-		SMTPHost: str("KURGU_SMTP_HOST", ""), SMTPUser: str("KURGU_SMTP_USERNAME", ""),
-		SMTPPassword: str("KURGU_SMTP_PASSWORD", ""), SMTPFrom: str("KURGU_SMTP_FROM", ""),
-		SMTPTLS: str("KURGU_SMTP_TLS", DefaultSMTPTLS), SMTPPort: int(number("KURGU_SMTP_PORT", 0, 0, 65535)),
-		Every:         duration("KURGU_NOTIFY_EVERY", 10*time.Minute),
-		OpenRouterKey: str("KURGU_OPENROUTER_API_KEY", ""), DecisionModel: str("KURGU_DECISION_MODEL", DefaultDecisionModel),
+		SMTPHost: str("EKIN_SMTP_HOST", ""), SMTPUser: str("EKIN_SMTP_USERNAME", ""),
+		SMTPPassword: str("EKIN_SMTP_PASSWORD", ""), SMTPFrom: str("EKIN_SMTP_FROM", ""),
+		SMTPTLS: str("EKIN_SMTP_TLS", DefaultSMTPTLS), SMTPPort: int(number("EKIN_SMTP_PORT", 0, 0, 65535)),
+		Every:         duration("EKIN_NOTIFY_EVERY", 10*time.Minute),
+		OpenRouterKey: str("EKIN_OPENROUTER_API_KEY", ""), DecisionModel: str("EKIN_DECISION_MODEL", DefaultDecisionModel),
 	}
-	cfg.Remote = Remote{URL: strings.TrimRight(str("KURGU_REMOTE_URL", ""), "/"), Token: str("KURGU_WORKER_TOKEN", "")}
+	cfg.Remote = Remote{URL: strings.TrimRight(str("EKIN_REMOTE_URL", ""), "/"), Token: str("EKIN_WORKER_TOKEN", "")}
 	if cfg.Remote.URL != "" && cfg.Remote.Token == "" {
-		errs = append(errs, "KURGU_REMOTE_URL needs KURGU_WORKER_TOKEN")
+		errs = append(errs, "EKIN_REMOTE_URL needs EKIN_WORKER_TOKEN")
 	}
 	if cfg.Remote.Token != "" && len(cfg.Remote.Token) < 24 {
-		errs = append(errs, "KURGU_WORKER_TOKEN must be at least 24 characters")
+		errs = append(errs, "EKIN_WORKER_TOKEN must be at least 24 characters")
 	}
 	cfg.Publishing = Publishing{
-		YouTubeClientID: str("KURGU_YOUTUBE_CLIENT_ID", ""), YouTubeClientSecret: str("KURGU_YOUTUBE_CLIENT_SECRET", ""),
-		SecretKeyFile: str("KURGU_SECRET_KEY_FILE", filepath.Join(dataDir, "secret.key")), SecretKey: str("KURGU_SECRET_KEY", ""),
+		YouTubeClientID: str("EKIN_YOUTUBE_CLIENT_ID", ""), YouTubeClientSecret: str("EKIN_YOUTUBE_CLIENT_SECRET", ""),
+		SecretKeyFile: str("EKIN_SECRET_KEY_FILE", filepath.Join(dataDir, "secret.key")), SecretKey: str("EKIN_SECRET_KEY", ""),
 	}
 	def := storydomain.DefaultShortsLimits()
 	shorts, err := storydomain.NewShortsLimits(
-		duration("KURGU_SHORTS_SOURCE_MIN", def.SourceMin()), duration("KURGU_SHORTS_SOURCE_MAX", def.SourceMax()),
-		duration("KURGU_SHORTS_CLIP_MIN", def.ClipMin()), duration("KURGU_SHORTS_CLIP_MAX", def.ClipMax()),
-		int(number("KURGU_SHORTS_MAX_PER_VIDEO", float64(def.MaxPerVideo()), 0, storydomain.MaxShortsPerVideo)),
-		duration("KURGU_SHORTS_MIN_GAP", def.MinGap()),
+		duration("EKIN_SHORTS_SOURCE_MIN", def.SourceMin()), duration("EKIN_SHORTS_SOURCE_MAX", def.SourceMax()),
+		duration("EKIN_SHORTS_CLIP_MIN", def.ClipMin()), duration("EKIN_SHORTS_CLIP_MAX", def.ClipMax()),
+		int(number("EKIN_SHORTS_MAX_PER_VIDEO", float64(def.MaxPerVideo()), 0, storydomain.MaxShortsPerVideo)),
+		duration("EKIN_SHORTS_MIN_GAP", def.MinGap()),
 	)
 	if err != nil {
-		errs = append(errs, "KURGU_SHORTS_*: "+apperror.Message(err))
+		errs = append(errs, "EKIN_SHORTS_*: "+apperror.Message(err))
 	}
 	cfg.Shorts = shorts
 	if t := cfg.Notify.SMTPTLS; t != "starttls" && t != "tls" && t != "none" {
-		errs = append(errs, "KURGU_SMTP_TLS: must be starttls, tls or none")
+		errs = append(errs, "EKIN_SMTP_TLS: must be starttls, tls or none")
 	}
 	if e := cfg.Production.ClaudeEffort; e != "" && !slices.Contains([]string{"low", "medium", "high", "xhigh", "max"}, e) {
-		errs = append(errs, "KURGU_CLAUDE_EFFORT: must be low, medium, high, xhigh or max")
+		errs = append(errs, "EKIN_CLAUDE_EFFORT: must be low, medium, high, xhigh or max")
 	}
 	if e := cfg.Production.Encoder; e != "libx264" && e != "h264_videotoolbox" {
-		errs = append(errs, "KURGU_RENDER_ENCODER: must be libx264 or h264_videotoolbox")
+		errs = append(errs, "EKIN_RENDER_ENCODER: must be libx264 or h264_videotoolbox")
 	}
-	concurrency, err := ParseConcurrency(str("KURGU_QUEUE_CONCURRENCY", DefaultConcurrency))
+	concurrency, err := ParseConcurrency(str("EKIN_QUEUE_CONCURRENCY", DefaultConcurrency))
 	if err != nil {
-		errs = append(errs, "KURGU_QUEUE_CONCURRENCY: "+err.Error())
+		errs = append(errs, "EKIN_QUEUE_CONCURRENCY: "+err.Error())
 	}
 	cfg.Worker.Concurrency = concurrency
-	if raw := strings.TrimSpace(getenv("KURGU_HEAVY_QUEUES")); raw != "" {
+	if raw := strings.TrimSpace(getenv("EKIN_HEAVY_QUEUES")); raw != "" {
 		heavy, err := ParseQueues(raw)
 		if err != nil {
-			errs = append(errs, "KURGU_HEAVY_QUEUES: "+err.Error())
+			errs = append(errs, "EKIN_HEAVY_QUEUES: "+err.Error())
 		}
 		cfg.Worker.HeavyQueues = heavy
 	}
 	if cfg.SchedulerTick < time.Second {
-		errs = append(errs, "KURGU_SCHEDULER_TICK: must be at least 1s")
+		errs = append(errs, "EKIN_SCHEDULER_TICK: must be at least 1s")
 	}
 	if cfg.Worker.Lease < 3*time.Second {
-		errs = append(errs, "KURGU_JOB_LEASE: must be at least 3s")
+		errs = append(errs, "EKIN_JOB_LEASE: must be at least 3s")
 	}
 	if u, err := url.Parse(cfg.PublicURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || (u.Path != "" && u.Path != "/") {
-		errs = append(errs, "KURGU_PUBLIC_URL: must be an http(s) origin such as https://kurgu.example.com")
+		errs = append(errs, "EKIN_PUBLIC_URL: must be an http(s) origin such as https://ekin.example.com")
 	}
 	if cfg.LogFormat != "text" && cfg.LogFormat != "json" {
-		errs = append(errs, "KURGU_LOG_FORMAT: must be text or json")
+		errs = append(errs, "EKIN_LOG_FORMAT: must be text or json")
 	}
 	if len(errs) > 0 {
 		return Config{}, fmt.Errorf("invalid configuration:\n  %s", strings.Join(errs, "\n  "))
@@ -391,7 +392,7 @@ func defaultPublicURL(addr string) string {
 func defaultOwner() string {
 	host, err := os.Hostname()
 	if err != nil || host == "" {
-		host = "kurgu"
+		host = "ekin"
 	}
 	return fmt.Sprintf("%s:%d", host, os.Getpid())
 }

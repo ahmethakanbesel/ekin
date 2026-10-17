@@ -11,57 +11,57 @@ import (
 	"path/filepath"
 	"time"
 
-	"kurgu/internal/adapter/claude"
-	"kurgu/internal/adapter/cpulimit"
-	"kurgu/internal/adapter/elevenlabs"
-	"kurgu/internal/adapter/extract"
-	"kurgu/internal/adapter/github"
-	"kurgu/internal/adapter/media"
-	"kurgu/internal/adapter/render"
-	"kurgu/internal/adapter/speech"
-	"kurgu/internal/adapter/youtube"
-	"kurgu/internal/blob"
-	"kurgu/internal/config"
-	"kurgu/internal/db"
-	settingsdomain "kurgu/internal/domain/settings/v1"
-	identityrepo "kurgu/internal/repository/identity/v1"
-	jobrepo "kurgu/internal/repository/job/v1"
-	knowledgerepo "kurgu/internal/repository/knowledge/v1"
-	libraryrepo "kurgu/internal/repository/library/v1"
-	notifyrepo "kurgu/internal/repository/notify/v1"
-	pipelinerepo "kurgu/internal/repository/pipeline/v1"
-	publishingrepo "kurgu/internal/repository/publishing/v1"
-	seorepo "kurgu/internal/repository/seo/v1"
-	settingsrepo "kurgu/internal/repository/settings/v1"
-	storyrepo "kurgu/internal/repository/story/v1"
-	templaterepo "kurgu/internal/repository/template/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	defaultssvc "kurgu/internal/service/defaults/v1"
-	identitysvc "kurgu/internal/service/identity/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	knowledgesvc "kurgu/internal/service/knowledge/v1"
-	librarysvc "kurgu/internal/service/library/v1"
-	notifysvc "kurgu/internal/service/notify/v1"
-	pipelinesvc "kurgu/internal/service/pipeline/v1"
-	productionsvc "kurgu/internal/service/production/v1"
-	publishingsvc "kurgu/internal/service/publishing/v1"
-	seosvc "kurgu/internal/service/seo/v1"
-	settingssvc "kurgu/internal/service/settings/v1"
-	templatesvc "kurgu/internal/service/template/v1"
-	voicesvc "kurgu/internal/service/voice/v1"
-	workspacesvc "kurgu/internal/service/workspace/v1"
-	httptransport "kurgu/internal/transport/http"
-	systemhandler "kurgu/internal/transport/http/system/v1"
-	knowledgeworker "kurgu/internal/transport/job/knowledge/v1"
-	libraryworker "kurgu/internal/transport/job/library/v1"
-	productionworker "kurgu/internal/transport/job/production/v1"
-	seoworker "kurgu/internal/transport/job/seo/v1"
-	templateworker "kurgu/internal/transport/job/template/v1"
-	voiceworker "kurgu/internal/transport/job/voice/v1"
-	"kurgu/internal/transport/schedule"
-	"kurgu/pkg/password"
-	"kurgu/pkg/secretbox"
-	"kurgu/web"
+	"ekin/internal/adapter/claude"
+	"ekin/internal/adapter/cpulimit"
+	"ekin/internal/adapter/elevenlabs"
+	"ekin/internal/adapter/extract"
+	"ekin/internal/adapter/github"
+	"ekin/internal/adapter/media"
+	"ekin/internal/adapter/render"
+	"ekin/internal/adapter/speech"
+	"ekin/internal/adapter/youtube"
+	"ekin/internal/blob"
+	"ekin/internal/config"
+	"ekin/internal/db"
+	settingsdomain "ekin/internal/domain/settings/v1"
+	identityrepo "ekin/internal/repository/identity/v1"
+	jobrepo "ekin/internal/repository/job/v1"
+	knowledgerepo "ekin/internal/repository/knowledge/v1"
+	libraryrepo "ekin/internal/repository/library/v1"
+	notifyrepo "ekin/internal/repository/notify/v1"
+	pipelinerepo "ekin/internal/repository/pipeline/v1"
+	publishingrepo "ekin/internal/repository/publishing/v1"
+	seorepo "ekin/internal/repository/seo/v1"
+	settingsrepo "ekin/internal/repository/settings/v1"
+	storyrepo "ekin/internal/repository/story/v1"
+	templaterepo "ekin/internal/repository/template/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	defaultssvc "ekin/internal/service/defaults/v1"
+	identitysvc "ekin/internal/service/identity/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	knowledgesvc "ekin/internal/service/knowledge/v1"
+	librarysvc "ekin/internal/service/library/v1"
+	notifysvc "ekin/internal/service/notify/v1"
+	pipelinesvc "ekin/internal/service/pipeline/v1"
+	productionsvc "ekin/internal/service/production/v1"
+	publishingsvc "ekin/internal/service/publishing/v1"
+	seosvc "ekin/internal/service/seo/v1"
+	settingssvc "ekin/internal/service/settings/v1"
+	templatesvc "ekin/internal/service/template/v1"
+	voicesvc "ekin/internal/service/voice/v1"
+	workspacesvc "ekin/internal/service/workspace/v1"
+	httptransport "ekin/internal/transport/http"
+	systemhandler "ekin/internal/transport/http/system/v1"
+	knowledgeworker "ekin/internal/transport/job/knowledge/v1"
+	libraryworker "ekin/internal/transport/job/library/v1"
+	productionworker "ekin/internal/transport/job/production/v1"
+	seoworker "ekin/internal/transport/job/seo/v1"
+	templateworker "ekin/internal/transport/job/template/v1"
+	voiceworker "ekin/internal/transport/job/voice/v1"
+	"ekin/internal/transport/schedule"
+	"ekin/pkg/password"
+	"ekin/pkg/secretbox"
+	"ekin/web"
 )
 
 // sweepEvery is how often expired sessions and invitations are deleted.
@@ -199,7 +199,7 @@ func (a *App) WithVersion(v string) *App {
 	return a
 }
 
-// defaultProfile is the host profile built from KURGU_* variables; it
+// defaultProfile is the host profile built from EKIN_* variables; it
 // applies until an admin saves the profile in the UI.
 func defaultProfile(cfg config.Config) settingsdomain.Profile {
 	return settingsdomain.Profile{
@@ -231,8 +231,8 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, hostProfile
 	}
 	deps.Renderer = renderer
 	toolEnv := []string{
-		"KURGU_SPEECH_DIR=" + p.SpeechDir, "KURGU_UV=" + p.UV,
-		"KURGU_CHROME=" + p.Chrome, "KURGU_FFMPEG=" + p.FFmpeg, "KURGU_SPEECH_MODELS=" + p.SpeechModels,
+		"EKIN_SPEECH_DIR=" + p.SpeechDir, "EKIN_UV=" + p.UV,
+		"EKIN_CHROME=" + p.Chrome, "EKIN_FFMPEG=" + p.FFmpeg, "EKIN_SPEECH_MODELS=" + p.SpeechModels,
 	}
 	if err := os.MkdirAll(p.WorkDir, 0o750); err != nil {
 		return nil, err
@@ -243,17 +243,17 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, hostProfile
 	}
 	pc := productionsvc.Config{
 		LibraryEnv: libraryEnv,
-		WorkRoot: p.WorkDir, KurguBin: bin, ToolEnv: toolEnv, AgentTimeout: p.AgentTimeout,
+		WorkRoot: p.WorkDir, EkinBin: bin, ToolEnv: toolEnv, AgentTimeout: p.AgentTimeout,
 		PreviewScale: p.PreviewScale, FinalScale: p.FinalScale, PreviewFPS: p.PreviewFPS, FinalFPS: p.FinalFPS,
 		Shorts: cfg.Shorts,
 	}
 	pc.ExtraEnv = func(context.Context) []string {
-		return []string{"KURGU_PEXELS_API_KEY=" + p.PexelsKey, "KURGU_ELEVENLABS_API_KEY=" + p.ElevenLabsKey}
+		return []string{"EKIN_PEXELS_API_KEY=" + p.PexelsKey, "EKIN_ELEVENLABS_API_KEY=" + p.ElevenLabsKey}
 	}
 	if settings != nil {
 		pc.ExtraEnv = func(ctx context.Context) []string {
 			c := settings.Credentials(ctx)
-			return []string{"KURGU_PEXELS_API_KEY=" + c.PexelsAPIKey, "KURGU_ELEVENLABS_API_KEY=" + c.ElevenLabsAPIKey}
+			return []string{"EKIN_PEXELS_API_KEY=" + c.PexelsAPIKey, "EKIN_ELEVENLABS_API_KEY=" + c.ElevenLabsAPIKey}
 		}
 	}
 	if hostProfile != nil {
@@ -271,20 +271,20 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, hostProfile
 	return productionsvc.NewService(pc, deps), nil
 }
 
-// libraryEnv is the blob store's settings for `kurgu tool library`, which
+// libraryEnv is the blob store's settings for `ekin tool library`, which
 // runs in a draft's working directory: a relative blob directory is made
 // absolute.
 func libraryEnv(c config.Blob) ([]string, error) {
 	if c.Driver == "s3" {
-		return []string{"KURGU_BLOB_DRIVER=s3", "KURGU_S3_ENDPOINT=" + c.S3.Endpoint, "KURGU_S3_REGION=" + c.S3.Region,
-			"KURGU_S3_BUCKET=" + c.S3.Bucket, "KURGU_S3_PREFIX=" + c.S3.Prefix, "KURGU_S3_ACCESS_KEY_ID=" + c.S3.AccessKey,
-			"KURGU_S3_SECRET_ACCESS_KEY=" + c.S3.SecretKey}, nil
+		return []string{"EKIN_BLOB_DRIVER=s3", "EKIN_S3_ENDPOINT=" + c.S3.Endpoint, "EKIN_S3_REGION=" + c.S3.Region,
+			"EKIN_S3_BUCKET=" + c.S3.Bucket, "EKIN_S3_PREFIX=" + c.S3.Prefix, "EKIN_S3_ACCESS_KEY_ID=" + c.S3.AccessKey,
+			"EKIN_S3_SECRET_ACCESS_KEY=" + c.S3.SecretKey}, nil
 	}
 	dir, err := filepath.Abs(c.Dir)
 	if err != nil {
 		return nil, err
 	}
-	return []string{"KURGU_BLOB_DRIVER=fs", "KURGU_BLOB_DIR=" + dir}, nil
+	return []string{"EKIN_BLOB_DRIVER=fs", "EKIN_BLOB_DIR=" + dir}, nil
 }
 
 func openBlobs(c config.Blob) (blob.Store, error) {

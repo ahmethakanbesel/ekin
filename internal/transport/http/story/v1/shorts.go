@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/internal/gen"
-	jobhandler "kurgu/internal/transport/http/job/v1"
+	"ekin/internal/apperror"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/internal/gen"
+	jobhandler "ekin/internal/transport/http/job/v1"
 )
 
 func (h *Handler) ListMoments(ctx context.Context, req gen.ListMomentsRequestObject) (gen.ListMomentsResponseObject, error) {

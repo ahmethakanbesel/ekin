@@ -1,6 +1,6 @@
 // Package openrouter makes typed decisions with a small model on
 // OpenRouter (default typesafe/jev-1.13): JSON in, JSON-schema-checked
-// JSON out. Kurgu uses it only for yes/no judgements such as "is this
+// JSON out. Ekin uses it only for yes/no judgements such as "is this
 // idea a repeat?", never for writing.
 package openrouter
 
@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	storydomain "kurgu/internal/domain/story/v1"
-	storyrepo "kurgu/internal/repository/story/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	storyrepo "ekin/internal/repository/story/v1"
 )
 
 // Client calls the chat completions API.
@@ -62,7 +62,7 @@ func (c *Client) Decide(ctx context.Context, system, user string, schemaName str
 	}
 	req.Header.Set("Authorization", "Bearer "+c.APIKey)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Title", "Kurgu")
+	req.Header.Set("X-Title", "Ekin")
 	hc := c.HTTP
 	if hc == nil {
 		hc = &http.Client{Timeout: 60 * time.Second}

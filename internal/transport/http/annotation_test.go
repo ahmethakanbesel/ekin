@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"kurgu/internal/gen"
+	"ekin/internal/gen"
 )
 
 func TestAnnotationAPI(t *testing.T) {

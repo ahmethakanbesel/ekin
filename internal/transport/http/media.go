@@ -10,13 +10,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	identitydomain "kurgu/internal/domain/identity/v1"
-	librarydomain "kurgu/internal/domain/library/v1"
-	identitysvc "kurgu/internal/service/identity/v1"
-	librarysvc "kurgu/internal/service/library/v1"
-	productionsvc "kurgu/internal/service/production/v1"
-	"kurgu/internal/transport/http/principal"
+	"ekin/internal/apperror"
+	identitydomain "ekin/internal/domain/identity/v1"
+	librarydomain "ekin/internal/domain/library/v1"
+	identitysvc "ekin/internal/service/identity/v1"
+	librarysvc "ekin/internal/service/library/v1"
+	productionsvc "ekin/internal/service/production/v1"
+	"ekin/internal/transport/http/principal"
 )
 
 // artifactTypes are the artifact names served and their media types.

@@ -25,7 +25,7 @@ type Client struct {
 }
 
 // ErrDisabled means no API key is configured.
-var ErrDisabled = errors.New("pexels: stock media is disabled (no KURGU_PEXELS_API_KEY)")
+var ErrDisabled = errors.New("pexels: stock media is disabled (no EKIN_PEXELS_API_KEY)")
 
 // Media is one search hit, with the rendition picked for the request.
 type Media struct {

@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"kurgu/internal/apperror"
-	library "kurgu/internal/domain/library/v1"
+	"ekin/internal/apperror"
+	library "ekin/internal/domain/library/v1"
 )
 
 func TestParseMode(t *testing.T) {

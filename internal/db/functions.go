@@ -5,7 +5,7 @@ import (
 
 	"modernc.org/sqlite"
 
-	"kurgu/pkg/fold"
+	"ekin/pkg/fold"
 )
 
 // The SQL functions every connection has. Registered before any

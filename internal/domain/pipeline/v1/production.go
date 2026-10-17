@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"strings"
 
-	"kurgu/internal/apperror"
-	librarydomain "kurgu/internal/domain/library/v1"
+	"ekin/internal/apperror"
+	librarydomain "ekin/internal/domain/library/v1"
 )
 
 // Production is how stories are made rather than what they are. It is
@@ -345,7 +345,7 @@ func ParseEffort(s string) (Effort, error) {
 // Agent picks the authoring agent's model and effort for drafting; an
 // empty field takes the layer below (Production.Over): the workspace's
 // default, then the server's (System › Credentials, then
-// KURGU_CLAUDE_MODEL; KURGU_CLAUDE_EFFORT), laid in when a story is
+// EKIN_CLAUDE_MODEL; EKIN_CLAUDE_EFFORT), laid in when a story is
 // planned. Still empty, Claude Code (or the worker's own environment)
 // picks.
 type Agent struct {

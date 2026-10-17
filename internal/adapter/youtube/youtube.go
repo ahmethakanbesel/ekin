@@ -104,7 +104,7 @@ func (c *Client) Exchange(ctx context.Context, code string) (refresh, access str
 		return "", "", err
 	}
 	if t.RefreshToken == "" {
-		return "", "", errors.New("youtube: Google returned no refresh token; remove Kurgu's access in your Google account and connect again")
+		return "", "", errors.New("youtube: Google returned no refresh token; remove Ekin's access in your Google account and connect again")
 	}
 	return t.RefreshToken, t.AccessToken, nil
 }

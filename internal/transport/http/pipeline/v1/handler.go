@@ -5,9 +5,9 @@ package handler
 import (
 	"context"
 
-	"kurgu/internal/gen"
-	pipelinesvc "kurgu/internal/service/pipeline/v1"
-	jobhandler "kurgu/internal/transport/http/job/v1"
+	"ekin/internal/gen"
+	pipelinesvc "ekin/internal/service/pipeline/v1"
+	jobhandler "ekin/internal/transport/http/job/v1"
 )
 
 // Handler serves pipelines.

@@ -13,7 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	knowledgedomain "kurgu/internal/domain/knowledge/v1"
+	knowledgedomain "ekin/internal/domain/knowledge/v1"
 )
 
 // pdfContents builds a PDF's table of contents from its bookmarks and
@@ -25,7 +25,7 @@ func (e *Extractor) pdfContents(ctx context.Context, p string, pageCount int) []
 	if e.PDFToHTML == "" {
 		return nil
 	}
-	dir, err := os.MkdirTemp("", "kurgu-outline-*")
+	dir, err := os.MkdirTemp("", "ekin-outline-*")
 	if err != nil {
 		return nil
 	}

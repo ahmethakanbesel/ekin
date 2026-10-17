@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"kurgu/internal/apperror"
-	workspace "kurgu/internal/domain/workspace/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	workspace "ekin/internal/domain/workspace/v1"
+	"ekin/pkg/id"
 )
 
 func TestParseTimezone(t *testing.T) {

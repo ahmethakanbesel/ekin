@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
-	librarydomain "kurgu/internal/domain/library/v1"
-	"kurgu/pkg/page"
-	"kurgu/pkg/timeutil"
+	librarydomain "ekin/internal/domain/library/v1"
+	"ekin/pkg/page"
+	"ekin/pkg/timeutil"
 )
 
 // Filter narrows an asset listing and picks its page.

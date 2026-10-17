@@ -1,6 +1,6 @@
 openapi: 3.1.0
 info:
-  title: Kurgu API
+  title: Ekin API
   description: >
     Spec-first API (CONVENTIONS.md). The Go strict server and the TypeScript
     client are both generated from this file. Every path is relative to the
@@ -998,7 +998,7 @@ paths:
       operationId: youTubeCallback
       tags: [integrations]
       security: []
-      description: Google redirects here; Kurgu stores the channel and redirects back to the workspace settings.
+      description: Google redirects here; Ekin stores the channel and redirects back to the workspace settings.
       parameters:
         - { name: code, in: query, schema: { type: string } }
         - { name: state, in: query, schema: { type: string } }
@@ -2242,11 +2242,11 @@ components:
     session:
       type: apiKey
       in: cookie
-      name: kurgu_session
+      name: ekin_session
 
   headers:
     SetSession:
-      description: Sets or clears the HttpOnly `kurgu_session` cookie.
+      description: Sets or clears the HttpOnly `ekin_session` cookie.
       schema: { type: string }
 
   parameters:
@@ -2739,7 +2739,7 @@ components:
 
     ShortsLimits:
       type: object
-      description: The server's limits on cutting shorts from long videos (KURGU_SHORTS_*).
+      description: The server's limits on cutting shorts from long videos (EKIN_SHORTS_*).
       required: [sourceMinSeconds, sourceMaxSeconds, clipMinSeconds, clipMaxSeconds, maxPerVideo, minGapSeconds]
       properties:
         sourceMinSeconds: { type: number, format: double }
@@ -2954,7 +2954,7 @@ components:
       description: >-
         How hard the authoring agent thinks while drafting (Claude Code's
         --effort). Absent on a pipeline or request: the workspace default
-        (Settings › Production), then the server's (KURGU_CLAUDE_EFFORT, then
+        (Settings › Production), then the server's (EKIN_CLAUDE_EFFORT, then
         Claude Code's own), resolved when a story is planned so remote
         workers draft with it too; on ServerProduction, absent means Claude
         Code's own.
@@ -2995,7 +2995,7 @@ components:
             Claude model the agent drafts and revises with: a model id
             (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace
             default (Settings › Production), then the server's (System ›
-            Credentials, then KURGU_CLAUDE_MODEL, then Claude Code's own).
+            Credentials, then EKIN_CLAUDE_MODEL, then Claude Code's own).
             Resolved when a story is planned, so every worker, remote ones
             included, drafts with the model shown here.
         draftEffort: { $ref: "#/components/schemas/DraftEffort" }
@@ -3105,13 +3105,13 @@ components:
             The model drafts run with on every worker, remote ones included
             (stories take it when planned); absent when Claude Code picks
             its own, which on a remote worker is that machine's
-            KURGU_CLAUDE_MODEL or Claude Code's default.
+            EKIN_CLAUDE_MODEL or Claude Code's default.
         draftModelSource:
           type: string
           enum: [settings, env, unset]
           description: >-
             Where draftModel comes from: settings (System › Credentials), env
-            (KURGU_CLAUDE_MODEL) or unset (Claude Code's own default).
+            (EKIN_CLAUDE_MODEL) or unset (Claude Code's own default).
         draftEffort: { $ref: "#/components/schemas/DraftEffort" }
         previewHeight:
           type: integer
@@ -3226,7 +3226,7 @@ components:
           maximum: 19
           description: >-
             Scheduling priority of the job processes, 0 (normal) to 19 (lowest), so the
-            host's own work comes first. Applied live; the Kurgu server keeps its priority.
+            host's own work comes first. Applied live; the Ekin server keeps its priority.
         cooldownSeconds: { type: integer, minimum: 0, maximum: 3600 }
         paused: { type: boolean }
         cpuLimit:
@@ -3236,7 +3236,7 @@ components:
           description: >-
             Percent of the host's CPUs that job processes (agent, browser, encoder,
             speech) may use together; 0 means no limit, otherwise 10 to 100. Applied
-            live on Linux hosts; the Kurgu server itself is never limited.
+            live on Linux hosts; the Ekin server itself is never limited.
         renderDuty:
           type: number
           minimum: 0.05
@@ -3655,7 +3655,7 @@ components:
           description: >-
             Long videos only: how many vertical shorts to cut from each video
             once it is live, from the moments the agent finds (capped by the
-            server's KURGU_SHORTS_MAX_PER_VIDEO). Absent or 0 for none.
+            server's EKIN_SHORTS_MAX_PER_VIDEO). Absent or 0 for none.
 
     ArticleSpec:
       type: object

@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"kurgu/internal/apperror"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	production "kurgu/internal/service/production/v1"
-	"kurgu/pkg/archive"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	production "ekin/internal/service/production/v1"
+	"ekin/pkg/archive"
+	"ekin/pkg/id"
 )
 
 // draftLongVideo queues an ad-hoc long video with production settings p and
@@ -61,7 +61,7 @@ func TestThumbnailVariants(t *testing.T) {
 	draft := f.agent.prompts[len(f.agent.prompts)-1]
 	instructions, _ := os.ReadFile(filepath.Join(draft.Dir, "INSTRUCTIONS.md")) //nolint:gosec // test dir
 	kit, _ := os.ReadFile(filepath.Join(draft.Dir, "KIT.md"))                   //nolint:gosec // test dir
-	if !strings.Contains(string(instructions), "Design 3 thumbnail variants") || !strings.Contains(string(kit), "Kurgu.thumbnails") {
+	if !strings.Contains(string(instructions), "Design 3 thumbnail variants") || !strings.Contains(string(kit), "Ekin.thumbnails") {
 		t.Fatalf("instructions do not ask for thumbnails:\n%s", instructions)
 	}
 	revs, _ := f.svc.Revisions(ctx, f.ws, st.ID(), d.ID())

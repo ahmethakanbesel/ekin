@@ -10,15 +10,15 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/db"
-	"kurgu/internal/db/dbtest"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
-	storyrepo "kurgu/internal/repository/story/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	"ekin/internal/db"
+	"ekin/internal/db/dbtest"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	workspacedomain "ekin/internal/domain/workspace/v1"
+	storyrepo "ekin/internal/repository/story/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	"ekin/pkg/id"
 )
 
 var now = time.Date(2026, 10, 13, 9, 0, 0, 0, time.UTC)

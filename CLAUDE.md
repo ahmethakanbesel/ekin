@@ -1,6 +1,6 @@
 # Agent instructions
 
-Read `PLAN.md` for what Kurgu is and `CONVENTIONS.md` before writing code.
+Read `PLAN.md` for what Ekin is and `CONVENTIONS.md` before writing code.
 
 ## Commits
 

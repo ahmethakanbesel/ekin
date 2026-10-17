@@ -9,7 +9,7 @@ import (
 
 // Nicer lowers the scheduling priority of the job processes to the host
 // profile's nice value, so the host's own work (an editor, a build, a
-// call) comes first while jobs use whatever CPU is left. The Kurgu
+// call) comes first while jobs use whatever CPU is left. The Ekin
 // process keeps its priority, so the web UI stays quick. A process is
 // reniced within a period of starting; raising the priority again (a
 // lower nice) applies to processes started afterwards, since an

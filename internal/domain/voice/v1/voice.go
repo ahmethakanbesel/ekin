@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"kurgu/internal/apperror"
+	"ekin/internal/apperror"
 )
 
 // Engine IDs.
@@ -74,7 +74,7 @@ func kokoroVoices() []Voice {
 // ElevenLabs account has.
 const ElevenLabsDefaultVoice = "JBFqnCBsd6RMkjVDRZzb"
 
-// Catalog lists the engines Kurgu ships, by language. The first engine of
+// Catalog lists the engines Ekin ships, by language. The first engine of
 // a language is its default.
 var Catalog = []Engine{
 	{ID: EngineOkur, Language: "tr", Name: "okur-tts", Voices: []Voice{{ID: "okur", Label: "Okur (Turkish)", Accent: "tr", Gender: "female"}},

@@ -13,18 +13,18 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/adapter/claude"
-	"kurgu/internal/apperror"
-	jobdomain "kurgu/internal/domain/job/v1"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	seodomain "kurgu/internal/domain/seo/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	voicedomain "kurgu/internal/domain/voice/v1"
-	storyrepo "kurgu/internal/repository/story/v1"
-	defaultssvc "kurgu/internal/service/defaults/v1"
-	knowledgesvc "kurgu/internal/service/knowledge/v1"
-	pipelinesvc "kurgu/internal/service/pipeline/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/adapter/claude"
+	"ekin/internal/apperror"
+	jobdomain "ekin/internal/domain/job/v1"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	seodomain "ekin/internal/domain/seo/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	voicedomain "ekin/internal/domain/voice/v1"
+	storyrepo "ekin/internal/repository/story/v1"
+	defaultssvc "ekin/internal/service/defaults/v1"
+	knowledgesvc "ekin/internal/service/knowledge/v1"
+	pipelinesvc "ekin/internal/service/pipeline/v1"
+	"ekin/pkg/id"
 )
 
 const (

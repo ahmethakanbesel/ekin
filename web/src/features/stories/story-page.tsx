@@ -73,7 +73,7 @@ const ROUTE = "/w/$workspaceId/stories/$storyId"
 
 // Whether the reviewer keeps the docked feedback sheet open, for the
 // browser session. A per-viewer convenience: storage may be unavailable.
-const SHEET_KEY = "kurgu.feedback-sheet"
+const SHEET_KEY = "ekin.feedback-sheet"
 function sheetRemembered(): boolean {
   try {
     return window.sessionStorage.getItem(SHEET_KEY) === "open"

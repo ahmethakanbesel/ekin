@@ -14,13 +14,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	storyrepo "kurgu/internal/repository/story/v1"
-	production "kurgu/internal/service/production/v1"
-	"kurgu/pkg/archive"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	storyrepo "ekin/internal/repository/story/v1"
+	production "ekin/internal/service/production/v1"
+	"ekin/pkg/archive"
+	"ekin/pkg/id"
 )
 
 func sec(s float64) time.Duration { return time.Duration(s * float64(time.Second)) }
@@ -293,7 +293,7 @@ func TestShortCutFromALongVideoDraftsFromItsSlice(t *testing.T) {
 		"sources/clip.md": "▶ 3. 15.00–20.10 s: Söz10 bitti.",
 		"clip/clip.json":  `"windowStart": 36`,
 		"sources/lead.md": "# Video script",
-		"KIT.md":          "Kurgu.captions",
+		"KIT.md":          "Ekin.captions",
 	} {
 		if !strings.Contains(dir[name], want) {
 			t.Fatalf("%s lacks %q:\n%s", name, want, dir[name])

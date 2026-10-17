@@ -13,7 +13,7 @@ import (
 	"strings"
 	"unicode"
 
-	"kurgu/internal/adapter/elevenlabs"
+	"ekin/internal/adapter/elevenlabs"
 )
 
 // maxChunkRunes bounds one ElevenLabs request. Every current model takes

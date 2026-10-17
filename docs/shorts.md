@@ -12,7 +12,7 @@ videos is out of scope for now.
 | A long video's revision holds `script.md`, `scenes.json`, `narration/speech.wav` and `narration/timings.json` (words and segments with times) | The transcript is free: no speech-to-text is needed to find or cut a moment. |
 | Its work dir holds `composition.html`, `assets/` (stock clips, photos) with `credits.json`, and the music | A short can reuse the visuals and credits without searching Pexels again. |
 | A story has at most one derived deliverable, released when its lead is live (`ReleaseDerived`) | Shorts follow the same rule, so their descriptions can link to the published long video. |
-| `prepare` writes the work dir from the brief; the agent runs `kurgu tool tts`, the check reads `narration/timings.json`, the render mixes `narration/speech.wav` with the music | If `prepare` writes the slice as `narration/speech.wav` and `narration/timings.json`, the composition contract, captions, check and `Mix` work unchanged; the agent only must not narrate. |
+| `prepare` writes the work dir from the brief; the agent runs `ekin tool tts`, the check reads `narration/timings.json`, the render mixes `narration/speech.wav` with the music | If `prepare` writes the slice as `narration/speech.wav` and `narration/timings.json`, the composition contract, captions, check and `Mix` work unchanged; the agent only must not narrate. |
 
 ## 2. Limits
 
@@ -21,12 +21,12 @@ the domain (the domain never reads the environment). Bad values fail the start.
 
 | Env | Default | Meaning |
 |---|---|---|
-| `KURGU_SHORTS_SOURCE_MIN` | `4m` | a long video shorter than this (rendered length, `Measures.Duration`) is not cut |
-| `KURGU_SHORTS_SOURCE_MAX` | `60m` | nor one longer than this |
-| `KURGU_SHORTS_CLIP_MIN` | `20s` | shortest short; at least `MinShortDuration` (10 s) |
-| `KURGU_SHORTS_CLIP_MAX` | `60s` | longest short; at most `MaxShortDuration` (3 min) |
-| `KURGU_SHORTS_MAX_PER_VIDEO` | `5` | shorts one long video may have, automatic and manual together |
-| `KURGU_SHORTS_MIN_GAP` | `30s` | moments of one video may not overlap or sit closer than this |
+| `EKIN_SHORTS_SOURCE_MIN` | `4m` | a long video shorter than this (rendered length, `Measures.Duration`) is not cut |
+| `EKIN_SHORTS_SOURCE_MAX` | `60m` | nor one longer than this |
+| `EKIN_SHORTS_CLIP_MIN` | `20s` | shortest short; at least `MinShortDuration` (10 s) |
+| `EKIN_SHORTS_CLIP_MAX` | `60s` | longest short; at most `MaxShortDuration` (3 min) |
+| `EKIN_SHORTS_MAX_PER_VIDEO` | `5` | shorts one long video may have, automatic and manual together |
+| `EKIN_SHORTS_MIN_GAP` | `30s` | moments of one video may not overlap or sit closer than this |
 
 Each minimum must not exceed its maximum, and the clip minimum must fit in the source
 minimum.
@@ -100,9 +100,9 @@ origin, status, short id, created at), saved with the story like its deliverable
    - `sources/clip.md` — the window's sentences, numbered, those in the short marked ▶;
    - `INSTRUCTIONS.md` from `prompts/clip.md` — the hook in the first two seconds, word
      captions, a 9:16 layout, an end card pointing to the full video.
-5. **Rules** (in the tools and `validate`, not only the prompt): `kurgu tool tts` is
+5. **Rules** (in the tools and `validate`, not only the prompt): `ekin tool tts` is
    refused in clip mode; the check fails when the narration is not the clip's length
-   and when the composition does not cover it (plus at most 4 s). `kurgu tool clip
+   and when the composition does not cover it (plus at most 4 s). `ekin tool clip
    --first N --last M` moves the cut to window sentences N–M within the short limits and
    the gap, rewriting `narration/`; `FinishDraft` records the new clip on the short and
    its moment (`Story.Recut`). A reviewer cannot edit a short's narration text.
@@ -143,13 +143,13 @@ service with inmemory repos and a fixed clock, `httptest` through the router).
 
 0. ✅ **A real long video.** Verified end to end on the Mac (2026-10-17) with the real
    agent, okur narration and renderer: a 2-minute Turkish long video asking for 2 shorts
-   (`KURGU_SHORTS_SOURCE_MIN=90s` for the run) was approved, rendered at 1080p and, with
+   (`EKIN_SHORTS_SOURCE_MIN=90s` for the run) was approved, rendered at 1080p and, with
    no publisher, went ready; the scan picked 0:00–0:21 and 1:11–1:52; both shorts drafted
    in clip mode and reached review, each speaking the long video's audio sample for
    sample, as new 9:16 compositions with a hook card and karaoke captions.
 1. ✅ **Domain and limits** — `ShortsLimits` from env, `Clip`, `Moment`, the rules above,
    migration 00027, repository conformance, moments service.
-2. ✅ **Clip-mode drafting** — slicing in `prepare`, `prompts/clip.md`, `kurgu tool clip`,
+2. ✅ **Clip-mode drafting** — slicing in `prepare`, `prompts/clip.md`, `ekin tool clip`,
    enforcement, and the moments and shorts endpoints with manual ranges. Usable end to
    end from here through the API.
 3. ✅ **Scan and moments panel** — the `story.moments` job (control queue: one typed

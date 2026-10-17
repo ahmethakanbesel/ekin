@@ -413,7 +413,7 @@ export function showHistory() {
 
 // The sections the reviewer has collapsed, kept from draft to draft and
 // across visits. A per-viewer convenience: storage may be unavailable.
-const COLLAPSED_KEY = "kurgu.review-panel.collapsed"
+const COLLAPSED_KEY = "ekin.review-panel.collapsed"
 let collapsed: ReadonlySet<string> = readCollapsed()
 const listeners = new Set<() => void>()
 

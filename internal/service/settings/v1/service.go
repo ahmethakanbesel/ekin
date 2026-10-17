@@ -13,13 +13,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/db"
-	settingsdomain "kurgu/internal/domain/settings/v1"
-	settingsrepo "kurgu/internal/repository/settings/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	"kurgu/pkg/broadcast"
-	"kurgu/pkg/secretbox"
+	"ekin/internal/apperror"
+	"ekin/internal/db"
+	settingsdomain "ekin/internal/domain/settings/v1"
+	settingsrepo "ekin/internal/repository/settings/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	"ekin/pkg/broadcast"
+	"ekin/pkg/secretbox"
 )
 
 // cacheFor is how long a worker trusts a profile it read; edits apply
@@ -45,7 +45,7 @@ type Service struct {
 	creds    settingsdomain.Credentials
 }
 
-// WithCredentials enables credentials: env holds the KURGU_* values,
+// WithCredentials enables credentials: env holds the EKIN_* values,
 // box seals what the settings page stores.
 func (s *Service) WithCredentials(env settingsdomain.Credentials, box *secretbox.Box) *Service {
 	s.envCreds, s.box = env, box
@@ -172,7 +172,7 @@ type cachedProfile struct {
 	at time.Time
 }
 
-// NewService returns a Service. defaults (built from KURGU_* variables)
+// NewService returns a Service. defaults (built from EKIN_* variables)
 // apply to any profile not saved yet.
 func NewService(repo settingsrepo.Repository, tx db.TxManager, defaults settingsdomain.Profile, log *slog.Logger) *Service {
 	return &Service{repo: repo, tx: tx, defaults: defaults, log: log, now: time.Now, cached: map[string]cachedProfile{}}

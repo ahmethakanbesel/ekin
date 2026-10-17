@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	librarydomain "kurgu/internal/domain/library/v1"
+	librarydomain "ekin/internal/domain/library/v1"
 )
 
 // Bounds of what ingestion produces.

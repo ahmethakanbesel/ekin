@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 
-	jobdomain "kurgu/internal/domain/job/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	knowledgesvc "kurgu/internal/service/knowledge/v1"
+	jobdomain "ekin/internal/domain/job/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	knowledgesvc "ekin/internal/service/knowledge/v1"
 )
 
 // Register adds the knowledge handlers to r.

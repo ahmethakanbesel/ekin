@@ -1,5 +1,5 @@
 // Package render turns a composition (an HTML page whose frames are a
-// pure function of time, see kit/kurgu.js) into video: headless Chrome
+// pure function of time, see kit/ekin.js) into video: headless Chrome
 // draws each frame on demand, ffmpeg encodes the screenshots and mixes
 // narration with music. The page is served from 127.0.0.1 and Chrome
 // resolves no other host, so a render never touches the network.
@@ -40,11 +40,24 @@ import (
 //go:embed all:kit
 var kitFS embed.FS
 
-// Kit is the composition runtime served at /kit/ (kurgu.js, kurgu.css,
-// tone.js, fonts).
+// Kit is the composition runtime served at /kit/ (ekin.js, ekin.css,
+// tone.js, fonts). It also answers to kurgu.js and kurgu.css, which
+// compositions written before the product was renamed load.
 func Kit() fs.FS {
 	sub, _ := fs.Sub(kitFS, "kit")
-	return sub
+	return legacyKit{sub}
+}
+
+// legacyNames maps the kit's names from before the rename to its files.
+var legacyNames = map[string]string{"kurgu.js": "ekin.js", "kurgu.css": "ekin.css"}
+
+type legacyKit struct{ fs.FS }
+
+func (k legacyKit) Open(name string) (fs.File, error) {
+	if to, ok := legacyNames[name]; ok {
+		name = to
+	}
+	return k.FS.Open(name)
 }
 
 // Renderer holds the tools and the throttling knobs (PLAN.md §4).
@@ -82,7 +95,7 @@ func (r *Renderer) beginFrame(chrome string) bool {
 	return runtime.GOOS == "linux" && strings.Contains(filepath.Base(chrome), "headless")
 }
 
-// Meta is what a composition declares on window.kurgu.
+// Meta is what a composition declares on window.ekin.
 type Meta struct {
 	Width    int     `json:"width"`
 	Height   int     `json:"height"`
@@ -193,7 +206,7 @@ func (r *Renderer) openWith(ctx context.Context, dir string, beginFrameScale flo
 func (s *session) close() { s.cancel() }
 
 // tab opens pagePath in a fresh browsing context at scale and waits for
-// window.kurgu.ready.
+// window.ekin.ready.
 func (s *session) tab(pagePath string, scale float64) (context.Context, Meta, error) {
 	var ctx context.Context
 	if s.beginFrame {
@@ -224,16 +237,16 @@ func (s *session) tab(pagePath string, scale float64) (context.Context, Meta, er
 		return nil, Meta{}, fmt.Errorf("render: load %s: %w", pagePath, err)
 	}
 	m, err := chromedp.Run(ctx, chromedp.Evaluate[Meta](`(async () => {
-		if (!window.kurgu) throw new Error("the page did not call Kurgu.composition (window.kurgu is missing)");
-		await window.kurgu.ready;
-		const k = window.kurgu;
+		if (!window.ekin) throw new Error("the page did not call Ekin.composition (window.ekin is missing)");
+		await window.ekin.ready;
+		const k = window.ekin;
 		return {width: k.width, height: k.height, fps: k.fps, duration: k.duration};
 	})()`, chromedp.EvalAwaitPromise))
 	if err != nil {
 		return nil, Meta{}, fmt.Errorf("render: load %s: %w", pagePath, err)
 	}
 	if m.Width <= 0 || m.Height <= 0 || m.Width > 4096 || m.Height > 4096 || m.FPS <= 0 || m.FPS > 60 || m.Duration <= 0 {
-		return nil, m, fmt.Errorf("render: window.kurgu declares an invalid size, fps or duration: %+v", m)
+		return nil, m, fmt.Errorf("render: window.ekin declares an invalid size, fps or duration: %+v", m)
 	}
 	if err := setViewport(ctx, int64(m.Width), int64(m.Height), scale); err != nil {
 		return nil, m, err
@@ -312,7 +325,7 @@ func renderAt(ctx context.Context, t float64) error {
 	ctx, cancel := context.WithTimeout(ctx, frameTimeout)
 	defer cancel()
 	_, err := chromedp.Run(ctx, chromedp.Evaluate[bool](
-		`Promise.resolve(window.kurgu.renderAt(`+strconv.FormatFloat(t, 'f', 4, 64)+`)).then(() => true)`,
+		`Promise.resolve(window.ekin.renderAt(`+strconv.FormatFloat(t, 'f', 4, 64)+`)).then(() => true)`,
 		chromedp.EvalAwaitPromise))
 	return err
 }
@@ -456,7 +469,7 @@ type inspected struct {
 	Corner []string `json:"corner"`
 }
 
-// Thumbnails draws variants ns of a thumbnail page (Kurgu.thumbnails)
+// Thumbnails draws variants ns of a thumbnail page (Ekin.thumbnails)
 // at its declared size into outDir/<n>.jpg, each under
 // MaxThumbnailBytes, plus outDir/<n>.small.jpg when small is set. It
 // returns the page's declaration and every problem the page reported.
@@ -470,8 +483,8 @@ func (r *Renderer) Thumbnails(ctx context.Context, dir, pagePath string, ns []in
 	if err != nil {
 		return nil, m, s.problems.List(), err
 	}
-	if isPage, err := chromedp.Run(tab, chromedp.Evaluate[bool](`!!(window.kurgu && window.kurgu.thumbnailPage)`)); err != nil || !isPage {
-		return nil, m, s.problems.List(), fmt.Errorf("render: %s must declare itself with Kurgu.thumbnails", pagePath)
+	if isPage, err := chromedp.Run(tab, chromedp.Evaluate[bool](`!!(window.ekin && window.ekin.thumbnailPage)`)); err != nil || !isPage {
+		return nil, m, s.problems.List(), fmt.Errorf("render: %s must declare itself with Ekin.thumbnails", pagePath)
 	}
 	if err := os.MkdirAll(outDir, 0o750); err != nil {
 		return nil, m, nil, err
@@ -480,7 +493,7 @@ func (r *Renderer) Thumbnails(ctx context.Context, dir, pagePath string, ns []in
 	for _, n := range ns {
 		cctx, cancel := context.WithTimeout(tab, frameTimeout)
 		_, err := chromedp.Run(cctx, chromedp.Evaluate[bool](
-			`Promise.resolve(window.kurgu.thumbnail(`+strconv.Itoa(n)+`)).then(() => true)`, chromedp.EvalAwaitPromise))
+			`Promise.resolve(window.ekin.thumbnail(`+strconv.Itoa(n)+`)).then(() => true)`, chromedp.EvalAwaitPromise))
 		cancel()
 		if err != nil {
 			return shots, m, s.problems.List(), fmt.Errorf("render: thumbnail %d: %w", n, err)
@@ -558,7 +571,7 @@ func (r *Renderer) Sample(ctx context.Context, dir, pagePath string, every float
 	}
 	if _, err := chromedp.Run(tab, chromedp.Evaluate[bool](`(() => {
 		const st = document.createElement("style");
-		st.textContent = ".kurgu-captions { visibility: hidden !important; }";
+		st.textContent = ".ekin-captions, .kurgu-captions { visibility: hidden !important; }";
 		document.head.appendChild(st);
 		return true;
 	})()`)); err != nil {

@@ -11,14 +11,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/db"
-	jobdomain "kurgu/internal/domain/job/v1"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	voicedomain "kurgu/internal/domain/voice/v1"
-	pipelinerepo "kurgu/internal/repository/pipeline/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	"ekin/internal/db"
+	jobdomain "ekin/internal/domain/job/v1"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	voicedomain "ekin/internal/domain/voice/v1"
+	pipelinerepo "ekin/internal/repository/pipeline/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	"ekin/pkg/id"
 )
 
 // KindRun is the job kind of a pipeline run.

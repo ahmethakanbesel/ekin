@@ -18,13 +18,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/blob"
-	"kurgu/internal/db"
-	jobdomain "kurgu/internal/domain/job/v1"
-	knowledgedomain "kurgu/internal/domain/knowledge/v1"
-	knowledgerepo "kurgu/internal/repository/knowledge/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	"ekin/internal/blob"
+	"ekin/internal/db"
+	jobdomain "ekin/internal/domain/job/v1"
+	knowledgedomain "ekin/internal/domain/knowledge/v1"
+	knowledgerepo "ekin/internal/repository/knowledge/v1"
+	"ekin/pkg/id"
 )
 
 // KindExtract is the job kind that extracts a document's pages.
@@ -85,7 +85,7 @@ func (s *Service) Upload(ctx context.Context, workspaceID, actorID uuid.UUID, ti
 	if _, err := knowledgedomain.FormatFromFilename(filename); err != nil {
 		return nil, err
 	}
-	tmp, err := os.CreateTemp("", "kurgu-upload-*")
+	tmp, err := os.CreateTemp("", "ekin-upload-*")
 	if err != nil {
 		return nil, fmt.Errorf("temp file: %w", err)
 	}
@@ -193,7 +193,7 @@ func (s *Service) download(ctx context.Context, d *knowledgedomain.Document) (st
 		return "", nil, fmt.Errorf("open original: %w", err)
 	}
 	defer func() { _ = rc.Close() }()
-	tmp, err := os.CreateTemp("", "kurgu-extract-*."+string(d.Format()))
+	tmp, err := os.CreateTemp("", "ekin-extract-*."+string(d.Format()))
 	if err != nil {
 		return "", nil, err
 	}

@@ -15,18 +15,18 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/blob"
-	"kurgu/internal/db/dbtest"
-	jobdomain "kurgu/internal/domain/job/v1"
-	librarydomain "kurgu/internal/domain/library/v1"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
-	jobrepo "kurgu/internal/repository/job/v1"
-	libraryrepo "kurgu/internal/repository/library/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	librarysvc "kurgu/internal/service/library/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	"ekin/internal/blob"
+	"ekin/internal/db/dbtest"
+	jobdomain "ekin/internal/domain/job/v1"
+	librarydomain "ekin/internal/domain/library/v1"
+	workspacedomain "ekin/internal/domain/workspace/v1"
+	jobrepo "ekin/internal/repository/job/v1"
+	libraryrepo "ekin/internal/repository/library/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	librarysvc "ekin/internal/service/library/v1"
+	"ekin/pkg/id"
 )
 
 var now = time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
@@ -397,7 +397,7 @@ func TestSaveOnce(t *testing.T) {
 		Kind: librarydomain.KindMusic, Origin: librarydomain.OriginGenerated,
 		Harvest: librarydomain.Harvest{StoryID: id.New(), DeliverableID: deliverable, Revision: 1},
 		Details: librarydomain.Details{Title: "Calm", Mood: "calm"},
-		Path:    writeTemp(t, "music.js", "window.kurguMusic = () => {}"), Preview: writeTemp(t, "music.wav", "RIFF"),
+		Path:    writeTemp(t, "music.js", "window.ekinMusic = () => {}"), Preview: writeTemp(t, "music.wav", "RIFF"),
 	}
 	s1, err := f.svc.Save(ctx, f.ws, uuid.Nil, score, false)
 	if err != nil {
@@ -407,7 +407,7 @@ func TestSaveOnce(t *testing.T) {
 	if !ok || !f.exists(preview) {
 		t.Fatal("score preview not stored")
 	}
-	score.Path = writeTemp(t, "music.js", "window.kurguMusic = () => {}")
+	score.Path = writeTemp(t, "music.js", "window.ekinMusic = () => {}")
 	if s2, err := f.svc.Save(ctx, f.ws, uuid.Nil, score, false); err != nil || s2.ID() != s1.ID() {
 		t.Fatalf("same score twice = %v, %v", s2, err)
 	}

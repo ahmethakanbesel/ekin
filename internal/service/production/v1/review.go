@@ -16,14 +16,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/adapter/render"
-	"kurgu/internal/agenttool"
-	"kurgu/internal/apperror"
-	jobdomain "kurgu/internal/domain/job/v1"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	storyrepo "kurgu/internal/repository/story/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/adapter/render"
+	"ekin/internal/agenttool"
+	"ekin/internal/apperror"
+	jobdomain "ekin/internal/domain/job/v1"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	storyrepo "ekin/internal/repository/story/v1"
+	"ekin/pkg/id"
 )
 
 // RenderTask is a render job: with the working directory it is
@@ -57,7 +57,7 @@ func (s *Service) Render(ctx context.Context, p DeliverablePayload) error {
 	if err != nil || dir == "" {
 		return err
 	}
-	out, err := os.MkdirTemp("", "kurgu-render-*")
+	out, err := os.MkdirTemp("", "ekin-render-*")
 	if err != nil {
 		return err
 	}

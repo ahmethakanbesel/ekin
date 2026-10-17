@@ -14,9 +14,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/agenttool"
-	"kurgu/internal/apperror"
-	storydomain "kurgu/internal/domain/story/v1"
+	"ekin/internal/agenttool"
+	"ekin/internal/apperror"
+	storydomain "ekin/internal/domain/story/v1"
 )
 
 // PickThumbnail picks variant n of a video's current revision as the
@@ -68,7 +68,7 @@ func (s *Service) EditThumbnail(ctx context.Context, workspaceID, storyID, deliv
 		return nil, err
 	}
 
-	dir, err := os.MkdirTemp("", "kurgu-edit-*")
+	dir, err := os.MkdirTemp("", "ekin-edit-*")
 	if err != nil {
 		return nil, err
 	}

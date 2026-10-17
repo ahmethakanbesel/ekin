@@ -1,16 +1,18 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>kurgu music</title>
+<title>ekin music</title>
 <script src="/kit/tone.js"></script>
 <script src="/music.js"></script>
 <script>
 // Renders music.js offline: music.js must define
-//   window.kurguMusic = (Tone, { duration }) => { ...schedule on Tone.getTransport()... }
-// It must not call Tone.start() or use the real-time context.
+//   window.ekinMusic = (Tone, { duration }) => { ...schedule on Tone.getTransport()... }
+// It must not call Tone.start() or use the real-time context. Scores
+// written before the rename define window.kurguMusic instead.
 window.renderMusic = async function (duration, sampleRate) {
-  if (typeof window.kurguMusic !== "function") throw new Error("music.js must define window.kurguMusic(Tone, { duration })");
+  const music = window.ekinMusic || window.kurguMusic;
+  if (typeof music !== "function") throw new Error("music.js must define window.ekinMusic(Tone, { duration })");
   const buffer = await Tone.Offline(async ({ transport }) => {
-    await window.kurguMusic(Tone, { duration });
+    await music(Tone, { duration });
     transport.start(0);
   }, duration, 2, sampleRate);
   const audio = buffer.get();

@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	identitydomain "kurgu/internal/domain/identity/v1"
+	identitydomain "ekin/internal/domain/identity/v1"
 )
 
 // Repository persists the identity aggregates. One implementation backs

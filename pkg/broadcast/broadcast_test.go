@@ -3,7 +3,7 @@ package broadcast_test
 import (
 	"testing"
 
-	"kurgu/pkg/broadcast"
+	"ekin/pkg/broadcast"
 )
 
 func TestSignal(t *testing.T) {

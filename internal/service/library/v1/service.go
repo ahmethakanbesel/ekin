@@ -18,13 +18,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/blob"
-	"kurgu/internal/db"
-	jobdomain "kurgu/internal/domain/job/v1"
-	librarydomain "kurgu/internal/domain/library/v1"
-	libraryrepo "kurgu/internal/repository/library/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	"ekin/internal/blob"
+	"ekin/internal/db"
+	jobdomain "ekin/internal/domain/job/v1"
+	librarydomain "ekin/internal/domain/library/v1"
+	libraryrepo "ekin/internal/repository/library/v1"
+	"ekin/pkg/id"
 )
 
 // KindIngest is the job kind that processes an uploaded file.
@@ -92,7 +92,7 @@ func (s *Service) Upload(ctx context.Context, workspaceID, actorID uuid.UUID, ki
 	if kind == "" {
 		kind = fileKind
 	}
-	tmp, err := os.CreateTemp("", "kurgu-upload-*")
+	tmp, err := os.CreateTemp("", "ekin-upload-*")
 	if err != nil {
 		return nil, fmt.Errorf("temp file: %w", err)
 	}
@@ -168,7 +168,7 @@ func (s *Service) Ingest(ctx context.Context, assetID uuid.UUID) error {
 	if a.Status() != librarydomain.StatusProcessing {
 		return nil
 	}
-	dir, err := os.MkdirTemp("", "kurgu-ingest-*")
+	dir, err := os.MkdirTemp("", "ekin-ingest-*")
 	if err != nil {
 		return err
 	}
@@ -478,7 +478,7 @@ func (s *Service) Save(ctx context.Context, workspaceID, actorID uuid.UUID, h Ha
 		}
 		return existing, nil
 	}
-	dir, err := os.MkdirTemp("", "kurgu-harvest-*")
+	dir, err := os.MkdirTemp("", "ekin-harvest-*")
 	if err != nil {
 		return nil, err
 	}

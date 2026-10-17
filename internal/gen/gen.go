@@ -1399,7 +1399,7 @@ type DocumentSection struct {
 	ToPage int `json:"toPage"`
 }
 
-// DraftEffort How hard the authoring agent thinks while drafting (Claude Code's --effort). Absent on a pipeline or request: the workspace default (Settings › Production), then the server's (KURGU_CLAUDE_EFFORT, then Claude Code's own), resolved when a story is planned so remote workers draft with it too; on ServerProduction, absent means Claude Code's own.
+// DraftEffort How hard the authoring agent thinks while drafting (Claude Code's --effort). Absent on a pipeline or request: the workspace default (Settings › Production), then the server's (EKIN_CLAUDE_EFFORT, then Claude Code's own), resolved when a story is planned so remote workers draft with it too; on ServerProduction, absent means Claude Code's own.
 type DraftEffort string
 
 // ElevenLabsAccount defines model for ElevenLabsAccount.
@@ -1500,7 +1500,7 @@ type HostProfile struct {
 	Concurrency     map[string]int `json:"concurrency"`
 	CooldownSeconds int            `json:"cooldownSeconds"`
 
-	// CpuLimit Percent of the host's CPUs that job processes (agent, browser, encoder, speech) may use together; 0 means no limit, otherwise 10 to 100. Applied live on Linux hosts; the Kurgu server itself is never limited.
+	// CpuLimit Percent of the host's CPUs that job processes (agent, browser, encoder, speech) may use together; 0 means no limit, otherwise 10 to 100. Applied live on Linux hosts; the Ekin server itself is never limited.
 	CpuLimit int `json:"cpuLimit"`
 
 	// FinalFps Frame rate of final renders. Absent on input keeps 30.
@@ -1514,7 +1514,7 @@ type HostProfile struct {
 	HeavyQueues *[]HostProfileHeavyQueues `json:"heavyQueues,omitempty"`
 	Name        string                    `json:"name"`
 
-	// Nice Scheduling priority of the job processes, 0 (normal) to 19 (lowest), so the host's own work comes first. Applied live; the Kurgu server keeps its priority.
+	// Nice Scheduling priority of the job processes, 0 (normal) to 19 (lowest), so the host's own work comes first. Applied live; the Ekin server keeps its priority.
 	Nice   *int `json:"nice,omitempty"`
 	Paused bool `json:"paused"`
 
@@ -1823,7 +1823,7 @@ type Moments struct {
 	// Blocked Why shorts cannot be cut from this video (yet); absent when they can.
 	Blocked *string `json:"blocked,omitempty"`
 
-	// Limits The server's limits on cutting shorts from long videos (KURGU_SHORTS_*).
+	// Limits The server's limits on cutting shorts from long videos (EKIN_SHORTS_*).
 	Limits ShortsLimits `json:"limits"`
 
 	// Moments In the order they come in the video.
@@ -1968,10 +1968,10 @@ type Privacy string
 
 // Production How stories are made, set per pipeline or request, or as a workspace's defaults. Every absent field takes the layer below: a pipeline's or request's the workspace default (Settings › Production), the workspace's the server's. Self-review rounds travel beside it (selfReviewRounds).
 type Production struct {
-	// DraftEffort How hard the authoring agent thinks while drafting (Claude Code's --effort). Absent on a pipeline or request: the workspace default (Settings › Production), then the server's (KURGU_CLAUDE_EFFORT, then Claude Code's own), resolved when a story is planned so remote workers draft with it too; on ServerProduction, absent means Claude Code's own.
+	// DraftEffort How hard the authoring agent thinks while drafting (Claude Code's --effort). Absent on a pipeline or request: the workspace default (Settings › Production), then the server's (EKIN_CLAUDE_EFFORT, then Claude Code's own), resolved when a story is planned so remote workers draft with it too; on ServerProduction, absent means Claude Code's own.
 	DraftEffort *DraftEffort `json:"draftEffort,omitempty"`
 
-	// DraftModel Claude model the agent drafts and revises with: a model id (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace default (Settings › Production), then the server's (System › Credentials, then KURGU_CLAUDE_MODEL, then Claude Code's own). Resolved when a story is planned, so every worker, remote ones included, drafts with the model shown here.
+	// DraftModel Claude model the agent drafts and revises with: a model id (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace default (Settings › Production), then the server's (System › Credentials, then EKIN_CLAUDE_MODEL, then Claude Code's own). Resolved when a story is planned, so every worker, remote ones included, drafts with the model shown here.
 	DraftModel *string `json:"draftModel,omitempty"`
 
 	// FinalFps Frame rate of the final render; 60 takes about twice as long. Absent: the workspace default (Settings › Production), then the server's (the host profile's).
@@ -2121,13 +2121,13 @@ type Sentence struct {
 
 // ServerProduction What stories get where neither the workspace nor a pipeline or request sets a value.
 type ServerProduction struct {
-	// DraftEffort How hard the authoring agent thinks while drafting (Claude Code's --effort). Absent on a pipeline or request: the workspace default (Settings › Production), then the server's (KURGU_CLAUDE_EFFORT, then Claude Code's own), resolved when a story is planned so remote workers draft with it too; on ServerProduction, absent means Claude Code's own.
+	// DraftEffort How hard the authoring agent thinks while drafting (Claude Code's --effort). Absent on a pipeline or request: the workspace default (Settings › Production), then the server's (EKIN_CLAUDE_EFFORT, then Claude Code's own), resolved when a story is planned so remote workers draft with it too; on ServerProduction, absent means Claude Code's own.
 	DraftEffort *DraftEffort `json:"draftEffort,omitempty"`
 
-	// DraftModel The model drafts run with on every worker, remote ones included (stories take it when planned); absent when Claude Code picks its own, which on a remote worker is that machine's KURGU_CLAUDE_MODEL or Claude Code's default.
+	// DraftModel The model drafts run with on every worker, remote ones included (stories take it when planned); absent when Claude Code picks its own, which on a remote worker is that machine's EKIN_CLAUDE_MODEL or Claude Code's default.
 	DraftModel *string `json:"draftModel,omitempty"`
 
-	// DraftModelSource Where draftModel comes from: settings (System › Credentials), env (KURGU_CLAUDE_MODEL) or unset (Claude Code's own default).
+	// DraftModelSource Where draftModel comes from: settings (System › Credentials), env (EKIN_CLAUDE_MODEL) or unset (Claude Code's own default).
 	DraftModelSource ServerProductionDraftModelSource `json:"draftModelSource"`
 	FinalFps         int                              `json:"finalFps"`
 
@@ -2142,7 +2142,7 @@ type ServerProduction struct {
 	Profile string `json:"profile"`
 }
 
-// ServerProductionDraftModelSource Where draftModel comes from: settings (System › Credentials), env (KURGU_CLAUDE_MODEL) or unset (Claude Code's own default).
+// ServerProductionDraftModelSource Where draftModel comes from: settings (System › Credentials), env (EKIN_CLAUDE_MODEL) or unset (Claude Code's own default).
 type ServerProductionDraftModelSource string
 
 // ShortsInput defines model for ShortsInput.
@@ -2150,7 +2150,7 @@ type ShortsInput struct {
 	MomentIds []openapi_types.UUID `json:"momentIds"`
 }
 
-// ShortsLimits The server's limits on cutting shorts from long videos (KURGU_SHORTS_*).
+// ShortsLimits The server's limits on cutting shorts from long videos (EKIN_SHORTS_*).
 type ShortsLimits struct {
 	ClipMaxSeconds   float64 `json:"clipMaxSeconds"`
 	ClipMinSeconds   float64 `json:"clipMinSeconds"`
@@ -2312,7 +2312,7 @@ type VideoSpec struct {
 	Format          VideoSpecFormat      `json:"format"`
 	Orientation     VideoSpecOrientation `json:"orientation"`
 
-	// ShortsPerVideo Long videos only: how many vertical shorts to cut from each video once it is live, from the moments the agent finds (capped by the server's KURGU_SHORTS_MAX_PER_VIDEO). Absent or 0 for none.
+	// ShortsPerVideo Long videos only: how many vertical shorts to cut from each video once it is live, from the moments the agent finds (capped by the server's EKIN_SHORTS_MAX_PER_VIDEO). Absent or 0 for none.
 	ShortsPerVideo *int `json:"shortsPerVideo,omitempty"`
 }
 

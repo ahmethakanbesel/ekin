@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"kurgu/internal/db/dbtest"
+	"ekin/internal/db/dbtest"
 )
 
 func TestWithinTx(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	"ekin/pkg/timeutil"
 )
 
 const (

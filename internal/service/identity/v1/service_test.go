@@ -8,16 +8,16 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/db/dbtest"
-	identitydomain "kurgu/internal/domain/identity/v1"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
-	identityrepo "kurgu/internal/repository/identity/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	identitysvc "kurgu/internal/service/identity/v1"
-	workspacesvc "kurgu/internal/service/workspace/v1"
-	"kurgu/pkg/id"
-	"kurgu/pkg/password"
+	"ekin/internal/apperror"
+	"ekin/internal/db/dbtest"
+	identitydomain "ekin/internal/domain/identity/v1"
+	workspacedomain "ekin/internal/domain/workspace/v1"
+	identityrepo "ekin/internal/repository/identity/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	identitysvc "ekin/internal/service/identity/v1"
+	workspacesvc "ekin/internal/service/workspace/v1"
+	"ekin/pkg/id"
+	"ekin/pkg/password"
 )
 
 var t0 = time.Date(2026, 10, 13, 9, 0, 0, 0, time.UTC)

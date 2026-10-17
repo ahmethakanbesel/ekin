@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	"ekin/pkg/timeutil"
 )
 
 // Membership puts a user in a workspace with a role. A workspace always

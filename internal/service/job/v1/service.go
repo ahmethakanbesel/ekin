@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/db"
-	jobdomain "kurgu/internal/domain/job/v1"
-	jobrepo "kurgu/internal/repository/job/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/db"
+	jobdomain "ekin/internal/domain/job/v1"
+	jobrepo "ekin/internal/repository/job/v1"
+	"ekin/pkg/id"
 )
 
 // abandonedSweepLimit bounds one sweep; the next sweep takes the rest.

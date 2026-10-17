@@ -14,9 +14,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/pkg/timeutil"
 )
 
 // Status is an opportunity's state in the pool.

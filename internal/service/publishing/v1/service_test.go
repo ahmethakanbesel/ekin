@@ -15,17 +15,17 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/adapter/github"
-	"kurgu/internal/adapter/youtube"
-	"kurgu/internal/apperror"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	publishingdomain "kurgu/internal/domain/publishing/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	publishingrepo "kurgu/internal/repository/publishing/v1"
-	productionsvc "kurgu/internal/service/production/v1"
-	publishingsvc "kurgu/internal/service/publishing/v1"
-	"kurgu/pkg/id"
-	"kurgu/pkg/secretbox"
+	"ekin/internal/adapter/github"
+	"ekin/internal/adapter/youtube"
+	"ekin/internal/apperror"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	publishingdomain "ekin/internal/domain/publishing/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	publishingrepo "ekin/internal/repository/publishing/v1"
+	productionsvc "ekin/internal/service/production/v1"
+	publishingsvc "ekin/internal/service/publishing/v1"
+	"ekin/pkg/id"
+	"ekin/pkg/secretbox"
 )
 
 // fakeGoogle answers like Google's OAuth and YouTube APIs. It records

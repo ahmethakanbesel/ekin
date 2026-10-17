@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"kurgu/internal/adapter/render"
-	"kurgu/internal/agenttool"
+	"ekin/internal/adapter/render"
+	"ekin/internal/agenttool"
 )
 
 // drawer pretends to draw a thumbnail page: each variant shows text[n]
@@ -41,7 +41,7 @@ func (d drawer) Thumbnails(_ context.Context, _, _ string, ns []int, small bool,
 }
 
 func TestCheckThumbnails(t *testing.T) {
-	const page = `<script src="/kit/kurgu.js"></script><script>Kurgu.thumbnails({render(v) {}})</script>`
+	const page = `<script src="/kit/ekin.js"></script><script>Ekin.thumbnails({render(v) {}})</script>`
 	const two = `{"recommended": 1, "variants": [{"n": 1, "concept": "type", "text": "Kaygı mı?"}, {"n": 2, "concept": "frame", "text": "3 fark"}]}`
 	hd := render.Meta{Width: 1280, Height: 720, FPS: 1, Duration: 1}
 	good := drawer{meta: hd, text: map[int]string{1: "KAYGI MI?", 2: "Tam 3 fark\nvar"}}

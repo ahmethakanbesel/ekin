@@ -5,12 +5,12 @@ import (
 	"strconv"
 	"strings"
 
-	"kurgu/internal/apperror"
+	"ekin/internal/apperror"
 )
 
 // Credentials are the instance's API keys and service settings. Each
 // value comes from the settings page when set there, else from its
-// KURGU_* environment variable.
+// EKIN_* environment variable.
 type Credentials struct {
 	ClaudeOAuthToken    string `json:"claudeOauthToken,omitempty"`
 	ClaudeModel         string `json:"claudeModel,omitempty"`
@@ -42,21 +42,21 @@ type CredentialField struct {
 // Fields lists every credential in display order.
 var Fields = []CredentialField{
 	{Key: "claudeOauthToken", Env: "CLAUDE_CODE_OAUTH_TOKEN", Secret: true, Label: "Claude Code token (claude setup-token)", get: func(c *Credentials) *string { return &c.ClaudeOAuthToken }},
-	{Key: "claudeModel", Env: "KURGU_CLAUDE_MODEL", Label: "Claude model", get: func(c *Credentials) *string { return &c.ClaudeModel }},
-	{Key: "pexelsApiKey", Env: "KURGU_PEXELS_API_KEY", Secret: true, Label: "Pexels API key", get: func(c *Credentials) *string { return &c.PexelsAPIKey }},
-	{Key: "openrouterApiKey", Env: "KURGU_OPENROUTER_API_KEY", Secret: true, Label: "OpenRouter API key", get: func(c *Credentials) *string { return &c.OpenRouterAPIKey }},
-	{Key: "decisionModel", Env: "KURGU_DECISION_MODEL", Label: "Decision model", get: func(c *Credentials) *string { return &c.DecisionModel }},
-	{Key: "smtpHost", Env: "KURGU_SMTP_HOST", Label: "SMTP host", get: func(c *Credentials) *string { return &c.SMTPHost }},
-	{Key: "smtpPort", Env: "KURGU_SMTP_PORT", Label: "SMTP port", get: func(c *Credentials) *string { return &c.SMTPPort }},
-	{Key: "smtpUsername", Env: "KURGU_SMTP_USERNAME", Label: "SMTP username", get: func(c *Credentials) *string { return &c.SMTPUsername }},
-	{Key: "smtpPassword", Env: "KURGU_SMTP_PASSWORD", Secret: true, Label: "SMTP password", get: func(c *Credentials) *string { return &c.SMTPPassword }},
-	{Key: "smtpFrom", Env: "KURGU_SMTP_FROM", Label: "SMTP from address", get: func(c *Credentials) *string { return &c.SMTPFrom }},
-	{Key: "smtpTls", Env: "KURGU_SMTP_TLS", Label: "SMTP TLS (starttls, tls, none)", get: func(c *Credentials) *string { return &c.SMTPTLS }},
-	{Key: "youtubeClientId", Env: "KURGU_YOUTUBE_CLIENT_ID", Label: "YouTube OAuth client ID", get: func(c *Credentials) *string { return &c.YouTubeClientID }},
-	{Key: "youtubeClientSecret", Env: "KURGU_YOUTUBE_CLIENT_SECRET", Secret: true, Label: "YouTube OAuth client secret", get: func(c *Credentials) *string { return &c.YouTubeClientSecret }},
-	{Key: "openseoApiKey", Env: "KURGU_OPENSEO_API_KEY", Secret: true, Label: "OpenSEO API key (oseo_…)", get: func(c *Credentials) *string { return &c.OpenSEOAPIKey }},
-	{Key: "openseoUrl", Env: "KURGU_OPENSEO_URL", Label: "OpenSEO MCP endpoint", get: func(c *Credentials) *string { return &c.OpenSEOURL }},
-	{Key: "elevenlabsApiKey", Env: "KURGU_ELEVENLABS_API_KEY", Secret: true, Label: "ElevenLabs API key", get: func(c *Credentials) *string { return &c.ElevenLabsAPIKey }},
+	{Key: "claudeModel", Env: "EKIN_CLAUDE_MODEL", Label: "Claude model", get: func(c *Credentials) *string { return &c.ClaudeModel }},
+	{Key: "pexelsApiKey", Env: "EKIN_PEXELS_API_KEY", Secret: true, Label: "Pexels API key", get: func(c *Credentials) *string { return &c.PexelsAPIKey }},
+	{Key: "openrouterApiKey", Env: "EKIN_OPENROUTER_API_KEY", Secret: true, Label: "OpenRouter API key", get: func(c *Credentials) *string { return &c.OpenRouterAPIKey }},
+	{Key: "decisionModel", Env: "EKIN_DECISION_MODEL", Label: "Decision model", get: func(c *Credentials) *string { return &c.DecisionModel }},
+	{Key: "smtpHost", Env: "EKIN_SMTP_HOST", Label: "SMTP host", get: func(c *Credentials) *string { return &c.SMTPHost }},
+	{Key: "smtpPort", Env: "EKIN_SMTP_PORT", Label: "SMTP port", get: func(c *Credentials) *string { return &c.SMTPPort }},
+	{Key: "smtpUsername", Env: "EKIN_SMTP_USERNAME", Label: "SMTP username", get: func(c *Credentials) *string { return &c.SMTPUsername }},
+	{Key: "smtpPassword", Env: "EKIN_SMTP_PASSWORD", Secret: true, Label: "SMTP password", get: func(c *Credentials) *string { return &c.SMTPPassword }},
+	{Key: "smtpFrom", Env: "EKIN_SMTP_FROM", Label: "SMTP from address", get: func(c *Credentials) *string { return &c.SMTPFrom }},
+	{Key: "smtpTls", Env: "EKIN_SMTP_TLS", Label: "SMTP TLS (starttls, tls, none)", get: func(c *Credentials) *string { return &c.SMTPTLS }},
+	{Key: "youtubeClientId", Env: "EKIN_YOUTUBE_CLIENT_ID", Label: "YouTube OAuth client ID", get: func(c *Credentials) *string { return &c.YouTubeClientID }},
+	{Key: "youtubeClientSecret", Env: "EKIN_YOUTUBE_CLIENT_SECRET", Secret: true, Label: "YouTube OAuth client secret", get: func(c *Credentials) *string { return &c.YouTubeClientSecret }},
+	{Key: "openseoApiKey", Env: "EKIN_OPENSEO_API_KEY", Secret: true, Label: "OpenSEO API key (oseo_…)", get: func(c *Credentials) *string { return &c.OpenSEOAPIKey }},
+	{Key: "openseoUrl", Env: "EKIN_OPENSEO_URL", Label: "OpenSEO MCP endpoint", get: func(c *Credentials) *string { return &c.OpenSEOURL }},
+	{Key: "elevenlabsApiKey", Env: "EKIN_ELEVENLABS_API_KEY", Secret: true, Label: "ElevenLabs API key", get: func(c *Credentials) *string { return &c.ElevenLabsAPIKey }},
 }
 
 // Value returns the field's value in c.

@@ -8,7 +8,7 @@ import { elevenLabsAccountQuery, voicesQuery } from "@/queries/voice"
  * male)", "ElevenLabs · George · Eleven Multilingual v2". An engine's
  * only voice goes unnamed; an ElevenLabs voice the account no longer
  * lists is left out rather than shown as an ID, and so is a voice not
- * recorded (revisions narrated before Kurgu kept it).
+ * recorded (revisions narrated before Ekin kept it).
  */
 export function narratorName(
   n: Narrator,

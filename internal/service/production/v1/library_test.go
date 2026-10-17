@@ -12,16 +12,16 @@ import (
 	"testing"
 	"time"
 
-	"kurgu/internal/agenttool"
-	"kurgu/internal/apperror"
-	"kurgu/internal/blob"
-	librarydomain "kurgu/internal/domain/library/v1"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	libraryrepo "kurgu/internal/repository/library/v1"
-	librarysvc "kurgu/internal/service/library/v1"
-	production "kurgu/internal/service/production/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/agenttool"
+	"ekin/internal/apperror"
+	"ekin/internal/blob"
+	librarydomain "ekin/internal/domain/library/v1"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	libraryrepo "ekin/internal/repository/library/v1"
+	librarysvc "ekin/internal/service/library/v1"
+	production "ekin/internal/service/production/v1"
+	"ekin/pkg/id"
 )
 
 // opusProcessor "ingests" any upload as a minute of Opus.
@@ -61,7 +61,7 @@ func (f blobFetcher) Fetch(ctx context.Context, key, dest string) error {
 }
 
 // A video whose music comes from the library only: its draft is given the
-// library's music, the agent takes a track with kurgu tool library, the
+// library's music, the agent takes a track with ekin tool library, the
 // render cuts that track under the voice, and the library counts the use.
 func TestLibraryMusicInAVideo(t *testing.T) {
 	ctx := context.Background()
@@ -92,7 +92,7 @@ func TestLibraryMusicInAVideo(t *testing.T) {
 	var spec agenttool.Spec
 	for _, req := range f.agent.prompts {
 		for _, kv := range req.Env {
-			if raw, ok := strings.CutPrefix(kv, "KURGU_TOOL_SPEC="); ok {
+			if raw, ok := strings.CutPrefix(kv, "EKIN_TOOL_SPEC="); ok {
 				_ = json.Unmarshal([]byte(raw), &spec)
 			}
 		}
@@ -155,10 +155,10 @@ func ingestTrack(t *testing.T, f fixture, library *librarysvc.Service, name stri
 func draftMedia(clips ...string) map[string]string {
 	var credits []agenttool.Credit
 	files := map[string]string{
-		"music.js":        "window.kurguMusic = () => {}",
+		"music.js":        "window.ekinMusic = () => {}",
 		"music.meta.json": `{"title":"Sakin piyano","mood":"calm","tempo":70}`,
 	}
-	page := `<script src="/kit/kurgu.js"></script>`
+	page := `<script src="/kit/ekin.js"></script>`
 	for _, id := range clips {
 		name := "assets/pexels-video-" + id + ".webm"
 		files[name] = "clip " + id

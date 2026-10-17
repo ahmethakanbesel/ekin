@@ -6,10 +6,10 @@ import (
 	"context"
 	"os"
 
-	"kurgu/internal/adapter/remote"
-	jobdomain "kurgu/internal/domain/job/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	productionsvc "kurgu/internal/service/production/v1"
+	"ekin/internal/adapter/remote"
+	jobdomain "ekin/internal/domain/job/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	productionsvc "ekin/internal/service/production/v1"
 )
 
 // Register adds the remote draft and render handlers to r. prod needs
@@ -39,7 +39,7 @@ func Register(r *jobsvc.Runner, c *remote.Client, prod *productionsvc.Service) {
 		if err := c.FetchWorkdir(ctx, j.ID(), dir); err != nil {
 			return c.Fail(ctx, j.ID(), err)
 		}
-		out, err := os.MkdirTemp("", "kurgu-render-*")
+		out, err := os.MkdirTemp("", "ekin-render-*")
 		if err != nil {
 			return err
 		}

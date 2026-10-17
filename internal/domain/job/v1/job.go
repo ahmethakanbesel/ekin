@@ -13,8 +13,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	"ekin/pkg/timeutil"
 )
 
 // Queue groups jobs by the resource they consume. Each host sets a

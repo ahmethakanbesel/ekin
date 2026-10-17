@@ -14,9 +14,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/pkg/archive"
+	"ekin/internal/apperror"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/pkg/archive"
 )
 
 // Files a reviewer can edit in place, relative to the work dir.
@@ -25,7 +25,7 @@ const (
 	metadataFile  = "metadata.json"
 	articleFile   = "article.md"
 	// revisionMarker records which revision a work dir holds.
-	revisionMarker = ".kurgu-revision"
+	revisionMarker = ".ekin-revision"
 )
 
 // VideoMetadata is the editable part of a video's metadata.json; other
@@ -141,7 +141,7 @@ func (s *Service) EditContent(ctx context.Context, workspaceID, storyID, deliver
 
 	// Edit a fresh copy of the revision's files, not this host's work
 	// dir, which may hold an older revision.
-	dir, err := os.MkdirTemp("", "kurgu-edit-*")
+	dir, err := os.MkdirTemp("", "ekin-edit-*")
 	if err != nil {
 		return nil, err
 	}

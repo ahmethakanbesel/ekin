@@ -1,5 +1,5 @@
 ---
-name: Kurgu
+name: Ekin
 description: A warm, quiet review desk for content pipelines, where the drafts carry the colour and cornflower means a person is needed.
 colors:
   cornflower: "oklch(0.74 0.1 254)"
@@ -181,13 +181,13 @@ components:
     height: "36px"
 ---
 
-# Design System: Kurgu
+# Design System: Ekin
 
 ## Overview
 
 **Creative North Star: "The Quiet Review Desk"**
 
-Kurgu is a desk where an operator sits down to judge what the agent made. The desk itself stays warm, near-white and quiet: off-white paper tones with a faint amber cast (hue 65 to 80 throughout the neutrals), hairline borders, stock shadcn geometry, one sans family. Everything loud on screen belongs to the work under review: video poster frames, article sheets, a pipeline's identity hue behind a poster. The chrome steps back so the content can carry the strongest colour.
+Ekin is a desk where an operator sits down to judge what the agent made. The desk itself stays warm, near-white and quiet: off-white paper tones with a faint amber cast (hue 65 to 80 throughout the neutrals), hairline borders, stock shadcn geometry, one sans family. Everything loud on screen belongs to the work under review: video poster frames, article sheets, a pipeline's identity hue behind a poster. The chrome steps back so the content can carry the strongest colour.
 
 One colour speaks for the system: cornflower. It is spent on exactly three jobs: something needs you (an output in review, the review count, an unread notification, the revision awaiting a decision), the one primary action of a surface, and keyboard focus. Selection, navigation state and decoration stay neutral. Status reads through a small fixed vocabulary of tones (working violet, ready green, failed red, neutral waiting, struck-through muted rejection), always paired with a word or icon, never colour alone.
 

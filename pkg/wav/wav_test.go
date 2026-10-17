@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"kurgu/pkg/wav"
+	"ekin/pkg/wav"
 )
 
 // file builds a WAV whose frame i holds sample(i) in every channel,

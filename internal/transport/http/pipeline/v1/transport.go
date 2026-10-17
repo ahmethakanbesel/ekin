@@ -1,17 +1,17 @@
 package handler
 
 import (
-	voicehandler "kurgu/internal/transport/http/voice/v1"
+	voicehandler "ekin/internal/transport/http/voice/v1"
 
 	"github.com/google/uuid"
 
 	"time"
 
-	"kurgu/internal/apperror"
-	librarydomain "kurgu/internal/domain/library/v1"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
-	"kurgu/internal/gen"
+	"ekin/internal/apperror"
+	librarydomain "ekin/internal/domain/library/v1"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	workspacedomain "ekin/internal/domain/workspace/v1"
+	"ekin/internal/gen"
 )
 
 // parseDefinition turns the wire definition into domain values once; the

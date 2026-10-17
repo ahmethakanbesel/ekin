@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"kurgu/pkg/wav"
+	"ekin/pkg/wav"
 )
 
 // A short cut from a long video speaks a slice of the long video's
 // narration. Its work dir holds the slice in narration/ (as tts would
 // write it) and, under clip/, a window of the long narration around it
-// so `kurgu tool clip` can move the cut by whole sentences.
+// so `ekin tool clip` can move the cut by whole sentences.
 
 // Clip files in the work dir.
 const (
@@ -238,7 +238,7 @@ func (e Env) clip(first, last int) error {
 	return nil
 }
 
-const toolName = "kurgu tool"
+const toolName = "ekin tool"
 
 // clipSpec returns spec with the clip's current length as its duration
 // bounds, when dir holds a short whose cut may have moved.

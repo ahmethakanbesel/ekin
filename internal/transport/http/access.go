@@ -6,11 +6,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	identitydomain "kurgu/internal/domain/identity/v1"
-	"kurgu/internal/gen"
-	identitysvc "kurgu/internal/service/identity/v1"
-	"kurgu/internal/transport/http/principal"
+	"ekin/internal/apperror"
+	identitydomain "ekin/internal/domain/identity/v1"
+	"ekin/internal/gen"
+	identitysvc "ekin/internal/service/identity/v1"
+	"ekin/internal/transport/http/principal"
 )
 
 // workspaceActions maps every operation under /workspaces/{workspaceId}

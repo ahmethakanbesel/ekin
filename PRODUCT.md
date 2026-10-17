@@ -12,7 +12,7 @@ Bun, React, TanStack (Router, Query, Form, Table), shadcn on Base UI, Tailwind v
 
 ## Purpose
 
-Kurgu turns ideas, knowledge-base documents and SEO opportunities into YouTube videos and blog articles, renders them unattended, and holds every piece for human review before anything is published.
+Ekin turns ideas, knowledge-base documents and SEO opportunities into YouTube videos and blog articles, renders them unattended, and holds every piece for human review before anything is published.
 
 ## Users and scene
 

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"kurgu/internal/db"
+	"ekin/internal/db"
 )
 
 // Open returns a migrated database and its TxManager, closed at cleanup.

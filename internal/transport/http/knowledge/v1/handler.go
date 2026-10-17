@@ -8,11 +8,11 @@ import (
 	"io"
 	"strings"
 
-	"kurgu/internal/apperror"
-	knowledgedomain "kurgu/internal/domain/knowledge/v1"
-	"kurgu/internal/gen"
-	knowledgesvc "kurgu/internal/service/knowledge/v1"
-	"kurgu/internal/transport/http/principal"
+	"ekin/internal/apperror"
+	knowledgedomain "ekin/internal/domain/knowledge/v1"
+	"ekin/internal/gen"
+	knowledgesvc "ekin/internal/service/knowledge/v1"
+	"ekin/internal/transport/http/principal"
 )
 
 // maxPagesPerCall bounds one pages listing.

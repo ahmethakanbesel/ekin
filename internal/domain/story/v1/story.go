@@ -11,11 +11,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	voicedomain "kurgu/internal/domain/voice/v1"
-	"kurgu/pkg/fold"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	voicedomain "ekin/internal/domain/voice/v1"
+	"ekin/pkg/fold"
+	"ekin/pkg/timeutil"
 )
 
 // Origin says what created a story.

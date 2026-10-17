@@ -41,7 +41,7 @@ const kindIcon: Record<
 // The mark lives in this small store so anything rendering a bell for the
 // same workspace agrees on it.
 const storageKey = (workspaceId: string) =>
-  `kurgu:notifications-seen:${workspaceId}`
+  `ekin:notifications-seen:${workspaceId}`
 const seenCache = new Map<string, number>()
 const listeners = new Set<() => void>()
 

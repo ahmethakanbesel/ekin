@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	librarydomain "kurgu/internal/domain/library/v1"
+	librarydomain "ekin/internal/domain/library/v1"
 )
 
 func TestPromptsNameEachMediaSource(t *testing.T) {
@@ -34,9 +34,9 @@ func TestPromptsNameEachMediaSource(t *testing.T) {
 			policy: librarydomain.Policy{Music: librarydomain.ModeLibrary, Video: librarydomain.ModeMixed},
 			want: []string{
 				"## Media sources",
-				"**Video clips:** from the library first (`kurgu tool library --type video`); search with `kurgu tool stock --type video` only when nothing there fits.",
-				"**Photos:** search with `kurgu tool stock --type photo` as usual.",
-				"**Music:** from the library only (`kurgu tool library --type music`). Do not compose your own.",
+				"**Video clips:** from the library first (`ekin tool library --type video`); search with `ekin tool stock --type video` only when nothing there fits.",
+				"**Photos:** search with `ekin tool stock --type photo` as usual.",
+				"**Music:** from the library only (`ekin tool library --type music`). Do not compose your own.",
 				"add music\n   as **Media sources** below says",
 			},
 			notWant: []string{"Stock footage is optional"},
@@ -45,13 +45,13 @@ func TestPromptsNameEachMediaSource(t *testing.T) {
 			name:   "a short of a library video",
 			page:   "clip.md",
 			policy: librarydomain.Policy{Photo: librarydomain.ModeLibrary},
-			want:   []string{"## Media sources", "**Photos:** from the library only (`kurgu tool library --type photo`). Do not search with `kurgu tool stock`."},
+			want:   []string{"## Media sources", "**Photos:** from the library only (`ekin tool library --type photo`). Do not search with `ekin tool stock`."},
 		},
 		{
 			name:   "the kit names the library",
 			page:   "kit.md",
 			policy: librarydomain.Policy{Music: librarydomain.ModeMixed},
-			want:   []string{"or `kurgu tool library use`"},
+			want:   []string{"or `ekin tool library use`"},
 		},
 	}
 	for _, tt := range tests {

@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/db/dbtest"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	"ekin/internal/db/dbtest"
+	workspacedomain "ekin/internal/domain/workspace/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	"ekin/pkg/id"
 )
 
 func TestConformance(t *testing.T) {

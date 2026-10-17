@@ -9,8 +9,8 @@ import (
 	"time"
 	"unicode"
 
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/pkg/mp4"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/pkg/mp4"
 )
 
 // markdownNoise is what a reader never sees: link targets, images and
@@ -38,7 +38,7 @@ func wordsIn(d *storydomain.Deliverable, dir string) int {
 	return countWords(stripMarkdownNoise(a.Body))
 }
 
-// narrationTimings is where `kurgu tool tts` says what it read and who
+// narrationTimings is where `ekin tool tts` says what it read and who
 // read it.
 const narrationTimings = "narration/timings.json"
 

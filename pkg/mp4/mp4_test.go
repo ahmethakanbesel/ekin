@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"kurgu/pkg/mp4"
+	"ekin/pkg/mp4"
 )
 
 func boxOf(kind string, payload ...[]byte) []byte {

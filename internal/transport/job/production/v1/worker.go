@@ -5,10 +5,10 @@ import (
 	"context"
 	"encoding/json"
 
-	jobdomain "kurgu/internal/domain/job/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	pipelinesvc "kurgu/internal/service/pipeline/v1"
-	productionsvc "kurgu/internal/service/production/v1"
+	jobdomain "ekin/internal/domain/job/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	pipelinesvc "ekin/internal/service/pipeline/v1"
+	productionsvc "ekin/internal/service/production/v1"
 )
 
 // Register adds the production handlers to r.

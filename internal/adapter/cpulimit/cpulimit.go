@@ -1,6 +1,6 @@
 // Package cpulimit governs the job processes' use of the CPU. The job
 // processes are this process's descendants (Claude Code, Chrome, ffmpeg,
-// the speech scripts, pdftotext); the Kurgu process itself is never
+// the speech scripts, pdftotext); the Ekin process itself is never
 // touched, so the web UI and job leases stay responsive.
 //
 // Limiter keeps them under a share of the host's CPUs: when together they

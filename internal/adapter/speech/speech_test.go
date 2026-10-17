@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"kurgu/internal/adapter/speech"
+	"ekin/internal/adapter/speech"
 )
 
 // fakeUV stands in for `uv run --script`: it writes the timings.json a
-// voice script would, with a field Kurgu does not know.
+// voice script would, with a field Ekin does not know.
 const fakeUV = `#!/bin/sh
 while [ $# -gt 0 ]; do
   case "$1" in --out-dir) out="$2"; shift ;; esac

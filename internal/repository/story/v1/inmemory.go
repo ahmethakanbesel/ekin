@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/pkg/page"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/pkg/page"
+	"ekin/pkg/timeutil"
 )
 
 type revKey struct {

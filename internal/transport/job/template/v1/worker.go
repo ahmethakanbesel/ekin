@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 
-	jobdomain "kurgu/internal/domain/job/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	templatesvc "kurgu/internal/service/template/v1"
+	jobdomain "ekin/internal/domain/job/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	templatesvc "ekin/internal/service/template/v1"
 )
 
 // Register adds the template handlers to r.

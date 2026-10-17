@@ -1,4 +1,4 @@
-module kurgu
+module ekin
 
 go 1.26.0
 

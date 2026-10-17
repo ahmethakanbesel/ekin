@@ -24,29 +24,29 @@ linters:
         domain:
           files: ["**/internal/domain/**"]
           deny:
-            - { pkg: kurgu/internal/repository, desc: "domain must not know about persistence" }
-            - { pkg: kurgu/internal/service, desc: "domain must not call use cases" }
-            - { pkg: kurgu/internal/transport, desc: "domain must not know about transports" }
-            - { pkg: kurgu/internal/adapter, desc: "domain must not call vendors" }
-            - { pkg: kurgu/internal/db, desc: "domain must not touch the database" }
-            - { pkg: kurgu/internal/gen, desc: "domain must not depend on wire types" }
-            - { pkg: "kurgu/internal/app$", desc: "domain must not depend on wiring" }
+            - { pkg: ekin/internal/repository, desc: "domain must not know about persistence" }
+            - { pkg: ekin/internal/service, desc: "domain must not call use cases" }
+            - { pkg: ekin/internal/transport, desc: "domain must not know about transports" }
+            - { pkg: ekin/internal/adapter, desc: "domain must not call vendors" }
+            - { pkg: ekin/internal/db, desc: "domain must not touch the database" }
+            - { pkg: ekin/internal/gen, desc: "domain must not depend on wire types" }
+            - { pkg: "ekin/internal/app$", desc: "domain must not depend on wiring" }
         repository:
           files: ["**/internal/repository/**"]
           deny:
-            - { pkg: kurgu/internal/service, desc: "repositories must not call use cases" }
-            - { pkg: kurgu/internal/transport, desc: "repositories must not know about transports" }
-            - { pkg: kurgu/internal/gen, desc: "repositories must not depend on wire types" }
+            - { pkg: ekin/internal/service, desc: "repositories must not call use cases" }
+            - { pkg: ekin/internal/transport, desc: "repositories must not know about transports" }
+            - { pkg: ekin/internal/gen, desc: "repositories must not depend on wire types" }
         service:
           files: ["**/internal/service/**"]
           deny:
-            - { pkg: kurgu/internal/transport, desc: "services must not know about transports" }
-            - { pkg: kurgu/internal/gen, desc: "services must not depend on wire types" }
+            - { pkg: ekin/internal/transport, desc: "services must not know about transports" }
+            - { pkg: ekin/internal/gen, desc: "services must not depend on wire types" }
         transport:
           files: ["**/internal/transport/**", "!**/*_test.go"]
           deny:
-            - { pkg: kurgu/internal/repository, desc: "transports call services, not repositories" }
-            - { pkg: kurgu/internal/db, desc: "transports call services, not the database" }
+            - { pkg: ekin/internal/repository, desc: "transports call services, not repositories" }
+            - { pkg: ekin/internal/db, desc: "transports call services, not the database" }
   exclusions:
     rules:
       # Aggregates expose many one-line accessors; a comment restating

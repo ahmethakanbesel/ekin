@@ -5,7 +5,7 @@ import (
 	"slices"
 	"time"
 
-	"kurgu/internal/apperror"
+	"ekin/internal/apperror"
 )
 
 // Language is the language a pipeline writes in.

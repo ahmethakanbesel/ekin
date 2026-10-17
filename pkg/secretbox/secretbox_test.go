@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"kurgu/pkg/secretbox"
+	"ekin/pkg/secretbox"
 )
 
 func TestSealSign(t *testing.T) {

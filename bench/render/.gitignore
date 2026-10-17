@@ -3,5 +3,5 @@ out/
 *.mp4
 dist/
 .remotion/
-vanilla-go/kurgu-render-bench
-vanilla-go/kurgu-render-bench-linux-*
+vanilla-go/ekin-render-bench
+vanilla-go/ekin-render-bench-linux-*

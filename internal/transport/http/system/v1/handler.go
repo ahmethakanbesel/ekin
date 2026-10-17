@@ -6,12 +6,12 @@ import (
 	"context"
 	"time"
 
-	"kurgu/internal/apperror"
-	jobdomain "kurgu/internal/domain/job/v1"
-	settingsdomain "kurgu/internal/domain/settings/v1"
-	"kurgu/internal/gen"
-	settingssvc "kurgu/internal/service/settings/v1"
-	"kurgu/internal/transport/http/principal"
+	"ekin/internal/apperror"
+	jobdomain "ekin/internal/domain/job/v1"
+	settingsdomain "ekin/internal/domain/settings/v1"
+	"ekin/internal/gen"
+	settingssvc "ekin/internal/service/settings/v1"
+	"ekin/internal/transport/http/principal"
 )
 
 // Check is one capability check.

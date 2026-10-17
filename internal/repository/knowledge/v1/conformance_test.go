@@ -9,13 +9,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/db/dbtest"
-	knowledgedomain "kurgu/internal/domain/knowledge/v1"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
-	knowledgerepo "kurgu/internal/repository/knowledge/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	"ekin/internal/db/dbtest"
+	knowledgedomain "ekin/internal/domain/knowledge/v1"
+	workspacedomain "ekin/internal/domain/workspace/v1"
+	knowledgerepo "ekin/internal/repository/knowledge/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	"ekin/pkg/id"
 )
 
 var now = time.Date(2026, 10, 13, 9, 0, 0, 0, time.UTC)

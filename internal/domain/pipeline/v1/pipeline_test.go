@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	pipeline "kurgu/internal/domain/pipeline/v1"
+	"ekin/internal/apperror"
+	pipeline "ekin/internal/domain/pipeline/v1"
 )
 
 // t0 is 2026-10-13 10:00 Istanbul time.

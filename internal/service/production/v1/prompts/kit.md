@@ -1,17 +1,17 @@
 # Composition kit
 
 `composition.html` is an HTML page whose every frame is a pure function of time.
-The renderer loads it from a local server, calls `window.kurgu.renderAt(t)` for
+The renderer loads it from a local server, calls `window.ekin.renderAt(t)` for
 each frame, and screenshots the page. Load the kit with:
 
 ```html
 <!doctype html>
 <meta charset="utf-8">
-<link rel="stylesheet" href="/kit/kurgu.css">
-<script src="/kit/kurgu.js"></script>
+<link rel="stylesheet" href="/kit/ekin.css">
+<script src="/kit/ekin.js"></script>
 ```
 
-`/kit/kurgu.css` bundles these fonts, all with full Turkish glyphs, resets the
+`/kit/ekin.css` bundles these fonts, all with full Turkish glyphs, resets the
 page, disables CSS animations and transitions, and styles captions. Use only them:
 
 | Family | Weights | Character |
@@ -29,13 +29,13 @@ page, disables CSS animations and transitions, and styles captions. Use only the
 
 ```js
 let captions = () => {};
-Kurgu.composition({
+Ekin.composition({
   width: {{.Width}}, height: {{.Height}}, fps: 30,
   // Narration length plus a short tail, read from the timings file.
-  duration: async () => (await Kurgu.timings()).duration + 1.5,
+  duration: async () => (await Ekin.timings()).duration + 1.5,
   async setup() {                      // runs once before the first frame
-    const t = await Kurgu.timings();   // narration/timings.json
-    captions = Kurgu.captions(document.getElementById("captions"), t.words, { maxWords: 4 });
+    const t = await Ekin.timings();   // narration/timings.json
+    captions = Ekin.captions(document.getElementById("captions"), t.words, { maxWords: 4 });
   },
   render(t) {                          // may be async (e.g. to seek videos)
     captions(t);
@@ -44,7 +44,7 @@ Kurgu.composition({
 });
 ```
 
-## Helpers (`window.Kurgu`)
+## Helpers (`window.Ekin`)
 
 | Helper | Use |
 |---|---|
@@ -60,8 +60,8 @@ Kurgu.composition({
 
 ## Rules the check enforces
 
-- No network: every image, video and font is a local file (stock via `kurgu tool stock`{{if .Media.Library}}
-  or `kurgu tool library use`{{end}}).
+- No network: every image, video and font is a local file (stock via `ekin tool stock`{{if .Media.Library}}
+  or `ekin tool library use`{{end}}).
 - No `requestAnimationFrame`, `setInterval`, `setTimeout` loops, `Date.now()`,
   `performance.now()`, CSS animations or transitions, autoplaying media.
 - `duration` covers the narration plus at most 4 s.
@@ -75,7 +75,7 @@ time from `thumbnails.json`. It loads the same kit and fonts, and follows the
 same rules (local files only, no errors):
 
 ```js
-Kurgu.thumbnails({
+Ekin.thumbnails({
   width: 1280, height: 720,
   async setup(data) {},                // optional; data is thumbnails.json
   render(variant, data) {              // lay out this variant alone
@@ -95,7 +95,7 @@ every element it changes, so nothing of another variant stays on screen.
 (ducked automatically):
 
 ```js
-window.kurguMusic = (Tone, { duration }) => {
+window.ekinMusic = (Tone, { duration }) => {
   const pad = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" } }).toDestination();
   pad.volume.value = -14;
   const chords = [["C3", "E3", "G3"], ["A2", "C3", "E3"], ["F2", "A2", "C3"], ["G2", "B2", "D3"]];
@@ -105,4 +105,4 @@ window.kurguMusic = (Tone, { duration }) => {
 
 Schedule notes at absolute times (seconds) or on `Tone.getTransport()`. Do not
 call `Tone.start()`. Keep it calm and quiet: the voice is the point. Run
-`kurgu tool music` to render `music.wav` and check its level.
+`ekin tool music` to render `music.wav` and check its level.

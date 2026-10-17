@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"kurgu/internal/adapter/claude"
+	"ekin/internal/adapter/claude"
 )
 
 // reviewSchema is the editor's structured answer.
@@ -54,7 +54,7 @@ var languageNames = map[string]string{"tr": "Turkish", "en": "English"}
 
 // selfReview runs up to task.SelfReview rounds: a fresh agent that only
 // reads reviews the draft, and the author fixes what it reports (then
-// passes Kurgu's checks again). It returns notes for the revision. An
+// passes Ekin's checks again). It returns notes for the revision. An
 // editor that cannot run ends the review without failing the draft.
 func (s *Service) selfReview(ctx context.Context, task DraftTask, dir string, a *author) (string, error) {
 	rounds := task.SelfReview

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"kurgu/internal/adapter/claude"
+	"ekin/internal/adapter/claude"
 )
 
 // fake writes a shell script that records its arguments and prints out.

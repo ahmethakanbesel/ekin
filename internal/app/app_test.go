@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"kurgu/internal/app"
-	"kurgu/internal/config"
-	identitydomain "kurgu/internal/domain/identity/v1"
+	"ekin/internal/app"
+	"ekin/internal/config"
+	identitydomain "ekin/internal/domain/identity/v1"
 )
 
 // Every API operation is wired to a service: a missing dependency in the

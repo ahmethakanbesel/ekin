@@ -13,7 +13,7 @@ func TestProbeToolIgnoresCancelledRequest(t *testing.T) {
 	if ok, detail := probeTool(ctx, "go", "version"); !ok {
 		t.Fatalf("probe with a cancelled request = %v %q", ok, detail)
 	}
-	if ok, _ := probeTool(context.Background(), "kurgu-no-such-tool"); ok {
+	if ok, _ := probeTool(context.Background(), "ekin-no-such-tool"); ok {
 		t.Fatal("missing tool reported ok")
 	}
 }

@@ -22,7 +22,7 @@ uv run --script tools/speech/kokoro_say.py --text-file in.txt --out-dir out/ [--
 - `--speed`: okur accepts 0.25–4, kokoro 0.5–2.
 - `--voice`: kokoro only (default `af_heart`; an unknown name fails and lists the voices). okur has one voice and
   ignores the flag, with a note on stderr.
-- `--model-dir`: where the weights are kept. Defaults: `~/.cache/kurgu/speech/okur` and `~/.cache/kurgu/speech/kokoro`.
+- `--model-dir`: where the weights are kept. Defaults: `~/.cache/ekin/speech/okur` and `~/.cache/ekin/speech/kokoro`.
   Missing files are downloaded on the first run.
 
 Stdout holds exactly one line, written at the end: `{"duration": 20.82, "words": 34, "seconds": 1.41}` (seconds is the
@@ -63,14 +63,14 @@ Only `uv` (and `git`, for the okur dependency). Neither script needs torch or a 
 
 | Variable | Script | Meaning |
 |---|---|---|
-| `KURGU_OKUR_SRC` | okur | Path to an okur-tts checkout. Its `src/` is put first on `sys.path`, so local frontend changes apply without reinstalling. The pinned git package (`okur @ git+https://github.com/ahmethakanbesel/okur-tts@v1.0`) still supplies the dependencies. |
-| `KURGU_OKUR_HF_REPO` | okur | Hugging Face repo for the weights (default `ahakan/okur-tts`). |
-| `KURGU_KOKORO_MODEL` | kokoro | `fp32` (default, 326 MB), `fp16` (164 MB) or `int8` (114 MB). int8 is about 1.5× faster but sounds worse (spectral correlation 0.92 against fp32). |
-| `KURGU_KOKORO_LANG` | kokoro | `en-us` (default) or `en-gb` espeak accent. |
-| `KURGU_SPEECH_THREADS` | both | ONNX Runtime intra-op threads. The default 0 uses all cores. |
+| `EKIN_OKUR_SRC` | okur | Path to an okur-tts checkout. Its `src/` is put first on `sys.path`, so local frontend changes apply without reinstalling. The pinned git package (`okur @ git+https://github.com/ahmethakanbesel/okur-tts@v1.0`) still supplies the dependencies. |
+| `EKIN_OKUR_HF_REPO` | okur | Hugging Face repo for the weights (default `ahakan/okur-tts`). |
+| `EKIN_KOKORO_MODEL` | kokoro | `fp32` (default, 326 MB), `fp16` (164 MB) or `int8` (114 MB). int8 is about 1.5× faster but sounds worse (spectral correlation 0.92 against fp32). |
+| `EKIN_KOKORO_LANG` | kokoro | `en-us` (default) or `en-gb` espeak accent. |
+| `EKIN_SPEECH_THREADS` | both | ONNX Runtime intra-op threads. The default 0 uses all cores. |
 
 To skip the okur download, pre-populate the cache with `uv run hf download ahakan/okur-tts --local-dir
-~/.cache/kurgu/speech/okur`. Only `onnx/` is used.
+~/.cache/ekin/speech/okur`. Only `onnx/` is used.
 
 ## How the timings are made
 
@@ -133,14 +133,14 @@ time comes straight from its frames, shared among its letters by predicted durat
 audio. On the test paragraph word ends at pauses were within 100 ms of `silencedetect`, and Whisper (medium,
 Turkish) transcribed it correctly apart from how it wrote numbers, the brand name and "kaygı ile" (heard as "kaygıyla").
 
-One voice; `--voice` is ignored with a note on stderr. Speed 0.25–4 (Kurgu offers 0.5–2). On an Apple M4, 13.5 s of
+One voice; `--voice` is ignored with a note on stderr. Speed 0.25–4 (Ekin offers 0.5–2). On an Apple M4, 13.5 s of
 speech takes 0.9 s with a warm cache (about 15× faster than real time); the first run downloads about 33 MB of
 weights and the `normalizer-tr` and `onnxruntime` wheels.
 
 | Variable | Meaning |
 |---|---|
-| `KURGU_EMA_HF_REPO` | Hugging Face repo with the ONNX graphs (default `ozcancelik/ema-lightning-onnx`). |
-| `KURGU_EMA_REVISION` | Revision to download (default: the one the script was checked against). |
+| `EKIN_EMA_HF_REPO` | Hugging Face repo with the ONNX graphs (default `ozcancelik/ema-lightning-onnx`). |
+| `EKIN_EMA_REVISION` | Revision to download (default: the one the script was checked against). |
 
 ## ElevenLabs
 

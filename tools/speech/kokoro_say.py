@@ -16,9 +16,9 @@ Word times come from the per-phoneme durations the model itself predicts (the mo
 Phonemization uses the espeak-ng library bundled in the espeakng-loader wheel; no system espeak-ng is needed.
 
 Environment:
-    KURGU_KOKORO_MODEL    model precision: fp32 (default, 326 MB), fp16 (164 MB) or int8 (114 MB, lower quality)
-    KURGU_KOKORO_LANG     espeak language, en-us (default) or en-gb
-    KURGU_SPEECH_THREADS  ONNX Runtime intra-op threads (default 0 = all cores)
+    EKIN_KOKORO_MODEL    model precision: fp32 (default, 326 MB), fp16 (164 MB) or int8 (114 MB, lower quality)
+    EKIN_KOKORO_LANG     espeak language, en-us (default) or en-gb
+    EKIN_SPEECH_THREADS  ONNX Runtime intra-op threads (default 0 = all cores)
 """
 
 import argparse
@@ -296,7 +296,7 @@ PUNCT = frozenset(" ;:,.!?¡¿—…\"«»“”()-'")
 
 def ensure_model(model_dir: Path, variant: str) -> tuple[Path, Path]:
     if variant not in MODELS:
-        raise Failure(f"KURGU_KOKORO_MODEL must be one of {', '.join(MODELS)}, got {variant!r}")
+        raise Failure(f"EKIN_KOKORO_MODEL must be one of {', '.join(MODELS)}, got {variant!r}")
     model, voices = model_dir / MODELS[variant], model_dir / VOICES
     for path in (model, voices):
         if not path.is_file():
@@ -326,12 +326,12 @@ def main() -> int:
     ap.add_argument("--out-dir", required=True, type=Path)
     ap.add_argument("--speed", type=float, default=1.0)
     ap.add_argument("--voice", default="af_heart")
-    ap.add_argument("--accent", choices=["en-us", "en-gb"], default=None, help="overrides KURGU_KOKORO_LANG")
-    ap.add_argument("--quality", choices=["fp32", "fp16", "int8"], default=None, help="overrides KURGU_KOKORO_MODEL")
+    ap.add_argument("--accent", choices=["en-us", "en-gb"], default=None, help="overrides EKIN_KOKORO_LANG")
+    ap.add_argument("--quality", choices=["fp32", "fp16", "int8"], default=None, help="overrides EKIN_KOKORO_MODEL")
     ap.add_argument("--sentence-pause", type=float, default=SENTENCE_PAUSE, help="seconds between sentences")
     ap.add_argument("--paragraph-pause", type=float, default=PARAGRAPH_PAUSE, help="seconds between paragraphs")
     ap.add_argument("--lexicon", type=Path, default=None, help='JSON {"written": "spoken"} pronunciation dictionary')
-    ap.add_argument("--model-dir", type=Path, default=Path("~/.cache/kurgu/speech/kokoro"))
+    ap.add_argument("--model-dir", type=Path, default=Path("~/.cache/ekin/speech/kokoro"))
     args = ap.parse_args()
     t0 = time.perf_counter()
     for name, v in (("--sentence-pause", args.sentence_pause), ("--paragraph-pause", args.paragraph_pause)):
@@ -347,14 +347,14 @@ def main() -> int:
     pieces = chunks(text, "en")
     if not pieces:
         raise Failure("the text file has no text to read")
-    lang = args.accent or os.environ.get("KURGU_KOKORO_LANG", "en-us")
+    lang = args.accent or os.environ.get("EKIN_KOKORO_LANG", "en-us")
 
-    model_path, voices_path = ensure_model(args.model_dir.expanduser(), args.quality or os.environ.get("KURGU_KOKORO_MODEL", "fp32"))
+    model_path, voices_path = ensure_model(args.model_dir.expanduser(), args.quality or os.environ.get("EKIN_KOKORO_MODEL", "fp32"))
     import onnxruntime as ort
     from kokoro_onnx import Kokoro
 
     options = ort.SessionOptions()
-    options.intra_op_num_threads = int(os.environ.get("KURGU_SPEECH_THREADS", "0"))
+    options.intra_op_num_threads = int(os.environ.get("EKIN_SPEECH_THREADS", "0"))
     options.log_severity_level = 3
     session = ort.InferenceSession(str(model_path), options, providers=["CPUExecutionProvider"])
     kokoro = Kokoro.from_session(session, str(voices_path))

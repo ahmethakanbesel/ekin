@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
 <meta charset="utf-8">
-<title>Kurgu bench composition</title>
+<title>Ekin bench composition</title>
 <style>
   @font-face { font-family: "Inter"; src: url("../assets/Inter.ttf") format("truetype"); font-weight: 100 900; }
   html, body { margin: 0; padding: 0; background: #000; }
@@ -29,7 +29,7 @@
   <div id="track"><div id="bar"></div></div>
 </div>
 <script>
-// Composition contract: window.kurgu = { duration, fps, width, height, ready, renderAt(t) }.
+// Composition contract: window.ekin = { duration, fps, width, height, ready, renderAt(t) }.
 // Every frame is a pure function of t (seconds). No timers, no requestAnimationFrame, no network.
 const SPEC = {"duration":20,"fps":30,"width":1080,"height":1920,"title":"Bağlanma stilleri","bullets":[{"at":4,"text":"Kaygılı: yakınlık ister"},{"at":8,"text":"Kaçıngan: mesafe koyar"},{"at":12,"text":"Güvenli: öğrenilebilir"}],"wordsPerPage":5,"words":[{"text":"Bağlanma","start":0.5,"end":0.91},{"text":"stili","start":0.96,"end":1.28},{"text":"çocuklukta","start":1.33,"end":1.8},{"text":"öğrenilir","start":1.85,"end":2.29},{"text":"ama","start":2.34,"end":2.6},{"text":"yetişkin","start":2.65,"end":3.06},{"text":"ilişkilerimizi","start":3.11,"end":3.69},{"text":"de","start":3.74,"end":3.98},{"text":"şekillendirir.","start":4.03,"end":4.61},{"text":"Kaygılı","start":4.86,"end":5.24},{"text":"bağlanan","start":5.29,"end":5.7},{"text":"kişi","start":5.75,"end":6.04},{"text":"yakınlık","start":6.09,"end":6.5},{"text":"ister,","start":6.55,"end":6.9},{"text":"kaçıngan","start":7.15,"end":7.56},{"text":"olan","start":7.61,"end":7.9},{"text":"ise","start":7.95,"end":8.22},{"text":"mesafe","start":8.27,"end":8.62},{"text":"koyar.","start":8.67,"end":9.02},{"text":"Güvenli","start":9.27,"end":9.65},{"text":"bağlanma","start":9.7,"end":10.11},{"text":"öğrenilebilir:","start":10.16,"end":10.74},{"text":"fark","start":10.99,"end":11.28},{"text":"etmek,","start":11.33,"end":11.68},{"text":"adlandırmak","start":11.93,"end":12.43},{"text":"ve","start":12.47,"end":12.71},{"text":"küçük","start":12.76,"end":13.09},{"text":"adımlarla","start":13.13,"end":13.57},{"text":"denemek","start":13.62,"end":14},{"text":"iyileşmenin","start":14.05,"end":14.55},{"text":"başlangıcıdır.","start":14.6,"end":15.18},{"text":"Bugün","start":15.43,"end":15.75},{"text":"ilk","start":15.8,"end":16.07},{"text":"küçük","start":16.11,"end":16.44},{"text":"adımı","start":16.49,"end":16.81},{"text":"birlikte","start":16.86,"end":17.27},{"text":"atalım,","start":17.32,"end":17.7},{"text":"hemen","start":17.95,"end":18.27},{"text":"şimdi,","start":18.32,"end":18.67},{"text":"burada.","start":18.92,"end":19.3}]};
 </script>
@@ -88,7 +88,7 @@ function renderAt(t) {
   bar.style.width = `${1080 * clamp(p)}px`;
 }
 
-window.kurgu = {
+window.ekin = {
   duration: SPEC.duration, fps: SPEC.fps, width: SPEC.width, height: SPEC.height,
   ready: (async () => {
     await document.fonts.load('800 92px "Inter"');

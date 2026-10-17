@@ -1,4 +1,4 @@
-module kurgu.local/bench/render/vanilla-go
+module ekin.local/bench/render/vanilla-go
 
 go 1.26
 

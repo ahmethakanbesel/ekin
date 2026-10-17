@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	knowledgedomain "kurgu/internal/domain/knowledge/v1"
+	knowledgedomain "ekin/internal/domain/knowledge/v1"
 )
 
 // book is pdftohtml XML for a 4-page book: body text in 18 pt, a 25 pt

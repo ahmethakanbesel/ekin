@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"kurgu/internal/db/dbtest"
+	"ekin/internal/db/dbtest"
 )
 
 func TestFoldFunction(t *testing.T) {

@@ -19,40 +19,40 @@ import (
 	"time"
 	"unicode"
 
-	"kurgu/internal/adapter/extract"
-	"kurgu/internal/blob"
-	"kurgu/internal/db/dbtest"
-	identitydomain "kurgu/internal/domain/identity/v1"
-	jobdomain "kurgu/internal/domain/job/v1"
-	settingsdomain "kurgu/internal/domain/settings/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/internal/gen"
-	identityrepo "kurgu/internal/repository/identity/v1"
-	jobrepo "kurgu/internal/repository/job/v1"
-	knowledgerepo "kurgu/internal/repository/knowledge/v1"
-	libraryrepo "kurgu/internal/repository/library/v1"
-	pipelinerepo "kurgu/internal/repository/pipeline/v1"
-	settingsrepo "kurgu/internal/repository/settings/v1"
-	storyrepo "kurgu/internal/repository/story/v1"
-	templaterepo "kurgu/internal/repository/template/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	defaultssvc "kurgu/internal/service/defaults/v1"
-	identitysvc "kurgu/internal/service/identity/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	knowledgesvc "kurgu/internal/service/knowledge/v1"
-	librarysvc "kurgu/internal/service/library/v1"
-	pipelinesvc "kurgu/internal/service/pipeline/v1"
-	productionsvc "kurgu/internal/service/production/v1"
-	settingssvc "kurgu/internal/service/settings/v1"
-	templatesvc "kurgu/internal/service/template/v1"
-	workspacesvc "kurgu/internal/service/workspace/v1"
-	httptransport "kurgu/internal/transport/http"
-	systemhandler "kurgu/internal/transport/http/system/v1"
-	"kurgu/pkg/password"
-	"kurgu/pkg/secretbox"
+	"ekin/internal/adapter/extract"
+	"ekin/internal/blob"
+	"ekin/internal/db/dbtest"
+	identitydomain "ekin/internal/domain/identity/v1"
+	jobdomain "ekin/internal/domain/job/v1"
+	settingsdomain "ekin/internal/domain/settings/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/internal/gen"
+	identityrepo "ekin/internal/repository/identity/v1"
+	jobrepo "ekin/internal/repository/job/v1"
+	knowledgerepo "ekin/internal/repository/knowledge/v1"
+	libraryrepo "ekin/internal/repository/library/v1"
+	pipelinerepo "ekin/internal/repository/pipeline/v1"
+	settingsrepo "ekin/internal/repository/settings/v1"
+	storyrepo "ekin/internal/repository/story/v1"
+	templaterepo "ekin/internal/repository/template/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	defaultssvc "ekin/internal/service/defaults/v1"
+	identitysvc "ekin/internal/service/identity/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	knowledgesvc "ekin/internal/service/knowledge/v1"
+	librarysvc "ekin/internal/service/library/v1"
+	pipelinesvc "ekin/internal/service/pipeline/v1"
+	productionsvc "ekin/internal/service/production/v1"
+	settingssvc "ekin/internal/service/settings/v1"
+	templatesvc "ekin/internal/service/template/v1"
+	workspacesvc "ekin/internal/service/workspace/v1"
+	httptransport "ekin/internal/transport/http"
+	systemhandler "ekin/internal/transport/http/system/v1"
+	"ekin/pkg/password"
+	"ekin/pkg/secretbox"
 )
 
-const publicURL = "https://kurgu.example.com"
+const publicURL = "https://ekin.example.com"
 
 type server struct {
 	*httptest.Server
@@ -117,7 +117,7 @@ func newServer(t *testing.T) *server {
 		Defaults: defaultssvc.NewService(settingsrepo.NewSQLite(tx), settings, defaultssvc.Config{Profile: "default", Effort: "high"}).
 			WithTemplates(templates),
 		PublicURL: publicURL,
-		UI:        fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Kurgu</title>")}},
+		UI:        fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Ekin</title>")}},
 		Log:       slog.New(slog.NewJSONHandler(logs, nil)),
 	})
 	if err != nil {
@@ -349,7 +349,7 @@ func TestSPAFallbackAndUnknownAPI(t *testing.T) {
 	}
 	body, _ := io.ReadAll(res.Body)
 	_ = res.Body.Close()
-	if res.StatusCode != 200 || !bytes.Contains(body, []byte("<title>Kurgu</title>")) {
+	if res.StatusCode != 200 || !bytes.Contains(body, []byte("<title>Ekin</title>")) {
 		t.Fatalf("spa fallback = %d %s", res.StatusCode, body)
 	}
 	var e gen.Error
@@ -372,7 +372,7 @@ func TestSessionLifecycle(t *testing.T) {
 	res := c.do("POST", "/api/v1/auth/login", map[string]any{"email": "ADA@example.com", "password": "password-ada@example.com"}, nil)
 	_ = res.Body.Close()
 	cookie := res.Header.Get("Set-Cookie")
-	for _, want := range []string{"kurgu_session=", "HttpOnly", "Secure", "SameSite=Lax", "Path=/"} {
+	for _, want := range []string{"ekin_session=", "HttpOnly", "Secure", "SameSite=Lax", "Path=/"} {
 		if !strings.Contains(cookie, want) {
 			t.Fatalf("cookie %q lacks %s", cookie, want)
 		}

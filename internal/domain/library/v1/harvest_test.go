@@ -6,9 +6,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	library "kurgu/internal/domain/library/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	library "ekin/internal/domain/library/v1"
+	"ekin/pkg/id"
 )
 
 func harvest() library.Harvest {

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"kurgu/internal/adapter/openseo"
+	"ekin/internal/adapter/openseo"
 )
 
 // fakeMCP answers like OpenSEO's stateless endpoint.

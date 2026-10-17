@@ -41,7 +41,7 @@ const MEDIA_SOURCES: MediaSource[] = ["fresh", "library", "mixed"]
 const THUMBNAIL_COUNTS = [0, 1, 2, 3, 4]
 const SELF_REVIEW_ROUNDS = [0, 1, 2, 3, 4, 5]
 
-/** The built-ins under the server: what Kurgu does when no layer says. */
+/** The built-ins under the server: what Ekin does when no layer says. */
 const BUILT_IN = { selfReview: 1, reviewAt: "video", thumbnails: 3, media: "fresh" } as const
 
 type Key =

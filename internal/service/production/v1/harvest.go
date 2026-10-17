@@ -16,13 +16,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/agenttool"
-	"kurgu/internal/apperror"
-	jobdomain "kurgu/internal/domain/job/v1"
-	librarydomain "kurgu/internal/domain/library/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	librarysvc "kurgu/internal/service/library/v1"
-	"kurgu/pkg/archive"
+	"ekin/internal/agenttool"
+	"ekin/internal/apperror"
+	jobdomain "ekin/internal/domain/job/v1"
+	librarydomain "ekin/internal/domain/library/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	librarysvc "ekin/internal/service/library/v1"
+	"ekin/pkg/archive"
 )
 
 // KindHarvest saves what a video revision used to the library, for the
@@ -94,7 +94,7 @@ func (s *Service) Harvest(ctx context.Context, p HarvestPayload) error {
 		return err
 	}
 	ws := st.WorkspaceID()
-	dir, err := os.MkdirTemp("", "kurgu-harvest-*")
+	dir, err := os.MkdirTemp("", "ekin-harvest-*")
 	if err != nil {
 		return err
 	}
@@ -336,7 +336,7 @@ func (s *Service) openRevision(ctx context.Context, workspaceID, storyID, delive
 	if !d.IsVideo() || number < 1 || number > d.Revision() {
 		return nil, "", nil, apperror.New(apperror.NotFound, "no such video revision")
 	}
-	dir, err := os.MkdirTemp("", "kurgu-revision-*")
+	dir, err := os.MkdirTemp("", "ekin-revision-*")
 	if err != nil {
 		return nil, "", nil, err
 	}

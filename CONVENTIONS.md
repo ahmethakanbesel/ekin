@@ -65,7 +65,7 @@ handler.
   read pool. `db.TxManager` stores the transaction in the context; repositories ask
   `db.Q(ctx)` for the right querier.
 - Migrations: goose, SQL files embedded in `internal/db/migrations`, run with
-  `kurgu migrate up` (and at `serve` start when `KURGU_MIGRATE_ON_START=true`, the default
+  `ekin migrate up` (and at `serve` start when `EKIN_MIGRATE_ON_START=true`, the default
   for single-instance deployments).
 - Every table carries `workspace_id`; every repository method takes it explicitly.
 - Each repository has an in-memory implementation and a shared conformance test suite
@@ -81,7 +81,7 @@ Job handlers are transport: they parse the payload and call a service.
 
 ## 7. Configuration
 
-Environment variables prefixed `KURGU_`, with safe local defaults. Secrets fail fast when
+Environment variables prefixed `EKIN_`, with safe local defaults. Secrets fail fast when
 unset in production. Runtime-tunable settings (throttling) live in the database with env
 defaults.
 
@@ -102,7 +102,7 @@ pinned `go run module@version`.
 ## 10. Access control
 
 - The spec is the source of truth for who may call what: an operation is public only when
-  it says `security: []`; everything else needs the `kurgu_session` cookie.
+  it says `security: []`; everything else needs the `ekin_session` cookie.
 - The router's strict middleware (`internal/transport/http/access.go`) authenticates, and
   for `/workspaces/{workspaceId}/...` checks the caller's membership against the
   operation's `identity.Action` (view / edit / manage). A workspace operation missing
@@ -126,16 +126,16 @@ directly on the mux:
 - `GET /api/v1/workspaces/{ws}/library/assets/{id}/files/{main|poster}` — library files,
   same file, same checks.
 - `/api/v1/worker/...` — the hybrid-worker API (`internal/transport/http/worker`),
-  bearer-token auth (`KURGU_WORKER_TOKEN`), off when the token is empty.
+  bearer-token auth (`EKIN_WORKER_TOKEN`), off when the token is empty.
 
 Everything else goes through the spec.
 
 ## 12. Agent runs
 
-- Work dirs live at `<KURGU_WORK_DIR>/<deliverable id>`; each revision's dir is archived
+- Work dirs live at `<EKIN_WORK_DIR>/<deliverable id>`; each revision's dir is archived
   to the blob store, so another host can restore it.
 - Instructions are templates in `internal/service/production/v1/prompts`; they name the
-  tools `kurgu tool …`, and the agent's PATH starts with a `kurgu` link to the running
+  tools `ekin tool …`, and the agent's PATH starts with a `ekin` link to the running
   binary.
 - A step is begin (server: state + inputs) → run (no database; may run remotely) →
   finish (server: archive + state). Keep `Run*` free of repositories.

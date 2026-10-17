@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"kurgu/internal/adapter/render"
-	"kurgu/internal/agenttool"
+	"ekin/internal/adapter/render"
+	"ekin/internal/agenttool"
 )
 
 // prober stands in for Chrome: every composition loads with meta.
@@ -52,7 +52,7 @@ func TestCheckKeepsAClipsNarration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
 			_ = os.MkdirAll(filepath.Join(dir, "narration"), 0o750)
-			_ = os.WriteFile(filepath.Join(dir, "composition.html"), []byte(`<script src="/kit/kurgu.js"></script>`), 0o600)
+			_ = os.WriteFile(filepath.Join(dir, "composition.html"), []byte(`<script src="/kit/ekin.js"></script>`), 0o600)
 			_ = os.WriteFile(filepath.Join(dir, "metadata.json"), []byte(`{"title":"Öfke","description":"d","tags":[]}`), 0o600)
 			_ = os.WriteFile(filepath.Join(dir, "narration", "timings.json"), []byte(`{"duration": `+tt.narration+`, "words": []}`), 0o600)
 			spec := agenttool.Spec{Language: "tr", Width: 1080, Height: 1920, MinDuration: 20.4, MaxDuration: 24.4, Clip: true}
@@ -224,7 +224,7 @@ func TestCheckFollowsAMovedCut(t *testing.T) {
 	if err := agenttool.Run(context.Background(), env, []string{"clip", "--first", "2", "--last", "8"}); err != nil {
 		t.Fatal(err)
 	}
-	_ = os.WriteFile(filepath.Join(dir, "composition.html"), []byte(`<script src="/kit/kurgu.js"></script>`), 0o600)
+	_ = os.WriteFile(filepath.Join(dir, "composition.html"), []byte(`<script src="/kit/ekin.js"></script>`), 0o600)
 	_ = os.WriteFile(filepath.Join(dir, "metadata.json"), []byte(`{"title":"Öfke","description":"d","tags":[]}`), 0o600)
 	// The spec still holds the length prepared (29.6 s); the cut now
 	// lasts 34.6 s and the composition follows it.

@@ -14,29 +14,29 @@ import (
 	"testing"
 	"time"
 
-	"kurgu/internal/adapter/claude"
-	"kurgu/internal/adapter/extract"
-	"kurgu/internal/adapter/remote"
-	"kurgu/internal/adapter/render"
-	"kurgu/internal/apperror"
-	"kurgu/internal/blob"
-	"kurgu/internal/db/dbtest"
-	jobdomain "kurgu/internal/domain/job/v1"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
-	jobrepo "kurgu/internal/repository/job/v1"
-	knowledgerepo "kurgu/internal/repository/knowledge/v1"
-	pipelinerepo "kurgu/internal/repository/pipeline/v1"
-	storyrepo "kurgu/internal/repository/story/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	knowledgesvc "kurgu/internal/service/knowledge/v1"
-	pipelinesvc "kurgu/internal/service/pipeline/v1"
-	productionsvc "kurgu/internal/service/production/v1"
-	workerapi "kurgu/internal/transport/http/worker"
-	remoteworker "kurgu/internal/transport/job/remote/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/adapter/claude"
+	"ekin/internal/adapter/extract"
+	"ekin/internal/adapter/remote"
+	"ekin/internal/adapter/render"
+	"ekin/internal/apperror"
+	"ekin/internal/blob"
+	"ekin/internal/db/dbtest"
+	jobdomain "ekin/internal/domain/job/v1"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	workspacedomain "ekin/internal/domain/workspace/v1"
+	jobrepo "ekin/internal/repository/job/v1"
+	knowledgerepo "ekin/internal/repository/knowledge/v1"
+	pipelinerepo "ekin/internal/repository/pipeline/v1"
+	storyrepo "ekin/internal/repository/story/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	knowledgesvc "ekin/internal/service/knowledge/v1"
+	pipelinesvc "ekin/internal/service/pipeline/v1"
+	productionsvc "ekin/internal/service/production/v1"
+	workerapi "ekin/internal/transport/http/worker"
+	remoteworker "ekin/internal/transport/job/remote/v1"
+	"ekin/pkg/id"
 )
 
 // agent answers idea prompts and writes a valid video into the dir.
@@ -50,7 +50,7 @@ func (a agent) Run(_ context.Context, req claude.Request) (claude.Result, error)
 		return claude.Result{}, errors.New("the work dir did not arrive")
 	}
 	files := map[string]string{
-		"script.md": "s", "narration/speech.wav": "RIFF", "composition.html": `<script src="/kit/kurgu.js"></script>`,
+		"script.md": "s", "narration/speech.wav": "RIFF", "composition.html": `<script src="/kit/ekin.js"></script>`,
 		"narration/timings.json": `{"duration": 20, "words": [{"text":"a","start":0,"end":1}]}`,
 		"metadata.json":          `{"title":"Ruminasyon","description":"d","tags":[]}`,
 		"made-on":                a.host,

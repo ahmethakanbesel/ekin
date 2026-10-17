@@ -8,12 +8,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	seodomain "kurgu/internal/domain/seo/v1"
-	"kurgu/internal/gen"
-	seosvc "kurgu/internal/service/seo/v1"
-	jobhandler "kurgu/internal/transport/http/job/v1"
-	"kurgu/internal/transport/http/principal"
+	"ekin/internal/apperror"
+	seodomain "ekin/internal/domain/seo/v1"
+	"ekin/internal/gen"
+	seosvc "ekin/internal/service/seo/v1"
+	jobhandler "ekin/internal/transport/http/job/v1"
+	"ekin/internal/transport/http/principal"
 )
 
 // Handler serves SEO opportunities.

@@ -9,11 +9,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/adapter/claude"
-	"kurgu/internal/apperror"
-	jobdomain "kurgu/internal/domain/job/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/adapter/claude"
+	"ekin/internal/apperror"
+	jobdomain "ekin/internal/domain/job/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/pkg/id"
 )
 
 // KindMoments is the job that has the agent find moments in a long

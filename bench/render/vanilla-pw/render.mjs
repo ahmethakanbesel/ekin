@@ -25,13 +25,13 @@ if (process.argv.includes("--fast")) args.push("--disable-frame-rate-limit", "--
 const browser = await chromium.launch({ executablePath: CHROME, headless: true, args });
 const page = await browser.newPage({ viewport: { width: 1080, height: 1920 }, deviceScaleFactor: SCALE });
 await page.goto(`http://127.0.0.1:${server.address().port}/vanilla/composition.html`);
-const { duration, fps } = await page.evaluate(async () => { await kurgu.ready; return { duration: kurgu.duration, fps: kurgu.fps }; });
+const { duration, fps } = await page.evaluate(async () => { await ekin.ready; return { duration: ekin.duration, fps: ekin.fps }; });
 
 const ff = spawn("ffmpeg", ["-y", "-loglevel", "error", "-f", "image2pipe", "-framerate", String(fps), "-c:v", "mjpeg", "-i", "-",
   "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-movflags", "+faststart", OUT], { stdio: ["pipe", "inherit", "inherit"] });
 const frames = Math.round(duration * fps);
 for (let f = 0; f < frames; f++) {
-  await page.evaluate(t => kurgu.renderAt(t), f / fps);
+  await page.evaluate(t => ekin.renderAt(t), f / fps);
   const buf = await page.screenshot({ type: "jpeg", quality: 90 });
   if (!ff.stdin.write(buf)) await new Promise(r => ff.stdin.once("drain", r));
 }

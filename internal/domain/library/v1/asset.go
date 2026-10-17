@@ -14,9 +14,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/pkg/fold"
-	"kurgu/pkg/timeutil"
+	"ekin/internal/apperror"
+	"ekin/pkg/fold"
+	"ekin/pkg/timeutil"
 )
 
 // Limits.

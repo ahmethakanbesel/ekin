@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"kurgu/internal/adapter/pexels"
+	"ekin/internal/adapter/pexels"
 )
 
 func TestSearchVideoPicksSmallestAdequate(t *testing.T) {

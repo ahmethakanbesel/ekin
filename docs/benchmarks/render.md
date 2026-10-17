@@ -1,9 +1,9 @@
 # Render engine benchmark
 
-Spike for PLAN.md §2 "Render engine" and §8 milestone 0. The question: which way should Kurgu turn an
+Spike for PLAN.md §2 "Render engine" and §8 milestone 0. The question: which way should Ekin turn an
 animated HTML/CSS/JS composition into an MP4?
 
-1. **vanilla**: `composition.html` exposes `window.kurgu = { duration, fps, width, height, ready, renderAt(t) }`.
+1. **vanilla**: `composition.html` exposes `window.ekin = { duration, fps, width, height, ready, renderAt(t) }`.
    A Go chromedp driver calls `renderAt(t)` for each frame, captures a JPEG and pipes it to ffmpeg.
 2. **Remotion** 4.0.535: the same composition as a React component (`useCurrentFrame`).
 3. **Revideo** 0.11.0: the same composition as a Motion Canvas scene.
@@ -123,7 +123,7 @@ contact sheet is `bench/render/out/snap/cmp-engines.jpg`):
 | Model | Plain DOM/CSS. `renderAt(t)` sets styles from `t` | React, styles from `useCurrentFrame()`. The same pure-function idea | Motion Canvas scene graph on a canvas. Generator timelines (`yield* tween`) and signals. Not HTML/CSS |
 | Training-data familiarity | Highest (HTML/CSS/JS) | High (React + a small API) | Low (niche API, own layout and text engine) |
 | Ease of writing correctly | Easy. One file, no build | Easy, but needs a bundler, `staticFile`, `delayRender` for fonts | Hard. Our own port needed coordinate maths (centre origin) and still broke captions without an error |
-| Validation | Load the page, check the `kurgu` contract, `renderAt` at sampled t, catch console errors, block network (`--host-resolver-rules`) | `remotion compositions` + render stills | Vite build + render. Errors surface late |
+| Validation | Load the page, check the `ekin` contract, `renderAt` at sampled t, catch console errors, block network (`--host-resolver-rules`) | `remotion compositions` + render stills | Vite build + render. Errors surface late |
 | `preview_frame(t)` | **1.3 s cold** (Chrome launch + load + PNG), single-digit ms per frame warm | `remotion still`: 15 s first (bundling), 2 s cached | Requires the Vite dev server + puppeteer. Not timed |
 | Determinism | Bundled font, local server, network blocked, byte-identical across capture modes | Same (Chromium) | Canvas text depends on the font being loaded first. Must `yield document.fonts.load()` |
 | Install weight | Go binary 11 MB + a system Chromium. Debian image with chromium, headless shell and ffmpeg: 1.19 GB | 390 MB node_modules + 570 MB headless shell it downloads on the first render (needs network) | 263 MB node_modules + puppeteer Chrome (362 MB) + headless shell (201 MB) in `~/.cache/puppeteer`. Telemetry is on unless `DISABLE_TELEMETRY=true` |
@@ -170,7 +170,7 @@ contact sheet is `bench/render/out/snap/cmp-engines.jpg`):
 - An agent can write it easily and check it cheaply. `preview_frame(t)` is a 1.3 s cold call and milliseconds
   warm, with no bundler and no build step.
 - There is no license exposure. Remotion would need a Company License once the org has more than 3 people,
-  and Kurgu is exactly the "Automators" case ($100 / month minimum).
+  and Ekin is exactly the "Automators" case ($100 / month minimum).
 - It is the lightest dependency: one Go binary plus Chromium and ffmpeg, which are already in the stack. No
   Node in the render path.
 - It is deterministic: bundled fonts, a local file server, network blocked, and identical frames from every
@@ -199,7 +199,7 @@ It already matches the benchmark driver: screenshot capture, a new browser conte
          target.CreateTargetParams{URL: "about:blank", EnableBeginFrameControl: &on})
      tab, _ := chromedp.NewContext(browserCtx, chromedp.WithTargetID(res.TargetID))
      ```
-   - For each frame: `Runtime.evaluate("Promise.resolve(kurgu.renderAt(t)).then(() => 0)", awaitPromise)`, then
+   - For each frame: `Runtime.evaluate("Promise.resolve(ekin.renderAt(t)).then(() => 0)", awaitPromise)`, then
      ```go
      cdp.Call(ctx, t, headlessexperimental.BeginFrame, headlessexperimental.BeginFrameParams{
          FrameTimeTicks: 1e6 + float64(f)*1000/fps, Interval: 1000 / fps,

@@ -1,6 +1,6 @@
 # Remote workers — plan
 
-Run Kurgu's heavy jobs (drafts, renders) on any number of machines — the VPS, a Mac at
+Run Ekin's heavy jobs (drafts, renders) on any number of machines — the VPS, a Mac at
 home, a spare Linux box — while the server runs on either the VPS or the home network,
 and no machine needs a static IP.
 
@@ -9,7 +9,7 @@ and no machine needs a static IP.
 
 ## 1. Where we are
 
-`kurgu worker` with `KURGU_REMOTE_URL` + `KURGU_WORKER_TOKEN` already runs `deliverable.draft`
+`ekin worker` with `EKIN_REMOTE_URL` + `EKIN_WORKER_TOKEN` already runs `deliverable.draft`
 and `deliverable.render` remotely (`internal/adapter/remote`,
 `internal/transport/http/worker`). The worker only dials out (claim → begin → fetch work
 dir → run → upload → finish), so it never needs an inbound port or a fixed address. What
@@ -35,15 +35,15 @@ server needs a reachable name.
 |---|---|---|
 | VPS (public HTTPS domain) | VPS, home Mac, anywhere | The public URL. Works today. |
 | Home network | Same LAN | `http://<lan-host>:8080` or a mDNS name. |
-| Home network, dynamic IP | VPS or elsewhere | **Tailscale** on both (recommended): MagicDNS gives a stable name (`kurgu-home.<tailnet>.ts.net`) through NAT and IP changes, and WireGuard encrypts. Alternative: **Cloudflare Tunnel** (`cloudflared`) publishes the home server at a fixed public hostname, which also gives `KURGU_PUBLIC_URL` and the YouTube OAuth callback a real domain. |
+| Home network, dynamic IP | VPS or elsewhere | **Tailscale** on both (recommended): MagicDNS gives a stable name (`ekin-home.<tailnet>.ts.net`) through NAT and IP changes, and WireGuard encrypts. Alternative: **Cloudflare Tunnel** (`cloudflared`) publishes the home server at a fixed public hostname, which also gives `EKIN_PUBLIC_URL` and the YouTube OAuth callback a real domain. |
 | Anywhere | Laptop that sleeps / roams | Same as above; leases and resumable transfers (§5) absorb the gaps. |
 
 No built-in relay or reverse tunnel: Tailscale and Cloudflare Tunnel solve NAT and dynamic
-IPs better than Kurgu could, at no cost. Revisit only if neither is acceptable.
+IPs better than Ekin could, at no cost. Revisit only if neither is acceptable.
 
 Transport safety: the worker refuses a plain `http://` server URL unless the host is
 loopback, an RFC 1918 / ULA address, a `.local` name or in Tailscale's `100.64.0.0/10`
-(`KURGU_REMOTE_INSECURE=true` overrides).
+(`EKIN_REMOTE_INSECURE=true` overrides).
 
 ## 3. Identity and enrolment
 
@@ -51,10 +51,10 @@ Replace the shared token with one token per worker.
 
 1. An admin opens **System → Workers → Add worker**, names it (`mac-studio`) and gets a
    one-time join code (valid 1 h) and the command to run:
-   `kurgu worker join https://kurgu.example.com KJ-7F3Q-...`
+   `ekin worker join https://ekin.example.com KJ-7F3Q-...`
 2. `join` exchanges the code for a long-lived worker token
    (`POST /api/v1/worker/join`), writes it with the URL to the worker's config file
-   (`~/.config/kurgu/worker.json`, mode 0600, or `KURGU_DATA_DIR/worker.json` in Docker),
+   (`~/.config/ekin/worker.json`, mode 0600, or `EKIN_DATA_DIR/worker.json` in Docker),
    and prints how to install the service (§8).
 3. The server stores only the token's SHA-256, like sessions and invitations.
 4. Every worker request authenticates by token; the server derives the **owner from the
@@ -63,7 +63,7 @@ Replace the shared token with one token per worker.
 5. Revoke deletes the token; the worker's running job loses its lease at the next
    heartbeat and is re-queued.
 
-`KURGU_WORKER_TOKEN` stays accepted as a legacy shared token for one release, shown on
+`EKIN_WORKER_TOKEN` stays accepted as a legacy shared token for one release, shown on
 the Workers page as "legacy worker", then is removed.
 
 New aggregate in the **job** context: `Worker` (id, workspace-independent, name, token
@@ -93,7 +93,7 @@ profile name, state: active / draining / paused / revoked). Domain rules on it:
   online can run shows "no worker can run this: needs kokoro" on the Jobs page instead of
   waiting silently.
 - **Server-side secrets instead of copying keys.** Tools that need an API key
-  (`kurgu tool stock`, ElevenLabs narration) call the server through the worker API
+  (`ekin tool stock`, ElevenLabs narration) call the server through the worker API
   (`POST /worker/jobs/{id}/tool/stock`), scoped to the leased job, instead of reading the
   key from the worker's environment. Keys stay in System → Credentials, and a new worker
   needs only Claude and local binaries.
@@ -106,8 +106,8 @@ profile name, state: active / draining / paused / revoked). Domain rules on it:
 Content-addressed files instead of whole-dir tarballs:
 
 - `GET /worker/jobs/{id}/manifest` → `[{path, sha256, size, mode}]` for the work dir.
-- The worker keeps a local cache (`KURGU_DATA_DIR/cache/blobs`, LRU, size cap
-  `KURGU_WORKER_CACHE`, default 10 GB) and fetches only missing hashes with
+- The worker keeps a local cache (`EKIN_DATA_DIR/cache/blobs`, LRU, size cap
+  `EKIN_WORKER_CACHE`, default 10 GB) and fetches only missing hashes with
   `GET /worker/blobs/{sha256}` (Range supported, so an interrupted download resumes).
 - Upload: `POST /worker/blobs/missing` with the result's hashes → `PUT /worker/blobs/{sha256}`
   for each missing one, resumable with `HEAD` (bytes received) + `Content-Range`. The
@@ -132,7 +132,7 @@ Feedback must resume on any worker.
 
 - After each draft run the worker copies the session transcript
   (`~/.claude/projects/<encoded cwd>/<session>.jsonl`) into the work dir as
-  `.kurgu/session.jsonl`; it is uploaded with the rest.
+  `.ekin/session.jsonl`; it is uploaded with the rest.
 - Before a resume, the worker restores it under its own `~/.claude/projects/<encoded
   local cwd>/` and passes the same session id to `--resume`.
 - **Affinity as a preference:** a revision job carries `preferWorker` (the one that
@@ -150,7 +150,7 @@ Level 1 — **parallel jobs** (no new code beyond §3–4): each deliverable's r
 job; ten workers render ten videos at once.
 
 Level 2 — **split renders** for long videos. The composition is deterministic per frame
-(`window.kurgu.renderAt(t)`), and the renderer already splits frame ranges across tabs
+(`window.ekin.renderAt(t)`), and the renderer already splits frame ranges across tabs
 (`render.go`, `Chunks`), so the split moves from tabs to workers:
 
 1. `deliverable.render` becomes the planner when the video is longer than
@@ -191,14 +191,14 @@ costs more than it saves.
 
 | Host | Install |
 |---|---|
-| Linux / VPS | `kurgu-worker` Docker image (the existing `worker` target) + a compose snippet taking `KURGU_REMOTE_URL` and the join code; or the binary with `kurgu worker install` writing a systemd unit. |
-| macOS | Binary (Homebrew tap later) + `kurgu worker install` writing a launchd agent in `~/Library/LaunchAgents` (runs as the user, so the Claude login and VideoToolbox work). |
-| Same host as the server | Unchanged: `kurgu all`, or the compose `worker` service; it registers as the built-in worker and appears in the list. |
+| Linux / VPS | `ekin-worker` Docker image (the existing `worker` target) + a compose snippet taking `EKIN_REMOTE_URL` and the join code; or the binary with `ekin worker install` writing a systemd unit. |
+| macOS | Binary (Homebrew tap later) + `ekin worker install` writing a launchd agent in `~/Library/LaunchAgents` (runs as the user, so the Claude login and VideoToolbox work). |
+| Same host as the server | Unchanged: `ekin all`, or the compose `worker` service; it registers as the built-in worker and appears in the list. |
 
-`kurgu worker status` prints server, identity, online state, capabilities and the current
-job. `kurgu worker doctor` runs the capability probes and a test claim.
+`ekin worker status` prints server, identity, online state, capabilities and the current
+job. `ekin worker doctor` runs the capability probes and a test claim.
 
-Version skew: every request sends `Kurgu-Worker-Version`; the server refuses claims from
+Version skew: every request sends `Ekin-Worker-Version`; the server refuses claims from
 a worker whose protocol version is too old (the Workers page says "update needed"), and
 jobs whose payload format changed declare a minimum worker version.
 

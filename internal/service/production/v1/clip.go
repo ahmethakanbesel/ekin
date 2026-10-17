@@ -12,18 +12,18 @@ import (
 	"strings"
 	"time"
 
-	"kurgu/internal/agenttool"
-	"kurgu/internal/apperror"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/pkg/archive"
-	"kurgu/pkg/wav"
+	"ekin/internal/agenttool"
+	"ekin/internal/apperror"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/pkg/archive"
+	"ekin/pkg/wav"
 )
 
 // A short cut from a long video speaks a slice of the long video's
-// narration (docs/shorts.md §4): prepare puts the slice where `kurgu
+// narration (docs/shorts.md §4): prepare puts the slice where `ekin
 // tool tts` would have, so the composition contract, the check and the
 // render work unchanged; clip/ holds a window around it the agent may
-// move the cut into with `kurgu tool clip`.
+// move the cut into with `ekin tool clip`.
 
 // clipMaterial is what prepare tells the agent about a short's clip.
 type clipMaterial struct {
@@ -51,7 +51,7 @@ func (s *Service) prepareClip(ctx context.Context, st *storydomain.Story, d *sto
 	if !ok {
 		return out, apperror.New(apperror.NotFound, "the long video kept no working files to cut from")
 	}
-	long, err := os.MkdirTemp("", "kurgu-long-*")
+	long, err := os.MkdirTemp("", "ekin-long-*")
 	if err != nil {
 		return out, err
 	}
@@ -98,7 +98,7 @@ func (s *Service) prepareClip(ctx context.Context, st *storydomain.Story, d *sto
 	return out, os.WriteFile(filepath.Join(dir, "sources", "clip.md"), []byte(clipDoc(out)), 0o600)
 }
 
-// movedClip is the clip a short's draft moved its cut to with `kurgu
+// movedClip is the clip a short's draft moved its cut to with `ekin
 // tool clip`; nil when the cut stayed (or d is not a short with a clip).
 func movedClip(d *storydomain.Deliverable, dir string) (*storydomain.Clip, error) {
 	if d.Clip() == nil {
@@ -202,7 +202,7 @@ func clipDoc(m clipMaterial) string {
 		clock(m.clip.Start()), clock(m.clip.End()), m.clip.Length().Seconds())
 	b.WriteString("## The window\n\nThe long video's sentences around it, numbered, with times in the window. " +
 		"The short speaks those marked ▶. To move the cut (when a reviewer asks to start or end elsewhere), run " +
-		"`kurgu tool clip --first N --last M`.\n\n")
+		"`ekin tool clip --first N --last M`.\n\n")
 	for i, x := range m.windowSentences {
 		mark := " "
 		if x.Start >= m.window.Start-0.02 && x.End <= m.window.End+0.02 {

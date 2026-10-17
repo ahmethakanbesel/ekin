@@ -9,10 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	story "kurgu/internal/domain/story/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	story "ekin/internal/domain/story/v1"
+	"ekin/pkg/id"
 )
 
 var now = time.Date(2026, 10, 13, 9, 0, 0, 0, time.UTC)

@@ -8,13 +8,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/db/dbtest"
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
-	pipelinerepo "kurgu/internal/repository/pipeline/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	"ekin/internal/db/dbtest"
+	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	workspacedomain "ekin/internal/domain/workspace/v1"
+	pipelinerepo "ekin/internal/repository/pipeline/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	"ekin/pkg/id"
 )
 
 var t0 = time.Date(2026, 10, 13, 7, 0, 0, 0, time.UTC)

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"kurgu/internal/adapter/render"
+	"ekin/internal/adapter/render"
 )
 
 // frame is a 20×40 dark sample with a light box drawn from row y0 to y1

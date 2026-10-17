@@ -5,7 +5,7 @@
 export const en = {
   locale: "en-GB",
   app: {
-    name: "Kurgu",
+    name: "Ekin",
     tagline: "Content pipelines",
   },
   common: {
@@ -81,7 +81,7 @@ export const en = {
   },
   auth: {
     signInTitle: "Sign in",
-    signInDescription: "Sign in to your Kurgu account.",
+    signInDescription: "Sign in to your Ekin account.",
     email: "Email",
     password: "Password",
     signIn: "Sign in",
@@ -90,7 +90,7 @@ export const en = {
     emailRequired: "Email is required.",
     passwordRequired: "Password is required.",
     noAccount: "There is no sign-up. Accounts come from a workspace invitation or from",
-    noAccountCommand: "kurgu user create",
+    noAccountCommand: "ekin user create",
     userMenu: "Account menu",
     account: "Account",
     signOut: "Sign out",
@@ -129,7 +129,7 @@ export const en = {
   },
   invite: {
     title: (workspace: string) => `Join ${workspace}`,
-    description: "You have been invited to a Kurgu workspace.",
+    description: "You have been invited to a Ekin workspace.",
     invitedEmail: "Invited email",
     role: "Role",
     expires: "Expires",
@@ -308,7 +308,7 @@ export const en = {
     description: "Approved videos are uploaded to this channel.",
     notConfiguredTitle: "YouTube is not set up on this server",
     notConfiguredBody:
-      "The server needs KURGU_YOUTUBE_CLIENT_ID and KURGU_YOUTUBE_CLIENT_SECRET from a Google Cloud OAuth client. Once they are set, Server checks shows the redirect URI to register with Google.",
+      "The server needs EKIN_YOUTUBE_CLIENT_ID and EKIN_YOUTUBE_CLIENT_SECRET from a Google Cloud OAuth client. Once they are set, Server checks shows the redirect URI to register with Google.",
     systemLink: "Open Server checks",
     notConnected: "No channel connected",
     notConnectedBody:
@@ -321,12 +321,12 @@ export const en = {
     openChannel: "Open channel on YouTube",
     privacy: "Upload privacy",
     privacyHint:
-      "Until Google's audit of Kurgu's YouTube API use passes, uploads stay private regardless of this setting.",
+      "Until Google's audit of Ekin's YouTube API use passes, uploads stay private regardless of this setting.",
     privacySaved: "Upload privacy saved",
     disconnect: "Disconnect",
     disconnectTitle: "Disconnect YouTube?",
     disconnectBody: (channel: string) =>
-      `Kurgu forgets ${channel} and its access. Videos already uploaded stay on YouTube; approved videos cannot be published until a channel is connected again.`,
+      `Ekin forgets ${channel} and its access. Videos already uploaded stay on YouTube; approved videos cannot be published until a channel is connected again.`,
     disconnected: "YouTube disconnected",
     returnConnected: "YouTube channel connected",
     returnError: "Could not connect YouTube",
@@ -340,7 +340,7 @@ export const en = {
     kinds: { github: "GitHub repository", dir: "Folder on the server" } as Record<string, string>,
     kindHints: {
       github: "Commits each post to a branch; your site rebuilds on push.",
-      dir: "Writes into a checkout on the Kurgu server, e.g. a site deployed from the same machine.",
+      dir: "Writes into a checkout on the Ekin server, e.g. a site deployed from the same machine.",
     } as Record<string, string>,
     repo: "Repository",
     repoPlaceholder: "owner/name",
@@ -378,7 +378,7 @@ export const en = {
     remove: "Remove blog",
     removeTitle: "Remove the blog?",
     removeBody:
-      "Kurgu stops writing articles to it and forgets the token. Posts already written stay where they are.",
+      "Ekin stops writing articles to it and forgets the token. Posts already written stay where they are.",
     removed: "Blog removed",
     validation: {
       repo: "Use owner/name.",
@@ -894,9 +894,9 @@ export const en = {
     publishChannel: (channel: string, privacy: string) =>
       `It is uploaded to the YouTube channel “${channel}”, set to ${privacy}.`,
     publishStaysPrivate:
-      "Until Google's audit of Kurgu's YouTube API use passes, YouTube keeps uploads private.",
+      "Until Google's audit of Ekin's YouTube API use passes, YouTube keeps uploads private.",
     publishNoChannel:
-      "No YouTube channel is connected, so Kurgu cannot upload it yet. An owner can connect one in workspace settings.",
+      "No YouTube channel is connected, so Ekin cannot upload it yet. An owner can connect one in workspace settings.",
     publishBlog: "It is written to your blog.",
     publishGitHub: (repo: string, branch: string) =>
       `It is committed as a Markdown post to ${repo} on ${branch}.`,
@@ -904,8 +904,8 @@ export const en = {
     publishDraft: "The post is marked as a draft, for a last manual pass.",
     publishSite: (site: string) => `${site} shows it once the site rebuilds.`,
     publishNoBlog:
-      "No blog is set up, so Kurgu cannot publish it yet. An owner can set one up in workspace settings.",
-    publishUndoable: "Once it is out, Kurgu cannot take it back.",
+      "No blog is set up, so Ekin cannot publish it yet. An owner can set one up in workspace settings.",
+    publishUndoable: "Once it is out, Ekin cannot take it back.",
     publishFailed: "Could not publish",
     openSettings: "Workspace settings",
     openPublication: "Open published version",
@@ -2018,7 +2018,7 @@ export const en = {
   },
   system: {
     title: "Server",
-    description: "What this Kurgu server can do, and the settings under every workspace: credentials, and host profiles with the job throttle.",
+    description: "What this Ekin server can do, and the settings under every workspace: credentials, and host profiles with the job throttle.",
     version: (v: string) => `Version ${v}`,
     checksTitle: "Checks",
     checksDescription: "Tools and integrations this server has found.",
@@ -2071,11 +2071,11 @@ export const en = {
       "With an API key, SEO refreshes call OpenSEO directly. Without one they go through the worker host's Claude Code OpenSEO plugin. The endpoint only needs changing for a self-hosted OpenSEO.",
     profilesTitle: "Host profiles",
     profilesDescription:
-      "How hard workers may work. Each worker uses the profile named by KURGU_WORKER_PROFILE. Changes apply at once on this server and within a few seconds on remote workers; a remote worker keeps its own KURGU_* settings until a profile of its name is saved here.",
+      "How hard workers may work. Each worker uses the profile named by EKIN_WORKER_PROFILE. Changes apply at once on this server and within a few seconds on remote workers; a remote worker keeps its own EKIN_* settings until a profile of its name is saved here.",
     current: "Used by this server",
     newProfile: "New profile",
     newProfileTitle: "New host profile",
-    newProfileDescription: (from: string) => `Starts as a copy of “${from}”. Point a worker at it with KURGU_WORKER_PROFILE.`,
+    newProfileDescription: (from: string) => `Starts as a copy of “${from}”. Point a worker at it with EKIN_WORKER_PROFILE.`,
     name: "Name",
     nameHint: "Lowercase letters, digits and hyphens; up to 32 characters.",
     nameInvalid: "Use lowercase letters, digits and hyphens, starting with a letter or digit.",
@@ -2114,7 +2114,7 @@ export const en = {
     cooldown: "Cooldown (seconds)",
     cooldownHint: "Rest after each heavy job. 0–3600.",
     cpuLimitHint:
-      "Share of this host's CPUs that job processes (agent, browser, encoder, speech) may use together. 0 = no limit, or 10–100. Linux hosts only; the Kurgu server itself is never limited.",
+      "Share of this host's CPUs that job processes (agent, browser, encoder, speech) may use together. 0 = no limit, or 10–100. Linux hosts only; the Ekin server itself is never limited.",
     cpuLimitRange: "Use 0 for no limit, or 10 to 100.",
     paused: "Paused",
     pausedHint: "Workers using this profile take no new jobs.",

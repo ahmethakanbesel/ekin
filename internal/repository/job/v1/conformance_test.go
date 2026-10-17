@@ -12,13 +12,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	"kurgu/internal/db/dbtest"
-	jobdomain "kurgu/internal/domain/job/v1"
-	workspacedomain "kurgu/internal/domain/workspace/v1"
-	jobrepo "kurgu/internal/repository/job/v1"
-	workspacerepo "kurgu/internal/repository/workspace/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/apperror"
+	"ekin/internal/db/dbtest"
+	jobdomain "ekin/internal/domain/job/v1"
+	workspacedomain "ekin/internal/domain/workspace/v1"
+	jobrepo "ekin/internal/repository/job/v1"
+	workspacerepo "ekin/internal/repository/workspace/v1"
+	"ekin/pkg/id"
 )
 
 var t0 = time.Date(2026, 10, 13, 23, 0, 0, 0, time.UTC)

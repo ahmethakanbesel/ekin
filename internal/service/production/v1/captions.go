@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 
-	"kurgu/internal/apperror"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/pkg/archive"
-	"kurgu/pkg/caption"
+	"ekin/internal/apperror"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/pkg/archive"
+	"ekin/pkg/caption"
 )
 
 // maxTimingsBytes bounds the narration timings read for captions: an

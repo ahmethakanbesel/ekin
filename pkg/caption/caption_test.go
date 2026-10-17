@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"kurgu/pkg/caption"
+	"ekin/pkg/caption"
 )
 
 // say times words one after another, 0.4 s each with 0.1 s between.

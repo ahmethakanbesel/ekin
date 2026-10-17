@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"kurgu/internal/adapter/render"
+	"ekin/internal/adapter/render"
 )
 
 // Sampler renders small frames with the captions hidden

@@ -1,7 +1,7 @@
 // Package worker serves the hybrid-worker API: a worker on another host
 // (a Mac with a GPU, say) claims heavy jobs from this server, downloads
 // the job's working directory, runs the agent or the renderer locally,
-// and uploads the result. It authenticates with KURGU_WORKER_TOKEN and
+// and uploads the result. It authenticates with EKIN_WORKER_TOKEN and
 // never touches the database or blob store directly.
 //
 // The routes live outside the OpenAPI spec because they stream archives
@@ -24,13 +24,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/apperror"
-	jobdomain "kurgu/internal/domain/job/v1"
-	settingsdomain "kurgu/internal/domain/settings/v1"
-	storydomain "kurgu/internal/domain/story/v1"
-	jobsvc "kurgu/internal/service/job/v1"
-	productionsvc "kurgu/internal/service/production/v1"
-	"kurgu/pkg/archive"
+	"ekin/internal/apperror"
+	jobdomain "ekin/internal/domain/job/v1"
+	settingsdomain "ekin/internal/domain/settings/v1"
+	storydomain "ekin/internal/domain/story/v1"
+	jobsvc "ekin/internal/service/job/v1"
+	productionsvc "ekin/internal/service/production/v1"
+	"ekin/pkg/archive"
 )
 
 // MaxUpload bounds a finish upload (a long final render).
@@ -401,7 +401,7 @@ func (a *API) finishRender(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	tmp, err := os.MkdirTemp("", "kurgu-remote-render-*")
+	tmp, err := os.MkdirTemp("", "ekin-remote-render-*")
 	if err != nil {
 		return err
 	}

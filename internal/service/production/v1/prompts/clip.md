@@ -37,7 +37,7 @@ Work in this order and do not stop until `{{.Tool}} check` passes.
    with the short's question or claim, on screen from the first frame, does this
    when the first sentence alone does not.
 2. **Visuals.** Write `composition.html` ({{.Width}}×{{.Height}}) following `KIT.md`.
-   Load the timings with `Kurgu.timings()` and cue everything on them: scene
+   Load the timings with `Ekin.timings()` and cue everything on them: scene
    changes on sentence or word boundaries, karaoke captions throughout.
    **Layout:** the main visual fills the frame from about 8% to 64% of the
    height and most of its width, big enough to read on a phone; captions sit

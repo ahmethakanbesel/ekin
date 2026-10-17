@@ -13,14 +13,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"kurgu/internal/adapter/claude"
-	"kurgu/internal/adapter/openseo"
-	"kurgu/internal/apperror"
-	jobdomain "kurgu/internal/domain/job/v1"
-	seodomain "kurgu/internal/domain/seo/v1"
-	seorepo "kurgu/internal/repository/seo/v1"
-	settingsrepo "kurgu/internal/repository/settings/v1"
-	"kurgu/pkg/id"
+	"ekin/internal/adapter/claude"
+	"ekin/internal/adapter/openseo"
+	"ekin/internal/apperror"
+	jobdomain "ekin/internal/domain/job/v1"
+	seodomain "ekin/internal/domain/seo/v1"
+	seorepo "ekin/internal/repository/seo/v1"
+	settingsrepo "ekin/internal/repository/settings/v1"
+	"ekin/pkg/id"
 )
 
 // KindRefresh is the job that asks OpenSEO for new opportunities.

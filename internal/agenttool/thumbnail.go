@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"kurgu/internal/adapter/render"
-	storydomain "kurgu/internal/domain/story/v1"
-	"kurgu/pkg/fold"
+	"ekin/internal/adapter/render"
+	storydomain "ekin/internal/domain/story/v1"
+	"ekin/pkg/fold"
 )
 
 // The thumbnail contract (docs/thumbnails.md): one static page draws
@@ -31,7 +31,7 @@ type ThumbnailDrawer interface {
 	Thumbnails(ctx context.Context, dir, pagePath string, ns []int, small bool, outDir string) ([]render.ThumbnailShot, render.Meta, []string, error)
 }
 
-// ThumbnailReport is the result of `kurgu tool thumbnail`.
+// ThumbnailReport is the result of `ekin tool thumbnail`.
 type ThumbnailReport struct {
 	OK     bool     `json:"ok"`
 	Files  []string `json:"files,omitempty"`
@@ -49,14 +49,14 @@ func CheckThumbnails(ctx context.Context, r ThumbnailDrawer, dir string, want, o
 	fail := func(format string, a ...any) { rep.Errors = append(rep.Errors, fmt.Sprintf(format, a...)) }
 	src, err := os.ReadFile(filepath.Join(dir, ThumbnailPage)) //nolint:gosec // the agent's own file
 	if err != nil {
-		fail("%s is missing; write it with Kurgu.thumbnails (see KIT.md)", ThumbnailPage)
+		fail("%s is missing; write it with Ekin.thumbnails (see KIT.md)", ThumbnailPage)
 		return rep
 	}
 	if externalRef.Match(src) {
 		fail("%s references the network; use files in this directory", ThumbnailPage)
 	}
-	if !strings.Contains(string(src), "/kit/kurgu.js") {
-		fail("%s must load /kit/kurgu.js and call Kurgu.thumbnails", ThumbnailPage)
+	if !loadsKit(src) {
+		fail("%s must load /kit/ekin.js and call Ekin.thumbnails", ThumbnailPage)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ThumbnailsFile)) //nolint:gosec // the agent's own file
 	if err != nil {
@@ -119,7 +119,7 @@ func variant(t storydomain.Thumbnails, n int) storydomain.Thumbnail {
 	return storydomain.Thumbnail{}
 }
 
-// thumbnail runs `kurgu tool thumbnail`: with stills, renders those
+// thumbnail runs `ekin tool thumbnail`: with stills, renders those
 // composition times at full size into thumbnails/stills/<t>.jpg for the
 // page to use; otherwise draws and checks the variants.
 func (e Env) thumbnail(ctx context.Context, stills string, only int) error {
@@ -133,7 +133,7 @@ func (e Env) thumbnail(ctx context.Context, stills string, only int) error {
 	b, _ := json.MarshalIndent(rep, "", "  ")
 	_, _ = fmt.Fprintln(e.Stdout, string(b))
 	if !rep.OK {
-		return errors.New("thumbnail check failed: fix every error above and run kurgu tool thumbnail again")
+		return errors.New("thumbnail check failed: fix every error above and run ekin tool thumbnail again")
 	}
 	_, _ = fmt.Fprintln(e.Stdout, "Read the .small.jpg files: that is how a phone's feed shows them. Fix anything you cannot read at that size.")
 	return nil

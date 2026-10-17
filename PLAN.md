@@ -1,6 +1,6 @@
-# Kurgu — product and architecture plan
+# Ekin — product and architecture plan
 
-Kurgu turns ideas, knowledge-base documents and SEO opportunities into YouTube videos
+Ekin turns ideas, knowledge-base documents and SEO opportunities into YouTube videos
 and blog articles, renders them unattended, and holds every piece for human review
 before anything is published. First user: acme. Turkish first, English second.
 
@@ -28,7 +28,7 @@ Update this file whenever a decision below changes.
 - **Shorts from long videos**: once a long video is live, moments of it (spans of whole
   sentences, found by the agent or chosen by a person) become vertical shorts that speak
   that slice of its narration with a new 9:16 composition (docs/shorts.md). Limits come
-  from `KURGU_SHORTS_*`.
+  from `EKIN_SHORTS_*`.
 - **Knowledge base**: upload PDF / TXT / MD / EPUB, extract text per page, estimate tokens
   per page, preview in the browser, reference several documents and page ranges at once.
   Only the referenced pages are given to the agent. No RAG / indexing for now.
@@ -56,27 +56,27 @@ Update this file whenever a decision below changes.
 | Orchestration | Go backend. No n8n. |
 | Database | SQLite (`modernc.org/sqlite`, CGO-free), WAL, one writer connection. Litestream to S3 for backup. |
 | Job queue | Own small queue on SQLite behind a `Queue` port (lease, heartbeat, retry, unique keys). |
-| Remote workers | `kurgu worker` with `KURGU_REMOTE_URL` + `KURGU_WORKER_TOKEN` claims agent and render jobs over the worker API, downloads the job's work dir, runs it locally and uploads the result — never touching the database or blob store. |
+| Remote workers | `ekin worker` with `EKIN_REMOTE_URL` + `EKIN_WORKER_TOKEN` claims agent and render jobs over the worker API, downloads the job's work dir, runs it locally and uploads the result — never touching the database or blob store. |
 | Blob storage | `BlobStore` port: `fs` driver (Mac / dev), `s3` driver (VPS: R2 or Hetzner). |
 | API | OpenAPI 3.1 spec-first, `oapi-codegen` strict server on `net/http` ServeMux, typed TS client. |
 | Web UI | Bun, React, TanStack (Router, Query, Form, Table), shadcn on Base UI, oxc (oxlint), tsgo. Static build embedded in the Go binary. |
-| Authoring agent | Claude Code headless (`claude -p`) behind an `Agent` port with an explicit tool allow-list: file tools plus `Bash(kurgu tool:*)`. The agent's tools (`tts`, `frame`, `check`, `stock`, `music`) are `kurgu tool` subcommands rather than an MCP server — simpler, and the same binary on every host. Host settings, plugins and MCP servers are off except for the agent-based OpenSEO refresh (used only without an API key). |
+| Authoring agent | Claude Code headless (`claude -p`) behind an `Agent` port with an explicit tool allow-list: file tools plus `Bash(ekin tool:*)`. The agent's tools (`tts`, `frame`, `check`, `stock`, `music`) are `ekin tool` subcommands rather than an MCP server — simpler, and the same binary on every host. Host settings, plugins and MCP servers are off except for the agent-based OpenSEO refresh (used only without an API key). |
 | Decision model | OpenRouter `typesafe/jev-1.13` for typed decisions only: the duplicate-idea verdict for titles that are similar but not identical (trigram score 0.35–0.6). Ideas themselves come from Claude Code with a JSON schema. |
-| Render engine | **Vanilla** (docs/benchmarks/render.md): `composition.html` + `window.kurgu.renderAt(t)` driven by Go chromedp, frames piped to ffmpeg. `HeadlessExperimental.beginFrame` in chrome-headless-shell on Linux (3–13× faster on 0.5–1 vCPU), screenshots on macOS. Remotion: licence cost; Revideo: canvas-only, broken with ffmpeg 8. |
+| Render engine | **Vanilla** (docs/benchmarks/render.md): `composition.html` + `window.ekin.renderAt(t)` driven by Go chromedp, frames piped to ffmpeg. `HeadlessExperimental.beginFrame` in chrome-headless-shell on Linux (3–13× faster on 0.5–1 vCPU), screenshots on macOS. Remotion: licence cost; Revideo: canvas-only, broken with ffmpeg 8. |
 | TTS | `Speech` port. Turkish: okur-tts (with word timings from its duration predictor). English: Kokoro-82M (timestamped ONNX). |
 | Music | `Music` port. MVP: procedural — the agent writes a Tone.js score rendered offline in Chromium. Paid API (Lyria) may follow. Or a library track (`music.json`), cut to length and faded out. |
-| Stock media | Pexels video and photos (no audio); clips are transcoded to short VP8 WebM so the composition can seek them frame by frame. Or library items, through `kurgu tool library`. |
+| Stock media | Pexels video and photos (no audio); clips are transcoded to short VP8 WebM so the composition can seek them frame by frame. Or library items, through `ekin tool library`. |
 | Blog | Markdown with the site's frontmatter committed to `marketing/src/content/blog/{tr,en}` in one commit through the GitHub Git Data API, or written into a local checkout. Video embeds become privacy-enhanced iframes. No CMS migration. |
-| Notifications | In-app feed + SMTP digests (one email per person per flush, `KURGU_NOTIFY_EVERY`). Invitations are emailed when SMTP is set. |
+| Notifications | In-app feed + SMTP digests (one email per person per flush, `EKIN_NOTIFY_EVERY`). Invitations are emailed when SMTP is set. |
 | Deployment | Dokploy, Compose type (needs `cpuset` / `cpu_shares`). Also runs natively on macOS. |
 
 ## 3. Runtime topology
 
 ```
-kurgu serve    API + embedded web UI + scheduler tick
-kurgu worker   job runner: agent, tts, render, extract, io queues
-kurgu migrate  schema migrations
-kurgu mcp      stdio MCP server given to Claude Code (per job)
+ekin serve    API + embedded web UI + scheduler tick
+ekin worker   job runner: agent, tts, render, extract, io queues
+ekin migrate  schema migrations
+ekin mcp      stdio MCP server given to Claude Code (per job)
 ```
 
 - **VPS**: `serve` and `worker` containers, SQLite on a volume, Litestream sidecar.
@@ -160,7 +160,7 @@ Long-form video is the same flow per chapter, concatenated with ffmpeg.
 
 A short cut from a long video is the same flow, except that `prepare` writes the slice of
 the long video's narration (and a ±15 s window of sentences around it) in place of `tts`,
-and the agent only designs the picture; `kurgu tool clip` moves the cut by whole sentences.
+and the agent only designs the picture; `ekin tool clip` moves the cut by whole sentences.
 
 ## 7. External prerequisites
 

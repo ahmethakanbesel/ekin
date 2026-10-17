@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"kurgu/internal/blob"
+	"ekin/internal/blob"
 )
 
 func TestFS(t *testing.T) {
@@ -53,11 +53,11 @@ func TestFromEnv(t *testing.T) {
 		vars map[string]string
 		ok   bool
 	}{
-		{"fs", map[string]string{"KURGU_BLOB_DRIVER": "fs", "KURGU_BLOB_DIR": dir}, true},
-		{"fs relative", map[string]string{"KURGU_BLOB_DRIVER": "fs", "KURGU_BLOB_DIR": "data/blobs"}, false},
+		{"fs", map[string]string{"EKIN_BLOB_DRIVER": "fs", "EKIN_BLOB_DIR": dir}, true},
+		{"fs relative", map[string]string{"EKIN_BLOB_DRIVER": "fs", "EKIN_BLOB_DIR": "data/blobs"}, false},
 		{"unset", map[string]string{}, false},
-		{"s3 without bucket", map[string]string{"KURGU_BLOB_DRIVER": "s3", "KURGU_S3_ENDPOINT": "https://s3.example.com"}, false},
-		{"s3", map[string]string{"KURGU_BLOB_DRIVER": "s3", "KURGU_S3_ENDPOINT": "https://s3.example.com", "KURGU_S3_BUCKET": "b"}, true},
+		{"s3 without bucket", map[string]string{"EKIN_BLOB_DRIVER": "s3", "EKIN_S3_ENDPOINT": "https://s3.example.com"}, false},
+		{"s3", map[string]string{"EKIN_BLOB_DRIVER": "s3", "EKIN_S3_ENDPOINT": "https://s3.example.com", "EKIN_S3_BUCKET": "b"}, true},
 	}
 	for _, tt := range tests {
 		if _, err := blob.FromEnv(env(tt.vars)); (err == nil) != tt.ok {

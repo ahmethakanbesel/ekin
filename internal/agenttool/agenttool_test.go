@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"kurgu/internal/adapter/render"
-	"kurgu/internal/agenttool"
+	"ekin/internal/adapter/render"
+	"ekin/internal/agenttool"
 )
 
 func copyDir(t *testing.T, src string) string {
@@ -57,12 +57,20 @@ func TestCheck(t *testing.T) {
 		t.Fatalf("valid composition failed: %+v", rep)
 	}
 
+	// A page written before the rename still loads and renders.
+	page, _ := os.ReadFile(filepath.Join(dir, "composition.html"))
+	legacy := strings.NewReplacer("/kit/ekin.", "/kit/kurgu.", "Ekin.", "Kurgu.").Replace(string(page))
+	_ = os.WriteFile(filepath.Join(dir, "composition.html"), []byte(legacy), 0o600)
+	if rep := agenttool.Check(context.Background(), r, dir, "composition.html", spec); !rep.OK {
+		t.Fatalf("pre-rename composition failed: %+v", rep)
+	}
+	_ = os.WriteFile(filepath.Join(dir, "composition.html"), page, 0o600)
+
 	spec.Width, spec.Height = 1920, 1080
 	if rep := agenttool.Check(context.Background(), r, dir, "composition.html", spec); rep.OK {
 		t.Fatal("wrong orientation passed")
 	}
 	spec.Width, spec.Height = 1080, 1920
-	page, _ := os.ReadFile(filepath.Join(dir, "composition.html"))
 	_ = os.WriteFile(filepath.Join(dir, "composition.html"), bytes.Replace(page, []byte("</div>\n<script>"),
 		[]byte(`<img src="https://images.example.com/a.jpg"></div><script>`), 1), 0o600)
 	rep = agenttool.Check(context.Background(), r, dir, "composition.html", spec)
