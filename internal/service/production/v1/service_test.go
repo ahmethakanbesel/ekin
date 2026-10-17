@@ -233,12 +233,19 @@ type trackLog struct {
 type scaleLog struct {
 	mu     sync.Mutex
 	scales []float64
+	rates  []int
 }
 
 func (l *scaleLog) all() []float64 {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return append([]float64(nil), l.scales...)
+}
+
+func (l *scaleLog) fps() []int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]int(nil), l.rates...)
 }
 
 // compositionLength is 21 s, or a little more than a longer narration
@@ -259,9 +266,14 @@ func (r fakeRenderer) Video(_ context.Context, dir, _ string, opts render.VideoO
 	if r.scales != nil {
 		r.scales.mu.Lock()
 		r.scales.scales = append(r.scales.scales, opts.Scale)
+		r.scales.rates = append(r.scales.rates, opts.FPS)
 		r.scales.mu.Unlock()
 	}
-	return render.Meta{Width: 1080, Height: 1920, FPS: 30, Duration: compositionLength(dir)}, os.WriteFile(out, []byte("video"), 0o600)
+	fps := 30.0
+	if opts.FPS > 0 {
+		fps = float64(opts.FPS)
+	}
+	return render.Meta{Width: 1080, Height: 1920, FPS: fps, Duration: compositionLength(dir)}, os.WriteFile(out, []byte("video"), 0o600)
 }
 func (fakeRenderer) Music(context.Context, string, float64, string) (float64, error) { return 0.5, nil }
 func (r fakeRenderer) MusicTrack(_ context.Context, in string, offset, duration float64, out string) error {
@@ -321,6 +333,8 @@ type fixture struct {
 	host func() *production.Service
 	// hostWith is host with some of its dependencies swapped.
 	hostWith func(adjust func(*production.Deps)) *production.Service
+	// hostConfigured is hostWith with its config adjusted too.
+	hostConfigured func(config func(*production.Config), adjust func(*production.Deps)) *production.Service
 	blobs    blob.Store
 	tx       *db.SQLiteTxManager
 }
@@ -342,7 +356,7 @@ func newFixture(t *testing.T) fixture {
 	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, agent, t.TempDir())
 	voices := voicesvc.NewService(settingsrepo.NewSQLite(tx), jobs, nil, blobs)
 	pipelines.WithTemplates(templates).WithVoices(voices)
-	hostWith := func(adjust func(*production.Deps)) *production.Service {
+	hostConfigured := func(config func(*production.Config), adjust func(*production.Deps)) *production.Service {
 		deps := production.Deps{
 			Stories: storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx,
 			Blobs: blobs, Agent: agent, Renderer: fakeRenderer{}, SEO: seo, Templates: templates, Voices: voices,
@@ -350,12 +364,15 @@ func newFixture(t *testing.T) fixture {
 		if adjust != nil {
 			adjust(&deps)
 		}
-		svc := production.NewService(production.Config{
-			WorkRoot: t.TempDir(), KurguBin: "/usr/local/bin/kurgu", Shorts: storydomain.DefaultShortsLimits(),
-		}, deps)
+		cfg := production.Config{WorkRoot: t.TempDir(), KurguBin: "/usr/local/bin/kurgu", Shorts: storydomain.DefaultShortsLimits()}
+		if config != nil {
+			config(&cfg)
+		}
+		svc := production.NewService(cfg, deps)
 		svc.AddPublisher(fakePublisher{pipelinedomain.KindVideo}).AddPublisher(fakePublisher{pipelinedomain.KindArticle})
 		return svc
 	}
+	hostWith := func(adjust func(*production.Deps)) *production.Service { return hostConfigured(nil, adjust) }
 	host := func() *production.Service { return hostWith(nil) }
 	svc := host()
 	// As transport/job/production.Watch does in the app.
@@ -367,7 +384,7 @@ func newFixture(t *testing.T) fixture {
 		})
 	}
 	return fixture{voices: voices, seo: seo, svc: svc, jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID(), host: host,
-		blobs: blobs, hostWith: hostWith, tx: tx}
+		blobs: blobs, hostWith: hostWith, hostConfigured: hostConfigured, tx: tx}
 }
 
 // drain runs queued jobs until none are left, like a worker would.
@@ -1450,16 +1467,22 @@ func TestDraftingAgentReachesEveryTurn(t *testing.T) {
 	})
 }
 
-// A story's preview and final qualities set the scales of its review
-// and final renders (the host profile's when unset); a preview at the
-// final quality or better is approved as the final video without
-// rendering it again.
+// A story's preview and final qualities and frame rates set those of its
+// review and final renders (the host profile's when unset); a preview at
+// the final quality or better, and at the final frame rate, is approved
+// as the final video without rendering it again.
 func TestRenderQuality(t *testing.T) {
 	ctx := context.Background()
 	tests := []struct {
-		name           string
-		preview, final pipelinedomain.Quality
-		wantRenders    []float64 // preview, then final if one runs
+		name                 string
+		preview, final       pipelinedomain.Quality
+		previewFPS, finalFPS pipelinedomain.FrameRate
+		host                 *production.RenderSettings
+		// editMetadata edits the metadata in review, which keeps the
+		// rendered preview, before approving.
+		editMetadata bool
+		wantRenders  []float64 // preview, then final if one runs
+		wantFPS              []int     // of the same renders; nil for 30 each
 	}{
 		{name: "defaults", wantRenders: []float64{0.5, 1}},
 		{name: "720p preview", preview: pipelinedomain.Quality720p, wantRenders: []float64{2.0 / 3, 1}},
@@ -1470,16 +1493,34 @@ func TestRenderQuality(t *testing.T) {
 			wantRenders: []float64{1, 2}},
 		{name: "preview at a 720p final", preview: pipelinedomain.Quality720p, final: pipelinedomain.Quality720p,
 			wantRenders: []float64{2.0 / 3}},
+		{name: "host previews at final quality", host: &production.RenderSettings{PreviewScale: 1, FinalScale: 1, PreviewFPS: 30, FinalFPS: 30},
+			wantRenders: []float64{1}},
+		{name: "host previews at 1080p, story finals at 1440p", final: pipelinedomain.Quality1440p,
+			host: &production.RenderSettings{PreviewScale: 1, FinalScale: 1, PreviewFPS: 30, FinalFPS: 30}, wantRenders: []float64{1, 4.0 / 3}},
+		{name: "15 fps preview", previewFPS: 15, wantRenders: []float64{0.5, 1}, wantFPS: []int{15, 30}},
+		{name: "15 fps preview at final quality renders again", preview: pipelinedomain.Quality1080p, previewFPS: 15,
+			wantRenders: []float64{1, 1}, wantFPS: []int{15, 30}},
+		{name: "60 fps final", preview: pipelinedomain.Quality1080p, finalFPS: 60, wantRenders: []float64{1, 1}, wantFPS: []int{30, 60}},
+		{name: "edited metadata keeps the preview at final quality", preview: pipelinedomain.Quality1080p, editMetadata: true,
+			wantRenders: []float64{1}},
+		{name: "host frame rates", host: &production.RenderSettings{PreviewScale: 0.5, FinalScale: 1, PreviewFPS: 24, FinalFPS: 60},
+			wantRenders: []float64{0.5, 1}, wantFPS: []int{24, 60}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFixture(t)
 			log := &scaleLog{}
-			svc := f.hostWith(func(d *production.Deps) { d.Renderer = fakeRenderer{scales: log} })
+			config := func(c *production.Config) {
+				if tt.host != nil {
+					c.Render = func(context.Context) production.RenderSettings { return *tt.host }
+				}
+			}
+			svc := f.hostConfigured(config, func(d *production.Deps) { d.Renderer = fakeRenderer{scales: log} })
 			video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
 			outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
 			req := production.AdHocRequest{Idea: "Kaygı ve endişe farkı", Count: 1, Language: pipelinedomain.Turkish,
-				Outputs: outputs, Production: pipelinedomain.Production{PreviewQuality: tt.preview, FinalQuality: tt.final}}
+				Outputs: outputs, Production: pipelinedomain.Production{PreviewQuality: tt.preview, FinalQuality: tt.final,
+					PreviewFPS: tt.previewFPS, FinalFPS: tt.finalFPS}}
 			if _, err := svc.QueueAdHoc(ctx, f.ws, id.New(), req); err != nil {
 				t.Fatal(err)
 			}
@@ -1488,12 +1529,33 @@ func TestRenderQuality(t *testing.T) {
 			if st.Lead().Status() != storydomain.StatusReview {
 				t.Fatalf("lead = %s: %s", st.Lead().Status(), st.Lead().Failure())
 			}
+			if tt.editMetadata {
+				meta := &production.VideoMetadata{Title: "Kaygı nedir, ne değildir?", Description: "Yeni açıklama.", Tags: []string{"kaygı"}}
+				e := production.Edit{Revision: st.Lead().Revision(), Metadata: meta}
+				if _, err := svc.EditContent(ctx, f.ws, st.ID(), st.Lead().ID(), id.New(), e); err != nil {
+					t.Fatal(err)
+				}
+				f.drainOn(t, svc)
+				if st = f.story(t); st.Lead().Status() != storydomain.StatusReview || st.Lead().Revision() != 2 {
+					t.Fatalf("after the edit lead = %s r%d", st.Lead().Status(), st.Lead().Revision())
+				}
+			}
 			if _, err := svc.Approve(ctx, f.ws, st.ID(), st.Lead().ID(), id.New()); err != nil {
 				t.Fatal(err)
 			}
 			f.drainOn(t, svc)
 			if got := log.all(); !slices.Equal(got, tt.wantRenders) {
 				t.Fatalf("rendered at %v, want %v", got, tt.wantRenders)
+			}
+			wantFPS := tt.wantFPS
+			if wantFPS == nil {
+				wantFPS = make([]int, len(tt.wantRenders))
+				for i := range wantFPS {
+					wantFPS[i] = 30
+				}
+			}
+			if got := log.fps(); !slices.Equal(got, wantFPS) {
+				t.Fatalf("rendered at %v fps, want %v", got, wantFPS)
 			}
 			st = f.story(t)
 			if d := st.Lead(); d.Status() != storydomain.StatusReady && d.Status() != storydomain.StatusPublished {

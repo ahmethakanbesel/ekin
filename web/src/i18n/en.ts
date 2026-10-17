@@ -431,6 +431,19 @@ export const en = {
         "1440p": "1440p",
         "2160p": "2160p · 4K, slowest",
       } as Record<string, string>,
+      previewFps: "Preview frame rate",
+      previewFpsHint: "Frames per second you review at. 15 renders about twice as fast as 30 and looks choppier.",
+      previewRates: {
+        15: "15 fps · fastest",
+        24: "24 fps",
+        30: "30 fps",
+      } as Record<number, string>,
+      finalFps: "Final frame rate",
+      finalFpsHint: "Frames per second of the published video. 60 takes about twice as long to render.",
+      finalRates: {
+        30: "30 fps",
+        60: "60 fps · smoothest",
+      } as Record<number, string>,
       reviewAt: "First review",
       reviewPoints: {
         video: "The video",
@@ -1976,6 +1989,12 @@ export const en = {
     previewScaleHint: "Resolution of review previews relative to the final size, 0.25–1.",
     finalScale: "Final scale",
     finalScaleHint: "Resolution of the final render, 0.25–2.",
+    fps: (n: string) => `${n} fps`,
+    previewFps: "Preview frame rate",
+    previewFpsHint:
+      "Frames per second of review previews. 15 renders about twice as fast as 30 and looks choppier; a preview below the final rate is always rendered again after approval.",
+    finalFps: "Final frame rate",
+    finalFpsHint: "Frames per second of the final render. 60 takes about twice as long as 30.",
     range: (min: number, max: number) => `Enter a number from ${min} to ${max}.`,
     wholeRange: (min: number, max: number) => `Enter a whole number from ${min} to ${max}.`,
   },

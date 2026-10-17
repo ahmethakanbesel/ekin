@@ -88,6 +88,8 @@ type Production struct {
 	Threads       int
 	PreviewScale  float64
 	FinalScale    float64
+	PreviewFPS    int
+	FinalFPS      int
 	GPU           bool
 }
 
@@ -245,7 +247,15 @@ func load(getenv func(string) string) (Config, error) {
 		Threads:       int(number("KURGU_RENDER_THREADS", 0, 0, 64)),
 		PreviewScale:  number("KURGU_RENDER_PREVIEW_SCALE", 0.5, 0.25, 1),
 		FinalScale:    number("KURGU_RENDER_FINAL_SCALE", 1, 0.25, 2),
+		PreviewFPS:    int(number("KURGU_RENDER_PREVIEW_FPS", 30, 15, 30)),
+		FinalFPS:      int(number("KURGU_RENDER_FINAL_FPS", 30, 30, 60)),
 		GPU:           boolean("KURGU_RENDER_GPU", false),
+	}
+	if !slices.Contains([]int{15, 24, 30}, cfg.Production.PreviewFPS) {
+		errs = append(errs, "KURGU_RENDER_PREVIEW_FPS: must be 15, 24 or 30")
+	}
+	if !slices.Contains([]int{30, 60}, cfg.Production.FinalFPS) {
+		errs = append(errs, "KURGU_RENDER_FINAL_FPS: must be 30 or 60")
 	}
 	cfg.Worker.CPULimit = int(number("KURGU_CPU_LIMIT", 0, 0, 100))
 	cfg.Worker.Nice = int(number("KURGU_NICE", 0, 0, 19))

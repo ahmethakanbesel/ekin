@@ -1,6 +1,7 @@
 package production
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -30,6 +31,11 @@ type RenderTask struct {
 	// Scale is the render scale from the story's preview or final
 	// quality; 0 takes the host profile's.
 	Scale float64 `json:"scale,omitempty"`
+	// FPS is the frame rate from the story's preview or final frame
+	// rate; 0 takes the host profile's.
+	FPS int `json:"fps,omitempty"`
+	// Rendered is what RunRender rendered at, for FinishRender to record.
+	Rendered storydomain.Render `json:"rendered,omitzero"`
 }
 
 // Render runs a deliverable.render job here: the preview (for review)
@@ -44,7 +50,7 @@ func (s *Service) Render(ctx context.Context, p DeliverablePayload) error {
 		return err
 	}
 	defer func() { _ = os.RemoveAll(out) }()
-	files, err := s.RunRender(ctx, task, dir, out)
+	files, err := s.RunRender(ctx, &task, dir, out)
 	if err != nil {
 		return s.stepFailed(ctx, p, err)
 	}
@@ -76,30 +82,36 @@ func (s *Service) BeginRender(ctx context.Context, p DeliverablePayload) (Render
 	if err := s.ensureWorkDir(ctx, d, dir); err != nil {
 		return RenderTask{}, "", s.stepFailed(ctx, p, err)
 	}
-	task := RenderTask{Payload: p, Revision: d.Revision(), Scale: st.Brief().Production.PreviewQuality.Scale()}
+	production := st.Brief().Production
+	task := RenderTask{Payload: p, Revision: d.Revision(), Scale: production.PreviewQuality.Scale(), FPS: int(production.PreviewFPS)}
 	if p.Final {
-		task.Scale = st.Brief().Production.FinalQuality.Scale()
+		task.Scale, task.FPS = production.FinalQuality.Scale(), int(production.FinalFPS)
 	}
 	return task, dir, nil
 }
 
-// RunRender renders dir into outDir and returns the artifact files by
-// name. It touches no database.
-func (s *Service) RunRender(ctx context.Context, task RenderTask, dir, outDir string) (map[string]string, error) {
+// RunRender renders dir into outDir, notes what it rendered at in
+// task.Rendered and returns the artifact files by name. It touches no
+// database.
+func (s *Service) RunRender(ctx context.Context, task *RenderTask, dir, outDir string) (map[string]string, error) {
 	rs := s.renderSettings(ctx)
-	opts := render.VideoOptions{Scale: rs.PreviewScale, Duty: rs.Duty, Chunks: rs.Chunks}
+	opts := render.VideoOptions{Scale: rs.PreviewScale, FPS: rs.PreviewFPS, Duty: rs.Duty, Chunks: rs.Chunks}
 	name := storydomain.ArtifactPreview
 	if task.Payload.Final {
-		opts.Scale, name = rs.FinalScale, storydomain.ArtifactFinal
+		opts.Scale, opts.FPS, name = rs.FinalScale, rs.FinalFPS, storydomain.ArtifactFinal
 	}
 	if task.Scale > 0 {
 		opts.Scale = task.Scale
+	}
+	if task.FPS > 0 {
+		opts.FPS = task.FPS
 	}
 	silent := filepath.Join(outDir, "silent.mp4")
 	meta, err := s.renderer.Video(ctx, dir, "composition.html", opts, silent)
 	if err != nil {
 		return nil, err
 	}
+	task.Rendered = storydomain.Render{Scale: opts.Scale, FPS: int(math.Round(meta.FPS))}
 	music, err := s.renderMusic(ctx, dir, outDir, meta.Duration)
 	if err != nil {
 		return nil, err
@@ -153,6 +165,9 @@ func (s *Service) FinishRender(ctx context.Context, task RenderTask, files map[s
 		}
 		for k, v := range keys {
 			rev.Artifacts[k] = v
+		}
+		if !p.Final {
+			rev.Preview = task.Rendered
 		}
 		if length > 0 {
 			rev.Measures.Duration = length
@@ -227,7 +242,7 @@ func (s *Service) renderSettings(ctx context.Context) RenderSettings {
 	if s.cfg.Render != nil {
 		return s.cfg.Render(ctx)
 	}
-	return RenderSettings{PreviewScale: s.cfg.PreviewScale, FinalScale: s.cfg.FinalScale}
+	return RenderSettings{PreviewScale: s.cfg.PreviewScale, FinalScale: s.cfg.FinalScale, PreviewFPS: s.cfg.PreviewFPS, FinalFPS: s.cfg.FinalFPS}
 }
 
 // Approve accepts a deliverable in review and queues what follows, all
@@ -261,24 +276,22 @@ func (s *Service) Approve(ctx context.Context, workspaceID, storyID, deliverable
 }
 
 // reusePreview finishes an approved video with its preview when that
-// was rendered at the story's final quality (or the host profile's) or
-// better, so approval does not render the same video again, and reports
-// whether it did. Call it inside the transaction that approved d.
+// covers the final render (the story's final quality and frame rate, or
+// the host profile's), so approval does not render the same video again,
+// and reports whether it did. Call it inside the transaction that
+// approved d.
 func (s *Service) reusePreview(ctx context.Context, st *storydomain.Story, d *storydomain.Deliverable) (bool, error) {
-	production := st.Brief().Production
-	scale, final := production.PreviewQuality.Scale(), production.FinalQuality.Scale()
-	if final == 0 {
-		final = s.renderSettings(ctx).FinalScale
-	}
-	if d.Status() != storydomain.StatusFinalizing || scale == 0 || scale < final {
+	if d.Status() != storydomain.StatusFinalizing {
 		return false, nil
 	}
 	rev, err := s.stories.Revision(ctx, d.ID(), d.Revision())
 	if err != nil {
 		return false, err
 	}
+	production, rs := st.Brief().Production, s.renderSettings(ctx)
+	final := storydomain.Render{Scale: cmp.Or(production.FinalQuality.Scale(), rs.FinalScale), FPS: cmp.Or(int(production.FinalFPS), rs.FinalFPS)}
 	preview, ok := rev.Artifacts[storydomain.ArtifactPreview]
-	if !ok {
+	if !ok || !rev.Preview.Covers(final) {
 		return false, nil
 	}
 	rev.Artifacts[storydomain.ArtifactFinal] = preview

@@ -189,6 +189,20 @@ type Measures struct {
 	Narrator Narrator
 }
 
+// Render is the scale (1 = 1080p) and frame rate a video was rendered
+// at. Zero when it is not known.
+type Render struct {
+	Scale float64 `json:"scale"`
+	FPS   int     `json:"fps"`
+}
+
+// Covers reports whether a video rendered at r can stand in for one
+// rendered at want: at least as sharp and at the same frame rate. An
+// unknown render covers nothing.
+func (r Render) Covers(want Render) bool {
+	return r.Scale > 0 && r.FPS > 0 && r.Scale >= want.Scale && r.FPS == want.FPS
+}
+
 // Narrator is the voice that read a video's narration: the TTS engine,
 // its voice ("" for the engine's default) and, for ElevenLabs, the
 // model. Zero when nothing was narrated or it is not known.
@@ -270,6 +284,10 @@ type Revision struct {
 	Artifacts     map[string]string
 	Notes         string
 	Measures      Measures
+	// Preview is what the revision's preview was rendered at; zero
+	// before it is rendered, and for revisions rendered before it was
+	// recorded.
+	Preview Render
 	// Stage is what the revision holds: StageScript for a video's script
 	// waiting for approval, StageFull otherwise.
 	Stage Stage

@@ -6,6 +6,8 @@ type Production = Schemas["Production"]
 export type DraftEffort = Schemas["DraftEffort"]
 export type PreviewQuality = NonNullable<Production["previewQuality"]>
 export type FinalQuality = NonNullable<Production["finalQuality"]>
+export type PreviewFps = NonNullable<Production["previewFps"]>
+export type FinalFps = NonNullable<Production["finalFps"]>
 export type ReviewAt = NonNullable<Production["reviewAt"]>
 export type MediaSource = Schemas["MediaSource"]
 export type MediaKind = "music" | "video" | "photo"
@@ -81,6 +83,9 @@ export type ProductionValues = {
   draftEffort: DraftEffort | ""
   previewQuality: PreviewQuality | ""
   finalQuality: FinalQuality | ""
+  /** Frames per second; 0 means the host profile's. */
+  previewFps: PreviewFps | 0
+  finalFps: FinalFps | 0
   reviewAt: ReviewAt
   /** Where each kind of media comes from; fresh is the default. */
   media: Record<MediaKind, MediaSource>
@@ -89,7 +94,7 @@ export type ProductionValues = {
 const freshMedia = (): Record<MediaKind, MediaSource> => ({ music: "fresh", video: "fresh", photo: "fresh" })
 
 export function emptyProduction(): ProductionValues {
-  return { draftModel: "", draftEffort: "", previewQuality: "", finalQuality: "", reviewAt: "video", media: freshMedia() }
+  return { draftModel: "", draftEffort: "", previewQuality: "", finalQuality: "", previewFps: 0, finalFps: 0, reviewAt: "video", media: freshMedia() }
 }
 
 export function fromProduction(p: Production | undefined): ProductionValues {
@@ -98,6 +103,8 @@ export function fromProduction(p: Production | undefined): ProductionValues {
     draftEffort: p?.draftEffort ?? "",
     previewQuality: p?.previewQuality ?? "",
     finalQuality: p?.finalQuality ?? "",
+    previewFps: p?.previewFps ?? 0,
+    finalFps: p?.finalFps ?? 0,
     reviewAt: p?.reviewAt ?? "video",
     media: { ...freshMedia(), ...p?.media },
   }
@@ -110,6 +117,8 @@ export function toProduction(v: ProductionValues): Production | undefined {
   if (v.draftEffort) out.draftEffort = v.draftEffort
   if (v.previewQuality) out.previewQuality = v.previewQuality
   if (v.finalQuality) out.finalQuality = v.finalQuality
+  if (v.previewFps) out.previewFps = v.previewFps
+  if (v.finalFps) out.finalFps = v.finalFps
   if (v.reviewAt === "script") out.reviewAt = v.reviewAt
   if (Object.values(v.media).some((source) => source !== "fresh")) out.media = { ...v.media }
   return Object.keys(out).length > 0 ? out : undefined

@@ -529,3 +529,27 @@ func TestScriptReviewLifecycle(t *testing.T) {
 		t.Fatal("the article is at a script stage")
 	}
 }
+
+func TestRenderCovers(t *testing.T) {
+	tests := []struct {
+		name   string
+		got    story.Render
+		want   story.Render
+		covers bool
+	}{
+		{name: "same", got: story.Render{Scale: 1, FPS: 30}, want: story.Render{Scale: 1, FPS: 30}, covers: true},
+		{name: "sharper", got: story.Render{Scale: 1, FPS: 30}, want: story.Render{Scale: 2.0 / 3, FPS: 30}, covers: true},
+		{name: "softer", got: story.Render{Scale: 0.5, FPS: 30}, want: story.Render{Scale: 1, FPS: 30}},
+		{name: "fewer frames", got: story.Render{Scale: 1, FPS: 15}, want: story.Render{Scale: 1, FPS: 30}},
+		{name: "more frames", got: story.Render{Scale: 1, FPS: 30}, want: story.Render{Scale: 1, FPS: 60}},
+		{name: "unknown", want: story.Render{Scale: 0.5, FPS: 30}},
+		{name: "unknown frame rate", got: story.Render{Scale: 1}, want: story.Render{Scale: 1}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.got.Covers(tt.want); got != tt.covers {
+				t.Fatalf("%+v.Covers(%+v) = %v, want %v", tt.got, tt.want, got, tt.covers)
+			}
+		})
+	}
+}

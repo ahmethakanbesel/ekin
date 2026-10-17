@@ -162,7 +162,10 @@ func (s *Service) EditContent(ctx context.Context, workspaceID, storyID, deliver
 	if err != nil {
 		return nil, err
 	}
-	var retime *storydomain.Feedback
+	var (
+		retime  *storydomain.Feedback
+		preview storydomain.Render
+	)
 	switch {
 	case st.AtScript(d.ID()):
 		// A script in review is not narrated yet: an edited narration stays
@@ -181,6 +184,7 @@ func (s *Service) EditContent(ctx context.Context, workspaceID, storyID, deliver
 				artifacts[name] = key
 			}
 		}
+		preview = prev.Preview
 	}
 	out, err := s.mutate(ctx, storyID, func(ctx context.Context, st *storydomain.Story) error {
 		d, err := st.Deliverable(deliverableID)
@@ -194,6 +198,7 @@ func (s *Service) EditContent(ctx context.Context, workspaceID, storyID, deliver
 		if err != nil {
 			return err
 		}
+		rev.Preview = preview
 		if err := s.stories.PutRevision(ctx, rev); err != nil {
 			return err
 		}

@@ -27,6 +27,13 @@ func TestLoadDefaults(t *testing.T) {
 	if !cfg.Worker.HeavyExclusive || cfg.Worker.Cooldown != 30*time.Second || cfg.Worker.HeavyQueues != nil || cfg.Worker.Nice != 0 {
 		t.Fatalf("default throttle = %+v", cfg.Worker)
 	}
+	if cfg.Production.PreviewFPS != 30 || cfg.Production.FinalFPS != 30 {
+		t.Fatalf("default frame rates = %d, %d", cfg.Production.PreviewFPS, cfg.Production.FinalFPS)
+	}
+	cfg, err = load(env(map[string]string{"KURGU_RENDER_PREVIEW_FPS": "15", "KURGU_RENDER_FINAL_FPS": "60"}))
+	if err != nil || cfg.Production.PreviewFPS != 15 || cfg.Production.FinalFPS != 60 {
+		t.Fatalf("frame rates = %d, %d (%v)", cfg.Production.PreviewFPS, cfg.Production.FinalFPS, err)
+	}
 }
 
 func TestLoadHeavyQueuesAndNice(t *testing.T) {
@@ -92,6 +99,9 @@ func TestLoadRejectsBadValues(t *testing.T) {
 		{"shorts source minimum above maximum", map[string]string{"KURGU_SHORTS_SOURCE_MIN": "90m"}, "KURGU_SHORTS_*"},
 		{"short over 3 minutes", map[string]string{"KURGU_SHORTS_CLIP_MAX": "4m"}, "KURGU_SHORTS_*"},
 		{"too many shorts per video", map[string]string{"KURGU_SHORTS_MAX_PER_VIDEO": "21"}, "KURGU_SHORTS_MAX_PER_VIDEO"},
+		{"preview fps in range but not offered", map[string]string{"KURGU_RENDER_PREVIEW_FPS": "25"}, "KURGU_RENDER_PREVIEW_FPS"},
+		{"preview fps above 30", map[string]string{"KURGU_RENDER_PREVIEW_FPS": "60"}, "KURGU_RENDER_PREVIEW_FPS"},
+		{"final fps not offered", map[string]string{"KURGU_RENDER_FINAL_FPS": "48"}, "KURGU_RENDER_FINAL_FPS"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

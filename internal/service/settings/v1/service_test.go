@@ -83,6 +83,24 @@ func TestProfiles(t *testing.T) {
 			t.Fatalf("nice %d = %v", n, err)
 		}
 	}
+	if got, _ := svc.Profile(ctx, "vps"); got.PreviewRate() != 30 || got.FinalRate() != 30 {
+		t.Fatalf("unset frame rates = %d, %d", got.PreviewRate(), got.FinalRate())
+	}
+	rates := p
+	rates.PreviewFPS, rates.FinalFPS = 15, 60
+	if _, err := svc.SaveProfile(ctx, rates, id.New()); err != nil {
+		t.Fatalf("15 and 60 fps = %v", err)
+	}
+	if got, _ := svc.Profile(ctx, "vps"); got.PreviewRate() != 15 || got.FinalRate() != 60 {
+		t.Fatalf("stored frame rates = %d, %d", got.PreviewRate(), got.FinalRate())
+	}
+	for _, fps := range [][2]int{{60, 30}, {25, 30}, {30, 24}, {-15, 30}} {
+		bad = p
+		bad.PreviewFPS, bad.FinalFPS = fps[0], fps[1]
+		if _, err := svc.SaveProfile(ctx, bad, id.New()); !apperror.Is(err, apperror.ValidationFailed) {
+			t.Fatalf("frame rates %v = %v", fps, err)
+		}
+	}
 	bad = p
 	bad.HeavyQueues = []jobdomain.Queue{"gpu"}
 	if _, err := svc.SaveProfile(ctx, bad, id.New()); !apperror.Is(err, apperror.ValidationFailed) {

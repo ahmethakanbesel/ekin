@@ -1728,7 +1728,7 @@ export interface components {
             draftModel?: string;
             draftEffort?: components["schemas"]["DraftEffort"];
             /**
-             * @description Resolution of the review render (the short side of a 1080p frame). When it is at least the final quality, approving reuses the preview as the final video instead of rendering again. Absent: the host profile's preview scale.
+             * @description Resolution of the review render (the short side of a 1080p frame). When it is at least the final quality, at the final frame rate, approving reuses the preview as the final video instead of rendering again. Absent: the host profile's preview scale.
              * @enum {string}
              */
             previewQuality?: "360p" | "540p" | "720p" | "1080p";
@@ -1737,6 +1737,16 @@ export interface components {
              * @enum {string}
              */
             finalQuality?: "720p" | "1080p" | "1440p" | "2160p";
+            /**
+             * @description Frame rate of the review render. Fewer frames render faster and look choppier; a preview below the final frame rate is never reused as the final video. Absent: the host profile's.
+             * @enum {integer}
+             */
+            previewFps?: 15 | 24 | 30;
+            /**
+             * @description Frame rate of the final render; 60 takes about twice as long. Absent: the host profile's.
+             * @enum {integer}
+             */
+            finalFps?: 30 | 60;
             /**
              * @description When a person first reviews a video. video (the default): the rendered preview. script: the script, narration text and metadata first; approving them has the agent build the video, which is then reviewed as usual. script needs a video output.
              * @enum {string}
@@ -1804,6 +1814,16 @@ export interface components {
             renderChunks: number;
             previewScale: number;
             finalScale: number;
+            /**
+             * @description Frame rate of review renders. Absent on input keeps 30.
+             * @enum {integer}
+             */
+            previewFps?: 15 | 24 | 30;
+            /**
+             * @description Frame rate of final renders. Absent on input keeps 30.
+             * @enum {integer}
+             */
+            finalFps?: 30 | 60;
         };
         Notification: {
             /** Format: uuid */

@@ -397,13 +397,15 @@ func (r *SQLite) Delete(ctx context.Context, workspaceID, id uuid.UUID) error {
 func (r *SQLite) PutRevision(ctx context.Context, rev storydomain.Revision) error {
 	artifacts, _ := json.Marshal(nonNilMap(rev.Artifacts))
 	_, err := r.q.W(ctx).ExecContext(ctx, `INSERT INTO revisions
-		(deliverable_id, number, feedback, artifacts, notes, edited_by, duration_ms, words, narrator, stage, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		(deliverable_id, number, feedback, artifacts, notes, edited_by, duration_ms, words, narrator, preview_scale, preview_fps,
+		 stage, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (deliverable_id, number) DO UPDATE SET artifacts = excluded.artifacts, notes = excluded.notes,
-		  duration_ms = excluded.duration_ms, words = excluded.words, narrator = excluded.narrator`,
+		  duration_ms = excluded.duration_ms, words = excluded.words, narrator = excluded.narrator,
+		  preview_scale = excluded.preview_scale, preview_fps = excluded.preview_fps`,
 		rev.DeliverableID.String(), rev.Number, jsonOrNull(rev.Feedback), string(artifacts), rev.Notes, nullID(rev.EditedBy),
 		nullMillis(rev.Measures.Duration), nullPositive(rev.Measures.Words), nullNarrator(rev.Measures.Narrator),
-		string(rev.Stage), timeutil.ToMillis(rev.CreatedAt))
+		nullScale(rev.Preview.Scale), nullPositive(rev.Preview.FPS), string(rev.Stage), timeutil.ToMillis(rev.CreatedAt))
 	if err != nil {
 		return fmt.Errorf("write revision: %w", err)
 	}
@@ -427,7 +429,7 @@ func (r *SQLite) Revision(ctx context.Context, deliverableID uuid.UUID, number i
 
 func (r *SQLite) revisions(ctx context.Context, where string, args ...any) ([]storydomain.Revision, error) {
 	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT deliverable_id, number, feedback, artifacts, notes, edited_by, duration_ms, words, narrator,
-		stage, created_at
+		preview_scale, preview_fps, stage, created_at
 		FROM revisions WHERE `+where, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query revisions: %w", err)
@@ -444,11 +446,13 @@ func (r *SQLite) revisions(ctx context.Context, where string, args ...any) ([]st
 			duration  sql.NullInt64
 			words     sql.NullInt64
 			narrator  sql.NullString
+			scale     sql.NullFloat64
+			fps       sql.NullInt64
 			stage     string
 			created   int64
 		)
 		if err := rows.Scan(&rawID, &rev.Number, &feedback, &artifacts, &rev.Notes, &editedBy, &duration, &words, &narrator,
-			&stage, &created); err != nil {
+			&scale, &fps, &stage, &created); err != nil {
 			return nil, fmt.Errorf("scan revision: %w", err)
 		}
 		rev.DeliverableID, _ = uuid.Parse(rawID)
@@ -461,6 +465,7 @@ func (r *SQLite) revisions(ctx context.Context, where string, args ...any) ([]st
 		}
 		_ = json.Unmarshal([]byte(artifacts), &rev.Artifacts)
 		rev.Measures = measures(duration, words, narrator)
+		rev.Preview = storydomain.Render{Scale: scale.Float64, FPS: int(fps.Int64)}
 		rev.Stage = storydomain.Stage(stage)
 		rev.CreatedAt = timeutil.FromMillis(created)
 		out = append(out, rev)
@@ -571,6 +576,11 @@ func nullMillis(d time.Duration) sql.NullInt64 {
 // nullPositive stores a count; 0 (not measured) is NULL.
 func nullPositive(n int) sql.NullInt64 {
 	return sql.NullInt64{Int64: int64(n), Valid: n > 0}
+}
+
+// nullScale stores a render scale; an unknown one (0) is NULL.
+func nullScale(f float64) sql.NullFloat64 {
+	return sql.NullFloat64{Float64: f, Valid: f > 0}
 }
 
 // nullNarrator stores the voice that read a narration; none is NULL.

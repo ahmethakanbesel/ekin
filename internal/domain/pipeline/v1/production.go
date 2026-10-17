@@ -20,6 +20,10 @@ type Production struct {
 	// FinalQuality is the resolution of the final render after approval;
 	// "" takes the host profile's final scale.
 	FinalQuality Quality `json:"finalQuality,omitempty"`
+	// PreviewFPS and FinalFPS are the frame rates of the review and final
+	// renders; 0 takes the host profile's.
+	PreviewFPS FrameRate `json:"previewFps,omitempty"`
+	FinalFPS   FrameRate `json:"finalFps,omitempty"`
 	// ReviewAt is when a person first reviews a video: the finished video
 	// (the default) or, first, its script.
 	ReviewAt ReviewPoint `json:"reviewAt,omitempty"`
@@ -37,6 +41,12 @@ func (p Production) Check() error {
 		return err
 	}
 	if _, err := ParseFinalQuality(string(p.FinalQuality)); err != nil {
+		return err
+	}
+	if _, err := ParsePreviewFPS(int(p.PreviewFPS)); err != nil {
+		return err
+	}
+	if _, err := ParseFinalFPS(int(p.FinalFPS)); err != nil {
 		return err
 	}
 	if _, err := ParseReviewPoint(string(p.ReviewAt)); err != nil {
@@ -129,6 +139,33 @@ func (q Quality) Scale() float64 {
 		return 2
 	}
 	return 0
+}
+
+// FrameRate is how many frames a second a video is rendered at. Every
+// composition is a pure function of time, so it renders at any rate.
+type FrameRate int
+
+// DefaultFPS is the frame rate of a render nothing else sets.
+const DefaultFPS FrameRate = 30
+
+// ParsePreviewFPS parses the frame rate of a review render: 15, 24 or 30
+// (fewer frames render faster and look choppier); 0 is the default.
+func ParsePreviewFPS(n int) (FrameRate, error) {
+	switch n {
+	case 0, 15, 24, 30:
+		return FrameRate(n), nil
+	}
+	return 0, apperror.New(apperror.ValidationFailed, "preview frame rate must be 15, 24 or 30")
+}
+
+// ParseFinalFPS parses the frame rate of a final render: 30 or 60; 0 is
+// the default.
+func ParseFinalFPS(n int) (FrameRate, error) {
+	switch n {
+	case 0, 30, 60:
+		return FrameRate(n), nil
+	}
+	return 0, apperror.New(apperror.ValidationFailed, "final frame rate must be 30 or 60")
 }
 
 // Effort is how hard the authoring agent thinks (Claude Code's --effort).

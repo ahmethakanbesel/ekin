@@ -11,6 +11,7 @@ import (
 
 	"kurgu/internal/apperror"
 	jobdomain "kurgu/internal/domain/job/v1"
+	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 )
 
 // Profile is a host profile.
@@ -37,6 +38,23 @@ type Profile struct {
 	RenderChunks int     `json:"renderChunks"`
 	PreviewScale float64 `json:"previewScale"`
 	FinalScale   float64 `json:"finalScale"`
+	// PreviewFPS and FinalFPS are the frame rates of review and final
+	// renders; 0 (a profile saved before they existed) is 30.
+	PreviewFPS int `json:"previewFps,omitempty"`
+	FinalFPS   int `json:"finalFps,omitempty"`
+}
+
+// PreviewRate is the frame rate of review renders.
+func (p Profile) PreviewRate() int { return rate(p.PreviewFPS) }
+
+// FinalRate is the frame rate of final renders.
+func (p Profile) FinalRate() int { return rate(p.FinalFPS) }
+
+func rate(fps int) int {
+	if fps == 0 {
+		return int(pipelinedomain.DefaultFPS)
+	}
+	return fps
 }
 
 // MaxNice is the lowest scheduling priority.
@@ -91,7 +109,11 @@ func (p Profile) Validate() error {
 	case p.FinalScale < 0.25 || p.FinalScale > 2:
 		return fail("final scale must be between 0.25 and 2")
 	}
-	return nil
+	if _, err := pipelinedomain.ParsePreviewFPS(p.PreviewFPS); err != nil {
+		return err
+	}
+	_, err := pipelinedomain.ParseFinalFPS(p.FinalFPS)
+	return err
 }
 
 // Key is the settings key the profile is stored under.

@@ -202,6 +202,7 @@ func defaultProfile(cfg config.Config) settingsdomain.Profile {
 		HeavyQueues: cfg.Worker.HeavyQueues, Nice: cfg.Worker.Nice,
 		RenderDuty: cfg.Production.Duty, RenderChunks: cfg.Production.Chunks,
 		PreviewScale: cfg.Production.PreviewScale, FinalScale: cfg.Production.FinalScale,
+		PreviewFPS: cfg.Production.PreviewFPS, FinalFPS: cfg.Production.FinalFPS,
 	}
 }
 
@@ -237,7 +238,8 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, hostProfile
 	pc := productionsvc.Config{
 		LibraryEnv: libraryEnv,
 		WorkRoot: p.WorkDir, KurguBin: bin, ToolEnv: toolEnv, AgentTimeout: p.AgentTimeout,
-		PreviewScale: p.PreviewScale, FinalScale: p.FinalScale, Shorts: cfg.Shorts,
+		PreviewScale: p.PreviewScale, FinalScale: p.FinalScale, PreviewFPS: p.PreviewFPS, FinalFPS: p.FinalFPS,
+		Shorts: cfg.Shorts,
 	}
 	pc.ExtraEnv = func(context.Context) []string {
 		return []string{"KURGU_PEXELS_API_KEY=" + p.PexelsKey, "KURGU_ELEVENLABS_API_KEY=" + p.ElevenLabsKey}
@@ -251,11 +253,13 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, hostProfile
 	if hostProfile != nil {
 		pc.Render = func(ctx context.Context) productionsvc.RenderSettings {
 			hp := hostProfile(ctx)
-			return productionsvc.RenderSettings{Duty: hp.RenderDuty, Chunks: hp.RenderChunks, PreviewScale: hp.PreviewScale, FinalScale: hp.FinalScale}
+			return productionsvc.RenderSettings{Duty: hp.RenderDuty, Chunks: hp.RenderChunks, PreviewScale: hp.PreviewScale, FinalScale: hp.FinalScale,
+				PreviewFPS: hp.PreviewRate(), FinalFPS: hp.FinalRate()}
 		}
 	} else {
 		pc.Render = func(context.Context) productionsvc.RenderSettings {
-			return productionsvc.RenderSettings{Duty: p.Duty, Chunks: p.Chunks, PreviewScale: p.PreviewScale, FinalScale: p.FinalScale}
+			return productionsvc.RenderSettings{Duty: p.Duty, Chunks: p.Chunks, PreviewScale: p.PreviewScale, FinalScale: p.FinalScale,
+				PreviewFPS: p.PreviewFPS, FinalFPS: p.FinalFPS}
 		}
 	}
 	return productionsvc.NewService(pc, deps), nil

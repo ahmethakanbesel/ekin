@@ -96,6 +96,44 @@ export function HeavyQueuesPicker({
     </ToggleGroup>
   )
 }
+
+const PREVIEW_FPS = ["15", "24", "30"] as const
+const FINAL_FPS = ["30", "60"] as const
+
+/** One frame rate out of a few, as pressed buttons. */
+function FpsPicker({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string
+  options: readonly string[]
+  value: string
+  onChange: (next: string) => void
+}) {
+  return (
+    <ToggleGroup
+      variant="outline"
+      size="sm"
+      spacing={1.5}
+      aria-label={label}
+      value={[value]}
+      onValueChange={(next) => next[0] && onChange(String(next[0]))}
+    >
+      {options.map((fps) => (
+        <ToggleGroupItem
+          key={fps}
+          value={fps}
+          className="tabular text-muted-foreground aria-pressed:text-foreground"
+        >
+          {m.system.fps(fps)}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  )
+}
+
 const PROFILE_NAME = /^[a-z0-9][a-z0-9-]{0,31}$/
 
 /** Admins: how hard the workers using each profile may work. */
@@ -180,6 +218,8 @@ type Values = {
   renderChunks: string
   previewScale: string
   finalScale: string
+  previewFps: string
+  finalFps: string
 }
 
 function toValues(p: HostProfile): Values {
@@ -197,6 +237,8 @@ function toValues(p: HostProfile): Values {
     renderChunks: String(p.renderChunks),
     previewScale: String(p.previewScale),
     finalScale: String(p.finalScale),
+    previewFps: String(p.previewFps ?? 30),
+    finalFps: String(p.finalFps ?? 30),
   }
 }
 
@@ -217,6 +259,8 @@ function toProfile(name: string, v: Values, base: HostProfile): HostProfile {
     renderChunks: Number(v.renderChunks),
     previewScale: Number(v.previewScale),
     finalScale: Number(v.finalScale),
+    previewFps: Number(v.previewFps) as HostProfile["previewFps"],
+    finalFps: Number(v.finalFps) as HostProfile["finalFps"],
   }
 }
 
@@ -473,6 +517,32 @@ function ProfileCard({
                     </Row>
                   )
                 }}
+              </form.Field>
+            ))}
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            {(
+              [
+                ["previewFps", m.system.previewFps, m.system.previewFpsHint, PREVIEW_FPS],
+                ["finalFps", m.system.finalFps, m.system.finalFpsHint, FINAL_FPS],
+              ] as const
+            ).map(([name, label, hint, options]) => (
+              <form.Field key={name} name={name}>
+                {(field) => (
+                  <FieldSet className="gap-2">
+                    <FieldLegend variant="label" className="mb-0">
+                      {label}
+                    </FieldLegend>
+                    <FpsPicker
+                      label={label}
+                      options={options}
+                      value={field.state.value}
+                      onChange={(next) => field.handleChange(next)}
+                    />
+                    <FieldDescription>{hint}</FieldDescription>
+                  </FieldSet>
+                )}
               </form.Field>
             ))}
           </div>

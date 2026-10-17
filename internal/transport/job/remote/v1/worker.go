@@ -44,7 +44,7 @@ func Register(r *jobsvc.Runner, c *remote.Client, prod *productionsvc.Service) {
 			return err
 		}
 		defer func() { _ = os.RemoveAll(out) }()
-		files, err := prod.RunRender(ctx, task, dir, out)
+		files, err := prod.RunRender(ctx, &task, dir, out)
 		if err != nil {
 			return c.Fail(ctx, j.ID(), err)
 		}

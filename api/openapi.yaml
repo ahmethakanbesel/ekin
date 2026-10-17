@@ -2666,8 +2666,9 @@ components:
           enum: ["360p", "540p", "720p", "1080p"]
           description: >-
             Resolution of the review render (the short side of a 1080p frame).
-            When it is at least the final quality, approving reuses the preview
-            as the final video instead of rendering again. Absent: the host
+            When it is at least the final quality, at the final frame rate,
+            approving reuses the preview as the final video instead of
+            rendering again. Absent: the host
             profile's preview scale.
         finalQuality:
           type: string
@@ -2675,6 +2676,19 @@ components:
           description: >-
             Resolution of the final render after approval (the short side of a
             1080p frame). Absent: the host profile's final scale.
+        previewFps:
+          type: integer
+          enum: [15, 24, 30]
+          description: >-
+            Frame rate of the review render. Fewer frames render faster and
+            look choppier; a preview below the final frame rate is never
+            reused as the final video. Absent: the host profile's.
+        finalFps:
+          type: integer
+          enum: [30, 60]
+          description: >-
+            Frame rate of the final render; 60 takes about twice as long.
+            Absent: the host profile's.
         reviewAt:
           type: string
           enum: [video, script]
@@ -2795,6 +2809,14 @@ components:
         renderChunks: { type: integer, minimum: 1, maximum: 16 }
         previewScale: { type: number, minimum: 0.25, maximum: 1 }
         finalScale: { type: number, minimum: 0.25, maximum: 2 }
+        previewFps:
+          type: integer
+          enum: [15, 24, 30]
+          description: Frame rate of review renders. Absent on input keeps 30.
+        finalFps:
+          type: integer
+          enum: [30, 60]
+          description: Frame rate of final renders. Absent on input keeps 30.
 
     Notification:
       type: object

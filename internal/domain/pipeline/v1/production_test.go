@@ -98,6 +98,37 @@ func TestFinalQuality(t *testing.T) {
 	}
 }
 
+func TestFrameRates(t *testing.T) {
+	tests := []struct {
+		name           string
+		preview, final int
+		wantErr        bool
+	}{
+		{name: "defaults"},
+		{name: "15 fps preview", preview: 15},
+		{name: "24 fps preview", preview: 24},
+		{name: "30 fps preview, 60 fps final", preview: 30, final: 60},
+		{name: "30 fps final", final: 30},
+		{name: "60 fps preview", preview: 60, wantErr: true},
+		{name: "25 fps preview", preview: 25, wantErr: true},
+		{name: "24 fps final", final: 24, wantErr: true},
+		{name: "negative", final: -30, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, perr := pipeline.ParsePreviewFPS(tt.preview)
+			_, ferr := pipeline.ParseFinalFPS(tt.final)
+			if gotErr := perr != nil || ferr != nil; gotErr != tt.wantErr {
+				t.Fatalf("parse errors = %v, %v; wantErr %v", perr, ferr, tt.wantErr)
+			}
+			p := pipeline.Production{PreviewFPS: pipeline.FrameRate(tt.preview), FinalFPS: pipeline.FrameRate(tt.final)}
+			if err := p.Check(); (err != nil) != tt.wantErr {
+				t.Fatalf("Check() = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestProductionChecksMedia(t *testing.T) {
 	tests := []struct {
 		name    string

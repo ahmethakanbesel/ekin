@@ -17,9 +17,11 @@ import { librarySizeQuery } from "@/queries/library"
 import { Row, Section } from "./form-parts"
 import type {
   DraftEffort,
+  FinalFps,
   FinalQuality,
   MediaKind,
   MediaSource,
+  PreviewFps,
   PreviewQuality,
   ProductionValues,
   ReviewAt,
@@ -42,13 +44,21 @@ const QUALITIES: PreviewQuality[] = ["360p", "540p", "720p", "1080p"]
 
 const FINAL_QUALITIES: FinalQuality[] = ["720p", "1080p", "1440p", "2160p"]
 
+const PREVIEW_RATES: PreviewFps[] = [15, 24, 30]
+
+const FINAL_RATES: FinalFps[] = [30, 60]
+
 /**
  * Whether approving reuses the preview as the final video: it is rendered
- * at the final quality or better. An unset final quality counts as 1080p,
- * the host profile's usual final scale.
+ * at the final quality or better, at the final frame rate. Unset values
+ * count as the host profile's usual ones, 1080p and 30 fps.
  */
-function reusesPreview(preview: PreviewQuality | "", final: FinalQuality | ""): boolean {
-  return preview !== "" && parseInt(preview) >= parseInt(final || "1080p")
+function reusesPreview(v: ProductionValues): boolean {
+  return (
+    v.previewQuality !== "" &&
+    parseInt(v.previewQuality) >= parseInt(v.finalQuality || "1080p") &&
+    (v.previewFps || 30) === (v.finalFps || 30)
+  )
 }
 
 const REVIEW_POINTS: ReviewAt[] = ["video", "script"]
@@ -91,6 +101,14 @@ export function ProductionSection({
   const finalQualities = [
     { value: DEFAULT, label: t.workspaceDefault },
     ...FINAL_QUALITIES.map((q) => ({ value: q, label: t.finalQualities[q] })),
+  ]
+  const previewRates = [
+    { value: DEFAULT, label: t.workspaceDefault },
+    ...PREVIEW_RATES.map((n) => ({ value: String(n), label: t.previewRates[n] })),
+  ]
+  const finalRates = [
+    { value: DEFAULT, label: t.workspaceDefault },
+    ...FINAL_RATES.map((n) => ({ value: String(n), label: t.finalRates[n] })),
   ]
   const set = (patch: Partial<ProductionValues>) => onChange({ ...value, ...patch })
 
@@ -142,7 +160,7 @@ export function ProductionSection({
             label={t.previewQuality}
             htmlFor={`${idPrefix}-preview`}
             hint={
-              reusesPreview(value.previewQuality, value.finalQuality)
+              reusesPreview(value)
                 ? t.previewFullHint
                 : t.previewHint
             }
@@ -183,6 +201,52 @@ export function ProductionSection({
               </SelectTrigger>
               <SelectContent>
                 {finalQualities.map((it) => (
+                  <SelectItem key={it.value} value={it.value}>
+                    {it.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Row>
+        ) : null}
+        {video ? (
+          <Row label={t.previewFps} htmlFor={`${idPrefix}-preview-fps`} hint={t.previewFpsHint}>
+            <Select
+              items={previewRates}
+              disabled={readOnly}
+              value={value.previewFps ? String(value.previewFps) : DEFAULT}
+              onValueChange={(v) =>
+                v && set({ previewFps: v === DEFAULT ? 0 : (Number(v) as PreviewFps) })
+              }
+            >
+              <SelectTrigger id={`${idPrefix}-preview-fps`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {previewRates.map((it) => (
+                  <SelectItem key={it.value} value={it.value}>
+                    {it.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Row>
+        ) : null}
+        {video ? (
+          <Row label={t.finalFps} htmlFor={`${idPrefix}-final-fps`} hint={t.finalFpsHint}>
+            <Select
+              items={finalRates}
+              disabled={readOnly}
+              value={value.finalFps ? String(value.finalFps) : DEFAULT}
+              onValueChange={(v) =>
+                v && set({ finalFps: v === DEFAULT ? 0 : (Number(v) as FinalFps) })
+              }
+            >
+              <SelectTrigger id={`${idPrefix}-final-fps`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {finalRates.map((it) => (
                   <SelectItem key={it.value} value={it.value}>
                     {it.label}
                   </SelectItem>

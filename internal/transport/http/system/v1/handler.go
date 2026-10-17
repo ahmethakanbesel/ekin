@@ -81,6 +81,12 @@ func (h *Handler) SaveProfile(ctx context.Context, req gen.SaveProfileRequestObj
 		RenderDuty: float64(b.RenderDuty), RenderChunks: b.RenderChunks,
 		PreviewScale: float64(b.PreviewScale), FinalScale: float64(b.FinalScale),
 	}
+	if b.PreviewFps != nil {
+		in.PreviewFPS = int(*b.PreviewFps)
+	}
+	if b.FinalFps != nil {
+		in.FinalFPS = int(*b.FinalFps)
+	}
 	for q, n := range b.Concurrency {
 		in.Concurrency[jobdomain.Queue(q)] = n
 	}
@@ -170,9 +176,11 @@ func profileToWire(p settingsdomain.Profile) gen.HostProfile {
 	for _, q := range p.Heavy() {
 		heavy = append(heavy, gen.HostProfileHeavyQueues(q))
 	}
+	previewFPS, finalFPS := gen.HostProfilePreviewFps(p.PreviewRate()), gen.HostProfileFinalFps(p.FinalRate())
 	return gen.HostProfile{
 		Name: p.Name, Concurrency: c, HeavyQueues: &heavy, Nice: &p.Nice, HeavyExclusive: p.HeavyExclusive, CooldownSeconds: int(p.Cooldown / time.Second),
 		Paused: p.Paused, CpuLimit: p.CPULimit, RenderDuty: float32(p.RenderDuty), RenderChunks: p.RenderChunks,
 		PreviewScale: float32(p.PreviewScale), FinalScale: float32(p.FinalScale),
+		PreviewFps: &previewFPS, FinalFps: &finalFPS,
 	}
 }

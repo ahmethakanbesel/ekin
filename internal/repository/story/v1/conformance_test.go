@@ -78,10 +78,15 @@ func TestConformance(t *testing.T) {
 			}
 			rev.Artifacts["preview.mp4"] = "p"
 			rev.Measures.Duration = 47500 * time.Millisecond
+			if back, _ := repo.Revision(ctx, video.ID(), 1); back.Preview != (storydomain.Render{}) {
+				t.Fatalf("preview render before rendering = %+v", back.Preview)
+			}
+			rev.Preview = storydomain.Render{Scale: 2.0 / 3, FPS: 15}
 			_ = repo.PutRevision(ctx, rev)
 			back, _ := repo.Revision(ctx, video.ID(), 1)
 			if back.Artifacts["preview.mp4"] != "p" || back.Artifacts["workdir.tar.gz"] != "k" || back.Notes != "notes" ||
-				back.Measures != (storydomain.Measures{Duration: 47500 * time.Millisecond, Words: 140, Narrator: narrated.Narrator}) {
+				back.Measures != (storydomain.Measures{Duration: 47500 * time.Millisecond, Words: 140, Narrator: narrated.Narrator}) ||
+				back.Preview != (storydomain.Render{Scale: 2.0 / 3, FPS: 15}) {
 				t.Fatalf("revision = %+v", back)
 			}
 			if _, err := repo.Revision(ctx, video.ID(), 2); !apperror.Is(err, apperror.NotFound) {

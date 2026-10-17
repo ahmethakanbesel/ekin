@@ -85,8 +85,9 @@ Runtime-editable settings, with env defaults:
 | `heavy.exclusive` | true | agent / render / tts never overlap |
 | `heavy.cooldown` | 30s | pause between heavy jobs |
 | `render.duty_cycle` | 1.0 | sleep between frames (0.25 = 4× slower) |
-| `render.preview_scale` / `render.final_scale` | 0.5 / 1.0 | review at 540p, final at 1080p after approval |
-| `render.fps`, `render.chunks`, `render.encoder`, `render.gpu` | 30, 1, libx264, off | Mac: chunks = cores, h264_videotoolbox, gpu on |
+| `render.preview_scale` / `render.final_scale` | 0.5 / 1.0 | review at 540p, final at 1080p after approval; a preview that covers the final (as sharp, same frame rate) is reused instead. Mac: preview 1.0, since screenshot capture costs the same at 540p |
+| `render.preview_fps` / `render.final_fps` | 30 / 30 | preview 15, 24 or 30; final 30 or 60. Pipelines and ad-hoc requests can override these and the scales |
+| `render.chunks`, `render.encoder`, `render.gpu` | 1, libx264, off | Mac: chunks = cores, h264_videotoolbox, gpu on |
 | `ffmpeg.threads`, `process.nice` | 1, 19 | |
 | `worker.paused` | false | global pause |
 

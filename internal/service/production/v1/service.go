@@ -142,6 +142,8 @@ type RenderSettings struct {
 	Chunks       int
 	PreviewScale float64
 	FinalScale   float64
+	PreviewFPS   int
+	FinalFPS     int
 }
 
 // Config tunes production.
@@ -151,6 +153,8 @@ type Config struct {
 	ToolEnv      []string      // KURGU_* settings for the tools
 	PreviewScale float64       // 0.5 = 540p review renders
 	FinalScale   float64       // 1.0 = 1080p
+	PreviewFPS   int           // frame rate of review renders, default 30
+	FinalFPS     int           // frame rate of final renders, default 30
 	AgentTimeout time.Duration // per agent call
 	FixAttempts  int           // agent retries when its output fails validation
 	// Render, when set, overrides the scales per render and supplies the
@@ -216,6 +220,12 @@ func NewService(cfg Config, d Deps) *Service {
 	}
 	if cfg.FinalScale == 0 {
 		cfg.FinalScale = 1
+	}
+	if cfg.PreviewFPS == 0 {
+		cfg.PreviewFPS = int(pipelinedomain.DefaultFPS)
+	}
+	if cfg.FinalFPS == 0 {
+		cfg.FinalFPS = int(pipelinedomain.DefaultFPS)
 	}
 	if cfg.AgentTimeout == 0 {
 		cfg.AgentTimeout = 45 * time.Minute

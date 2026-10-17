@@ -470,6 +470,9 @@ type VideoOptions struct {
 	Scale  float64 // 0.5 renders 540×960 from a 1080×1920 composition
 	Duty   float64
 	Chunks int
+	// FPS renders at this frame rate instead of the one the composition
+	// declares; it is a pure function of time, so any rate works.
+	FPS int
 }
 
 // Video renders the composition into a silent MP4 at out.
@@ -485,10 +488,10 @@ func (r *Renderer) Video(ctx context.Context, dir, pagePath string, opts VideoOp
 	if scale <= 0 {
 		scale = 1
 	}
-	return tuned.video(ctx, dir, pagePath, scale, out)
+	return tuned.video(ctx, dir, pagePath, scale, opts.FPS, out)
 }
 
-func (r *Renderer) video(ctx context.Context, dir, pagePath string, scale float64, out string) (Meta, error) {
+func (r *Renderer) video(ctx context.Context, dir, pagePath string, scale float64, fps int, out string) (Meta, error) {
 	bf := 0.0
 	chrome := r.Chrome
 	if chrome == "" {
@@ -505,6 +508,9 @@ func (r *Renderer) video(ctx context.Context, dir, pagePath string, scale float6
 	first, m, err := s.tab(pagePath, scale)
 	if err != nil {
 		return m, err
+	}
+	if fps > 0 {
+		m.FPS = float64(fps)
 	}
 	frames := m.Frames()
 	n := max(1, r.Chunks)
