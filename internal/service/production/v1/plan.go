@@ -181,15 +181,23 @@ func (s *Service) PlanAdHoc(ctx context.Context, p AdHocPayload) error {
 }
 
 // resolve lays a pipeline's or request's settings over the workspace's
-// defaults, fitted to the outputs, and picks the template its stories
-// keep: the chosen one, none, or the workspace's default. A template
-// deleted since leaves the stories without one.
+// defaults and the server's drafting model and effort, fitted to the
+// outputs, and picks the template its stories keep: the chosen one,
+// none, or the workspace's default. A template deleted since leaves the
+// stories without one. The brief then names the model every draft runs
+// with, on whichever worker, as the settings pages show it.
 func (s *Service) resolve(ctx context.Context, workspaceID uuid.UUID, own pipelinedomain.Production,
 	choice pipelinedomain.TemplateChoice, outputs pipelinedomain.Outputs) (pipelinedomain.Production, *storydomain.TemplateStyle, error) {
-	var base defaultssvc.Workspace
+	var (
+		base   defaultssvc.Workspace
+		server pipelinedomain.Agent
+	)
 	if s.defaults != nil {
 		var err error
 		if base, err = s.defaults.Get(ctx, workspaceID); err != nil {
+			return pipelinedomain.Production{}, nil, err
+		}
+		if server, err = s.defaults.ServerAgent(ctx); err != nil {
 			return pipelinedomain.Production{}, nil, err
 		}
 	}
@@ -197,7 +205,8 @@ func (s *Service) resolve(ctx context.Context, workspaceID uuid.UUID, own pipeli
 	if err != nil {
 		return pipelinedomain.Production{}, nil, err
 	}
-	return own.Over(base.Production).For(outputs), tmpl, nil
+	prod := own.Over(base.Production).Over(pipelinedomain.Production{Agent: server})
+	return prod.For(outputs), tmpl, nil
 }
 
 func outputsFromPayload(p AdHocPayload) (pipelinedomain.Outputs, error) {

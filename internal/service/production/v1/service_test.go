@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"kurgu/internal/apperror"
+	"log/slog"
 	"math"
 	"os"
 	"path/filepath"
@@ -31,6 +32,7 @@ import (
 	librarydomain "kurgu/internal/domain/library/v1"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	seodomain "kurgu/internal/domain/seo/v1"
+	settingsdomain "kurgu/internal/domain/settings/v1"
 	storydomain "kurgu/internal/domain/story/v1"
 	templatedomain "kurgu/internal/domain/template/v1"
 	voicedomain "kurgu/internal/domain/voice/v1"
@@ -49,9 +51,11 @@ import (
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	production "kurgu/internal/service/production/v1"
 	seosvc "kurgu/internal/service/seo/v1"
+	settingssvc "kurgu/internal/service/settings/v1"
 	templatesvc "kurgu/internal/service/template/v1"
 	voicesvc "kurgu/internal/service/voice/v1"
 	"kurgu/pkg/id"
+	"kurgu/pkg/secretbox"
 )
 
 // fakeAgent plays the authoring agent: it answers idea prompts with
@@ -797,6 +801,94 @@ func TestTemplateReachesTheAgent(t *testing.T) {
 	brief, _ := os.ReadFile(filepath.Join(dir, "BRIEF.md"))
 	if !strings.Contains(string(brief), "Follow `STYLE.md`") {
 		t.Fatal("brief does not point at STYLE.md")
+	}
+}
+
+// Planning writes the server's drafting model (System › Credentials, then
+// KURGU_CLAUDE_MODEL) and effort (KURGU_CLAUDE_EFFORT) into the brief
+// where no layer sets one. A remote worker never sees the server's
+// settings and drafts with only what the brief says, so without this it
+// ignored the model the settings pages show.
+func TestServerAgentResolvesAtPlanning(t *testing.T) {
+	ctx := context.Background()
+	box, _ := secretbox.New([]byte("test-secret-0123456789"))
+	agent := func(model string, effort pipelinedomain.Effort) pipelinedomain.Agent {
+		return pipelinedomain.Agent{Model: model, Effort: effort}
+	}
+	tests := []struct {
+		name      string
+		adHoc     bool
+		env       string // KURGU_CLAUDE_MODEL
+		saved     string // the model saved on System › Credentials
+		effort    string // KURGU_CLAUDE_EFFORT
+		workspace pipelinedomain.Agent
+		own       pipelinedomain.Agent
+		want      pipelinedomain.Agent
+	}{
+		{name: "the server's saved model and effort fill a pipeline's brief", saved: "opus", effort: "high",
+			want: agent("opus", pipelinedomain.EffortHigh)},
+		{name: "the server's saved model fills an ad-hoc brief", adHoc: true, saved: "opus", effort: "high",
+			want: agent("opus", pipelinedomain.EffortHigh)},
+		{name: "the environment's model when none is saved", env: "sonnet", want: agent("sonnet", "")},
+		{name: "the saved model over the environment's", env: "sonnet", saved: "opus", want: agent("opus", "")},
+		{name: "a workspace model wins over the server's", saved: "opus", effort: "high",
+			workspace: agent("haiku", ""), want: agent("haiku", pipelinedomain.EffortHigh)},
+		{name: "a pipeline's model and effort win over every other layer", saved: "opus", effort: "high",
+			workspace: agent("haiku", pipelinedomain.EffortMedium), own: agent("sonnet", pipelinedomain.EffortLow),
+			want: agent("sonnet", pipelinedomain.EffortLow)},
+		{name: "an ad-hoc request's model wins over the server's", adHoc: true, saved: "opus",
+			own: agent("sonnet", ""), want: agent("sonnet", "")},
+		{name: "no server model leaves Claude Code's own", want: agent("", "")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			settings := settingssvc.NewService(settingsrepo.NewSQLite(f.tx), f.tx, settingsdomain.Profile{Name: "default"},
+				slog.New(slog.DiscardHandler)).WithCredentials(settingsdomain.Credentials{ClaudeModel: tt.env}, box)
+			if tt.saved != "" {
+				if err := settings.UpdateCredentials(ctx, map[string]string{"claudeModel": tt.saved}, id.New()); err != nil {
+					t.Fatal(err)
+				}
+			}
+			defaults := defaultssvc.NewService(settingsrepo.NewSQLite(f.tx), settings, defaultssvc.Config{Profile: "default", Effort: tt.effort})
+			w := defaultssvc.Workspace{Production: pipelinedomain.Production{SelfReview: pipelinedomain.SelfReviewOff, Agent: tt.workspace}}
+			if _, err := defaults.Put(ctx, f.ws, w, id.New()); err != nil {
+				t.Fatal(err)
+			}
+			server := f.hostWith(func(d *production.Deps) { d.Defaults = defaults })
+			video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
+			outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
+			own := pipelinedomain.Production{Agent: tt.own}
+			if tt.adHoc {
+				req := production.AdHocRequest{Idea: "Kaygı ve endişe farkı", Count: 1, Language: pipelinedomain.Turkish,
+					Outputs: outputs, Production: own}
+				if _, err := server.QueueAdHoc(ctx, f.ws, id.New(), req); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				source, _ := pipelinedomain.NewPromptSource("Kaygı üzerine.")
+				p, err := f.pipelines.Create(ctx, f.ws, pipelinedomain.Definition{Name: "A", Language: pipelinedomain.Turkish,
+					Outputs: outputs, Source: source, Production: own})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := f.pipelines.RunNow(ctx, f.ws, p.ID(), 1); err != nil {
+					t.Fatal(err)
+				}
+			}
+			f.drainOn(t, server)
+			if got := f.story(t).Brief().Production.Agent; got != tt.want {
+				t.Fatalf("brief agent = %+v, want %+v", got, tt.want)
+			}
+			// The draft asks for that model itself, so a runner without
+			// the server's settings (a remote worker) uses it too.
+			f.agent.mu.Lock()
+			last := f.agent.prompts[len(f.agent.prompts)-1]
+			f.agent.mu.Unlock()
+			if last.Model != tt.want.Model || last.Effort != string(tt.want.Effort) {
+				t.Fatalf("draft ran with model %q effort %q, want %+v", last.Model, last.Effort, tt.want)
+			}
+		})
 	}
 }
 

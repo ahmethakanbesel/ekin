@@ -130,24 +130,48 @@ func (s *Service) Put(ctx context.Context, workspaceID uuid.UUID, w Workspace, b
 	return w, s.repo.Put(ctx, key(workspaceID), w, by, s.now())
 }
 
+// ServerAgent is the model and effort drafts run with where neither the
+// workspace nor a pipeline or request sets one: the model from System ›
+// Credentials, then KURGU_CLAUDE_MODEL, and the effort from
+// KURGU_CLAUDE_EFFORT. A blank field leaves Claude Code's own.
+func (s *Service) ServerAgent(ctx context.Context) (pipelinedomain.Agent, error) {
+	model, _, err := s.model(ctx)
+	if err != nil {
+		return pipelinedomain.Agent{}, err
+	}
+	return pipelinedomain.Agent{Model: model, Effort: pipelinedomain.Effort(s.cfg.Effort)}, nil
+}
+
+func (s *Service) model(ctx context.Context) (string, ModelSource, error) {
+	if s.settings == nil {
+		return "", ModelUnset, nil
+	}
+	statuses, err := s.settings.CredentialStatuses(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	model, source := "", ModelUnset
+	for _, st := range statuses {
+		if st.Field.Key != "claudeModel" || st.Value == "" {
+			continue
+		}
+		switch src := ModelSource(st.Source); src {
+		case ModelFromSettings, ModelFromEnv:
+			model, source = st.Value, src
+		}
+	}
+	return model, source, nil
+}
+
 // Server returns the server's values.
 func (s *Service) Server(ctx context.Context) (Server, error) {
-	out := Server{DraftModelSource: ModelUnset, DraftEffort: pipelinedomain.Effort(s.cfg.Effort), Profile: s.cfg.Profile}
+	model, source, err := s.model(ctx)
+	if err != nil {
+		return Server{}, err
+	}
+	out := Server{DraftModel: model, DraftModelSource: source, DraftEffort: pipelinedomain.Effort(s.cfg.Effort), Profile: s.cfg.Profile}
 	profile := settingsdomain.Profile{Name: s.cfg.Profile}
 	if s.settings != nil {
-		statuses, err := s.settings.CredentialStatuses(ctx)
-		if err != nil {
-			return Server{}, err
-		}
-		for _, st := range statuses {
-			if st.Field.Key != "claudeModel" || st.Value == "" {
-				continue
-			}
-			switch src := ModelSource(st.Source); src {
-			case ModelFromSettings, ModelFromEnv:
-				out.DraftModel, out.DraftModelSource = st.Value, src
-			}
-		}
 		if profile, err = s.settings.Profile(ctx, s.cfg.Profile); err != nil {
 			return Server{}, err
 		}

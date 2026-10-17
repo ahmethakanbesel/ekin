@@ -2955,8 +2955,9 @@ components:
         How hard the authoring agent thinks while drafting (Claude Code's
         --effort). Absent on a pipeline or request: the workspace default
         (Settings › Production), then the server's (KURGU_CLAUDE_EFFORT, then
-        Claude Code's own); on ServerProduction, absent means Claude Code's
-        own.
+        Claude Code's own), resolved when a story is planned so remote
+        workers draft with it too; on ServerProduction, absent means Claude
+        Code's own.
 
     MediaSource:
       type: string
@@ -2995,6 +2996,8 @@ components:
             (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace
             default (Settings › Production), then the server's (System ›
             Credentials, then KURGU_CLAUDE_MODEL, then Claude Code's own).
+            Resolved when a story is planned, so every worker, remote ones
+            included, drafts with the model shown here.
         draftEffort: { $ref: "#/components/schemas/DraftEffort" }
         previewQuality:
           type: string
@@ -3098,7 +3101,11 @@ components:
       properties:
         draftModel:
           type: string
-          description: The model drafts run with; absent when Claude Code picks its own.
+          description: >-
+            The model drafts run with on every worker, remote ones included
+            (stories take it when planned); absent when Claude Code picks
+            its own, which on a remote worker is that machine's
+            KURGU_CLAUDE_MODEL or Claude Code's default.
         draftModelSource:
           type: string
           enum: [settings, env, unset]

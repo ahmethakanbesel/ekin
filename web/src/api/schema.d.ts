@@ -1895,7 +1895,7 @@ export interface components {
             metadata?: components["schemas"]["VideoMetadataContent"];
         };
         /**
-         * @description How hard the authoring agent thinks while drafting (Claude Code's --effort). Absent on a pipeline or request: the workspace default (Settings › Production), then the server's (KURGU_CLAUDE_EFFORT, then Claude Code's own); on ServerProduction, absent means Claude Code's own.
+         * @description How hard the authoring agent thinks while drafting (Claude Code's --effort). Absent on a pipeline or request: the workspace default (Settings › Production), then the server's (KURGU_CLAUDE_EFFORT, then Claude Code's own), resolved when a story is planned so remote workers draft with it too; on ServerProduction, absent means Claude Code's own.
          * @enum {string}
          */
         DraftEffort: "low" | "medium" | "high" | "xhigh" | "max";
@@ -1912,7 +1912,7 @@ export interface components {
         };
         /** @description How stories are made, set per pipeline or request, or as a workspace's defaults. Every absent field takes the layer below: a pipeline's or request's the workspace default (Settings › Production), the workspace's the server's. Self-review rounds travel beside it (selfReviewRounds). */
         Production: {
-            /** @description Claude model the agent drafts and revises with: a model id (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace default (Settings › Production), then the server's (System › Credentials, then KURGU_CLAUDE_MODEL, then Claude Code's own). */
+            /** @description Claude model the agent drafts and revises with: a model id (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace default (Settings › Production), then the server's (System › Credentials, then KURGU_CLAUDE_MODEL, then Claude Code's own). Resolved when a story is planned, so every worker, remote ones included, drafts with the model shown here. */
             draftModel?: string;
             draftEffort?: components["schemas"]["DraftEffort"];
             /**
@@ -1967,7 +1967,7 @@ export interface components {
         };
         /** @description What stories get where neither the workspace nor a pipeline or request sets a value. */
         ServerProduction: {
-            /** @description The model drafts run with; absent when Claude Code picks its own. */
+            /** @description The model drafts run with on every worker, remote ones included (stories take it when planned); absent when Claude Code picks its own, which on a remote worker is that machine's KURGU_CLAUDE_MODEL or Claude Code's default. */
             draftModel?: string;
             /**
              * @description Where draftModel comes from: settings (System › Credentials), env (KURGU_CLAUDE_MODEL) or unset (Claude Code's own default).

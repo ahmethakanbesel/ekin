@@ -171,6 +171,11 @@ func TestServer(t *testing.T) {
 			if err != nil || got != tt.want {
 				t.Fatalf("Server() = %+v, %v\nwant %+v", got, err, tt.want)
 			}
+			// Planning puts the same model and effort into briefs.
+			agent, err := svc.ServerAgent(ctx)
+			if want := (pipelinedomain.Agent{Model: tt.want.DraftModel, Effort: tt.want.DraftEffort}); err != nil || agent != want {
+				t.Fatalf("ServerAgent() = %+v, %v, want %+v", agent, err, want)
+			}
 		})
 	}
 }

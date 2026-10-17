@@ -81,8 +81,8 @@ type DraftTask struct {
 	Feedback    *storydomain.Feedback `json:"feedback,omitempty"`
 	// SelfReview is the most self-review rounds (story brief); 0 for none.
 	SelfReview int `json:"selfReview,omitempty"`
-	// Agent is the drafting model and effort; empty fields take the
-	// workspace defaults.
+	// Agent is the drafting model and effort, resolved at planning down
+	// to the server's; empty fields leave the worker's own.
 	Agent pipelinedomain.Agent `json:"agent,omitzero"`
 	// Stage is what this draft makes of a video whose story reviews
 	// scripts first: the script alone, or the video from the approved

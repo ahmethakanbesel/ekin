@@ -343,8 +343,11 @@ func ParseEffort(s string) (Effort, error) {
 }
 
 // Agent picks the authoring agent's model and effort for drafting; an
-// empty field takes the workspace default (System → Credentials, then
-// KURGU_CLAUDE_MODEL / KURGU_CLAUDE_EFFORT).
+// empty field takes the layer below (Production.Over): the workspace's
+// default, then the server's (System › Credentials, then
+// KURGU_CLAUDE_MODEL; KURGU_CLAUDE_EFFORT), laid in when a story is
+// planned. Still empty, Claude Code (or the worker's own environment)
+// picks.
 type Agent struct {
 	Model  string `json:"model,omitempty"`
 	Effort Effort `json:"effort,omitempty"`

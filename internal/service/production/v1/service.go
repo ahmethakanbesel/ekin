@@ -116,10 +116,14 @@ type Voices interface {
 	CheckOverride(ctx context.Context, language string, o voicedomain.Override) error
 }
 
-// Defaults reads a workspace's production defaults and default template
-// (the defaults service).
+// Defaults reads a workspace's production defaults and default template,
+// and the server's drafting model and effort (the defaults service).
 type Defaults interface {
 	Get(ctx context.Context, workspaceID uuid.UUID) (defaultssvc.Workspace, error)
+	// ServerAgent is the model and effort the server drafts with where
+	// no layer sets one; planning writes it into the brief, so remote
+	// workers, which do not see the server's settings, draft with it too.
+	ServerAgent(ctx context.Context) (pipelinedomain.Agent, error)
 }
 
 // Notifier tells people that something needs them (M5: email digests).
