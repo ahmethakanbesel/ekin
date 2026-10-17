@@ -83,6 +83,13 @@ func (s *Service) EditThumbnail(ctx context.Context, workspaceID, storyID, deliv
 	if err != nil {
 		return nil, err
 	}
+	// The video is unchanged and keeps playing while the thumbnails are
+	// drawn again; until then the old images stand in.
+	for name, key := range prev.Artifacts {
+		if name == storydomain.ArtifactPreview || name == storydomain.ArtifactPoster || storydomain.IsThumbnailArtifact(name) {
+			artifacts[name] = key
+		}
+	}
 	out, err := s.mutate(ctx, storyID, func(ctx context.Context, st *storydomain.Story) error {
 		d, err := st.Deliverable(deliverableID)
 		if err != nil {
@@ -95,6 +102,7 @@ func (s *Service) EditThumbnail(ctx context.Context, workspaceID, storyID, deliv
 		if err != nil {
 			return err
 		}
+		rev.Preview = prev.Preview
 		if err := s.stories.PutRevision(ctx, rev); err != nil {
 			return err
 		}

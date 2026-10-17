@@ -140,6 +140,12 @@ func TestThumbnailVariants(t *testing.T) {
 	if _, err := f.svc.EditThumbnail(ctx, f.ws, st.ID(), d.ID(), id.New(), 2, 1, "  Kaygı  mı? "); err != nil {
 		t.Fatal(err)
 	}
+	// Until the thumbnails are drawn again, the video and the old images
+	// stand in.
+	if pending, _ := f.svc.Revisions(ctx, f.ws, st.ID(), d.ID()); pending[2].Artifacts[storydomain.ArtifactPreview] != r1.Artifacts[storydomain.ArtifactPreview] ||
+		pending[2].Artifacts[storydomain.ThumbnailArtifact(1)] != r2.Artifacts[storydomain.ThumbnailArtifact(1)] || pending[2].Preview != r1.Preview {
+		t.Fatalf("revision being drawn = %+v", pending[2])
+	}
 	f.drainOn(t, svc)
 	st = f.story(t)
 	d = st.Lead()
