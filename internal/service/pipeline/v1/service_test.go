@@ -78,7 +78,7 @@ func definition(t *testing.T, cron string) pipelinedomain.Definition {
 
 func (f fixture) runJobs(t *testing.T) []*jobdomain.Job {
 	t.Helper()
-	jobs, err := f.jobs.List(context.Background(), f.ws, jobrepo.Filter{})
+	jobs, _, err := f.jobs.List(context.Background(), f.ws, jobrepo.Filter{})
 	if err != nil {
 		t.Fatal(err)
 	}

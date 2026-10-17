@@ -32,10 +32,16 @@ func (h *Handler) ListJobs(ctx context.Context, req gen.ListJobsRequestObject) (
 			f.Statuses = append(f.Statuses, s)
 		}
 	}
+	if req.Params.Kind != nil {
+		f.Kinds = *req.Params.Kind
+	}
 	if req.Params.Limit != nil {
 		f.Limit = *req.Params.Limit
 	}
-	jobs, err := h.svc.List(ctx, req.WorkspaceId, f)
+	if req.Params.Cursor != nil {
+		f.After = *req.Params.Cursor
+	}
+	jobs, next, err := h.svc.List(ctx, req.WorkspaceId, f)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +49,11 @@ func (h *Handler) ListJobs(ctx context.Context, req gen.ListJobsRequestObject) (
 	for _, j := range jobs {
 		out = append(out, ToWire(j))
 	}
-	return gen.ListJobs200JSONResponse{Jobs: out}, nil
+	resp := gen.ListJobs200JSONResponse{Jobs: out}
+	if next != "" {
+		resp.NextCursor = &next
+	}
+	return resp, nil
 }
 
 func (h *Handler) GetJob(ctx context.Context, req gen.GetJobRequestObject) (gen.GetJobResponseObject, error) {

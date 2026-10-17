@@ -1,9 +1,12 @@
 package job_test
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -203,15 +206,15 @@ func runConformance(t *testing.T, newHarness func(t *testing.T) harness) {
 		_ = b.Cancel(t0.Add(3 * time.Minute))
 		_ = h.repo.Save(ctx, b)
 
-		all, _ := h.repo.List(ctx, ws, jobrepo.Filter{})
+		all, _, _ := h.repo.List(ctx, ws, jobrepo.Filter{})
 		if len(all) != 3 || all[0].ID() != c.ID() || all[2].ID() != a.ID() {
 			t.Fatalf("list = %d items in wrong order", len(all))
 		}
-		queued, _ := h.repo.List(ctx, ws, jobrepo.Filter{Statuses: []jobdomain.Status{jobdomain.StatusQueued}})
+		queued, _, _ := h.repo.List(ctx, ws, jobrepo.Filter{Statuses: []jobdomain.Status{jobdomain.StatusQueued}})
 		if len(queued) != 2 {
 			t.Fatalf("queued = %d, want 2", len(queued))
 		}
-		limited, _ := h.repo.List(ctx, ws, jobrepo.Filter{Limit: 1})
+		limited, _, _ := h.repo.List(ctx, ws, jobrepo.Filter{Limit: 1})
 		if len(limited) != 1 || limited[0].ID() != c.ID() {
 			t.Fatal("limit ignored")
 		}
@@ -233,7 +236,7 @@ func runConformance(t *testing.T, newHarness func(t *testing.T) harness) {
 		_ = h.repo.Save(ctx, step)
 
 		// a's request is the newest (its step came last) and comes whole.
-		latest, _ := h.repo.List(ctx, ws, jobrepo.Filter{Limit: 1})
+		latest, _, _ := h.repo.List(ctx, ws, jobrepo.Filter{Limit: 1})
 		if len(latest) != 2 || latest[0].ID() != step.ID() || latest[1].ID() != a.ID() {
 			t.Fatalf("latest request = %d jobs", len(latest))
 		}
@@ -241,12 +244,66 @@ func runConformance(t *testing.T, newHarness func(t *testing.T) harness) {
 			t.Fatalf("step = %+v", latest[0].Snapshot())
 		}
 		// A status keeps the requests with a job in it, with all their jobs.
-		running, _ := h.repo.List(ctx, ws, jobrepo.Filter{Statuses: []jobdomain.Status{jobdomain.StatusRunning}})
+		running, _, _ := h.repo.List(ctx, ws, jobrepo.Filter{Statuses: []jobdomain.Status{jobdomain.StatusRunning}})
 		if len(running) != 2 {
 			t.Fatalf("running requests = %d jobs, want 2", len(running))
 		}
-		if all, _ := h.repo.List(ctx, ws, jobrepo.Filter{}); len(all) != 3 {
+		if all, _, _ := h.repo.List(ctx, ws, jobrepo.Filter{}); len(all) != 3 {
 			t.Fatalf("all = %d", len(all))
+		}
+		// A kind keeps the requests with a job of it, with all their jobs.
+		drafts, _, _ := h.repo.List(ctx, ws, jobrepo.Filter{Kinds: []string{"draft"}})
+		if len(drafts) != 2 || drafts[1].ID() != a.ID() {
+			t.Fatalf("draft requests = %d jobs, want a's 2", len(drafts))
+		}
+	})
+
+	t.Run("pages through requests once each", func(t *testing.T) {
+		for _, size := range []int{1, 2, 3, 6} {
+			h := newHarness(t)
+			ws := h.workspace(t)
+			type request struct {
+				at time.Time
+				id string
+			}
+			var want []request
+			for i := range 5 {
+				// Two requests share each instant, so ties go to the trace.
+				at := t0.Add(time.Duration(i/2) * time.Minute)
+				j := newJob(t, ws, jobdomain.QueueIO, "x", "", at)
+				_, _ = h.repo.Enqueue(ctx, j)
+				want = append(want, request{at, j.ID().String()})
+			}
+			slices.SortFunc(want, func(a, b request) int {
+				return cmp.Or(b.at.Compare(a.at), strings.Compare(b.id, a.id))
+			})
+			var got []string
+			f := jobrepo.Filter{Limit: size}
+			for range 10 {
+				list, next, err := h.repo.List(ctx, ws, f)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, j := range list {
+					got = append(got, j.ID().String())
+				}
+				if next == "" {
+					break
+				}
+				f.After = next
+			}
+			if len(got) != len(want) {
+				t.Fatalf("size %d: got %d requests, want %d", size, len(got), len(want))
+			}
+			for i := range want {
+				if got[i] != want[i].id {
+					t.Fatalf("size %d: request %d = %s, want %s", size, i, got[i], want[i].id)
+				}
+			}
+		}
+		h := newHarness(t)
+		if _, _, err := h.repo.List(ctx, h.workspace(t), jobrepo.Filter{After: "nope"}); !apperror.Is(err, apperror.ValidationFailed) {
+			t.Fatalf("bad cursor = %v", err)
 		}
 	})
 }

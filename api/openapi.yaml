@@ -1595,16 +1595,28 @@ paths:
           schema:
             type: array
             items: { $ref: "#/components/schemas/JobStatus" }
+        - name: kind
+          in: query
+          required: false
+          style: form
+          explode: true
+          description: Keep the requests with a job of one of these kinds.
+          schema:
+            type: array
+            maxItems: 20
+            items: { type: string, maxLength: 100 }
         - name: limit
           in: query
           required: false
+          description: Requests per page; 100 when omitted.
           schema: { type: integer, minimum: 1, maximum: 500 }
+        - $ref: "#/components/parameters/Cursor"
       responses:
         "200":
           description: >-
-            Every job of the workspace's latest requests (traces, ordered by their
-            newest job), newest first. A status keeps the requests with a job in
-            one of them; limit counts requests.
+            Every job of a page of the workspace's requests (traces, latest
+            first by their newest matching job), newest first. A status or kind
+            keeps the requests with a matching job; limit counts requests.
           content:
             application/json:
               schema:
@@ -1614,6 +1626,9 @@ paths:
                   jobs:
                     type: array
                     items: { $ref: "#/components/schemas/Job" }
+                  nextCursor:
+                    type: string
+                    description: Pass as `cursor` for the next page; absent after the last.
         default: { $ref: "#/components/responses/Error" }
 
   /workspaces/{workspaceId}/jobs/{jobId}:

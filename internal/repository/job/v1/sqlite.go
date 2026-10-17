@@ -13,6 +13,7 @@ import (
 	"kurgu/internal/apperror"
 	"kurgu/internal/db"
 	jobdomain "kurgu/internal/domain/job/v1"
+	"kurgu/pkg/page"
 	"kurgu/pkg/timeutil"
 )
 
@@ -83,24 +84,67 @@ func (r *SQLite) one(ctx context.Context, query string, args ...any) (*jobdomain
 	return j, err
 }
 
-func (r *SQLite) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*jobdomain.Job, error) {
-	traces := `SELECT trace_id FROM jobs WHERE workspace_id = ?`
-	args := []any{workspaceID.String(), workspaceID.String()}
+func (r *SQLite) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*jobdomain.Job, string, error) {
+	where := `workspace_id = ?`
+	args := []any{workspaceID.String()}
 	if len(f.Statuses) > 0 {
-		traces += ` AND status IN (` + placeholders(len(f.Statuses)) + `)`
+		where += ` AND status IN (` + placeholders(len(f.Statuses)) + `)`
 		for _, s := range f.Statuses {
 			args = append(args, string(s))
 		}
 	}
-	limit := f.Limit
-	if limit <= 0 {
-		limit = DefaultListLimit
+	if len(f.Kinds) > 0 {
+		where += ` AND kind IN (` + placeholders(len(f.Kinds)) + `)`
+		for _, k := range f.Kinds {
+			args = append(args, k)
+		}
 	}
-	traces += ` GROUP BY trace_id ORDER BY MAX(created_at) DESC, trace_id DESC LIMIT ?`
-	args = append(args, limit)
-	return r.many(ctx, `SELECT `+jobColumns+` FROM jobs
-		WHERE workspace_id = ? AND trace_id IN (`+traces+`)
-		ORDER BY created_at DESC, id DESC`, args...)
+	having := ``
+	var after cursor
+	if ok, err := page.Decode(f.After, &after); err != nil {
+		return nil, "", apperror.Wrap(apperror.ValidationFailed, err, "invalid cursor")
+	} else if ok {
+		having = ` HAVING MAX(created_at) < ? OR (MAX(created_at) = ? AND trace_id < ?)`
+		args = append(args, after.At, after.At, after.Trace)
+	}
+	limit := page.Limit(f.Limit, DefaultListLimit, MaxListLimit)
+	args = append(args, limit+1)
+	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT trace_id, MAX(created_at) FROM jobs WHERE `+where+
+		` GROUP BY trace_id`+having+` ORDER BY MAX(created_at) DESC, trace_id DESC LIMIT ?`, args...)
+	if err != nil {
+		return nil, "", fmt.Errorf("query job traces: %w", err)
+	}
+	var traces []cursor
+	for rows.Next() {
+		var c cursor
+		if err := rows.Scan(&c.Trace, &c.At); err != nil {
+			_ = rows.Close()
+			return nil, "", fmt.Errorf("scan job trace: %w", err)
+		}
+		traces = append(traces, c)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, "", err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, "", err
+	}
+	next := ""
+	if len(traces) > limit {
+		traces = traces[:limit]
+		next = page.Encode(traces[limit-1])
+	}
+	if len(traces) == 0 {
+		return nil, "", nil
+	}
+	jobArgs := []any{workspaceID.String()}
+	for _, c := range traces {
+		jobArgs = append(jobArgs, c.Trace)
+	}
+	jobs, err := r.many(ctx, `SELECT `+jobColumns+` FROM jobs
+		WHERE workspace_id = ? AND trace_id IN (`+placeholders(len(traces))+`)
+		ORDER BY created_at DESC, id DESC`, jobArgs...)
+	return jobs, next, err
 }
 
 func (r *SQLite) NextClaimable(ctx context.Context, queues []jobdomain.Queue, kinds []string, now time.Time) (*jobdomain.Job, error) {

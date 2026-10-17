@@ -10,14 +10,27 @@ import (
 	jobdomain "kurgu/internal/domain/job/v1"
 )
 
-// Filter narrows List.
+// Filter narrows List and picks its page. A request (a trace) is kept
+// when one of its jobs matches every filter; it is then listed whole.
 type Filter struct {
-	Statuses []jobdomain.Status // keep requests with a job in one; empty means all
-	Limit    int                // requests; 0 means DefaultListLimit
+	Statuses []jobdomain.Status // empty means any
+	Kinds    []string           // empty means any
+	Limit    int                // requests; 0 means DefaultListLimit, at most MaxListLimit
+	After    string             // the cursor a previous page ended with
 }
 
-// DefaultListLimit caps an unbounded List.
-const DefaultListLimit = 100
+// Listing limits, in requests.
+const (
+	DefaultListLimit = 100
+	MaxListLimit     = 500
+)
+
+// cursor is the sort key of a page's last request: its newest matching
+// job's creation and its trace id.
+type cursor struct {
+	At    int64  `json:"a"`
+	Trace string `json:"t"`
+}
 
 // Repository persists Job aggregates.
 type Repository interface {
@@ -30,9 +43,10 @@ type Repository interface {
 	Get(ctx context.Context, workspaceID, id uuid.UUID) (*jobdomain.Job, error)
 	// GetByID is for workers, which serve every workspace.
 	GetByID(ctx context.Context, id uuid.UUID) (*jobdomain.Job, error)
-	// List returns every job of a workspace's latest requests (traces,
-	// ordered by their newest job), the jobs newest first.
-	List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*jobdomain.Job, error)
+	// List returns every job of a page of a workspace's requests (traces,
+	// latest first by their newest matching job), the jobs newest first,
+	// and the cursor of the next page ("" after the last).
+	List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*jobdomain.Job, string, error)
 	// NextClaimable returns the oldest-due job on one of queues whose kind
 	// is in kinds and that jobdomain.Job.Claimable would accept at now, or
 	// nil. Call it inside the transaction that starts the job.

@@ -11,6 +11,8 @@ import (
 
 	"kurgu/internal/apperror"
 	jobdomain "kurgu/internal/domain/job/v1"
+	"kurgu/pkg/page"
+	"kurgu/pkg/timeutil"
 )
 
 // InMemory is a Repository for service tests.
@@ -73,11 +75,13 @@ func (r *InMemory) GetByID(_ context.Context, id uuid.UUID) (*jobdomain.Job, err
 	return jobdomain.Rehydrate(s)
 }
 
-func (r *InMemory) List(_ context.Context, workspaceID uuid.UUID, f Filter) ([]*jobdomain.Job, error) {
-	limit := f.Limit
-	if limit <= 0 {
-		limit = DefaultListLimit
+func (r *InMemory) List(_ context.Context, workspaceID uuid.UUID, f Filter) ([]*jobdomain.Job, string, error) {
+	var after cursor
+	hasAfter, err := page.Decode(f.After, &after)
+	if err != nil {
+		return nil, "", apperror.Wrap(apperror.ValidationFailed, err, "invalid cursor")
 	}
+	limit := page.Limit(f.Limit, DefaultListLimit, MaxListLimit)
 	newest := func(a, b *jobdomain.Job) bool {
 		if !a.CreatedAt().Equal(b.CreatedAt()) {
 			return a.CreatedAt().After(b.CreatedAt())
@@ -86,39 +90,43 @@ func (r *InMemory) List(_ context.Context, workspaceID uuid.UUID, f Filter) ([]*
 	}
 	all, err := r.collect(func(j *jobdomain.Job) bool { return j.WorkspaceID() == workspaceID }, newest, 0)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	// The latest limit traces with a matching job, by their newest one.
-	type trace struct {
-		id     uuid.UUID
-		latest time.Time
-	}
-	var traces []trace
-	seen := map[uuid.UUID]int{}
+	// The traces with a matching job, keyed by their newest one.
+	latest := map[string]int64{}
 	for _, j := range all {
-		if len(f.Statuses) > 0 && !slices.Contains(f.Statuses, j.Status()) {
+		if len(f.Statuses) > 0 && !slices.Contains(f.Statuses, j.Status()) ||
+			len(f.Kinds) > 0 && !slices.Contains(f.Kinds, j.Kind()) {
 			continue
 		}
-		if i, ok := seen[j.TraceID()]; ok {
-			if j.CreatedAt().After(traces[i].latest) {
-				traces[i].latest = j.CreatedAt()
-			}
-			continue
+		t, at := j.TraceID().String(), timeutil.ToMillis(j.CreatedAt())
+		if at > latest[t] {
+			latest[t] = at
 		}
-		seen[j.TraceID()] = len(traces)
-		traces = append(traces, trace{j.TraceID(), j.CreatedAt()})
 	}
-	sort.SliceStable(traces, func(i, k int) bool {
-		if !traces[i].latest.Equal(traces[k].latest) {
-			return traces[i].latest.After(traces[k].latest)
+	var traces []cursor
+	for t, at := range latest {
+		if hasAfter && (at > after.At || at == after.At && t >= after.Trace) {
+			continue
 		}
-		return traces[i].id.String() > traces[k].id.String()
+		traces = append(traces, cursor{At: at, Trace: t})
+	}
+	sort.Slice(traces, func(i, k int) bool {
+		if traces[i].At != traces[k].At {
+			return traces[i].At > traces[k].At
+		}
+		return traces[i].Trace > traces[k].Trace
 	})
-	keep := map[uuid.UUID]bool{}
-	for _, t := range traces[:min(len(traces), limit)] {
-		keep[t.id] = true
+	next := ""
+	if len(traces) > limit {
+		traces = traces[:limit]
+		next = page.Encode(traces[limit-1])
 	}
-	return slices.DeleteFunc(all, func(j *jobdomain.Job) bool { return !keep[j.TraceID()] }), nil
+	keep := map[string]bool{}
+	for _, t := range traces {
+		keep[t.Trace] = true
+	}
+	return slices.DeleteFunc(all, func(j *jobdomain.Job) bool { return !keep[j.TraceID().String()] }), next, nil
 }
 
 func (r *InMemory) NextClaimable(_ context.Context, queues []jobdomain.Queue, kinds []string, now time.Time) (*jobdomain.Job, error) {

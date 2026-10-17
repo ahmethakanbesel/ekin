@@ -704,7 +704,7 @@ func TestStepsJoinTheirRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.drain(t)
-	jobs, err := f.jobs.List(ctx, f.ws, jobsvc.Filter{})
+	jobs, _, err := f.jobs.List(ctx, f.ws, jobsvc.Filter{})
 	if err != nil || len(jobs) != 3 {
 		t.Fatalf("jobs = %d, %v", len(jobs), err)
 	}

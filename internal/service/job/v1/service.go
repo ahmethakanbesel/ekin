@@ -191,8 +191,9 @@ func (s *Service) Get(ctx context.Context, workspaceID, jobID uuid.UUID) (*jobdo
 	return s.repo.Get(ctx, workspaceID, jobID)
 }
 
-// List returns every job of a workspace's latest requests, newest first.
-func (s *Service) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*jobdomain.Job, error) {
+// List returns every job of a page of a workspace's requests, latest
+// first, and the cursor of the next page ("" after the last).
+func (s *Service) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*jobdomain.Job, string, error) {
 	return s.repo.List(ctx, workspaceID, f)
 }
 

@@ -3970,7 +3970,12 @@ export interface operations {
         parameters: {
             query?: {
                 status?: components["schemas"]["JobStatus"][];
+                /** @description Keep the requests with a job of one of these kinds. */
+                kind?: string[];
+                /** @description Requests per page; 100 when omitted. */
                 limit?: number;
+                /** @description Continue a listing after the page that returned this `nextCursor`. Keyset paging: rows added meanwhile are neither skipped nor repeated. */
+                cursor?: components["parameters"]["Cursor"];
             };
             header?: never;
             path: {
@@ -3980,7 +3985,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Every job of the workspace's latest requests (traces, ordered by their newest job), newest first. A status keeps the requests with a job in one of them; limit counts requests. */
+            /** @description Every job of a page of the workspace's requests (traces, latest first by their newest matching job), newest first. A status or kind keeps the requests with a matching job; limit counts requests. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3988,6 +3993,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         jobs: components["schemas"]["Job"][];
+                        /** @description Pass as `cursor` for the next page; absent after the last. */
+                        nextCursor?: string;
                     };
                 };
             };
