@@ -28,9 +28,16 @@ type TxManager interface {
 type QuerierSource interface {
 	W(ctx context.Context) Querier
 	R(ctx context.Context) Querier
+	// Snapshot runs fn with every read through R in one read
+	// transaction, so a load spread over several statements (an
+	// aggregate and its children) sees a single committed state.
+	Snapshot(ctx context.Context, fn func(ctx context.Context) error) error
 }
 
-type txKey struct{}
+type (
+	txKey     struct{}
+	readTxKey struct{}
+)
 
 // SQLiteTxManager is the production TxManager and QuerierSource.
 type SQLiteTxManager struct {
@@ -84,12 +91,33 @@ func (m *SQLiteTxManager) W(ctx context.Context) Querier {
 }
 
 // R returns the active transaction (so a transaction reads its own
-// writes) or the reader pool.
+// writes), the active read snapshot, or the reader pool.
 func (m *SQLiteTxManager) R(ctx context.Context) Querier {
 	if tx, ok := ctx.Value(txKey{}).(*sql.Tx); ok {
 		return tx
 	}
+	if tx, ok := ctx.Value(readTxKey{}).(*sql.Tx); ok {
+		return tx
+	}
 	return m.db.Reader
+}
+
+// Snapshot runs fn inside a read transaction on the reader pool (WAL
+// gives it one snapshot from its first read on). Within a transaction or
+// another snapshot it just runs fn: those are consistent already.
+func (m *SQLiteTxManager) Snapshot(ctx context.Context, fn func(ctx context.Context) error) error {
+	if _, ok := ctx.Value(txKey{}).(*sql.Tx); ok {
+		return fn(ctx)
+	}
+	if _, ok := ctx.Value(readTxKey{}).(*sql.Tx); ok {
+		return fn(ctx)
+	}
+	tx, err := m.db.Reader.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin read: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	return fn(context.WithValue(ctx, readTxKey{}, tx))
 }
 
 // MemTxManager serialises WithinTx calls with one mutex. It backs the

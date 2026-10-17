@@ -83,3 +83,51 @@ func TestWithinTx(t *testing.T) {
 		})
 	}
 }
+
+// A snapshot's reads all see one committed state; reads outside one see
+// each commit as it lands.
+func TestSnapshotReadsOneState(t *testing.T) {
+	ctx := context.Background()
+	tests := []struct {
+		name     string
+		snapshot bool
+		want     [2]int // rows before and after a concurrent insert
+	}{
+		{name: "plain reads", want: [2]int{1, 2}},
+		{name: "snapshot", snapshot: true, want: [2]int{1, 1}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, tx := dbtest.Open(t)
+			if _, err := tx.W(ctx).ExecContext(ctx, `CREATE TABLE t (n INTEGER); INSERT INTO t VALUES (1)`); err != nil {
+				t.Fatal(err)
+			}
+			read := func(ctx context.Context) error {
+				var got [2]int
+				for i := range got {
+					if err := tx.R(ctx).QueryRowContext(ctx, `SELECT COUNT(*) FROM t`).Scan(&got[i]); err != nil {
+						return err
+					}
+					if i == 0 {
+						if _, err := tx.W(context.Background()).ExecContext(ctx, `INSERT INTO t VALUES (2)`); err != nil {
+							return err
+						}
+					}
+				}
+				if got != tt.want {
+					t.Fatalf("counts = %v, want %v", got, tt.want)
+				}
+				return nil
+			}
+			var err error
+			if tt.snapshot {
+				err = tx.Snapshot(ctx, read)
+			} else {
+				err = read(ctx)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}

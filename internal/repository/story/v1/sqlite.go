@@ -164,7 +164,17 @@ func nextCursor(last *storydomain.Story) string {
 
 var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
-func (r *SQLite) query(ctx context.Context, query string, args ...any) ([]*storydomain.Story, error) {
+// query loads stories and their deliverables from one snapshot, so a
+// story is never paired with deliverables from a later save.
+func (r *SQLite) query(ctx context.Context, query string, args ...any) (out []*storydomain.Story, err error) {
+	err = r.q.Snapshot(ctx, func(ctx context.Context) error {
+		out, err = r.load(ctx, query, args...)
+		return err
+	})
+	return out, err
+}
+
+func (r *SQLite) load(ctx context.Context, query string, args ...any) ([]*storydomain.Story, error) {
 	rows, err := r.q.R(ctx).QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query stories: %w", err)

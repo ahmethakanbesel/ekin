@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"kurgu/internal/apperror"
+	"kurgu/internal/db"
 	"kurgu/internal/db/dbtest"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	storydomain "kurgu/internal/domain/story/v1"
@@ -306,5 +307,51 @@ func TestSQLiteReadsSingleNoteFeedback(t *testing.T) {
 	back, _ := repo.Revision(ctx, video.ID(), 2)
 	if keys := noteKeys(back.Feedback); !slices.Equal(keys, want) || back.Feedback.By.String() != "01a14343-5400-7c50-a726-d5f8ab86553c" {
 		t.Fatalf("revision = %v, want %v", keys, want)
+	}
+}
+
+// interruptedSource commits save between a load's first and second read,
+// like a worker saving the story while a reviewer's page loads it.
+type interruptedSource struct {
+	*db.SQLiteTxManager
+	reads int
+	save  func()
+}
+
+func (s *interruptedSource) R(ctx context.Context) db.Querier {
+	s.reads++
+	if s.reads == 2 && s.save != nil {
+		s.save()
+	}
+	return s.SQLiteTxManager.R(ctx)
+}
+
+// A story is loaded with the deliverables of the same save, never with
+// those of a save that landed while it was being read.
+func TestStoryLoadsFromOneSave(t *testing.T) {
+	ctx := context.Background()
+	_, tx := dbtest.Open(t)
+	w, _ := workspacedomain.New(id.New(), "ws", time.UTC, now)
+	_ = workspacerepo.NewSQLite(tx).Create(ctx, w)
+	writer := storyrepo.NewSQLite(tx)
+	s := newStory(t, w.ID(), "Kaygı nedir", now)
+	if err := writer.Create(ctx, s); err != nil {
+		t.Fatal(err)
+	}
+	src := &interruptedSource{SQLiteTxManager: tx}
+	src.save = func() {
+		st, _ := writer.Get(ctx, w.ID(), s.ID())
+		_, _ = st.StartDrafting(st.Lead().ID(), now)
+		if err := writer.Save(ctx, st); err != nil {
+			t.Error(err)
+		}
+	}
+	got, err := storyrepo.NewSQLite(src).Get(ctx, w.ID(), s.ID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	drafting := got.Lead().Status() == storydomain.StatusDrafting
+	if drafting != (got.Version() == 2) {
+		t.Fatalf("story v%d loaded with its lead %s", got.Version(), got.Lead().Status())
 	}
 }
