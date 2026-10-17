@@ -16,15 +16,19 @@ import (
 	storydomain "kurgu/internal/domain/story/v1"
 	"kurgu/internal/gen"
 	librarysvc "kurgu/internal/service/library/v1"
+	productionsvc "kurgu/internal/service/production/v1"
 	"kurgu/internal/transport/http/principal"
 )
 
 // maxDetailsBytes bounds the details part of an upload.
 const maxDetailsBytes = 16 << 10
 
-// Stories names the stories that used an asset.
+// Stories names the stories that used an asset, and lists and saves the
+// media a video revision uses (the production service).
 type Stories interface {
 	Get(ctx context.Context, workspaceID, storyID uuid.UUID) (*storydomain.Story, error)
+	Media(ctx context.Context, workspaceID, storyID, deliverableID uuid.UUID, number int) ([]productionsvc.RevisionMedia, error)
+	SaveMedia(ctx context.Context, workspaceID, storyID, deliverableID uuid.UUID, number int, key string, actorID uuid.UUID) (*librarydomain.Asset, error)
 }
 
 // Handler serves the library.
@@ -218,6 +222,79 @@ func (h *Handler) RetryLibraryAsset(ctx context.Context, req gen.RetryLibraryAss
 	return gen.RetryLibraryAsset202JSONResponse(out), nil
 }
 
+func (h *Handler) GetLibrarySettings(ctx context.Context, req gen.GetLibrarySettingsRequestObject) (gen.GetLibrarySettingsResponseObject, error) {
+	c, err := h.svc.Collect(ctx, req.WorkspaceId)
+	if err != nil {
+		return nil, err
+	}
+	return gen.GetLibrarySettings200JSONResponse{Music: c.Music, Video: c.Video, Photo: c.Photo}, nil
+}
+
+func (h *Handler) SaveLibrarySettings(ctx context.Context, req gen.SaveLibrarySettingsRequestObject) (gen.SaveLibrarySettingsResponseObject, error) {
+	c, err := h.svc.SaveCollect(ctx, req.WorkspaceId, librarydomain.Collect{Music: req.Body.Music, Video: req.Body.Video, Photo: req.Body.Photo})
+	if err != nil {
+		return nil, err
+	}
+	return gen.SaveLibrarySettings200JSONResponse{Music: c.Music, Video: c.Video, Photo: c.Photo}, nil
+}
+
+func (h *Handler) ListRevisionMedia(ctx context.Context, req gen.ListRevisionMediaRequestObject) (gen.ListRevisionMediaResponseObject, error) {
+	if h.stories == nil {
+		return nil, apperror.New(apperror.NotFound, "no such endpoint")
+	}
+	media, err := h.stories.Media(ctx, req.WorkspaceId, req.StoryId, req.DeliverableId, req.Number)
+	if err != nil {
+		return nil, err
+	}
+	var assets []*librarydomain.Asset
+	for _, m := range media {
+		if m.Asset != nil {
+			assets = append(assets, m.Asset)
+		}
+	}
+	wired, err := h.wire(ctx, req.WorkspaceId, assets...)
+	if err != nil {
+		return nil, err
+	}
+	byID := map[uuid.UUID]gen.LibraryAsset{}
+	for _, a := range wired {
+		byID[a.Id] = a
+	}
+	out := make([]gen.RevisionMedia, 0, len(media))
+	for _, m := range media {
+		item := gen.RevisionMedia{Key: m.Key, Kind: gen.LibraryAssetKind(m.Kind), Source: gen.RevisionMediaSource(m.Source), Title: m.Title}
+		if m.Author != "" {
+			author := m.Author
+			item.Author = &author
+		}
+		if m.Asset != nil {
+			a := byID[m.Asset.ID()]
+			item.Asset = &a
+		}
+		out = append(out, item)
+	}
+	return gen.ListRevisionMedia200JSONResponse{Media: out}, nil
+}
+
+func (h *Handler) SaveRevisionMedia(ctx context.Context, req gen.SaveRevisionMediaRequestObject) (gen.SaveRevisionMediaResponseObject, error) {
+	if h.stories == nil {
+		return nil, apperror.New(apperror.NotFound, "no such endpoint")
+	}
+	p, err := principal.From(ctx)
+	if err != nil {
+		return nil, err
+	}
+	a, err := h.stories.SaveMedia(ctx, req.WorkspaceId, req.StoryId, req.DeliverableId, req.Number, req.Body.Key, p.User.ID())
+	if err != nil {
+		return nil, err
+	}
+	out, err := h.one(ctx, req.WorkspaceId, a)
+	if err != nil {
+		return nil, err
+	}
+	return gen.SaveRevisionMedia200JSONResponse(out), nil
+}
+
 // maxUsages bounds the usages listed for one asset.
 const maxUsages = 100
 
@@ -286,6 +363,7 @@ func ToWire(a *librarydomain.Asset, uses int) gen.LibraryAsset {
 		Size:        a.Size(),
 		HasPoster:   a.HasPoster(),
 		UsageCount:  uses,
+		Provisional: a.Provisional(),
 		CreatedAt:   a.CreatedAt(),
 		UpdatedAt:   a.UpdatedAt(),
 	}
@@ -303,6 +381,12 @@ func ToWire(a *librarydomain.Asset, uses int) gen.LibraryAsset {
 	}
 	if f := a.Failure(); f != "" {
 		out.Failure = &f
+	}
+	if u := a.Harvest().SourceURL; u != "" {
+		out.SourceUrl = &u
+	}
+	if u := a.Harvest().OriginalURL; u != "" {
+		out.OriginalUrl = &u
 	}
 	if at := a.ArchivedAt(); !at.IsZero() {
 		out.ArchivedAt = &at

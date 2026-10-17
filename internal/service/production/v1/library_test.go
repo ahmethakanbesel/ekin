@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"kurgu/internal/agenttool"
+	"kurgu/internal/apperror"
 	"kurgu/internal/blob"
 	librarydomain "kurgu/internal/domain/library/v1"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
@@ -256,5 +257,60 @@ func TestDraftsSaveNothingByDefault(t *testing.T) {
 	f.drainOn(t, svc)
 	if list, _, _ := library.List(ctx, f.ws, librarysvc.Filter{}); len(list) != 0 {
 		t.Fatalf("saved = %d", len(list))
+	}
+}
+
+// A revision's media can be listed and saved by hand, whatever the
+// workspace saves on its own.
+func TestSaveARevisionsMedia(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	library := newLibrary(t, f)
+	svc := f.hostWith(func(d *production.Deps) { d.Library = library })
+	f.agent.files = draftMedia("7")
+	video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
+	outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
+	if _, err := svc.QueueAdHoc(ctx, f.ws, id.New(), production.AdHocRequest{Idea: "Kaygı", Count: 1,
+		Language: pipelinedomain.Turkish, Outputs: outputs}); err != nil {
+		t.Fatal(err)
+	}
+	f.drainOn(t, svc)
+	st := f.story(t)
+	lead := st.Lead()
+
+	media, err := svc.Media(ctx, f.ws, st.ID(), lead.ID(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys := []string{}
+	for _, m := range media {
+		keys = append(keys, m.Key+"/"+m.Source)
+		if m.Asset != nil {
+			t.Fatalf("%s already in the library", m.Key)
+		}
+	}
+	if !slices.Equal(keys, []string{"pexels:video:7/pexels", "music.js/composed"}) {
+		t.Fatalf("media = %v", keys)
+	}
+
+	a, err := svc.SaveMedia(ctx, f.ws, st.ID(), lead.ID(), 1, "pexels:video:7", id.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !a.Kept() || a.Provisional() || a.Harvest().SourceRef != "pexels:video:7" {
+		t.Fatalf("saved = %+v", a.Snapshot())
+	}
+	media, _ = svc.Media(ctx, f.ws, st.ID(), lead.ID(), 1)
+	if media[0].Asset == nil || media[0].Asset.ID() != a.ID() {
+		t.Fatalf("saved clip not found again: %+v", media[0])
+	}
+	if _, err := svc.SaveMedia(ctx, f.ws, st.ID(), lead.ID(), 1, "pexels:video:99", id.New()); !apperror.Is(err, apperror.NotFound) {
+		t.Fatalf("unknown key err = %v", err)
+	}
+	if _, err := svc.Media(ctx, f.ws, st.ID(), lead.ID(), 5); !apperror.Is(err, apperror.NotFound) {
+		t.Fatalf("missing revision err = %v", err)
+	}
+	if _, err := svc.Media(ctx, id.New(), st.ID(), lead.ID(), 1); !apperror.Is(err, apperror.StoryNotFound) {
+		t.Fatalf("other workspace err = %v", err)
 	}
 }

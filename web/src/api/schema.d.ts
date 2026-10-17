@@ -376,6 +376,24 @@ export interface paths {
         patch: operations["updateLibraryAsset"];
         trace?: never;
     };
+    "/workspaces/{workspaceId}/library/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getLibrarySettings"];
+        put: operations["saveLibrarySettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/library/assets/{assetId}/usages": {
         parameters: {
             query?: never;
@@ -915,6 +933,29 @@ export interface paths {
         /** @description Saves a person's note on a revision, replacing the one it had, at any status. Blank text removes the note. The note is for the team and never reaches the agent. */
         put: operations["annotateRevision"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions/{number}/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+                number: number;
+            };
+            cookie?: never;
+        };
+        /** @description The stock and music a video revision uses: the Pexels stock its composition shows and its composed score, each with the library asset it already is, and what it took from the library. */
+        get: operations["listRevisionMedia"];
+        put?: never;
+        /** @description Saves one of the revision's Pexels stock items or its composed score to the library, kept whatever the workspace saves on its own. Saving one the library holds keeps it. */
+        post: operations["saveRevisionMedia"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1467,6 +1508,26 @@ export interface components {
             tempo?: number;
             credit?: components["schemas"]["LibraryCredit"];
         };
+        /** @description Which kinds the workspace saves to its library when a video draft finishes, all off by default. Saved items are provisional until the video is approved or rejected; then only what its last revision used is kept. */
+        LibrarySettings: {
+            /** @description Scores the agent composes. */
+            music: boolean;
+            /** @description Pexels clips the agent uses. */
+            video: boolean;
+            /** @description Pexels photos the agent uses. */
+            photo: boolean;
+        };
+        RevisionMedia: {
+            /** @description Names the item within the revision: "pexels:video:123", "music.js" for the composed score, or "library:<id>" for an item taken from the library. */
+            key: string;
+            kind: components["schemas"]["LibraryAssetKind"];
+            /** @enum {string} */
+            source: "pexels" | "composed" | "library";
+            title: string;
+            author?: string;
+            /** @description The library asset it is or came from; absent when the library does not hold it. */
+            asset?: components["schemas"]["LibraryAsset"];
+        };
         LibraryUsage: {
             /** Format: uuid */
             storyId: string;
@@ -1511,6 +1572,12 @@ export interface components {
             hasPoster: boolean;
             /** @description How many videos used it; reuse is unlimited. */
             usageCount: number;
+            /** @description Saved from a draft whose video is not yet decided; it is deleted then unless that video's last revision used it, another video used it, or a person kept it (editing it keeps it). */
+            provisional: boolean;
+            /** @description The Pexels page it came from. */
+            sourceUrl?: string;
+            /** @description The original Pexels file the stored one was cut from. */
+            originalUrl?: string;
             /** @description Why processing failed. */
             failure?: string;
             /** Format: date-time */
@@ -3234,6 +3301,56 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    getLibrarySettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Which kinds the workspace saves from its drafts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibrarySettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    saveLibrarySettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibrarySettings"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibrarySettings"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     listLibraryAssetUsages: {
         parameters: {
             query?: never;
@@ -4313,6 +4430,67 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Revision"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listRevisionMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The revision's media. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        media: components["schemas"]["RevisionMedia"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    saveRevisionMedia: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description The item's key from the listing. */
+                    key: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The library asset. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryAsset"];
                 };
             };
             default: components["responses"]["Error"];

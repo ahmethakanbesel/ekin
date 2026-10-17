@@ -73,6 +73,7 @@ type Library interface {
 	Catalog(ctx context.Context, workspaceID uuid.UUID, kinds []librarydomain.Kind, orientation librarydomain.Orientation) ([]librarysvc.Entry, error)
 	RecordUsage(ctx context.Context, workspaceID, storyID, deliverableID uuid.UUID, revision int, assetIDs []uuid.UUID) error
 	Collect(ctx context.Context, workspaceID uuid.UUID) (librarydomain.Collect, error)
+	Get(ctx context.Context, workspaceID, assetID uuid.UUID) (*librarydomain.Asset, error)
 	Find(ctx context.Context, workspaceID uuid.UUID, h librarysvc.Harvestable) (*librarydomain.Asset, error)
 	Save(ctx context.Context, workspaceID, actorID uuid.UUID, h librarysvc.Harvestable, kept bool) (*librarydomain.Asset, error)
 	Settle(ctx context.Context, workspaceID, deliverableID uuid.UUID, decided librarysvc.Decided) (int, error)

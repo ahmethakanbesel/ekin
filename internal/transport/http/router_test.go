@@ -101,7 +101,7 @@ func newServer(t *testing.T) *server {
 	pipelines.WithTemplates(templates)
 	stories := storyrepo.NewSQLite(tx)
 	production := productionsvc.NewService(productionsvc.Config{Shorts: storydomain.DefaultShortsLimits()}, productionsvc.Deps{
-		Stories: stories, Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs,
+		Stories: stories, Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs, Library: library,
 	})
 	router, err := httptransport.NewRouter(httptransport.Deps{
 		Production: production,

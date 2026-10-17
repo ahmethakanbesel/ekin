@@ -1,6 +1,7 @@
 package production
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -105,7 +106,7 @@ func (s *Service) Harvest(ctx context.Context, p HarvestPayload) error {
 	if err != nil {
 		return err
 	}
-	items := s.harvestables(ctx, st, p, dir)
+	items := s.harvestables(ctx, st, p, dir, true)
 	var decided librarysvc.Decided
 	for _, h := range items {
 		if h.Harvest.SourceRef != "" {
@@ -153,7 +154,7 @@ func (s *Service) unpackRevision(ctx context.Context, deliverableID uuid.UUID, n
 
 // harvestables lists what a revision in dir could give the library: the
 // Pexels stock its composition uses and its composed score.
-func (s *Service) harvestables(ctx context.Context, st *storydomain.Story, p HarvestPayload, dir string) []librarysvc.Harvestable {
+func (s *Service) harvestables(ctx context.Context, st *storydomain.Story, p HarvestPayload, dir string, preview bool) []librarysvc.Harvestable {
 	from := librarydomain.Harvest{StoryID: st.ID(), DeliverableID: p.DeliverableID, Revision: p.Revision}
 	var out []librarysvc.Harvestable
 	for _, c := range agenttool.UsedStock(dir) {
@@ -187,11 +188,13 @@ func (s *Service) harvestables(ctx context.Context, st *storydomain.Story, p Har
 				Mood: truncate(meta.Mood, librarydomain.MaxMoodLength), Tempo: max(0, min(meta.Tempo, librarydomain.MaxTempo))},
 			Path: score,
 		}
-		preview := filepath.Join(dir, "library-preview.wav")
-		if _, err := s.renderer.Music(ctx, dir, scorePreviewSeconds, preview); err == nil {
-			item.Preview = preview
-		} else {
-			s.log.WarnContext(ctx, "cannot render a score's library preview", slog.Any("error", err))
+		if preview {
+			wav := filepath.Join(dir, "library-preview.wav")
+			if _, err := s.renderer.Music(ctx, dir, scorePreviewSeconds, wav); err == nil {
+				item.Preview = wav
+			} else {
+				s.log.WarnContext(ctx, "cannot render a score's library preview", slog.Any("error", err))
+			}
 		}
 		out = append(out, item)
 	}
@@ -241,4 +244,106 @@ func fileHash(p string) (string, error) {
 	}
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:]), nil
+}
+
+// RevisionMedia is a stock item or score a revision uses, and the
+// library asset it is (or came from), if any.
+type RevisionMedia struct {
+	// Key names it within the revision: its outside item
+	// ("pexels:video:1"), "music.js" for a composed score, or
+	// "library:<id>" for an item taken from the library.
+	Key    string
+	Kind   librarydomain.Kind
+	Source string // pexels, composed or library
+	Title  string
+	Author string
+	Asset  *librarydomain.Asset
+}
+
+// scoreKey names a revision's composed score.
+const scoreKey = "music.js"
+
+// Media lists what a video revision uses: its Pexels stock and composed
+// score, which a person may save to the library, and what it took from
+// the library.
+func (s *Service) Media(ctx context.Context, workspaceID, storyID, deliverableID uuid.UUID, number int) ([]RevisionMedia, error) {
+	st, dir, cleanup, err := s.openRevision(ctx, workspaceID, storyID, deliverableID, number)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+	var out []RevisionMedia
+	for _, h := range s.harvestables(ctx, st, HarvestPayload{StoryID: storyID, DeliverableID: deliverableID, Revision: number}, dir, false) {
+		m := RevisionMedia{Key: cmp.Or(h.Harvest.SourceRef, scoreKey), Kind: h.Kind, Source: "pexels", Title: h.Details.Title,
+			Author: h.Details.Credit.Author}
+		if h.Origin == librarydomain.OriginGenerated {
+			m.Source = "composed"
+		}
+		if m.Asset, err = s.library.Find(ctx, workspaceID, h); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	for _, raw := range agenttool.LibraryIDs(dir) {
+		assetID, err := uuid.Parse(raw)
+		if err != nil {
+			continue
+		}
+		a, err := s.library.Get(ctx, workspaceID, assetID)
+		if apperror.Is(err, apperror.AssetNotFound) {
+			continue // deleted since
+		}
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, RevisionMedia{Key: "library:" + raw, Kind: a.Kind(), Source: "library", Title: a.Title(),
+			Author: a.Credit().Author, Asset: a})
+	}
+	return out, nil
+}
+
+// SaveMedia saves one of a revision's stock items or its score to the
+// library, kept whatever the workspace's saving switches say.
+func (s *Service) SaveMedia(ctx context.Context, workspaceID, storyID, deliverableID uuid.UUID, number int, key string,
+	actorID uuid.UUID) (*librarydomain.Asset, error) {
+	st, dir, cleanup, err := s.openRevision(ctx, workspaceID, storyID, deliverableID, number)
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+	for _, h := range s.harvestables(ctx, st, HarvestPayload{StoryID: storyID, DeliverableID: deliverableID, Revision: number}, dir, true) {
+		if cmp.Or(h.Harvest.SourceRef, scoreKey) == key {
+			return s.library.Save(ctx, workspaceID, actorID, h, true)
+		}
+	}
+	return nil, apperror.New(apperror.NotFound, "the revision uses no such stock or music")
+}
+
+// openRevision unpacks a video revision of a story in the workspace into
+// a temporary directory, which cleanup removes.
+func (s *Service) openRevision(ctx context.Context, workspaceID, storyID, deliverableID uuid.UUID, number int) (*storydomain.Story, string, func(), error) {
+	if s.library == nil {
+		return nil, "", nil, apperror.New(apperror.NotFound, "the library is not available")
+	}
+	st, err := s.stories.Get(ctx, workspaceID, storyID)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	d, err := st.Deliverable(deliverableID)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	if !d.IsVideo() || number < 1 || number > d.Revision() {
+		return nil, "", nil, apperror.New(apperror.NotFound, "no such video revision")
+	}
+	dir, err := os.MkdirTemp("", "kurgu-revision-*")
+	if err != nil {
+		return nil, "", nil, err
+	}
+	cleanup := func() { _ = os.RemoveAll(dir) }
+	if err := s.unpackRevision(ctx, deliverableID, number, dir); err != nil {
+		cleanup()
+		return nil, "", nil, err
+	}
+	return st, dir, cleanup, nil
 }

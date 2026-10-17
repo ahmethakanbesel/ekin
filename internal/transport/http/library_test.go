@@ -39,7 +39,9 @@ func (fakeProcessor) Inspect(context.Context, librarydomain.Kind, string, string
 	return librarydomain.Media{}, errors.New("not used here")
 }
 
-func (fakeProcessor) Preview(context.Context, string, string) error { return errors.New("not used here") }
+func (fakeProcessor) Preview(context.Context, string, string) error {
+	return errors.New("not used here")
+}
 
 // uploadAsset posts a library upload and decodes the reply into out.
 func (c *client) uploadAsset(path, filename, kind string, details any, content []byte, wantStatus int, out any) {
@@ -220,4 +222,34 @@ func TestPipelineMediaSources(t *testing.T) {
 
 	def["production"] = map[string]any{"media": map[string]any{"photo": "everything"}}
 	owner.fail("POST", base, def, 400, "ValidationFailed")
+}
+
+// Saving switches start off; only a workspace manager changes them.
+func TestLibrarySettings(t *testing.T) {
+	srv := newServer(t)
+	owner := srv.signedIn(t, "owner@example.com")
+	ws := owner.workspace("acme")
+	base := "/api/v1/workspaces/" + ws.Id.String()
+
+	var got gen.LibrarySettings
+	owner.call("GET", base+"/library/settings", nil, 200, &got)
+	if got.Music || got.Video || got.Photo {
+		t.Fatalf("default = %+v", got)
+	}
+	owner.call("PUT", base+"/library/settings", map[string]any{"music": true, "video": true, "photo": false}, 200, &got)
+	var again gen.LibrarySettings
+	owner.call("GET", base+"/library/settings", nil, 200, &again)
+	if !again.Music || !again.Video || again.Photo {
+		t.Fatalf("saved = %+v", again)
+	}
+
+	var created gen.CreateInvitation201JSONResponse
+	owner.call("POST", base+"/invitations", map[string]any{"email": "editor@example.com", "role": "editor"}, 201, &created)
+	editor := srv.client(t)
+	editor.call("POST", "/api/v1/invitations/"+strings.TrimPrefix(created.Url, publicURL+"/invite/")+"/accept",
+		map[string]any{"name": "Ed", "password": "a-good-password"}, 200, nil)
+	editor.call("GET", base+"/library/settings", nil, 200, nil)
+	editor.fail("PUT", base+"/library/settings", map[string]any{"music": false, "video": false, "photo": false}, 403, "Forbidden")
+
+	editor.fail("GET", base+"/stories/"+ws.Id.String()+"/deliverables/"+ws.Id.String()+"/revisions/1/library", nil, 404, "StoryNotFound")
 }

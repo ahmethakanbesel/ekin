@@ -694,6 +694,35 @@ paths:
           description: Deleted with its files.
         default: { $ref: "#/components/responses/Error" }
 
+  /workspaces/{workspaceId}/library/settings:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: getLibrarySettings
+      tags: [library]
+      responses:
+        "200":
+          description: Which kinds the workspace saves from its drafts.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LibrarySettings" }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      operationId: saveLibrarySettings
+      tags: [library]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LibrarySettings" }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LibrarySettings" }
+        default: { $ref: "#/components/responses/Error" }
+
   /workspaces/{workspaceId}/library/assets/{assetId}/usages:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"
@@ -1544,6 +1573,61 @@ paths:
               schema: { $ref: "#/components/schemas/Revision" }
         default: { $ref: "#/components/responses/Error" }
 
+  /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions/{number}/library:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+      - $ref: "#/components/parameters/DeliverableId"
+      - name: number
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    get:
+      operationId: listRevisionMedia
+      tags: [library]
+      description: >
+        The stock and music a video revision uses: the Pexels stock its composition shows and
+        its composed score, each with the library asset it already is, and what it took from
+        the library.
+      responses:
+        "200":
+          description: The revision's media.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [media]
+                properties:
+                  media:
+                    type: array
+                    items: { $ref: "#/components/schemas/RevisionMedia" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: saveRevisionMedia
+      tags: [library]
+      description: >
+        Saves one of the revision's Pexels stock items or its composed score to the library,
+        kept whatever the workspace saves on its own. Saving one the library holds keeps it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [key]
+              properties:
+                key:
+                  type: string
+                  maxLength: 200
+                  description: The item's key from the listing.
+      responses:
+        "200":
+          description: The library asset.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LibraryAsset" }
+        default: { $ref: "#/components/responses/Error" }
+
   /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/approve:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"
@@ -2351,6 +2435,43 @@ components:
           description: Beats per minute, music only; 0 for unknown.
         credit: { $ref: "#/components/schemas/LibraryCredit" }
 
+    LibrarySettings:
+      type: object
+      description: >-
+        Which kinds the workspace saves to its library when a video draft finishes, all off by
+        default. Saved items are provisional until the video is approved or rejected; then only
+        what its last revision used is kept.
+      required: [music, video, photo]
+      properties:
+        music:
+          type: boolean
+          description: Scores the agent composes.
+        video:
+          type: boolean
+          description: Pexels clips the agent uses.
+        photo:
+          type: boolean
+          description: Pexels photos the agent uses.
+
+    RevisionMedia:
+      type: object
+      required: [key, kind, source, title]
+      properties:
+        key:
+          type: string
+          description: >-
+            Names the item within the revision: "pexels:video:123", "music.js" for the composed
+            score, or "library:<id>" for an item taken from the library.
+        kind: { $ref: "#/components/schemas/LibraryAssetKind" }
+        source:
+          type: string
+          enum: [pexels, composed, library]
+        title: { type: string }
+        author: { type: string }
+        asset:
+          $ref: "#/components/schemas/LibraryAsset"
+          description: The library asset it is or came from; absent when the library does not hold it.
+
     LibraryUsage:
       type: object
       required: [storyId, deliverableId, revision, usedAt]
@@ -2375,7 +2496,7 @@ components:
 
     LibraryAsset:
       type: object
-      required: [id, kind, origin, status, title, description, tags, credit, filename, size, hasPoster, usageCount, createdAt, updatedAt]
+      required: [id, kind, origin, status, title, description, tags, credit, filename, size, hasPoster, usageCount, provisional, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         kind: { $ref: "#/components/schemas/LibraryAssetKind" }
@@ -2406,6 +2527,18 @@ components:
         usageCount:
           type: integer
           description: How many videos used it; reuse is unlimited.
+        provisional:
+          type: boolean
+          description: >-
+            Saved from a draft whose video is not yet decided; it is deleted then unless that
+            video's last revision used it, another video used it, or a person kept it (editing
+            it keeps it).
+        sourceUrl:
+          type: string
+          description: The Pexels page it came from.
+        originalUrl:
+          type: string
+          description: The original Pexels file the stored one was cut from.
         failure:
           type: string
           description: Why processing failed.
