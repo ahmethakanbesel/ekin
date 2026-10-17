@@ -421,7 +421,15 @@ export const en = {
         "360p": "360p · fastest",
         "540p": "540p",
         "720p": "720p",
-        "1080p": "1080p · final quality",
+        "1080p": "1080p",
+      } as Record<string, string>,
+      finalQuality: "Final quality",
+      finalHint: "The resolution of the video rendered after approval and published. Higher takes longer to render.",
+      finalQualities: {
+        "720p": "720p · fastest",
+        "1080p": "1080p",
+        "1440p": "1440p",
+        "2160p": "2160p · 4K, slowest",
       } as Record<string, string>,
       reviewAt: "First review",
       reviewPoints: {

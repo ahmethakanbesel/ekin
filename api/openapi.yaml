@@ -2666,8 +2666,15 @@ components:
           enum: ["360p", "540p", "720p", "1080p"]
           description: >-
             Resolution of the review render (the short side of a 1080p frame).
-            At 1080p, approving reuses the preview as the final video instead
-            of rendering again. Absent: the host profile's preview scale.
+            When it is at least the final quality, approving reuses the preview
+            as the final video instead of rendering again. Absent: the host
+            profile's preview scale.
+        finalQuality:
+          type: string
+          enum: ["720p", "1080p", "1440p", "2160p"]
+          description: >-
+            Resolution of the final render after approval (the short side of a
+            1080p frame). Absent: the host profile's final scale.
         reviewAt:
           type: string
           enum: [video, script]

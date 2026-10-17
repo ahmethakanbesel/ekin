@@ -27,7 +27,7 @@ import (
 type RenderTask struct {
 	Payload  DeliverablePayload `json:"payload"`
 	Revision int                `json:"revision"`
-	// Scale is the preview's render scale from the story's preview
+	// Scale is the render scale from the story's preview or final
 	// quality; 0 takes the host profile's.
 	Scale float64 `json:"scale,omitempty"`
 }
@@ -76,9 +76,9 @@ func (s *Service) BeginRender(ctx context.Context, p DeliverablePayload) (Render
 	if err := s.ensureWorkDir(ctx, d, dir); err != nil {
 		return RenderTask{}, "", s.stepFailed(ctx, p, err)
 	}
-	task := RenderTask{Payload: p, Revision: d.Revision()}
-	if !p.Final {
-		task.Scale = st.Brief().Production.PreviewQuality.Scale()
+	task := RenderTask{Payload: p, Revision: d.Revision(), Scale: st.Brief().Production.PreviewQuality.Scale()}
+	if p.Final {
+		task.Scale = st.Brief().Production.FinalQuality.Scale()
 	}
 	return task, dir, nil
 }
@@ -89,10 +89,10 @@ func (s *Service) RunRender(ctx context.Context, task RenderTask, dir, outDir st
 	rs := s.renderSettings(ctx)
 	opts := render.VideoOptions{Scale: rs.PreviewScale, Duty: rs.Duty, Chunks: rs.Chunks}
 	name := storydomain.ArtifactPreview
-	switch {
-	case task.Payload.Final:
+	if task.Payload.Final {
 		opts.Scale, name = rs.FinalScale, storydomain.ArtifactFinal
-	case task.Scale > 0:
+	}
+	if task.Scale > 0 {
 		opts.Scale = task.Scale
 	}
 	silent := filepath.Join(outDir, "silent.mp4")
@@ -261,12 +261,16 @@ func (s *Service) Approve(ctx context.Context, workspaceID, storyID, deliverable
 }
 
 // reusePreview finishes an approved video with its preview when that
-// was rendered at final quality or better, so approval does not render
-// the same video again, and reports whether it did. Call it inside the
-// transaction that approved d.
+// was rendered at the story's final quality (or the host profile's) or
+// better, so approval does not render the same video again, and reports
+// whether it did. Call it inside the transaction that approved d.
 func (s *Service) reusePreview(ctx context.Context, st *storydomain.Story, d *storydomain.Deliverable) (bool, error) {
-	scale := st.Brief().Production.PreviewQuality.Scale()
-	if d.Status() != storydomain.StatusFinalizing || scale == 0 || scale < s.renderSettings(ctx).FinalScale {
+	production := st.Brief().Production
+	scale, final := production.PreviewQuality.Scale(), production.FinalQuality.Scale()
+	if final == 0 {
+		final = s.renderSettings(ctx).FinalScale
+	}
+	if d.Status() != storydomain.StatusFinalizing || scale == 0 || scale < final {
 		return false, nil
 	}
 	rev, err := s.stories.Revision(ctx, d.ID(), d.Revision())

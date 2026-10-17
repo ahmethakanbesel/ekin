@@ -16,7 +16,10 @@ type Production struct {
 	Agent Agent `json:"agent,omitzero"`
 	// PreviewQuality is the resolution of the review render; "" takes
 	// the host profile's preview scale.
-	PreviewQuality PreviewQuality `json:"previewQuality,omitempty"`
+	PreviewQuality Quality `json:"previewQuality,omitempty"`
+	// FinalQuality is the resolution of the final render after approval;
+	// "" takes the host profile's final scale.
+	FinalQuality Quality `json:"finalQuality,omitempty"`
 	// ReviewAt is when a person first reviews a video: the finished video
 	// (the default) or, first, its script.
 	ReviewAt ReviewPoint `json:"reviewAt,omitempty"`
@@ -31,6 +34,9 @@ func (p Production) Check() error {
 		return err
 	}
 	if _, err := ParsePreviewQuality(string(p.PreviewQuality)); err != nil {
+		return err
+	}
+	if _, err := ParseFinalQuality(string(p.FinalQuality)); err != nil {
 		return err
 	}
 	if _, err := ParseReviewPoint(string(p.ReviewAt)); err != nil {
@@ -73,37 +79,54 @@ func ParseReviewPoint(s string) (ReviewPoint, error) {
 	return "", apperror.New(apperror.ValidationFailed, "review point must be video or script")
 }
 
-// PreviewQuality is the resolution a video is rendered at for review,
-// named by the short side of a 1080p frame.
-type PreviewQuality string
+// Quality is the resolution a video is rendered at, named by the short
+// side of the frame (a 1080p composition rendered at that scale).
+type Quality string
 
 const (
-	Preview360p  PreviewQuality = "360p"
-	Preview540p  PreviewQuality = "540p"
-	Preview720p  PreviewQuality = "720p"
-	Preview1080p PreviewQuality = "1080p"
+	Quality360p  Quality = "360p"
+	Quality540p  Quality = "540p"
+	Quality720p  Quality = "720p"
+	Quality1080p Quality = "1080p"
+	Quality1440p Quality = "1440p"
+	Quality2160p Quality = "2160p"
 )
 
-// ParsePreviewQuality parses a preview quality; "" is the default.
-func ParsePreviewQuality(s string) (PreviewQuality, error) {
-	switch q := PreviewQuality(s); q {
-	case "", Preview360p, Preview540p, Preview720p, Preview1080p:
+// ParsePreviewQuality parses the quality of a review render, 360p to
+// 1080p; "" is the default.
+func ParsePreviewQuality(s string) (Quality, error) {
+	switch q := Quality(s); q {
+	case "", Quality360p, Quality540p, Quality720p, Quality1080p:
 		return q, nil
 	}
 	return "", apperror.New(apperror.ValidationFailed, "preview quality must be 360p, 540p, 720p or 1080p")
 }
 
+// ParseFinalQuality parses the quality of a final render, 720p to
+// 2160p; "" is the default.
+func ParseFinalQuality(s string) (Quality, error) {
+	switch q := Quality(s); q {
+	case "", Quality720p, Quality1080p, Quality1440p, Quality2160p:
+		return q, nil
+	}
+	return "", apperror.New(apperror.ValidationFailed, "final quality must be 720p, 1080p, 1440p or 2160p")
+}
+
 // Scale is the render scale of a 1080p composition; 0 for the default.
-func (q PreviewQuality) Scale() float64 {
+func (q Quality) Scale() float64 {
 	switch q {
-	case Preview360p:
+	case Quality360p:
 		return 1.0 / 3
-	case Preview540p:
+	case Quality540p:
 		return 0.5
-	case Preview720p:
+	case Quality720p:
 		return 2.0 / 3
-	case Preview1080p:
+	case Quality1080p:
 		return 1
+	case Quality1440p:
+		return 4.0 / 3
+	case Quality2160p:
+		return 2
 	}
 	return 0
 }

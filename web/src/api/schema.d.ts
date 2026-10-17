@@ -1728,10 +1728,15 @@ export interface components {
             draftModel?: string;
             draftEffort?: components["schemas"]["DraftEffort"];
             /**
-             * @description Resolution of the review render (the short side of a 1080p frame). At 1080p, approving reuses the preview as the final video instead of rendering again. Absent: the host profile's preview scale.
+             * @description Resolution of the review render (the short side of a 1080p frame). When it is at least the final quality, approving reuses the preview as the final video instead of rendering again. Absent: the host profile's preview scale.
              * @enum {string}
              */
             previewQuality?: "360p" | "540p" | "720p" | "1080p";
+            /**
+             * @description Resolution of the final render after approval (the short side of a 1080p frame). Absent: the host profile's final scale.
+             * @enum {string}
+             */
+            finalQuality?: "720p" | "1080p" | "1440p" | "2160p";
             /**
              * @description When a person first reviews a video. video (the default): the rendered preview. script: the script, narration text and metadata first; approving them has the agent build the video, which is then reviewed as usual. script needs a video output.
              * @enum {string}

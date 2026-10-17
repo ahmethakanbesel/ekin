@@ -17,6 +17,7 @@ import { librarySizeQuery } from "@/queries/library"
 import { Row, Section } from "./form-parts"
 import type {
   DraftEffort,
+  FinalQuality,
   MediaKind,
   MediaSource,
   PreviewQuality,
@@ -38,6 +39,17 @@ const MODELS = [
 const EFFORTS: DraftEffort[] = ["low", "medium", "high", "xhigh", "max"]
 
 const QUALITIES: PreviewQuality[] = ["360p", "540p", "720p", "1080p"]
+
+const FINAL_QUALITIES: FinalQuality[] = ["720p", "1080p", "1440p", "2160p"]
+
+/**
+ * Whether approving reuses the preview as the final video: it is rendered
+ * at the final quality or better. An unset final quality counts as 1080p,
+ * the host profile's usual final scale.
+ */
+function reusesPreview(preview: PreviewQuality | "", final: FinalQuality | ""): boolean {
+  return preview !== "" && parseInt(preview) >= parseInt(final || "1080p")
+}
 
 const REVIEW_POINTS: ReviewAt[] = ["video", "script"]
 
@@ -75,6 +87,10 @@ export function ProductionSection({
   const qualities = [
     { value: DEFAULT, label: t.workspaceDefault },
     ...QUALITIES.map((q) => ({ value: q, label: t.qualities[q] })),
+  ]
+  const finalQualities = [
+    { value: DEFAULT, label: t.workspaceDefault },
+    ...FINAL_QUALITIES.map((q) => ({ value: q, label: t.finalQualities[q] })),
   ]
   const set = (patch: Partial<ProductionValues>) => onChange({ ...value, ...patch })
 
@@ -125,7 +141,11 @@ export function ProductionSection({
           <Row
             label={t.previewQuality}
             htmlFor={`${idPrefix}-preview`}
-            hint={value.previewQuality === "1080p" ? t.previewFullHint : t.previewHint}
+            hint={
+              reusesPreview(value.previewQuality, value.finalQuality)
+                ? t.previewFullHint
+                : t.previewHint
+            }
           >
             <Select
               items={qualities}
@@ -140,6 +160,29 @@ export function ProductionSection({
               </SelectTrigger>
               <SelectContent>
                 {qualities.map((it) => (
+                  <SelectItem key={it.value} value={it.value}>
+                    {it.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Row>
+        ) : null}
+        {video ? (
+          <Row label={t.finalQuality} htmlFor={`${idPrefix}-final`} hint={t.finalHint}>
+            <Select
+              items={finalQualities}
+              disabled={readOnly}
+              value={value.finalQuality || DEFAULT}
+              onValueChange={(v) =>
+                v && set({ finalQuality: v === DEFAULT ? "" : (v as FinalQuality) })
+              }
+            >
+              <SelectTrigger id={`${idPrefix}-final`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {finalQualities.map((it) => (
                   <SelectItem key={it.value} value={it.value}>
                     {it.label}
                   </SelectItem>

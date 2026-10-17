@@ -213,6 +213,11 @@ func ProductionOf(in *gen.Production) (pipelinedomain.Production, error) {
 			return out, err
 		}
 	}
+	if in.FinalQuality != nil {
+		if out.FinalQuality, err = pipelinedomain.ParseFinalQuality(string(*in.FinalQuality)); err != nil {
+			return out, err
+		}
+	}
 	if in.ReviewAt != nil {
 		if out.ReviewAt, err = pipelinedomain.ParseReviewPoint(string(*in.ReviewAt)); err != nil {
 			return out, err
@@ -251,6 +256,10 @@ func ProductionToWire(p pipelinedomain.Production) *gen.Production {
 	if q := p.PreviewQuality; q != "" {
 		quality := gen.ProductionPreviewQuality(q)
 		out.PreviewQuality = &quality
+	}
+	if q := p.FinalQuality; q != "" {
+		quality := gen.ProductionFinalQuality(q)
+		out.FinalQuality = &quality
 	}
 	if p.ReviewAt == pipelinedomain.ReviewScript {
 		at := gen.ProductionReviewAtScript

@@ -1,7 +1,6 @@
 package production_test
 
 import (
-	"cmp"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -1451,28 +1450,36 @@ func TestDraftingAgentReachesEveryTurn(t *testing.T) {
 	})
 }
 
-// A story's preview quality sets the scale of its review render; a
-// preview at final quality is approved as the final video without
+// A story's preview and final qualities set the scales of its review
+// and final renders (the host profile's when unset); a preview at the
+// final quality or better is approved as the final video without
 // rendering it again.
-func TestPreviewQuality(t *testing.T) {
+func TestRenderQuality(t *testing.T) {
 	ctx := context.Background()
 	tests := []struct {
-		quality     pipelinedomain.PreviewQuality
-		wantRenders []float64 // preview, then final if one runs
+		name           string
+		preview, final pipelinedomain.Quality
+		wantRenders    []float64 // preview, then final if one runs
 	}{
-		{quality: "", wantRenders: []float64{0.5, 1}},
-		{quality: pipelinedomain.Preview720p, wantRenders: []float64{2.0 / 3, 1}},
-		{quality: pipelinedomain.Preview1080p, wantRenders: []float64{1}},
+		{name: "defaults", wantRenders: []float64{0.5, 1}},
+		{name: "720p preview", preview: pipelinedomain.Quality720p, wantRenders: []float64{2.0 / 3, 1}},
+		{name: "1080p preview", preview: pipelinedomain.Quality1080p, wantRenders: []float64{1}},
+		{name: "720p final", final: pipelinedomain.Quality720p, wantRenders: []float64{0.5, 2.0 / 3}},
+		{name: "2160p final", final: pipelinedomain.Quality2160p, wantRenders: []float64{0.5, 2}},
+		{name: "1080p preview, 2160p final", preview: pipelinedomain.Quality1080p, final: pipelinedomain.Quality2160p,
+			wantRenders: []float64{1, 2}},
+		{name: "preview at a 720p final", preview: pipelinedomain.Quality720p, final: pipelinedomain.Quality720p,
+			wantRenders: []float64{2.0 / 3}},
 	}
 	for _, tt := range tests {
-		t.Run(cmp.Or(string(tt.quality), "default"), func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			f := newFixture(t)
 			log := &scaleLog{}
 			svc := f.hostWith(func(d *production.Deps) { d.Renderer = fakeRenderer{scales: log} })
 			video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
 			outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
 			req := production.AdHocRequest{Idea: "Kaygı ve endişe farkı", Count: 1, Language: pipelinedomain.Turkish,
-				Outputs: outputs, Production: pipelinedomain.Production{PreviewQuality: tt.quality}}
+				Outputs: outputs, Production: pipelinedomain.Production{PreviewQuality: tt.preview, FinalQuality: tt.final}}
 			if _, err := svc.QueueAdHoc(ctx, f.ws, id.New(), req); err != nil {
 				t.Fatal(err)
 			}

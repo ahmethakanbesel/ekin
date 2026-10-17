@@ -47,6 +47,7 @@ func TestPreviewQuality(t *testing.T) {
 		{in: "720p", wantScale: 2.0 / 3},
 		{in: "1080p", wantScale: 1},
 		{in: "4k", wantErr: true},
+		{in: "1440p", wantErr: true},
 		{in: "1080", wantErr: true},
 	}
 	for _, tt := range tests {
@@ -58,7 +59,38 @@ func TestPreviewQuality(t *testing.T) {
 			if !tt.wantErr && q.Scale() != tt.wantScale {
 				t.Fatalf("scale = %v, want %v", q.Scale(), tt.wantScale)
 			}
-			p := pipeline.Production{PreviewQuality: pipeline.PreviewQuality(tt.in)}
+			p := pipeline.Production{PreviewQuality: pipeline.Quality(tt.in)}
+			if err := p.Check(); (err != nil) != tt.wantErr {
+				t.Fatalf("Check() = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestFinalQuality(t *testing.T) {
+	tests := []struct {
+		in        string
+		wantScale float64
+		wantErr   bool
+	}{
+		{in: "", wantScale: 0},
+		{in: "720p", wantScale: 2.0 / 3},
+		{in: "1080p", wantScale: 1},
+		{in: "1440p", wantScale: 4.0 / 3},
+		{in: "2160p", wantScale: 2},
+		{in: "540p", wantErr: true},
+		{in: "4k", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			q, err := pipeline.ParseFinalQuality(tt.in)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr && q.Scale() != tt.wantScale {
+				t.Fatalf("scale = %v, want %v", q.Scale(), tt.wantScale)
+			}
+			p := pipeline.Production{FinalQuality: pipeline.Quality(tt.in)}
 			if err := p.Check(); (err != nil) != tt.wantErr {
 				t.Fatalf("Check() = %v, wantErr %v", err, tt.wantErr)
 			}
