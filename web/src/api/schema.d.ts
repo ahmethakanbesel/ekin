@@ -1495,6 +1495,11 @@ export interface components {
             /** @description Claude model the agent drafts and revises with: a model id (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace's model (System → Credentials, then KURGU_CLAUDE_MODEL). */
             draftModel?: string;
             draftEffort?: components["schemas"]["DraftEffort"];
+            /**
+             * @description Resolution of the review render (the short side of a 1080p frame). At 1080p, approving reuses the preview as the final video instead of rendering again. Absent: the host profile's preview scale.
+             * @enum {string}
+             */
+            previewQuality?: "360p" | "540p" | "720p" | "1080p";
         };
         AdHocInput: {
             /** @description Free text — what you want made. */

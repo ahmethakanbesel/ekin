@@ -13,12 +13,53 @@ import (
 type Production struct {
 	// Agent is the model and effort the authoring agent drafts with.
 	Agent Agent `json:"agent,omitzero"`
+	// PreviewQuality is the resolution of the review render; "" takes
+	// the host profile's preview scale.
+	PreviewQuality PreviewQuality `json:"previewQuality,omitempty"`
 }
 
 // Check reports whether every setting is valid.
 func (p Production) Check() error {
-	_, err := NewAgent(p.Agent.Model, string(p.Agent.Effort))
+	if _, err := NewAgent(p.Agent.Model, string(p.Agent.Effort)); err != nil {
+		return err
+	}
+	_, err := ParsePreviewQuality(string(p.PreviewQuality))
 	return err
+}
+
+// PreviewQuality is the resolution a video is rendered at for review,
+// named by the short side of a 1080p frame.
+type PreviewQuality string
+
+const (
+	Preview360p  PreviewQuality = "360p"
+	Preview540p  PreviewQuality = "540p"
+	Preview720p  PreviewQuality = "720p"
+	Preview1080p PreviewQuality = "1080p"
+)
+
+// ParsePreviewQuality parses a preview quality; "" is the default.
+func ParsePreviewQuality(s string) (PreviewQuality, error) {
+	switch q := PreviewQuality(s); q {
+	case "", Preview360p, Preview540p, Preview720p, Preview1080p:
+		return q, nil
+	}
+	return "", apperror.New(apperror.ValidationFailed, "preview quality must be 360p, 540p, 720p or 1080p")
+}
+
+// Scale is the render scale of a 1080p composition; 0 for the default.
+func (q PreviewQuality) Scale() float64 {
+	switch q {
+	case Preview360p:
+		return 1.0 / 3
+	case Preview540p:
+		return 0.5
+	case Preview720p:
+		return 2.0 / 3
+	case Preview1080p:
+		return 1
+	}
+	return 0
 }
 
 // Effort is how hard the authoring agent thinks (Claude Code's --effort).

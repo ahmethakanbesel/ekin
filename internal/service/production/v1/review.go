@@ -26,6 +26,9 @@ import (
 type RenderTask struct {
 	Payload  DeliverablePayload `json:"payload"`
 	Revision int                `json:"revision"`
+	// Scale is the preview's render scale from the story's preview
+	// quality; 0 takes the host profile's.
+	Scale float64 `json:"scale,omitempty"`
 }
 
 // Render runs a deliverable.render job here: the preview (for review)
@@ -72,20 +75,24 @@ func (s *Service) BeginRender(ctx context.Context, p DeliverablePayload) (Render
 	if err := s.ensureWorkDir(ctx, d, dir); err != nil {
 		return RenderTask{}, "", s.stepFailed(ctx, p, err)
 	}
-	return RenderTask{Payload: p, Revision: d.Revision()}, dir, nil
+	task := RenderTask{Payload: p, Revision: d.Revision()}
+	if !p.Final {
+		task.Scale = st.Brief().Production.PreviewQuality.Scale()
+	}
+	return task, dir, nil
 }
 
 // RunRender renders dir into outDir and returns the artifact files by
 // name. It touches no database.
 func (s *Service) RunRender(ctx context.Context, task RenderTask, dir, outDir string) (map[string]string, error) {
-	rs := RenderSettings{PreviewScale: s.cfg.PreviewScale, FinalScale: s.cfg.FinalScale}
-	if s.cfg.Render != nil {
-		rs = s.cfg.Render(ctx)
-	}
+	rs := s.renderSettings(ctx)
 	opts := render.VideoOptions{Scale: rs.PreviewScale, Duty: rs.Duty, Chunks: rs.Chunks}
 	name := storydomain.ArtifactPreview
-	if task.Payload.Final {
+	switch {
+	case task.Payload.Final:
 		opts.Scale, name = rs.FinalScale, storydomain.ArtifactFinal
+	case task.Scale > 0:
+		opts.Scale = task.Scale
 	}
 	silent := filepath.Join(outDir, "silent.mp4")
 	meta, err := s.renderer.Video(ctx, dir, "composition.html", opts, silent)
@@ -200,6 +207,14 @@ func (s *Service) release(ctx context.Context, st *storydomain.Story, source uui
 	return nil
 }
 
+// renderSettings are the host profile's render knobs now.
+func (s *Service) renderSettings(ctx context.Context) RenderSettings {
+	if s.cfg.Render != nil {
+		return s.cfg.Render(ctx)
+	}
+	return RenderSettings{PreviewScale: s.cfg.PreviewScale, FinalScale: s.cfg.FinalScale}
+}
+
 // Approve accepts a deliverable in review and queues what follows, all
 // in one transaction.
 func (s *Service) Approve(ctx context.Context, workspaceID, storyID, deliverableID, actorID uuid.UUID) (*storydomain.Story, error) {
@@ -209,8 +224,14 @@ func (s *Service) Approve(ctx context.Context, workspaceID, storyID, deliverable
 			return err
 		}
 		d, _ := st.Deliverable(deliverableID)
-		if err := s.enqueueStep(ctx, st, d); err != nil {
+		reused, err := s.reusePreview(ctx, st, d)
+		if err != nil {
 			return err
+		}
+		if !reused {
+			if err := s.enqueueStep(ctx, st, d); err != nil {
+				return err
+			}
 		}
 		for _, q := range queued {
 			if err := s.enqueueStep(ctx, st, q); err != nil {
@@ -222,6 +243,30 @@ func (s *Service) Approve(ctx context.Context, workspaceID, storyID, deliverable
 		}
 		return nil
 	})
+}
+
+// reusePreview finishes an approved video with its preview when that
+// was rendered at final quality or better, so approval does not render
+// the same video again, and reports whether it did. Call it inside the
+// transaction that approved d.
+func (s *Service) reusePreview(ctx context.Context, st *storydomain.Story, d *storydomain.Deliverable) (bool, error) {
+	scale := st.Brief().Production.PreviewQuality.Scale()
+	if d.Status() != storydomain.StatusFinalizing || scale == 0 || scale < s.renderSettings(ctx).FinalScale {
+		return false, nil
+	}
+	rev, err := s.stories.Revision(ctx, d.ID(), d.Revision())
+	if err != nil {
+		return false, err
+	}
+	preview, ok := rev.Artifacts[storydomain.ArtifactPreview]
+	if !ok {
+		return false, nil
+	}
+	rev.Artifacts[storydomain.ArtifactFinal] = preview
+	if err := s.stories.PutRevision(ctx, rev); err != nil {
+		return false, err
+	}
+	return true, st.Rendered(d.ID(), 0, s.now())
 }
 
 // RequestChanges sends a deliverable back to the agent with feedback.

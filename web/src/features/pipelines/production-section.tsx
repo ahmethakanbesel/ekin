@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/select"
 import { m } from "@/i18n"
 import { Row, Section } from "./form-parts"
-import type { DraftEffort, ProductionValues } from "./model"
+import type { DraftEffort, PreviewQuality, ProductionValues } from "./model"
 
 /** The select value standing for "the workspace default" (a select item needs a value). */
 const DEFAULT = "default"
@@ -23,19 +23,24 @@ const MODELS = [
 
 const EFFORTS: DraftEffort[] = ["low", "medium", "high", "xhigh", "max"]
 
+const QUALITIES: PreviewQuality[] = ["360p", "540p", "720p", "1080p"]
+
 /**
  * "Production" in the pipeline and request forms: how the stories are
- * made, each setting overriding the workspace default.
+ * made, each setting overriding the workspace default. The video-only
+ * settings show while a video output is on.
  */
 export function ProductionSection({
   idPrefix,
   value,
   onChange,
+  video,
   readOnly = false,
 }: {
   idPrefix: string
   value: ProductionValues
   onChange: (next: ProductionValues) => void
+  video: boolean
   readOnly?: boolean
 }) {
   const t = m.pipelineForm.production
@@ -46,6 +51,10 @@ export function ProductionSection({
   const efforts = [
     { value: DEFAULT, label: t.workspaceDefault },
     ...EFFORTS.map((e) => ({ value: e, label: t.efforts[e] })),
+  ]
+  const qualities = [
+    { value: DEFAULT, label: t.workspaceDefault },
+    ...QUALITIES.map((q) => ({ value: q, label: t.qualities[q] })),
   ]
   const set = (patch: Partial<ProductionValues>) => onChange({ ...value, ...patch })
 
@@ -92,6 +101,33 @@ export function ProductionSection({
             </SelectContent>
           </Select>
         </Row>
+        {video ? (
+          <Row
+            label={t.previewQuality}
+            htmlFor={`${idPrefix}-preview`}
+            hint={value.previewQuality === "1080p" ? t.previewFullHint : t.previewHint}
+          >
+            <Select
+              items={qualities}
+              disabled={readOnly}
+              value={value.previewQuality || DEFAULT}
+              onValueChange={(v) =>
+                v && set({ previewQuality: v === DEFAULT ? "" : (v as PreviewQuality) })
+              }
+            >
+              <SelectTrigger id={`${idPrefix}-preview`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {qualities.map((it) => (
+                  <SelectItem key={it.value} value={it.value}>
+                    {it.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Row>
+        ) : null}
       </FieldGroup>
     </Section>
   )

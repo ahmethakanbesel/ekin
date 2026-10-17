@@ -257,6 +257,7 @@ export function PipelineForm({
             idPrefix="pl-production"
             value={field.state.value}
             onChange={field.handleChange}
+            video={videoEnabled}
             readOnly={readOnly}
           />
         )}

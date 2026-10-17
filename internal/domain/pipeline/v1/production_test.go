@@ -33,3 +33,34 @@ func TestNewAgent(t *testing.T) {
 		})
 	}
 }
+
+func TestPreviewQuality(t *testing.T) {
+	tests := []struct {
+		in        string
+		wantScale float64
+		wantErr   bool
+	}{
+		{in: "", wantScale: 0},
+		{in: "360p", wantScale: 1.0 / 3},
+		{in: "540p", wantScale: 0.5},
+		{in: "720p", wantScale: 2.0 / 3},
+		{in: "1080p", wantScale: 1},
+		{in: "4k", wantErr: true},
+		{in: "1080", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			q, err := pipeline.ParsePreviewQuality(tt.in)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr && q.Scale() != tt.wantScale {
+				t.Fatalf("scale = %v, want %v", q.Scale(), tt.wantScale)
+			}
+			p := pipeline.Production{PreviewQuality: pipeline.PreviewQuality(tt.in)}
+			if err := p.Check(); (err != nil) != tt.wantErr {
+				t.Fatalf("Check() = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

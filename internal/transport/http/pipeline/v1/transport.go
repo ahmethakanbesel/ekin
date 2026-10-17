@@ -206,6 +206,11 @@ func ProductionOf(in *gen.Production) (pipelinedomain.Production, error) {
 		return out, err
 	}
 	out.Agent = agent
+	if in.PreviewQuality != nil {
+		if out.PreviewQuality, err = pipelinedomain.ParsePreviewQuality(string(*in.PreviewQuality)); err != nil {
+			return out, err
+		}
+	}
 	return out, nil
 }
 
@@ -222,6 +227,10 @@ func ProductionToWire(p pipelinedomain.Production) *gen.Production {
 	if e := p.Agent.Effort; e != "" {
 		effort := gen.DraftEffort(e)
 		out.DraftEffort = &effort
+	}
+	if q := p.PreviewQuality; q != "" {
+		quality := gen.ProductionPreviewQuality(q)
+		out.PreviewQuality = &quality
 	}
 	return out
 }

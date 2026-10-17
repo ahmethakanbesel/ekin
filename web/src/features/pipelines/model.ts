@@ -4,6 +4,7 @@ type Outputs = Schemas["Outputs"]
 type KnowledgeRef = Schemas["KnowledgeRef"]
 type Production = Schemas["Production"]
 export type DraftEffort = Schemas["DraftEffort"]
+export type PreviewQuality = NonNullable<Production["previewQuality"]>
 import { emptyOverride, fromOverride, toOverride, type VoiceOverrideValues } from "@/features/voice/model"
 import { DEFAULT_SELF_REVIEW } from "./self-review-section"
 import { m } from "@/i18n"
@@ -72,14 +73,19 @@ export type PipelineFormValues = OutputsValues & {
 export type ProductionValues = {
   draftModel: string
   draftEffort: DraftEffort | ""
+  previewQuality: PreviewQuality | ""
 }
 
 export function emptyProduction(): ProductionValues {
-  return { draftModel: "", draftEffort: "" }
+  return { draftModel: "", draftEffort: "", previewQuality: "" }
 }
 
 export function fromProduction(p: Production | undefined): ProductionValues {
-  return { draftModel: p?.draftModel ?? "", draftEffort: p?.draftEffort ?? "" }
+  return {
+    draftModel: p?.draftModel ?? "",
+    draftEffort: p?.draftEffort ?? "",
+    previewQuality: p?.previewQuality ?? "",
+  }
 }
 
 /** The wire production settings; undefined when every one is the default. */
@@ -87,6 +93,7 @@ export function toProduction(v: ProductionValues): Production | undefined {
   const out: Production = {}
   if (v.draftModel) out.draftModel = v.draftModel
   if (v.draftEffort) out.draftEffort = v.draftEffort
+  if (v.previewQuality) out.previewQuality = v.previewQuality
   return Object.keys(out).length > 0 ? out : undefined
 }
 

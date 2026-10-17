@@ -1,6 +1,7 @@
 package production_test
 
 import (
+	"cmp"
 	"context"
 	"encoding/binary"
 	"encoding/json"
@@ -9,6 +10,7 @@ import (
 	"kurgu/internal/apperror"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -141,12 +143,30 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 }
 
 // fakeRenderer writes placeholder files instead of driving Chrome.
-type fakeRenderer struct{}
+// fakeRenderer writes stand-in files; with scales set it records the
+// scale of every video it renders.
+type fakeRenderer struct{ scales *scaleLog }
+
+type scaleLog struct {
+	mu     sync.Mutex
+	scales []float64
+}
+
+func (l *scaleLog) all() []float64 {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]float64(nil), l.scales...)
+}
 
 func (fakeRenderer) Probe(context.Context, string, string) (render.Meta, []string, error) {
 	return render.Meta{Width: 1080, Height: 1920, FPS: 30, Duration: 21}, nil, nil
 }
-func (fakeRenderer) Video(_ context.Context, _, _ string, _ render.VideoOptions, out string) (render.Meta, error) {
+func (r fakeRenderer) Video(_ context.Context, _, _ string, opts render.VideoOptions, out string) (render.Meta, error) {
+	if r.scales != nil {
+		r.scales.mu.Lock()
+		r.scales.scales = append(r.scales.scales, opts.Scale)
+		r.scales.mu.Unlock()
+	}
 	return render.Meta{Width: 1080, Height: 1920, FPS: 30, Duration: 21}, os.WriteFile(out, []byte("video"), 0o600)
 }
 func (fakeRenderer) Music(context.Context, string, float64, string) (float64, error) { return 0.5, nil }
@@ -1319,4 +1339,61 @@ func TestDraftingAgentReachesEveryTurn(t *testing.T) {
 			t.Fatalf("unknown effort: err = %v", err)
 		}
 	})
+}
+
+// A story's preview quality sets the scale of its review render; a
+// preview at final quality is approved as the final video without
+// rendering it again.
+func TestPreviewQuality(t *testing.T) {
+	ctx := context.Background()
+	tests := []struct {
+		quality     pipelinedomain.PreviewQuality
+		wantRenders []float64 // preview, then final if one runs
+	}{
+		{quality: "", wantRenders: []float64{0.5, 1}},
+		{quality: pipelinedomain.Preview720p, wantRenders: []float64{2.0 / 3, 1}},
+		{quality: pipelinedomain.Preview1080p, wantRenders: []float64{1}},
+	}
+	for _, tt := range tests {
+		t.Run(cmp.Or(string(tt.quality), "default"), func(t *testing.T) {
+			f := newFixture(t)
+			log := &scaleLog{}
+			svc := f.hostWith(func(d *production.Deps) { d.Renderer = fakeRenderer{scales: log} })
+			video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
+			outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
+			req := production.AdHocRequest{Idea: "Kaygı ve endişe farkı", Count: 1, Language: pipelinedomain.Turkish,
+				Outputs: outputs, Production: pipelinedomain.Production{PreviewQuality: tt.quality}}
+			if _, err := svc.QueueAdHoc(ctx, f.ws, id.New(), req); err != nil {
+				t.Fatal(err)
+			}
+			f.drainOn(t, svc)
+			st := f.story(t)
+			if st.Lead().Status() != storydomain.StatusReview {
+				t.Fatalf("lead = %s: %s", st.Lead().Status(), st.Lead().Failure())
+			}
+			if _, err := svc.Approve(ctx, f.ws, st.ID(), st.Lead().ID(), id.New()); err != nil {
+				t.Fatal(err)
+			}
+			f.drainOn(t, svc)
+			if got := log.all(); !slices.Equal(got, tt.wantRenders) {
+				t.Fatalf("rendered at %v, want %v", got, tt.wantRenders)
+			}
+			st = f.story(t)
+			if d := st.Lead(); d.Status() != storydomain.StatusReady && d.Status() != storydomain.StatusPublished {
+				t.Fatalf("lead = %s: %s", d.Status(), d.Failure())
+			}
+			revs, err := svc.Revisions(ctx, f.ws, st.ID(), st.Lead().ID())
+			if err != nil {
+				t.Fatal(err)
+			}
+			last := revs[len(revs)-1].Artifacts
+			if last[storydomain.ArtifactFinal] == "" {
+				t.Fatalf("no final artifact: %v", last)
+			}
+			reused := last[storydomain.ArtifactFinal] == last[storydomain.ArtifactPreview]
+			if reused != (len(tt.wantRenders) == 1) {
+				t.Fatalf("final reused the preview = %v; artifacts %v", reused, last)
+			}
+		})
+	}
 }

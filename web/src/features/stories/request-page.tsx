@@ -262,6 +262,7 @@ function RequestForm({ workspaceId }: { workspaceId: string }) {
             idPrefix="rq-production"
             value={field.state.value}
             onChange={field.handleChange}
+            video={videoEnabled}
           />
         )}
       </form.Field>
