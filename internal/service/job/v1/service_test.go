@@ -76,7 +76,7 @@ func cancel(f fixture, j *jobdomain.Job) error {
 
 // expire lets the lease run out on the last attempt and sweeps.
 func expire(t0 time.Time) func(fixture, *jobdomain.Job) error {
-	return func(f fixture, j *jobdomain.Job) error {
+	return func(f fixture, _ *jobdomain.Job) error {
 		ctx := context.Background()
 		later := t0.Add(2 * time.Minute)
 		f.svc.WithClock(func() time.Time { return later })

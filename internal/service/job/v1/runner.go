@@ -272,8 +272,7 @@ func (r *Runner) heartbeat(ctx context.Context, j *jobdomain.Job, cancel context
 	t := time.NewTicker(r.cfg.Lease / 3)
 	defer t.Stop()
 	held := time.Now().Add(r.cfg.Lease) // the lease the claim gave
-	giveUp := func(msg string, err error) {
-		log.WarnContext(ctx, msg, slog.Any("error", err))
+	giveUp := func() {
 		close(lost)
 		cancel()
 	}
@@ -289,12 +288,14 @@ func (r *Runner) heartbeat(ctx context.Context, j *jobdomain.Job, cancel context
 				held = sent.Add(r.cfg.Lease)
 			case errors.Is(err, context.Canceled):
 			case leaseGone(err):
-				giveUp("heartbeat refused; stopping job", err)
+				log.WarnContext(ctx, "heartbeat refused; stopping job", slog.Any("error", err))
+				giveUp()
 				return
 			case time.Now().Before(held):
 				log.WarnContext(ctx, "heartbeat failed; trying again", slog.Any("error", err))
 			default:
-				giveUp("lease ran out without a heartbeat; stopping job", err)
+				log.WarnContext(ctx, "lease ran out without a heartbeat; stopping job", slog.Any("error", err))
+				giveUp()
 				return
 			}
 		}
