@@ -525,11 +525,6 @@ export const en = {
         library: "Library only",
         mixed: "Library first",
       } as Record<string, string>,
-      freshHints: {
-        music: "The agent composes its own score.",
-        video: "The agent searches Pexels.",
-        photo: "The agent searches Pexels.",
-      } as Record<string, string>,
       inLibrary: (n: number, more: boolean) =>
         n === 0 ? "None in the library yet." : `${more ? `${n}+` : n} ready in the library.`,
       emptyLibraryOnly: "None in the library yet, so videos will have none.",
@@ -1774,6 +1769,9 @@ export const en = {
     viewJobs: "View jobs",
   },
   voice: {
+    groups: { narrator: "Narrator", pace: "Pace and pauses" },
+    seedDefault: "The engine picks",
+    unsaved: "Unsaved changes in this language",
     readOnlyHint: "Only owners can change the voice settings. Editors can still play previews.",
     readOnlyViewer: "Only owners can change the voice settings.",
     languages: { tr: "Türkçe", en: "English" } as Record<string, string>,
@@ -2027,7 +2025,7 @@ export const en = {
     notOk: "Needs attention",
     credentialsTitle: "Credentials",
     credentialsDescription:
-      "API keys and service settings. A value saved here wins over its environment variable. Secrets are stored encrypted and never shown again, only their last characters.",
+      "API keys and service settings. A value saved here wins over its environment variable. Secrets are stored encrypted and never shown again, only their last characters. Remote workers keep their own keys and Claude login, from their own environment; the Claude model saved here reaches them through each story.",
     credentialGroups: {
       claude: "Claude Code",
       stock: "Stock media",
@@ -2098,13 +2096,22 @@ export const en = {
     heavyQueues: "Heavy queues",
     heavyQueuesHint:
       "The queues “One heavy job at a time” covers. A draft (Agent) mostly waits on Claude: leave Agent out to draft beside a render.",
-    nice: "Job priority (nice)",
-    niceHint:
-      "0 normal to 19 lowest. Job processes give way to this host's own work; the Kurgu server keeps its priority. Linux and macOS.",
     priorities: { normal: "Normal", low: "Low", lowest: "Lowest" },
+    groups: { jobs: "Jobs", host: "Host", render: "Render" },
+    running: "Taking new jobs",
+    runningHint: "Workers using this profile start queued jobs as slots free up.",
+    takeJobs: "Take new jobs",
+    oneFewer: (queue: string) => `One fewer ${queue} job at a time`,
+    oneMore: (queue: string) => `One more ${queue} job at a time`,
+    cpuLimitTitle: "CPU limit",
+    cpuLimitValue: (pct: number) => `${pct}%`,
+    noLimit: "No limit",
+    priority: "Priority",
+    priorityHint: "Low lets this host's own work go first. Linux and macOS.",
+    niceValue: (n: number) => `Nice ${n}`,
+    scaleHeight: (px: number) => `Now ${px}p.`,
     cooldown: "Cooldown (seconds)",
     cooldownHint: "Rest after each heavy job. 0–3600.",
-    cpuLimit: "CPU limit (%)",
     cpuLimitHint:
       "Share of this host's CPUs that job processes (agent, browser, encoder, speech) may use together. 0 = no limit, or 10–100. Linux hosts only; the Kurgu server itself is never limited.",
     cpuLimitRange: "Use 0 for no limit, or 10 to 100.",

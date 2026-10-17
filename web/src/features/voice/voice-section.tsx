@@ -7,7 +7,6 @@ import { isApiError, type VoiceConfig, type VoiceEngine, type VoiceSettings } fr
 import { Badge } from "@/components/ui/badge"
 import { Banner, ErrorState } from "@/components/page"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -17,8 +16,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { Row } from "@/features/pipelines/form-parts"
+import { LayeredCard, LayeredGroup, LayeredRow, SourceChip } from "@/features/settings/layered"
 import { SettingsSectionHeader } from "@/features/settings/settings-page"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
@@ -47,7 +48,6 @@ import {
   voiceLanguages,
   type LexiconRow,
 } from "./model"
-import { SliderRow } from "./slider-row"
 import { VoiceSelect } from "./voice-select"
 
 /** Settings › Voice: narration per language, with previews and pronunciations. */
@@ -131,6 +131,10 @@ function toConfig(engine: VoiceEngine, c: VoiceConfig, seed: string): VoiceConfi
   }
 }
 
+function voiceName(e: VoiceEngine, voice: string): string {
+  return e.voices.find((v) => v.id === voice)?.label ?? voice
+}
+
 function engineLabel(e: VoiceEngine): string {
   return e.cloud ? m.voice.cloudEngine(e.name) : e.name
 }
@@ -187,27 +191,95 @@ function LanguageCard({
     }
   }
 
+  // The layer under the workspace is the engine's own defaults.
+  const engineDefault = defaultConfig(engine)
+  const B = m.settings.layers.builtIn
+  const storedSeed = seedText(stored)
+  const sliderRow = (
+    key: "speed" | "sentencePause" | "paragraphPause",
+    label: string,
+    hint: string,
+    display: (n: number) => string,
+    min: number,
+    max: number
+  ) => (
+    <LayeredRow
+      key={key}
+      label={label}
+      htmlFor={id(key)}
+      hint={hint}
+      inherited={{ value: display(engineDefault[key]), source: B }}
+      set={config[key] !== engineDefault[key]}
+      dirty={config[key] !== stored[key]}
+      readOnly={disabled}
+      onReset={() => set(key, engineDefault[key])}
+    >
+      {(describedBy) => (
+        <div className="flex h-9 items-center gap-3">
+          <Slider
+            id={id(key)}
+            aria-describedby={describedBy}
+            className="flex-1"
+            thumbLabel={label}
+            valueText={display(config[key])}
+            min={min}
+            max={max}
+            step={0.05}
+            disabled={disabled}
+            value={config[key]}
+            onValueChange={(v) => set(key, Math.round((Array.isArray(v) ? v[0] : v) * 100) / 100)}
+          />
+          <span className="w-14 text-right text-sm font-medium tabular">{display(config[key])}</span>
+        </div>
+      )}
+    </LayeredRow>
+  )
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{name}</CardTitle>
-        <CardDescription>{m.voice.engine(engineLabel(storedEngine))}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form
-          noValidate
-          className="grid gap-6"
-          onSubmit={(e) => {
-            e.preventDefault()
-            void submit()
-          }}
-        >
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Row
-              label={m.voice.engineLabel}
-              htmlFor={id("engine")}
-              hint={engine.cloud ? m.voice.cloudHint : m.voice.localHint}
+    <form
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault()
+        void submit()
+      }}
+    >
+      <LayeredCard
+        title={name}
+        description={m.voice.engine(engineLabel(storedEngine))}
+        fromLabel={m.settings.columns.inherited}
+        hereLabel={workspace.name}
+        // Unclipped, so the save bar can stick to the bottom of the screen.
+        className="overflow-visible"
+        footer={
+          canManage ? (
+            <div
+              className={cn(
+                "flex flex-wrap items-center justify-between gap-3 rounded-b-xl border-t px-6 py-4",
+                dirty && "sticky bottom-0 z-10 bg-card/95 backdrop-blur"
+              )}
             >
+              <p className="text-sm text-muted-foreground" aria-live="polite">
+                {dirty ? m.voice.unsaved : m.settings.production.allSaved}
+              </p>
+              <Button type="submit" variant={dirty ? "default" : "outline"} disabled={save.isPending || !dirty}>
+                {save.isPending ? m.common.saving : m.voice.save}
+              </Button>
+            </div>
+          ) : null
+        }
+      >
+        <LayeredGroup title={m.voice.groups.narrator}>
+          <LayeredRow
+            label={m.voice.engineLabel}
+            htmlFor={id("engine")}
+            hint={engine.cloud ? m.voice.cloudHint : m.voice.localHint}
+            inherited={{ value: engineLabel(engines[0]), source: B }}
+            set={engine.id !== engines[0].id}
+            dirty={engine.id !== storedEngine.id}
+            readOnly={disabled}
+            onReset={() => setConfig((c) => switchEngine(c, engines[0]))}
+          >
+            {(describedBy) => (
               <Select
                 items={engines.map((e) => ({ value: e.id, label: engineLabel(e) }))}
                 disabled={disabled || engines.length < 2}
@@ -217,8 +289,9 @@ function LanguageCard({
                   if (next && next.id !== engine.id) setConfig((c) => switchEngine(c, next))
                 }}
               >
-                <SelectTrigger id={id("engine")} className="w-full">
+                <SelectTrigger id={id("engine")} aria-describedby={describedBy} className="w-full font-medium">
                   <SelectValue />
+                  {engine.id !== engines[0].id ? <SourceChip here>{m.settings.setHere}</SourceChip> : null}
                 </SelectTrigger>
                 <SelectContent>
                   {engines.map((e) => (
@@ -231,11 +304,22 @@ function LanguageCard({
                   ))}
                 </SelectContent>
               </Select>
-            </Row>
-            <Row label={m.voice.voice} htmlFor={id("voice")}>
-              {engine.voices.length > 0 ? (
+            )}
+          </LayeredRow>
+          <LayeredRow
+            label={m.voice.voice}
+            htmlFor={id("voice")}
+            inherited={{ value: voiceName(engine, engineDefault.voice) || "…", source: B }}
+            set={config.voice !== engineDefault.voice}
+            dirty={config.voice !== stored.voice}
+            readOnly={disabled}
+            onReset={() => set("voice", engineDefault.voice)}
+          >
+            {() =>
+              engine.voices.length > 0 ? (
                 <VoiceSelect
                   id={id("voice")}
+                  className="w-full font-medium"
                   engine={engine}
                   value={config.voice}
                   onChange={(v) => v && set("voice", v)}
@@ -249,18 +333,30 @@ function LanguageCard({
                   onChange={(v) => v && set("voice", v)}
                   disabled={disabled}
                 />
-              )}
-            </Row>
-            {engine.hasQuality ? (
-              <Row label={m.voice.quality} htmlFor={id("quality")} hint={m.voice.qualityHint}>
+              )
+            }
+          </LayeredRow>
+          {engine.hasQuality ? (
+            <LayeredRow
+              label={m.voice.quality}
+              htmlFor={id("quality")}
+              hint={m.voice.qualityHint}
+              inherited={{ value: m.voice.qualities.fp32, source: B }}
+              set={(config.quality ?? "fp32") !== "fp32"}
+              dirty={(config.quality ?? "fp32") !== (stored.quality ?? "fp32")}
+              readOnly={disabled}
+              onReset={() => set("quality", "fp32")}
+            >
+              {(describedBy) => (
                 <Select
                   items={QUALITIES.map((q) => ({ value: q, label: m.voice.qualities[q] }))}
                   disabled={disabled}
                   value={config.quality ?? "fp32"}
                   onValueChange={(v) => v && set("quality", v as VoiceConfig["quality"])}
                 >
-                  <SelectTrigger id={id("quality")} className="w-full">
+                  <SelectTrigger id={id("quality")} aria-describedby={describedBy} className="w-full font-medium">
                     <SelectValue />
+                    {(config.quality ?? "fp32") !== "fp32" ? <SourceChip here>{m.settings.setHere}</SourceChip> : null}
                   </SelectTrigger>
                   <SelectContent>
                     {QUALITIES.map((q) => (
@@ -270,23 +366,31 @@ function LanguageCard({
                     ))}
                   </SelectContent>
                 </Select>
-              </Row>
-            ) : null}
-            {engine.hasSeed ? (
-              <Row
-                label={m.voice.seed}
-                htmlFor={id("seed")}
-                hint={m.voice.seedHint}
-                error={seedError}
-              >
+              )}
+            </LayeredRow>
+          ) : null}
+          {engine.hasSeed ? (
+            <LayeredRow
+              label={m.voice.seed}
+              htmlFor={id("seed")}
+              hint={seedError ?? m.voice.seedHint}
+              inherited={{ value: m.voice.seedDefault, source: B }}
+              set={seed.trim() !== ""}
+              dirty={seed.trim() !== storedSeed}
+              readOnly={disabled}
+              onReset={() => setSeed("")}
+            >
+              {(describedBy) => (
                 <div className="flex gap-2">
                   <Input
                     id={id("seed")}
                     inputMode="numeric"
-                    className="max-w-40 tabular"
+                    className="min-w-0 flex-1 tabular"
+                    placeholder={m.voice.seedDefault}
                     disabled={disabled}
                     value={seed}
                     onChange={(e) => setSeed(e.target.value)}
+                    aria-describedby={describedBy}
                     aria-invalid={!!seedError || undefined}
                   />
                   <Button
@@ -299,46 +403,38 @@ function LanguageCard({
                     {m.voice.newTake}
                   </Button>
                 </div>
-              </Row>
-            ) : null}
-          </div>
+              )}
+            </LayeredRow>
+          ) : null}
+        </LayeredGroup>
+        <LayeredGroup title={m.voice.groups.pace}>
+          {sliderRow(
+            "speed",
+            m.voice.speed,
+            m.voice.speedHint(formatDecimal(engine.minSpeed), formatDecimal(engine.maxSpeed)),
+            (n) => m.voice.speedValue(formatDecimal(n)),
+            engine.minSpeed,
+            engine.maxSpeed
+          )}
+          {sliderRow(
+            "sentencePause",
+            m.voice.sentencePause,
+            engine.id === "elevenlabs" ? m.voice.elevenlabs.sentencePauseHint : m.voice.pauseHint,
+            (n) => m.voice.seconds(formatDecimal(n)),
+            VOICE_LIMITS.pause[0],
+            VOICE_LIMITS.pause[1]
+          )}
+          {sliderRow(
+            "paragraphPause",
+            m.voice.paragraphPause,
+            m.voice.pauseHint,
+            (n) => m.voice.seconds(formatDecimal(n)),
+            VOICE_LIMITS.pause[0],
+            VOICE_LIMITS.pause[1]
+          )}
+        </LayeredGroup>
 
-          <div className="grid gap-5 sm:grid-cols-3">
-            <SliderRow
-              id={id("speed")}
-              label={m.voice.speed}
-              hint={m.voice.speedHint(formatDecimal(engine.minSpeed), formatDecimal(engine.maxSpeed))}
-              value={config.speed}
-              display={m.voice.speedValue(formatDecimal(config.speed))}
-              min={engine.minSpeed}
-              max={engine.maxSpeed}
-              disabled={disabled}
-              onChange={(v) => set("speed", v)}
-            />
-            <SliderRow
-              id={id("sentence")}
-              label={m.voice.sentencePause}
-              hint={engine.id === "elevenlabs" ? m.voice.elevenlabs.sentencePauseHint : m.voice.pauseHint}
-              value={config.sentencePause}
-              display={m.voice.seconds(formatDecimal(config.sentencePause))}
-              min={VOICE_LIMITS.pause[0]}
-              max={VOICE_LIMITS.pause[1]}
-              disabled={disabled}
-              onChange={(v) => set("sentencePause", v)}
-            />
-            <SliderRow
-              id={id("paragraph")}
-              label={m.voice.paragraphPause}
-              hint={m.voice.pauseHint}
-              value={config.paragraphPause}
-              display={m.voice.seconds(formatDecimal(config.paragraphPause))}
-              min={VOICE_LIMITS.pause[0]}
-              max={VOICE_LIMITS.pause[1]}
-              disabled={disabled}
-              onChange={(v) => set("paragraphPause", v)}
-            />
-          </div>
-
+        <div className="grid gap-6 px-6 pt-6 pb-6">
           {engine.id === "elevenlabs" ? (
             <ElevenLabsFields
               idPrefix={id("el")}
@@ -366,20 +462,9 @@ function LanguageCard({
           />
 
           {save.error ? <Banner title={errorMessage(save.error)} /> : null}
-          {canManage ? (
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                variant={dirty ? "default" : "outline"}
-                disabled={save.isPending || !dirty}
-              >
-                {save.isPending ? m.common.saving : m.voice.save}
-              </Button>
-            </div>
-          ) : null}
-        </form>
-      </CardContent>
-    </Card>
+        </div>
+      </LayeredCard>
+    </form>
   )
 }
 

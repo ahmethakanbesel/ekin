@@ -1,7 +1,7 @@
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { useForm } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
-import { PlusIcon } from "lucide-react"
+import { MinusIcon, PlusIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import type { HostProfile } from "@/api/client"
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { QueueDot } from "@/features/jobs/queue"
@@ -278,7 +279,6 @@ const numberIn = (min: number, max: number) => (s: string) => {
     : m.system.range(min, max)
 }
 
-const queueError = wholeIn(0, 8)
 
 /** 0 (no limit) or 10–100 percent. */
 export function cpuLimitError(s: string): string | undefined {
@@ -288,57 +288,153 @@ export function cpuLimitError(s: string): string | undefined {
     : m.system.cpuLimitRange
 }
 
-const NUMBER_FIELDS = [
-  {
-    name: "cooldownSeconds",
-    label: m.system.cooldown,
-    hint: m.system.cooldownHint,
-    check: wholeIn(0, 3600),
-    step: 1,
-  },
-  {
-    name: "cpuLimit",
-    label: m.system.cpuLimit,
-    hint: m.system.cpuLimitHint,
-    check: cpuLimitError,
-    step: 5,
-  },
-  {
-    name: "nice",
-    label: m.system.nice,
-    hint: m.system.niceHint,
-    check: wholeIn(0, 19),
-    step: 1,
-  },
-  {
-    name: "renderDuty",
-    label: m.system.renderDuty,
-    hint: m.system.renderDutyHint,
-    check: numberIn(0.05, 1),
-    step: 0.05,
-  },
-  {
-    name: "renderChunks",
-    label: m.system.renderChunks,
-    hint: m.system.renderChunksHint,
-    check: wholeIn(1, 16),
-    step: 1,
-  },
-  {
-    name: "previewScale",
-    label: m.system.previewScale,
-    hint: m.system.previewScaleHint,
-    check: numberIn(0.25, 1),
-    step: 0.05,
-  },
-  {
-    name: "finalScale",
-    label: m.system.finalScale,
-    hint: m.system.finalScaleHint,
-    check: numberIn(0.25, 2),
-    step: 0.05,
-  },
-] as const
+type NumberSpec = {
+  name: "cooldownSeconds" | "renderDuty" | "renderChunks" | "previewScale" | "finalScale"
+  label: string
+  hint: string | ((value: string) => string)
+  check: (s: string) => string | undefined
+  step: number
+}
+
+const COOLDOWN: NumberSpec = {
+  name: "cooldownSeconds",
+  label: m.system.cooldown,
+  hint: m.system.cooldownHint,
+  check: wholeIn(0, 3600),
+  step: 1,
+}
+
+/** A scale's hint names the resolution it gives a 1080p composition. */
+const scaleHint = (hint: string) => (v: string) => {
+  const n = Number(v)
+  return Number.isFinite(n) && n > 0 ? `${hint} ${m.system.scaleHeight(Math.round(n * 1080))}` : hint
+}
+
+const RENDER_FIELDS: NumberSpec[] = [
+  { name: "renderDuty", label: m.system.renderDuty, hint: m.system.renderDutyHint, check: numberIn(0.05, 1), step: 0.05 },
+  { name: "renderChunks", label: m.system.renderChunks, hint: m.system.renderChunksHint, check: wholeIn(1, 16), step: 1 },
+  { name: "previewScale", label: m.system.previewScale, hint: scaleHint(m.system.previewScaleHint), check: numberIn(0.25, 1), step: 0.05 },
+  { name: "finalScale", label: m.system.finalScale, hint: scaleHint(m.system.finalScaleHint), check: numberIn(0.25, 2), step: 0.05 },
+]
+
+/** A titled group of a profile's settings. */
+function ProfileGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="grid gap-4 border-t pt-5 first:border-t-0 first:pt-0">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      {children}
+    </section>
+  )
+}
+
+/** −/+ around a whole number. */
+function Stepper({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  onChange: (n: number) => void
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-xs"
+        aria-label={m.system.oneFewer(label)}
+        disabled={value <= min}
+        onClick={() => onChange(value - 1)}
+      >
+        <MinusIcon />
+      </Button>
+      <span className={cn("w-7 text-center tabular", value === 0 && "text-muted-foreground")} aria-live="polite">
+        {value}
+      </span>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-xs"
+        aria-label={m.system.oneMore(label)}
+        disabled={value >= max}
+        onClick={() => onChange(value + 1)}
+      >
+        <PlusIcon />
+      </Button>
+    </div>
+  )
+}
+
+/** Where the CPU limit starts when switched on. */
+const DEFAULT_CPU = 50
+
+/** A switch for the CPU limit and, when on, its share. "0" is no limit. */
+function CpuLimit({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) {
+  const pct = Number(value) || 0
+  const on = pct > 0 && pct < 100
+  return (
+    <div className="grid gap-2">
+      <Field orientation="horizontal">
+        <FieldContent>
+          <FieldLabel htmlFor={id}>{m.system.cpuLimitTitle}</FieldLabel>
+          <FieldDescription>{m.system.cpuLimitHint}</FieldDescription>
+        </FieldContent>
+        <span className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground tabular">
+            {on ? m.system.cpuLimitValue(pct) : m.system.noLimit}
+          </span>
+          <Switch id={id} checked={on} onCheckedChange={(next) => onChange(next ? String(DEFAULT_CPU) : "0")} />
+        </span>
+      </Field>
+      {on ? (
+        <Slider
+          thumbLabel={m.system.cpuLimitTitle}
+          valueText={m.system.cpuLimitValue(pct)}
+          min={10}
+          max={100}
+          step={5}
+          value={pct}
+          onValueChange={(v) => onChange(String(Array.isArray(v) ? v[0] : v))}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+/** Job priority as named presets; another stored nice value still shows. */
+function PriorityPicker({ value, onChange }: { value: number; onChange: (nice: number) => void }) {
+  const known = PRIORITIES.some((p) => p.nice === value)
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <span className="flex flex-col">
+        <span className="text-sm font-medium" id="priority-label">
+          {m.system.priority}
+        </span>
+        <span className="text-xs text-muted-foreground">{m.system.priorityHint}</span>
+      </span>
+      <ToggleGroup
+        variant="outline"
+        size="sm"
+        spacing={0}
+        aria-labelledby="priority-label"
+        value={[String(value)]}
+        onValueChange={(next) => next[0] !== undefined && onChange(Number(next[0]))}
+      >
+        {PRIORITIES.map((pr) => (
+          <ToggleGroupItem key={pr.nice} value={String(pr.nice)}>
+            {pr.label}
+          </ToggleGroupItem>
+        ))}
+        {known ? null : <ToggleGroupItem value={String(value)}>{m.system.niceValue(value)}</ToggleGroupItem>}
+      </ToggleGroup>
+    </div>
+  )
+}
 
 function ProfileCard({
   profile,
@@ -361,6 +457,40 @@ function ProfileCard({
   })
   const submitted = () => form.state.submissionAttempts > 0
   const id = (field: string) => `profile-${profile.name}-${field}`
+  const numberField = (f: NumberSpec) => (
+    <form.Field
+      key={f.name}
+      name={f.name}
+      validators={{
+        onChange: ({ value }) => f.check(value),
+        onSubmit: ({ value }) => f.check(value),
+      }}
+    >
+      {(field) => {
+        const error = shownError(field.state.meta, submitted())
+        return (
+          <Row
+            label={f.label}
+            htmlFor={id(f.name)}
+            hint={typeof f.hint === "function" ? f.hint(field.state.value) : f.hint}
+            error={error}
+          >
+            <Input
+              id={id(f.name)}
+              type="number"
+              inputMode={Number.isInteger(f.step) ? "numeric" : "decimal"}
+              step={f.step}
+              className="max-w-36 tabular"
+              value={field.state.value}
+              onChange={(e) => field.handleChange(e.target.value)}
+              onBlur={field.handleBlur}
+              aria-invalid={!!error || undefined}
+            />
+          </Row>
+        )
+      }}
+    </form.Field>
+  )
 
   return (
     <Card className={cn(current && "ring-2 ring-foreground/20")}>
@@ -384,143 +514,109 @@ function ProfileCard({
             void form.handleSubmit()
           }}
         >
-          <FieldSet className="gap-3">
-            <FieldLegend variant="label" className="mb-0">
-              {m.system.concurrency}
-            </FieldLegend>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {QUEUES.map((q) => (
-                <form.Field
-                  key={q}
-                  name={`concurrency.${q}`}
-                  validators={{
-                    onChange: ({ value }) => queueError(value),
-                    onSubmit: ({ value }) => queueError(value),
-                  }}
-                >
-                  {(field) => {
-                    const error = shownError(field.state.meta, submitted())
-                    return (
-                      <Field
-                        data-invalid={!!error || undefined}
-                        className="gap-1.5"
-                      >
-                        <FieldLabel
-                          htmlFor={id(q)}
-                          className="text-xs text-muted-foreground"
-                        >
+          <ProfileGroup title={m.system.groups.jobs}>
+            <form.Field name="paused">
+              {(field) => (
+                <Field orientation="horizontal" className="rounded-xl border px-4 py-3">
+                  <FieldContent>
+                    <FieldLabel htmlFor={id("paused")}>
+                      {field.state.value ? m.system.paused : m.system.running}
+                    </FieldLabel>
+                    <FieldDescription>
+                      {field.state.value ? m.system.pausedHint : m.system.runningHint}
+                    </FieldDescription>
+                  </FieldContent>
+                  <Switch
+                    id={id("paused")}
+                    aria-label={m.system.takeJobs}
+                    checked={!field.state.value}
+                    onCheckedChange={(on) => field.handleChange(!on)}
+                  />
+                </Field>
+              )}
+            </form.Field>
+
+            <FieldSet className="gap-2">
+              <FieldLegend variant="label" className="mb-0">
+                {m.system.concurrency}
+              </FieldLegend>
+              <div className="grid gap-x-8 gap-y-1.5 sm:grid-cols-2">
+                {QUEUES.map((q) => (
+                  <form.Field key={q} name={`concurrency.${q}`}>
+                    {(field) => (
+                      <div className="flex h-8 items-center justify-between gap-3">
+                        <span className="flex items-center gap-2 text-sm">
                           <QueueDot queue={q} />
                           {m.system.queues[q]}
-                        </FieldLabel>
-                        <Input
-                          id={id(q)}
-                          type="number"
-                          inputMode="numeric"
+                        </span>
+                        <Stepper
+                          label={m.system.queues[q]}
+                          value={Number(field.state.value) || 0}
                           min={0}
                           max={8}
-                          step={1}
-                          className="tabular"
-                          value={field.state.value}
-                          onChange={(e) => field.handleChange(e.target.value)}
-                          onBlur={field.handleBlur}
-                          aria-invalid={!!error || undefined}
+                          onChange={(n) => field.handleChange(String(n))}
                         />
-                        {error ? <FieldError>{error}</FieldError> : null}
-                      </Field>
-                    )
-                  }}
-                </form.Field>
-              ))}
+                      </div>
+                    )}
+                  </form.Field>
+                ))}
+              </div>
+              <FieldDescription>{m.system.concurrencyHint}</FieldDescription>
+            </FieldSet>
+
+            <form.Field name="heavyExclusive">
+              {(field) => (
+                <Field orientation="horizontal">
+                  <FieldContent>
+                    <FieldLabel htmlFor={id("heavyExclusive")}>{m.system.heavyExclusive}</FieldLabel>
+                    <FieldDescription>{m.system.heavyExclusiveHint}</FieldDescription>
+                  </FieldContent>
+                  <Switch
+                    id={id("heavyExclusive")}
+                    checked={field.state.value}
+                    onCheckedChange={(next) => field.handleChange(next)}
+                  />
+                </Field>
+              )}
+            </form.Field>
+            <form.Subscribe selector={(st) => st.values.heavyExclusive}>
+              {(exclusive) =>
+                exclusive ? (
+                  <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_12rem]">
+                    <form.Field name="heavyQueues">
+                      {(field) => (
+                        <FieldSet className="gap-2">
+                          <FieldLegend variant="label" className="mb-0">
+                            {m.system.heavyQueues}
+                          </FieldLegend>
+                          <HeavyQueuesPicker value={field.state.value} onChange={(next) => field.handleChange(next)} />
+                          <FieldDescription>{m.system.heavyQueuesHint}</FieldDescription>
+                        </FieldSet>
+                      )}
+                    </form.Field>
+                    {numberField(COOLDOWN)}
+                  </div>
+                ) : null
+              }
+            </form.Subscribe>
+          </ProfileGroup>
+
+          <ProfileGroup title={m.system.groups.host}>
+            <form.Field
+              name="cpuLimit"
+              validators={{ onChange: ({ value }) => cpuLimitError(value) }}
+            >
+              {(field) => <CpuLimit id={id("cpu")} value={field.state.value} onChange={field.handleChange} />}
+            </form.Field>
+            <form.Field name="nice">
+              {(field) => <PriorityPicker value={Number(field.state.value) || 0} onChange={(n) => field.handleChange(String(n))} />}
+            </form.Field>
+          </ProfileGroup>
+
+          <ProfileGroup title={m.system.groups.render}>
+            <div className="grid gap-5 sm:grid-cols-2">
+              {RENDER_FIELDS.map((f) => numberField(f))}
             </div>
-            <FieldDescription>{m.system.concurrencyHint}</FieldDescription>
-          </FieldSet>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {(
-              [
-                [
-                  "heavyExclusive",
-                  m.system.heavyExclusive,
-                  m.system.heavyExclusiveHint,
-                ],
-                ["paused", m.system.paused, m.system.pausedHint],
-              ] as const
-            ).map(([name, label, hint]) => (
-              <form.Field key={name} name={name}>
-                {(field) => (
-                  <Field
-                    orientation="horizontal"
-                    className="rounded-xl border px-4 py-3"
-                  >
-                    <FieldContent>
-                      <FieldLabel htmlFor={id(name)}>{label}</FieldLabel>
-                      <FieldDescription>{hint}</FieldDescription>
-                    </FieldContent>
-                    <Switch
-                      id={id(name)}
-                      checked={field.state.value}
-                      onCheckedChange={(next) => field.handleChange(next)}
-                    />
-                  </Field>
-                )}
-              </form.Field>
-            ))}
-          </div>
-
-          <form.Field name="heavyQueues">
-            {(field) => (
-              <FieldSet className="gap-2">
-                <FieldLegend variant="label" className="mb-0">
-                  {m.system.heavyQueues}
-                </FieldLegend>
-                <HeavyQueuesPicker
-                  value={field.state.value}
-                  onChange={(next) => field.handleChange(next)}
-                />
-                <FieldDescription>{m.system.heavyQueuesHint}</FieldDescription>
-              </FieldSet>
-            )}
-          </form.Field>
-
-          <div className="grid gap-5 sm:grid-cols-2">
-            {NUMBER_FIELDS.map((f) => (
-              <form.Field
-                key={f.name}
-                name={f.name}
-                validators={{
-                  onChange: ({ value }) => f.check(value),
-                  onSubmit: ({ value }) => f.check(value),
-                }}
-              >
-                {(field) => {
-                  const error = shownError(field.state.meta, submitted())
-                  return (
-                    <Row
-                      label={f.label}
-                      htmlFor={id(f.name)}
-                      hint={f.hint}
-                      error={error}
-                    >
-                      <Input
-                        id={id(f.name)}
-                        type="number"
-                        inputMode={
-                          Number.isInteger(f.step) ? "numeric" : "decimal"
-                        }
-                        step={f.step}
-                        className="tabular max-w-36"
-                        value={field.state.value}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                        onBlur={field.handleBlur}
-                        aria-invalid={!!error || undefined}
-                      />
-                    </Row>
-                  )
-                }}
-              </form.Field>
-            ))}
-          </div>
-
           <div className="grid gap-5 sm:grid-cols-2">
             {(
               [
@@ -546,6 +642,8 @@ function ProfileCard({
               </form.Field>
             ))}
           </div>
+
+          </ProfileGroup>
 
           {save.error ? <Banner title={errorMessage(save.error)} /> : null}
           <div className="flex justify-end">
