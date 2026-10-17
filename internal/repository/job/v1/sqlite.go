@@ -31,16 +31,17 @@ func NewSQLite(q db.QuerierSource) *SQLite {
 
 const jobColumns = `id, workspace_id, trace_id, queue, kind, payload, unique_key, status,
 	attempt, max_attempts, run_after, lease_owner, lease_until, last_error,
-	created_at, updated_at, started_at, finished_at`
+	created_at, updated_at, started_at, finished_at, concurrency_key`
 
 func (r *SQLite) Enqueue(ctx context.Context, j *jobdomain.Job) (bool, error) {
 	s := j.Snapshot()
 	res, err := r.q.W(ctx).ExecContext(ctx, `INSERT INTO jobs (`+jobColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (unique_key) WHERE unique_key IS NOT NULL DO NOTHING`,
 		s.ID.String(), s.WorkspaceID.String(), s.TraceID.String(), s.Queue, s.Kind, string(s.Payload), nullString(s.UniqueKey), s.Status,
 		s.Attempt, s.MaxAttempts, timeutil.ToMillis(s.RunAfter), nullString(s.LeaseOwner), nullMillis(s.LeaseUntil), s.LastError,
-		timeutil.ToMillis(s.CreatedAt), timeutil.ToMillis(s.UpdatedAt), nullMillis(s.StartedAt), nullMillis(s.FinishedAt))
+		timeutil.ToMillis(s.CreatedAt), timeutil.ToMillis(s.UpdatedAt), nullMillis(s.StartedAt), nullMillis(s.FinishedAt),
+		nullString(s.ConcurrencyKey))
 	if err != nil {
 		return false, fmt.Errorf("insert job: %w", err)
 	}
@@ -159,14 +160,17 @@ func (r *SQLite) NextClaimable(ctx context.Context, queues []jobdomain.Queue, ki
 	for _, k := range kinds {
 		args = append(args, k)
 	}
-	args = append(args, ms, ms, 1)
-	// Mirrors jobdomain.Job.Claimable; the caller still asks the aggregate
-	// before starting it.
+	args = append(args, ms, ms, ms, 1)
+	// Mirrors jobdomain.Job.Claimable and Holds; the caller still asks
+	// the aggregate before starting it.
 	jobs, err := r.many(ctx, `SELECT `+jobColumns+` FROM jobs
 		WHERE queue IN (`+placeholders(len(queues))+`)
 		  AND kind IN (`+placeholders(len(kinds))+`)
 		  AND ((status = 'queued' AND run_after <= ?)
 		    OR (status = 'running' AND lease_until < ? AND attempt < max_attempts))
+		  AND (concurrency_key IS NULL OR NOT EXISTS (
+		    SELECT 1 FROM jobs holder WHERE holder.concurrency_key = jobs.concurrency_key AND holder.id <> jobs.id
+		      AND holder.status = 'running' AND holder.lease_until >= ?))
 		ORDER BY run_after, created_at, id
 		LIMIT ?`, args...)
 	if err != nil || len(jobs) == 0 {
@@ -204,15 +208,15 @@ type scanner interface {
 
 func scanJob(s scanner) (*jobdomain.Job, error) {
 	var (
-		id, workspaceID, traceID, payload string
-		uniqueKey, leaseOwner             sql.NullString
-		runAfter, createdAt, updatedAt    int64
-		leaseUntil, startedAt, finishedAt sql.NullInt64
-		snap                              jobdomain.Snapshot
+		id, workspaceID, traceID, payload  string
+		uniqueKey, leaseOwner, concurrency sql.NullString
+		runAfter, createdAt, updatedAt     int64
+		leaseUntil, startedAt, finishedAt  sql.NullInt64
+		snap                               jobdomain.Snapshot
 	)
 	err := s.Scan(&id, &workspaceID, &traceID, &snap.Queue, &snap.Kind, &payload, &uniqueKey, &snap.Status,
 		&snap.Attempt, &snap.MaxAttempts, &runAfter, &leaseOwner, &leaseUntil, &snap.LastError,
-		&createdAt, &updatedAt, &startedAt, &finishedAt)
+		&createdAt, &updatedAt, &startedAt, &finishedAt, &concurrency)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -232,6 +236,7 @@ func scanJob(s scanner) (*jobdomain.Job, error) {
 	}
 	snap.Payload = []byte(payload)
 	snap.UniqueKey = uniqueKey.String
+	snap.ConcurrencyKey = concurrency.String
 	snap.LeaseOwner = leaseOwner.String
 	snap.RunAfter = timeutil.FromMillis(runAfter)
 	snap.LeaseUntil = timeutil.FromMillis(leaseUntil.Int64)

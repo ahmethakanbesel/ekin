@@ -333,3 +333,49 @@ func TestPauseAndResumeApplyOnAConcurrentRun(t *testing.T) {
 		})
 	}
 }
+
+// Two runs of one pipeline never run at once: the second waits for the
+// first, so it sees the stories the first created. Another pipeline's run
+// does not wait.
+func TestRunsOfOnePipelineTakeTurns(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	a, err := f.svc.Create(ctx, f.ws, definition(t, ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := f.svc.Create(ctx, f.ws, definition(t, ""))
+	for _, p := range []*pipelinedomain.Pipeline{a, a, b} {
+		if _, err := f.svc.RunNow(ctx, f.ws, p.ID(), 1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	claim := func() *jobdomain.Job {
+		j, err := f.jobs.Claim(ctx, jobdomain.Queues, []string{pipelinesvc.KindRun}, "w", time.Minute)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return j
+	}
+	pipelineOf := func(j *jobdomain.Job) uuid.UUID {
+		var p pipelinesvc.RunPayload
+		_ = json.Unmarshal(j.Payload(), &p)
+		return p.PipelineID
+	}
+	first := claim()
+	if first == nil || pipelineOf(first) != a.ID() {
+		t.Fatalf("first claim = %v", first)
+	}
+	if other := claim(); other == nil || pipelineOf(other) != b.ID() {
+		t.Fatalf("while a runs, claimed %v; want b's run", other)
+	}
+	if again := claim(); again != nil {
+		t.Fatalf("a second run of a started while the first ran: %s", again.ID())
+	}
+	if err := f.jobs.Complete(ctx, first.ID(), "w", nil); err != nil {
+		t.Fatal(err)
+	}
+	if next := claim(); next == nil || pipelineOf(next) != a.ID() {
+		t.Fatalf("after the first finished, claimed %v", next)
+	}
+}

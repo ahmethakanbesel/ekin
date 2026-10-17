@@ -120,9 +120,13 @@ type Spec struct {
 	Payload     json.RawMessage
 	// UniqueKey, when set, makes the enqueue a no-op if a job with the
 	// same key already exists in any state.
-	UniqueKey   string
-	MaxAttempts int       // 0 means DefaultMaxAttempts
-	RunAfter    time.Time // zero means now
+	UniqueKey string
+	// ConcurrencyKey, when set, runs the job alone among the jobs sharing
+	// it: it is not claimed while another of them holds a live lease
+	// (e.g. one run of a pipeline at a time).
+	ConcurrencyKey string
+	MaxAttempts    int       // 0 means DefaultMaxAttempts
+	RunAfter       time.Time // zero means now
 	// TraceID joins the job to the request that caused it (the trace's
 	// first job). Nil starts a new trace: the job's own id.
 	TraceID uuid.UUID
@@ -155,6 +159,7 @@ type Job struct {
 	kind        string
 	payload     json.RawMessage
 	uniqueKey   string
+	concurrency string
 	status      Status
 	attempt     int
 	maxAttempts int
@@ -211,6 +216,7 @@ func New(id uuid.UUID, spec Spec, now time.Time) (*Job, error) {
 		kind:        kind,
 		payload:     append(json.RawMessage(nil), payload...),
 		uniqueKey:   strings.TrimSpace(spec.UniqueKey),
+		concurrency: strings.TrimSpace(spec.ConcurrencyKey),
 		status:      StatusQueued,
 		maxAttempts: maxAttempts,
 		runAfter:    runAfter,
@@ -229,6 +235,12 @@ func (j *Job) Claimable(now time.Time) bool {
 		return j.leaseExpired(now) && j.attempt < j.maxAttempts
 	}
 	return false
+}
+
+// Holds reports whether j, running under a live lease at now, holds
+// concurrency key: another job with that key must wait for it.
+func (j *Job) Holds(key string, now time.Time) bool {
+	return key != "" && j.concurrency == key && j.status == StatusRunning && !j.leaseExpired(now)
 }
 
 // Abandoned reports whether j's holder vanished after its last attempt,
@@ -368,6 +380,7 @@ func (j *Job) Queue() Queue             { return j.queue }
 func (j *Job) Kind() string             { return j.kind }
 func (j *Job) Payload() json.RawMessage { return append(json.RawMessage(nil), j.payload...) }
 func (j *Job) UniqueKey() string        { return j.uniqueKey }
+func (j *Job) ConcurrencyKey() string   { return j.concurrency }
 func (j *Job) Status() Status           { return j.status }
 func (j *Job) Attempt() int             { return j.attempt }
 func (j *Job) MaxAttempts() int         { return j.maxAttempts }
@@ -382,47 +395,49 @@ func (j *Job) FinishedAt() time.Time    { return j.finishedAt }
 
 // Snapshot is the persisted form of a Job.
 type Snapshot struct {
-	ID          uuid.UUID
-	WorkspaceID uuid.UUID
-	TraceID     uuid.UUID
-	Queue       string
-	Kind        string
-	Payload     json.RawMessage
-	UniqueKey   string
-	Status      string
-	Attempt     int
-	MaxAttempts int
-	RunAfter    time.Time
-	LeaseOwner  string
-	LeaseUntil  time.Time
-	LastError   string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	StartedAt   time.Time
-	FinishedAt  time.Time
+	ID             uuid.UUID
+	WorkspaceID    uuid.UUID
+	TraceID        uuid.UUID
+	Queue          string
+	Kind           string
+	Payload        json.RawMessage
+	UniqueKey      string
+	ConcurrencyKey string
+	Status         string
+	Attempt        int
+	MaxAttempts    int
+	RunAfter       time.Time
+	LeaseOwner     string
+	LeaseUntil     time.Time
+	LastError      string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	StartedAt      time.Time
+	FinishedAt     time.Time
 }
 
 // Snapshot returns j's persisted form.
 func (j *Job) Snapshot() Snapshot {
 	return Snapshot{
-		ID:          j.id,
-		WorkspaceID: j.workspaceID,
-		TraceID:     j.traceID,
-		Queue:       string(j.queue),
-		Kind:        j.kind,
-		Payload:     j.Payload(),
-		UniqueKey:   j.uniqueKey,
-		Status:      string(j.status),
-		Attempt:     j.attempt,
-		MaxAttempts: j.maxAttempts,
-		RunAfter:    j.runAfter,
-		LeaseOwner:  j.leaseOwner,
-		LeaseUntil:  j.leaseUntil,
-		LastError:   j.lastError,
-		CreatedAt:   j.createdAt,
-		UpdatedAt:   j.updatedAt,
-		StartedAt:   j.startedAt,
-		FinishedAt:  j.finishedAt,
+		ID:             j.id,
+		WorkspaceID:    j.workspaceID,
+		TraceID:        j.traceID,
+		Queue:          string(j.queue),
+		Kind:           j.kind,
+		Payload:        j.Payload(),
+		UniqueKey:      j.uniqueKey,
+		ConcurrencyKey: j.concurrency,
+		Status:         string(j.status),
+		Attempt:        j.attempt,
+		MaxAttempts:    j.maxAttempts,
+		RunAfter:       j.runAfter,
+		LeaseOwner:     j.leaseOwner,
+		LeaseUntil:     j.leaseUntil,
+		LastError:      j.lastError,
+		CreatedAt:      j.createdAt,
+		UpdatedAt:      j.updatedAt,
+		StartedAt:      j.startedAt,
+		FinishedAt:     j.finishedAt,
 	}
 }
 
@@ -454,6 +469,7 @@ func Rehydrate(s Snapshot) (*Job, error) {
 		kind:        s.Kind,
 		payload:     append(json.RawMessage(nil), s.Payload...),
 		uniqueKey:   s.UniqueKey,
+		concurrency: s.ConcurrencyKey,
 		status:      status,
 		attempt:     s.Attempt,
 		maxAttempts: s.MaxAttempts,

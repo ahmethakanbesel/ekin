@@ -329,6 +329,10 @@ func (s *Service) enqueue(ctx context.Context, run pipelinedomain.Run) (*jobdoma
 		Kind:        KindRun,
 		Payload:     payload,
 		UniqueKey:   run.DedupKey(),
+		// One run of a pipeline at a time: a run picks pages after its
+		// previous story's and checks its ideas against earlier stories,
+		// so it must see what the run before it created.
+		ConcurrencyKey: "pipeline:" + run.PipelineID.String(),
 	})
 }
 

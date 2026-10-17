@@ -130,8 +130,20 @@ func (r *InMemory) List(_ context.Context, workspaceID uuid.UUID, f Filter) ([]*
 }
 
 func (r *InMemory) NextClaimable(_ context.Context, queues []jobdomain.Queue, kinds []string, now time.Time) (*jobdomain.Job, error) {
+	all, err := r.collect(func(*jobdomain.Job) bool { return true }, func(a, b *jobdomain.Job) bool { return false }, 0)
+	if err != nil {
+		return nil, err
+	}
+	held := func(j *jobdomain.Job) bool {
+		for _, other := range all {
+			if other.ID() != j.ID() && other.Holds(j.ConcurrencyKey(), now) {
+				return true
+			}
+		}
+		return false
+	}
 	got, err := r.collect(func(j *jobdomain.Job) bool {
-		return slices.Contains(queues, j.Queue()) && slices.Contains(kinds, j.Kind()) && j.Claimable(now)
+		return slices.Contains(queues, j.Queue()) && slices.Contains(kinds, j.Kind()) && j.Claimable(now) && !held(j)
 	}, func(a, b *jobdomain.Job) bool {
 		if !a.RunAfter().Equal(b.RunAfter()) {
 			return a.RunAfter().Before(b.RunAfter())

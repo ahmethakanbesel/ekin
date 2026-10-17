@@ -174,6 +174,51 @@ func runConformance(t *testing.T, newHarness func(t *testing.T) harness) {
 		}
 	})
 
+	t.Run("jobs sharing a concurrency key run one at a time", func(t *testing.T) {
+		queues, kinds := []jobdomain.Queue{jobdomain.QueueControl}, []string{"run"}
+		tests := []struct {
+			name string
+			// first runs (started at t0 with lease) unless finish says it ended
+			finish   func(j *jobdomain.Job)
+			at       time.Time
+			otherKey string // the second job's key
+			want     bool   // the second job is claimable at at
+		}{
+			{name: "held while the first runs", at: t0.Add(time.Second), otherKey: "pipeline:a"},
+			{name: "free once the first finished", finish: func(j *jobdomain.Job) { _ = j.Succeed("a", t0.Add(time.Second)) }, at: t0.Add(2 * time.Second), otherKey: "pipeline:a", want: true},
+			{name: "free once the first's lease ran out", at: t0.Add(lease + time.Second), otherKey: "pipeline:a", want: true},
+			{name: "another key runs alongside", at: t0.Add(time.Second), otherKey: "pipeline:b", want: true},
+			{name: "no key runs alongside", at: t0.Add(time.Second), otherKey: "", want: true},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				h := newHarness(t)
+				ws := h.workspace(t)
+				first, _ := jobdomain.New(id.New(), jobdomain.Spec{WorkspaceID: ws, Queue: jobdomain.QueueControl, Kind: "run", ConcurrencyKey: "pipeline:a"}, t0)
+				second, _ := jobdomain.New(id.New(), jobdomain.Spec{WorkspaceID: ws, Queue: jobdomain.QueueControl, Kind: "run", ConcurrencyKey: tt.otherKey}, t0.Add(time.Millisecond))
+				_, _ = h.repo.Enqueue(ctx, first)
+				_, _ = h.repo.Enqueue(ctx, second)
+				_ = first.Start("a", lease, t0)
+				if tt.finish != nil {
+					tt.finish(first)
+				}
+				_ = h.repo.Save(ctx, first)
+				got, err := h.repo.NextClaimable(ctx, queues, kinds, tt.at)
+				if err != nil {
+					t.Fatal(err)
+				}
+				// An expired first job is itself claimable again, and older.
+				claimable := got != nil && (got.ID() == second.ID() || got.ID() == first.ID() && tt.want)
+				if claimable != tt.want {
+					t.Fatalf("claimable = %v (got %v), want %v", claimable, got, tt.want)
+				}
+				if got != nil && got.ID() == second.ID() && got.ConcurrencyKey() != tt.otherKey {
+					t.Fatalf("key = %q", got.ConcurrencyKey())
+				}
+			})
+		}
+	})
+
 	t.Run("save persists transitions", func(t *testing.T) {
 		h := newHarness(t)
 		j := newJob(t, h.workspace(t), jobdomain.QueueAgent, "agent", "", t0)
