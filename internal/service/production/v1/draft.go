@@ -588,6 +588,12 @@ func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydo
 			data["VideoURL"] = source.videoURL
 			page = "clip.md"
 		}
+		if t.spec.Long && t.clip == nil {
+			// Shorts keep a frame of the video: the Shorts feed shows one
+			// chosen in the app.
+			t.spec.Thumbnails = st.Brief().Production.Thumbnails.Count()
+		}
+		data["Thumbnails"] = t.spec.Thumbnails
 		if instructions, err = execute(page, data); err != nil {
 			return t, err
 		}
@@ -803,8 +809,14 @@ func (s *Service) validate(ctx context.Context, t DraftTask, dir string) []strin
 		return validateScript(t, dir)
 	}
 	if t.Video {
+		if t.Spec.Thumbnails > 0 && t.Feedback.ThumbnailOnly() {
+			return agenttool.CheckThumbnails(ctx, s.renderer, dir, t.Spec.Thumbnails, 0, false).Errors
+		}
 		rep := agenttool.Check(ctx, s.renderer, dir, "composition.html", t.Spec)
-		return rep.Errors
+		if len(rep.Errors) > 0 || t.Spec.Thumbnails == 0 {
+			return rep.Errors
+		}
+		return agenttool.CheckThumbnails(ctx, s.renderer, dir, t.Spec.Thumbnails, 0, false).Errors
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, "article.md")) //nolint:gosec // our work dir
 	if err != nil {
@@ -875,6 +887,10 @@ func draftPrompt(task DraftTask) (string, error) {
 	case task.Stage == StageFromScript && task.Resume != "":
 		return "A reviewer approved your script and narration. INSTRUCTIONS.md now covers building the video " +
 			"from them: read it again, then do the task it describes.", nil
+	case fb != nil && task.Resume != "" && task.Spec.Thumbnails > 0 && fb.ThumbnailOnly():
+		return execute("revise-thumbnail.md", map[string]any{
+			"Revision": task.Revision, "Count": len(fb.Notes), "Notes": feedbackList(fb), "Tool": toolCmd,
+		})
 	case fb != nil && task.Resume != "":
 		return execute("revise.md", map[string]any{
 			"Revision": task.Revision, "Count": len(fb.Notes), "Notes": feedbackList(fb), "Tool": toolCmd,

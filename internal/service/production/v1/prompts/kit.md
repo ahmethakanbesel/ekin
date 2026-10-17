@@ -67,6 +67,28 @@ Kurgu.composition({
 - `duration` covers the narration plus at most 4 s.
 - The page must not throw, log errors, or request missing files.
 
+{{- if .Thumbnails}}
+## Thumbnails
+
+`thumbnail.html` is a separate static page that draws one thumbnail variant at a
+time from `thumbnails.json`. It loads the same kit and fonts, and follows the
+same rules (local files only, no errors):
+
+```js
+Kurgu.thumbnails({
+  width: 1280, height: 720,
+  async setup(data) {},                // optional; data is thumbnails.json
+  render(variant, data) {              // lay out this variant alone
+    document.getElementById("hook").textContent = variant.text;
+    // variant.concept, variant.still: "thumbnails/stills/" + variant.still + ".jpg"
+  },
+});
+```
+
+`render` is called once per variant on a fresh layout of the same page: set
+every element it changes, so nothing of another variant stays on screen.
+
+{{end}}
 ## Music (optional)
 
 `music.js` defines a Tone.js score rendered offline and mixed under the voice

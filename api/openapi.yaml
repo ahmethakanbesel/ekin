@@ -1761,6 +1761,70 @@ paths:
               schema: { $ref: "#/components/schemas/Story" }
         default: { $ref: "#/components/responses/Error" }
 
+  /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/thumbnail:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+      - $ref: "#/components/parameters/DeliverableId"
+    put:
+      operationId: pickThumbnail
+      tags: [stories]
+      description: >
+        Picks the thumbnail variant of the latest revision a long video goes
+        out with, while it is in review or approved but not yet published.
+        0 goes back to the recommended one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [variant]
+              properties:
+                variant: { type: integer, minimum: 0, maximum: 4 }
+      responses:
+        "200":
+          description: The updated story.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Story" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/thumbnails/{n}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+      - $ref: "#/components/parameters/DeliverableId"
+      - name: n
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1, maximum: 4 }
+    patch:
+      operationId: editThumbnail
+      tags: [stories]
+      description: >
+        Changes the words of thumbnail variant n of a long video in review,
+        without the agent: a new revision whose thumbnails alone are drawn
+        again, in seconds. `revision` must still be the latest (409
+        Conflict otherwise).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision, text]
+              properties:
+                revision: { type: integer, minimum: 1 }
+                text: { type: string, maxLength: 60 }
+      responses:
+        "200":
+          description: The updated story.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Story" }
+        default: { $ref: "#/components/responses/Error" }
+
   /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/retry:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"
@@ -2355,7 +2419,11 @@ components:
 
     FeedbackScope:
       type: string
-      enum: [all, script, voice, visuals, music, metadata]
+      enum: [all, script, voice, visuals, music, metadata, thumbnail]
+      description: >-
+        What a note is about. thumbnail (a long video's thumbnail variants):
+        when every note of a round is about them, the agent changes only the
+        thumbnails and the video is not rendered again.
 
     FeedbackNoteInput:
       type: object
@@ -2449,6 +2517,13 @@ components:
         clip:
           $ref: "#/components/schemas/Clip"
           description: For a short cut from a long video (sourceId), the span of the long video's narration it speaks.
+        thumbnail:
+          type: integer
+          minimum: 0
+          maximum: 4
+          description: >-
+            Long videos: the thumbnail variant a person picked; absent when
+            nobody did, and the recommended one goes out.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -2624,7 +2699,35 @@ components:
           description: script when the revision holds only a video's script (no narration audio or render yet); absent otherwise.
         measured: { $ref: "#/components/schemas/Measures" }
         annotation: { $ref: "#/components/schemas/Annotation" }
+        thumbnails: { $ref: "#/components/schemas/Thumbnails" }
         createdAt: { type: string, format: date-time }
+
+    Thumbnails:
+      type: object
+      description: >-
+        A long video's designed thumbnail variants, each served as the
+        revision artifact thumb-<n>.jpg (all of them as thumbnails.zip).
+      required: [recommended, variants]
+      properties:
+        recommended: { type: integer, minimum: 1, maximum: 4 }
+        variants:
+          type: array
+          maxItems: 4
+          items: { $ref: "#/components/schemas/Thumbnail" }
+
+    Thumbnail:
+      type: object
+      required: [n, concept, text]
+      properties:
+        n: { type: integer, minimum: 1, maximum: 4 }
+        concept:
+          type: string
+          description: The idea behind the variant, e.g. frame, type or contrast.
+        text: { type: string, description: The words on the thumbnail, at most 5. }
+        stillSeconds:
+          type: number
+          format: double
+          description: The video time of the still it uses, if any.
 
     Annotation:
       type: object
@@ -2746,6 +2849,14 @@ components:
             first; approving them has the agent build the video, which is then
             reviewed as usual. script needs a video output.
         media: { $ref: "#/components/schemas/MediaSources" }
+        thumbnails:
+          type: integer
+          minimum: 0
+          maximum: 4
+          description: >-
+            How many designed thumbnail variants a long video gets, for the
+            reviewer to pick from; 0 keeps a frame grabbed from the video.
+            Shorts always keep that frame. Absent: 3.
 
     AdHocInput:
       type: object

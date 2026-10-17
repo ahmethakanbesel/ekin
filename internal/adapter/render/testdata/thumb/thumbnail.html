@@ -1,0 +1,18 @@
+<!doctype html>
+<meta charset="utf-8">
+<script src="/kit/kurgu.js"></script>
+<style>
+  body { margin: 0; background: #1d3557; color: #f1faee; font: 800 120px/1 sans-serif; }
+  #words { position: absolute; }
+</style>
+<div id="words"></div>
+<script>
+Kurgu.thumbnails({
+  render(v) {
+    const el = document.getElementById("words");
+    el.textContent = v.text;
+    // Variant 2 sits in the corner YouTube covers with the duration.
+    Object.assign(el.style, v.n === 2 ? { right: "10px", bottom: "10px", left: "", top: "" } : { left: "80px", top: "80px", right: "", bottom: "" });
+  },
+});
+</script>

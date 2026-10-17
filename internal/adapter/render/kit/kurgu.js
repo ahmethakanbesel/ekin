@@ -155,5 +155,45 @@
     return window.kurgu;
   }
 
-  window.Kurgu = { clamp, lerp, progress, ease, tween, random, timings, captions, video, scenes, composition };
+  /**
+   * Declares a thumbnail page (thumbnail.html): one static page that draws
+   * any of the video's thumbnail variants. spec = {width = 1280,
+   * height = 720, setup?: async (data) => void,
+   * render: (variant, data) => void | Promise<void>}. data is
+   * thumbnails.json; render(variant) lays out that variant alone, taking
+   * its words from variant.text (never typed into the page).
+   */
+  function thumbnails(spec) {
+    let data = null;
+    const ready = (async () => {
+      const res = await fetch("thumbnails.json");
+      if (!res.ok) throw new Error("cannot load thumbnails.json");
+      data = await res.json();
+      await document.fonts.ready;
+      if (spec.setup) await spec.setup(data);
+      await preloadImages();
+    })();
+    window.kurgu = {
+      width: spec.width || 1280,
+      height: spec.height || 720,
+      fps: 1,
+      duration: 1,
+      thumbnailPage: true,
+      ready,
+      async thumbnail(n) {
+        await ready;
+        const variant = (data.variants || []).find((v) => v.n === n);
+        if (!variant) throw new Error("thumbnails.json has no variant " + n);
+        await spec.render(variant, data);
+        await document.fonts.ready;
+        await preloadImages();
+      },
+      async renderAt() {
+        await ready;
+      },
+    };
+    return window.kurgu;
+  }
+
+  window.Kurgu = { clamp, lerp, progress, ease, tween, random, timings, captions, video, scenes, composition, thumbnails };
 })();

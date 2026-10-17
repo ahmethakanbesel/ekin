@@ -3,6 +3,7 @@
 package publishing
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -264,11 +265,16 @@ func (p videoPublisher) Publish(ctx context.Context, req productionsvc.PublishRe
 	if err != nil {
 		return storydomain.Publication{}, err
 	}
-	if poster, _, err := req.Open(ctx, storydomain.ArtifactPoster); err == nil {
-		if err := yt.Thumbnail(ctx, access, id, poster); err != nil {
-			s.log.InfoContext(ctx, "custom thumbnail not set", slog.Any("error", err))
+	thumbnail := cmp.Or(req.Thumbnail, storydomain.ArtifactPoster)
+	if image, _, err := req.Open(ctx, thumbnail); err == nil {
+		if err := yt.Thumbnail(ctx, access, id, image); err != nil {
+			s.log.InfoContext(ctx, "custom thumbnail not set", slog.String("thumbnail", thumbnail), slog.Any("error", err))
+			if req.Warn != nil && thumbnail != storydomain.ArtifactPoster {
+				req.Warn("YouTube did not take the chosen thumbnail (an unverified channel cannot set custom thumbnails); " +
+					"upload it in YouTube Studio from the story's thumbnail downloads")
+			}
 		}
-		_ = poster.Close()
+		_ = image.Close()
 	}
 	url := "https://youtu.be/" + id
 	if v := req.Deliverable.Video(); v != nil && v.Format() == pipelinedomain.FormatShort {

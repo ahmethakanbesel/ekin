@@ -147,6 +147,11 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 	a.mu.Lock()
 	a.seen = append(a.seen, string(seen))
 	a.mu.Unlock()
+	if strings.Contains(req.Prompt, "looked at the thumbnails") {
+		// Thumbnail-only feedback: new words, nothing else.
+		writeThumbnails(req.Dir, toolSpec(req).Thumbnails, "Yeni")
+		return claude.Result{SessionID: "session-" + filepath.Base(req.Dir), Text: "new thumbnails"}, nil
+	}
 	switch {
 	case strings.Contains(string(instructions), "cut a short from a long video"):
 		found := map[string]string{}
@@ -178,6 +183,18 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 		write("script.md", "Sahne 1: Kaygı nedir? Görsel: bir soru işareti.")
 		write("narration/narration.txt", strings.Repeat("Kaygı bedenin bir alarmıdır. ", 10))
 		write("metadata.json", `{"title":"Kaygı nedir?","description":"Kısa açıklama.","tags":["kaygı"]}`)
+	case strings.Contains(string(instructions), "produce a long-form"):
+		write("script.md", "Bölüm 1: Kaygı nedir?")
+		write("narration/narration.txt", "Kaygı nedir?")
+		write("narration/timings.json", `{"engine": "ema", "voice": "ema", "duration": 120, "words": [{"text":"Kaygı","start":0,"end":0.5}]}`)
+		write("narration/speech.wav", "RIFF")
+		write("composition.html", `<script src="/kit/kurgu.js"></script>`)
+		write("metadata.json", `{"title":"Kaygı nedir?","description":"Uzun açıklama.","tags":["kaygı"],`+
+			`"chapters":[{"at":0,"title":"Giriş"},{"at":30,"title":"Beden"},{"at":60,"title":"Zihin"}]}`)
+		if n := toolSpec(req).Thumbnails; n > 0 {
+			write("thumbnail.html", `<script src="/kit/kurgu.js"></script><script>Kurgu.thumbnails({render(v) {}})</script>`)
+			writeThumbnails(req.Dir, n, "Söz")
+		}
 	case strings.Contains(string(instructions), "produce a"):
 		write("script.md", "Sahne 1: Kaygı nedir?")
 		write("narration/narration.txt", "Kaygı nedir?")
@@ -197,6 +214,28 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 		write("article.md", "---\ntitle: \"Kaygı nedir\"\ndescription: \"Kaygının bedensel ve zihinsel belirtilerini, endişeden farkını ve ne zaman destek almak gerektiğini anlatan yazı.\"\nslug: kaygi-nedir\ntags: [kaygi]\n---\n\n"+body)
 	}
 	return claude.Result{SessionID: "session-" + filepath.Base(req.Dir), Text: "done"}, nil
+}
+
+// toolSpec is the tool spec a draft was given.
+func toolSpec(req claude.Request) agenttool.Spec {
+	var spec agenttool.Spec
+	for _, kv := range req.Env {
+		if raw, ok := strings.CutPrefix(kv, "KURGU_TOOL_SPEC="); ok {
+			_ = json.Unmarshal([]byte(raw), &spec)
+		}
+	}
+	return spec
+}
+
+// writeThumbnails writes n thumbnail variants, worded "<word> <n>", the
+// last one recommended.
+func writeThumbnails(dir string, n int, word string) {
+	var variants []map[string]any
+	for i := 1; i <= n; i++ {
+		variants = append(variants, map[string]any{"n": i, "concept": "type", "text": fmt.Sprintf("%s %d", word, i)})
+	}
+	b, _ := json.Marshal(map[string]any{"recommended": n, "variants": variants, "note": "kept"})
+	_ = os.WriteFile(filepath.Join(dir, "thumbnails.json"), b, 0o600)
 }
 
 // takeFromLibrary runs kurgu tool library use for each of useLibrary,
@@ -301,8 +340,45 @@ func tinyMP4(seconds float64) []byte {
 func (fakeRenderer) Poster(_ context.Context, _ string, _ float64, out string) error {
 	return os.WriteFile(out, []byte("jpg"), 0o600)
 }
+func (fakeRenderer) Thumbnails(_ context.Context, dir, _ string, ns []int, small bool, outDir string) ([]render.ThumbnailShot, render.Meta, []string, error) {
+	return drawThumbnails(dir, ns, small, outDir)
+}
 
-type fakePublisher struct{ kind pipelinedomain.Kind }
+// drawThumbnails writes a JPEG stand-in per variant, each showing the
+// words dir's thumbnails.json gives it, in the corner nowhere.
+func drawThumbnails(dir string, ns []int, small bool, outDir string) ([]render.ThumbnailShot, render.Meta, []string, error) {
+	raw, _ := os.ReadFile(filepath.Join(dir, "thumbnails.json")) //nolint:gosec // test dir
+	var spec storydomain.Thumbnails
+	_ = json.Unmarshal(raw, &spec)
+	if err := os.MkdirAll(outDir, 0o750); err != nil {
+		return nil, render.Meta{}, nil, err
+	}
+	var shots []render.ThumbnailShot
+	for _, n := range ns {
+		shot := render.ThumbnailShot{N: n, Path: filepath.Join(outDir, fmt.Sprintf("%d.jpg", n)), Bytes: 3}
+		for _, v := range spec.Variants {
+			if v.N == n {
+				shot.Text = v.Text
+			}
+		}
+		if err := os.WriteFile(shot.Path, []byte(fmt.Sprintf("thumb %d: %s", n, shot.Text)), 0o600); err != nil {
+			return nil, render.Meta{}, nil, err
+		}
+		if small {
+			shot.Small = filepath.Join(outDir, fmt.Sprintf("%d.small.jpg", n))
+			_ = os.WriteFile(shot.Small, []byte("small"), 0o600)
+		}
+		shots = append(shots, shot)
+	}
+	return shots, render.Meta{Width: 1280, Height: 720, FPS: 1, Duration: 1}, nil, nil
+}
+
+type fakePublisher struct {
+	kind pipelinedomain.Kind
+	// thumbnails, when set, records the thumbnail each video went out
+	// with, as the file's content.
+	thumbnails *[]string
+}
 
 func (p fakePublisher) Kind() pipelinedomain.Kind                      { return p.kind }
 func (p fakePublisher) Ready(context.Context, uuid.UUID) (bool, error) { return true, nil }
@@ -317,6 +393,15 @@ func (p fakePublisher) Publish(ctx context.Context, req production.PublishReques
 	}
 	_, _ = io.ReadAll(rc)
 	_ = rc.Close()
+	if p.thumbnails != nil {
+		rc, _, err := req.Open(ctx, req.Thumbnail)
+		if err != nil {
+			return storydomain.Publication{}, err
+		}
+		b, _ := io.ReadAll(rc)
+		_ = rc.Close()
+		*p.thumbnails = append(*p.thumbnails, string(b))
+	}
 	return storydomain.Publication{URL: "https://example.com/" + string(p.kind), ExternalID: "ext-" + string(p.kind)}, nil
 }
 
@@ -369,7 +454,7 @@ func newFixture(t *testing.T) fixture {
 			config(&cfg)
 		}
 		svc := production.NewService(cfg, deps)
-		svc.AddPublisher(fakePublisher{pipelinedomain.KindVideo}).AddPublisher(fakePublisher{pipelinedomain.KindArticle})
+		svc.AddPublisher(fakePublisher{kind: pipelinedomain.KindVideo}).AddPublisher(fakePublisher{kind: pipelinedomain.KindArticle})
 		return svc
 	}
 	hostWith := func(adjust func(*production.Deps)) *production.Service { return hostConfigured(nil, adjust) }
@@ -1076,7 +1161,7 @@ func TestCutShortPublicationResumesOnItsJob(t *testing.T) {
 	f, st := articleFixture(t)
 	d := st.Lead()
 	crashes := 1
-	f.svc.AddPublisher(crashingPublisher{fakePublisher{pipelinedomain.KindArticle}, &crashes})
+	f.svc.AddPublisher(crashingPublisher{fakePublisher{kind: pipelinedomain.KindArticle}, &crashes})
 	if _, err := f.svc.Approve(ctx, f.ws, st.ID(), d.ID(), id.New()); err != nil {
 		t.Fatal(err)
 	}
@@ -1305,7 +1390,7 @@ func TestDecisionAndItsFollowUpAreOneTransaction(t *testing.T) {
 			name: "retry a failed publication",
 			setup: func(t *testing.T, f fixture, st *storydomain.Story) {
 				broken := f.host()
-				broken.AddPublisher(brokenPublisher{fakePublisher{pipelinedomain.KindArticle}})
+				broken.AddPublisher(brokenPublisher{fakePublisher{kind: pipelinedomain.KindArticle}})
 				if _, err := broken.Approve(context.Background(), f.ws, st.ID(), st.Lead().ID(), id.New()); err != nil {
 					t.Fatal(err)
 				}

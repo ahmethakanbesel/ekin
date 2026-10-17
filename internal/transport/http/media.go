@@ -30,6 +30,7 @@ var artifactTypes = map[string]string{
 	".gz":   "application/gzip",
 	".srt":  "application/x-subrip; charset=utf-8",
 	".vtt":  "text/vtt; charset=utf-8",
+	".zip":  "application/zip",
 }
 
 // media streams a revision's artifact. It lives outside the strict

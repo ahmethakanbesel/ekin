@@ -222,7 +222,34 @@ func revisionToWire(r storydomain.Revision) gen.Revision {
 	if a := r.Annotation; !a.IsZero() {
 		rev.Annotation = &gen.Annotation{Text: a.Text, By: a.By, At: a.At}
 	}
+	if t := r.Thumbnails; !t.IsZero() {
+		wire := &gen.Thumbnails{Recommended: t.Recommended, Variants: make([]gen.Thumbnail, 0, len(t.Variants))}
+		for _, v := range t.Variants {
+			wire.Variants = append(wire.Variants, gen.Thumbnail{N: v.N, Concept: v.Concept, Text: v.Text, StillSeconds: v.Still})
+		}
+		rev.Thumbnails = wire
+	}
 	return rev
+}
+
+func (h *Handler) PickThumbnail(ctx context.Context, req gen.PickThumbnailRequestObject) (gen.PickThumbnailResponseObject, error) {
+	st, err := h.svc.PickThumbnail(ctx, req.WorkspaceId, req.StoryId, req.DeliverableId, req.Body.Variant)
+	if err != nil {
+		return nil, err
+	}
+	return gen.PickThumbnail200JSONResponse(ToWire(st)), nil
+}
+
+func (h *Handler) EditThumbnail(ctx context.Context, req gen.EditThumbnailRequestObject) (gen.EditThumbnailResponseObject, error) {
+	p, err := principal.From(ctx)
+	if err != nil {
+		return nil, err
+	}
+	st, err := h.svc.EditThumbnail(ctx, req.WorkspaceId, req.StoryId, req.DeliverableId, p.User.ID(), req.Body.Revision, req.N, req.Body.Text)
+	if err != nil {
+		return nil, err
+	}
+	return gen.EditThumbnail200JSONResponse(ToWire(st)), nil
 }
 
 func (h *Handler) ApproveDeliverable(ctx context.Context, req gen.ApproveDeliverableRequestObject) (gen.ApproveDeliverableResponseObject, error) {
@@ -365,6 +392,9 @@ func ToWire(st *storydomain.Story) gen.Story {
 		if c := d.Clip(); c != nil {
 			wire := clipToWire(*c)
 			wd.Clip = &wire
+		}
+		if n := d.Thumbnail(); n > 0 {
+			wd.Thumbnail = &n
 		}
 		out.Deliverables = append(out.Deliverables, wd)
 	}

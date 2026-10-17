@@ -2,6 +2,7 @@ package render_test
 
 import (
 	"context"
+	"image/jpeg"
 	"math"
 	"os"
 	"os/exec"
@@ -140,4 +141,51 @@ func TestMusicTrack(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestThumbnails(t *testing.T) {
+	needTools(t)
+	dir, _ := filepath.Abs("testdata/thumb")
+	out := t.TempDir()
+	shots, m, problems, err := (&render.Renderer{}).Thumbnails(context.Background(), dir, "thumbnail.html", []int{1, 2}, true, out)
+	if err != nil || len(problems) > 0 {
+		t.Fatalf("thumbnails = %v, problems %v", err, problems)
+	}
+	if m.Width != 1280 || m.Height != 720 || len(shots) != 2 {
+		t.Fatalf("meta = %+v, shots = %+v", m, shots)
+	}
+	for _, s := range shots {
+		if w, h := jpegSize(t, s.Path); w != 1280 || h != 720 || s.Bytes == 0 || s.Bytes > render.MaxThumbnailBytes {
+			t.Errorf("thumbnail %d is %dx%d, %d bytes", s.N, w, h, s.Bytes)
+		}
+		if w, h := jpegSize(t, s.Small); w != render.FeedWidth || h != 180 {
+			t.Errorf("small thumbnail %d is %dx%d", s.N, w, h)
+		}
+	}
+	if !strings.Contains(shots[0].Text, "Kaygı mı?") || len(shots[0].Corner) != 0 {
+		t.Errorf("variant 1 = %q, corner %v", shots[0].Text, shots[0].Corner)
+	}
+	if !strings.Contains(shots[1].Text, "Köşede yazı") || len(shots[1].Corner) != 1 {
+		t.Errorf("variant 2 = %q, corner %v", shots[1].Text, shots[1].Corner)
+	}
+
+	// A composition is not a thumbnail page.
+	comp, _ := filepath.Abs("testdata/comp")
+	if _, _, _, err := (&render.Renderer{}).Thumbnails(context.Background(), comp, "composition.html", []int{1}, false, out); err == nil {
+		t.Fatal("a composition rendered as a thumbnail page")
+	}
+}
+
+func jpegSize(t *testing.T, path string) (int, int) {
+	t.Helper()
+	f, err := os.Open(path) //nolint:gosec // test output
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	c, err := jpeg.DecodeConfig(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c.Width, c.Height
 }

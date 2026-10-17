@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,6 +20,7 @@ import (
 	"kurgu/internal/agenttool"
 	"kurgu/internal/apperror"
 	jobdomain "kurgu/internal/domain/job/v1"
+	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	storydomain "kurgu/internal/domain/story/v1"
 	storyrepo "kurgu/internal/repository/story/v1"
 	"kurgu/pkg/id"
@@ -37,6 +39,15 @@ type RenderTask struct {
 	FPS int `json:"fps,omitempty"`
 	// Rendered is what RunRender rendered at, for FinishRender to record.
 	Rendered storydomain.Render `json:"rendered,omitzero"`
+	// Thumbnails is how many thumbnail variants the preview draws; 0 for
+	// none (a short, a final render, or a video that keeps its poster).
+	Thumbnails int `json:"thumbnails,omitempty"`
+	// ThumbnailsOnly draws the thumbnails alone: the revision changed
+	// nothing else, and keeps the previous revision's video.
+	ThumbnailsOnly bool `json:"thumbnailsOnly,omitempty"`
+	// Variants are the thumbnails RunRender drew, for FinishRender to
+	// record.
+	Variants storydomain.Thumbnails `json:"variants,omitzero"`
 }
 
 // Render runs a deliverable.render job here: the preview (for review)
@@ -87,6 +98,24 @@ func (s *Service) BeginRender(ctx context.Context, p DeliverablePayload) (Render
 	task := RenderTask{Payload: p, Revision: d.Revision(), Scale: production.PreviewQuality.Scale(), FPS: int(production.PreviewFPS)}
 	if p.Final {
 		task.Scale, task.FPS = production.FinalQuality.Scale(), int(production.FinalFPS)
+		return task, dir, nil
+	}
+	// The thumbnails do not depend on the preview's quality, so the final
+	// render keeps the preview's.
+	if v := d.Video(); v != nil && v.Format() == pipelinedomain.FormatLong && d.Clip() == nil {
+		task.Thumbnails = production.Thumbnails.Count()
+	}
+	if task.Thumbnails > 0 && d.Revision() > 1 {
+		rev, err := s.stories.Revision(ctx, d.ID(), d.Revision())
+		if err != nil {
+			return RenderTask{}, "", err
+		}
+		prev, err := s.stories.Revision(ctx, d.ID(), d.Revision()-1)
+		if err != nil {
+			return RenderTask{}, "", err
+		}
+		_, hasPreview := prev.Artifacts[storydomain.ArtifactPreview]
+		task.ThumbnailsOnly = rev.ThumbnailsOnly() && hasPreview
 	}
 	return task, dir, nil
 }
@@ -95,6 +124,10 @@ func (s *Service) BeginRender(ctx context.Context, p DeliverablePayload) (Render
 // task.Rendered and returns the artifact files by name. It touches no
 // database.
 func (s *Service) RunRender(ctx context.Context, task *RenderTask, dir, outDir string) (map[string]string, error) {
+	if task.ThumbnailsOnly {
+		files := map[string]string{}
+		return files, s.renderThumbnails(ctx, task, dir, outDir, files)
+	}
 	rs := s.renderSettings(ctx)
 	opts := render.VideoOptions{Scale: rs.PreviewScale, FPS: rs.PreviewFPS, Duty: rs.Duty, Chunks: rs.Chunks}
 	name := storydomain.ArtifactPreview
@@ -125,7 +158,48 @@ func (s *Service) RunRender(ctx context.Context, task *RenderTask, dir, outDir s
 	if err := s.renderer.Poster(ctx, out, math.Min(1.5, meta.Duration/3), poster); err != nil {
 		return nil, err
 	}
-	return map[string]string{name: out, storydomain.ArtifactPoster: poster}, nil
+	files := map[string]string{name: out, storydomain.ArtifactPoster: poster}
+	if task.Thumbnails > 0 && !task.Payload.Final {
+		// A video without designed thumbnails still has its poster frame,
+		// so a thumbnail that cannot be drawn does not hold up review.
+		if err := s.renderThumbnails(ctx, task, dir, outDir, files); err != nil {
+			s.log.WarnContext(ctx, "thumbnails not rendered", slog.String("deliverable", task.Payload.DeliverableID.String()), slog.Any("error", err))
+			task.Variants = storydomain.Thumbnails{}
+			for n := 1; n <= storydomain.MaxThumbnails; n++ {
+				delete(files, storydomain.ThumbnailArtifact(n))
+			}
+		}
+	}
+	return files, nil
+}
+
+// renderThumbnails draws every variant of dir's thumbnail page into
+// outDir as thumb-<n>.jpg, adds them to files and notes them in task.
+func (s *Service) renderThumbnails(ctx context.Context, task *RenderTask, dir, outDir string, files map[string]string) error {
+	raw, err := os.ReadFile(filepath.Join(dir, agenttool.ThumbnailsFile)) //nolint:gosec // our work dir
+	if err != nil {
+		return fmt.Errorf("the draft has no %s", agenttool.ThumbnailsFile)
+	}
+	thumbs, err := storydomain.ParseThumbnails(raw, 0)
+	if err != nil {
+		return err
+	}
+	ns := make([]int, 0, len(thumbs.Variants))
+	for _, v := range thumbs.Variants {
+		ns = append(ns, v.N)
+	}
+	shots, _, problems, err := s.renderer.Thumbnails(ctx, dir, agenttool.ThumbnailPage, ns, false, filepath.Join(outDir, "thumbnails"))
+	if err != nil {
+		if len(problems) > 0 {
+			err = fmt.Errorf("%w (%s)", err, strings.Join(problems, "; "))
+		}
+		return err
+	}
+	for _, shot := range shots {
+		files[storydomain.ThumbnailArtifact(shot.N)] = shot.Path
+	}
+	task.Variants = thumbs
+	return nil
 }
 
 // FinishRender stores the rendered files on the revision and moves the
@@ -147,10 +221,10 @@ func (s *Service) FinishRender(ctx context.Context, task RenderTask, files map[s
 	keys := map[string]string{}
 	var length time.Duration
 	for artifact, path := range files {
-		switch artifact {
-		case storydomain.ArtifactPreview, storydomain.ArtifactFinal:
+		switch {
+		case artifact == storydomain.ArtifactPreview || artifact == storydomain.ArtifactFinal:
 			length = videoLength(path)
-		case storydomain.ArtifactPoster:
+		case artifact == storydomain.ArtifactPoster, storydomain.IsThumbnailArtifact(artifact):
 		default:
 			continue
 		}
@@ -164,11 +238,25 @@ func (s *Service) FinishRender(ctx context.Context, task RenderTask, files map[s
 		if err != nil {
 			return err
 		}
+		if task.ThumbnailsOnly {
+			// The video is the previous revision's, unchanged.
+			prev, err := s.stories.Revision(ctx, d.ID(), d.Revision()-1)
+			if err != nil {
+				return err
+			}
+			for _, name := range []string{storydomain.ArtifactPreview, storydomain.ArtifactPoster} {
+				if key, ok := prev.Artifacts[name]; ok {
+					rev.Artifacts[name] = key
+				}
+			}
+			task.Rendered, length = prev.Preview, prev.Measures.Duration
+		}
 		for k, v := range keys {
 			rev.Artifacts[k] = v
 		}
 		if !p.Final {
 			rev.Preview = task.Rendered
+			rev.Thumbnails = task.Variants
 		}
 		if length > 0 {
 			rev.Measures.Duration = length
@@ -399,6 +487,12 @@ type PublishRequest struct {
 	Lead *storydomain.Publication
 	// Translations pairs this article with its other languages (by slug).
 	TranslationKey string
+	// Thumbnail is the artifact a video goes out with as its thumbnail:
+	// the picked or recommended variant, else the poster frame.
+	Thumbnail string
+	// Warn notes something that went wrong without stopping the
+	// publication (a thumbnail YouTube refused); the person is told.
+	Warn func(message string)
 }
 
 // PublishJob runs job, a deliverable.publish job. A retry of the same
@@ -434,6 +528,14 @@ func (s *Service) PublishJob(ctx context.Context, jobID uuid.UUID, p Deliverable
 			return rc, info.Size, err
 		},
 		TranslationKey: st.ID().String()[:8],
+		Thumbnail:      storydomain.ArtifactPoster,
+	}
+	var warnings []string
+	req.Warn = func(message string) { warnings = append(warnings, message) }
+	if n := d.ThumbnailFor(rev.Thumbnails); n > 0 {
+		if _, ok := rev.Artifacts[storydomain.ThumbnailArtifact(n)]; ok {
+			req.Thumbnail = storydomain.ThumbnailArtifact(n)
+		}
 	}
 	if src, err := st.Deliverable(d.SourceID()); err == nil && src.Publication() != nil {
 		req.Lead = src.Publication()
@@ -457,8 +559,12 @@ func (s *Service) PublishJob(ctx context.Context, jobID uuid.UUID, p Deliverable
 	if err != nil {
 		return err
 	}
+	detail := fmt.Sprintf("%s published: %s", d.Kind(), publication.URL)
+	for _, w := range warnings {
+		detail += "; " + w
+	}
 	s.notify(ctx, Event{WorkspaceID: st.WorkspaceID(), StoryID: st.ID(), Kind: "published", Title: st.Idea().Title,
-		Detail: fmt.Sprintf("%s published: %s", d.Kind(), publication.URL)})
+		Detail: detail})
 	return nil
 }
 
@@ -554,12 +660,18 @@ func (s *Service) Artifact(ctx context.Context, workspaceID, storyID, deliverabl
 	if err != nil {
 		return nil, 0, err
 	}
-	if name == storydomain.ArtifactCaptionsSRT || name == storydomain.ArtifactCaptionsVTT {
-		b, err := s.captions(ctx, rev, name)
-		if err != nil {
-			return nil, 0, err
-		}
-		return io.NopCloser(bytes.NewReader(b)), int64(len(b)), nil
+	var made []byte
+	switch name {
+	case storydomain.ArtifactCaptionsSRT, storydomain.ArtifactCaptionsVTT:
+		made, err = s.captions(ctx, rev, name)
+	case storydomain.ArtifactThumbnailsZip:
+		made, err = s.ThumbnailsZip(ctx, workspaceID, storyID, deliverableID, revision)
+	}
+	if err != nil {
+		return nil, 0, err
+	}
+	if made != nil {
+		return io.NopCloser(bytes.NewReader(made)), int64(len(made)), nil
 	}
 	key, ok := rev.Artifacts[name]
 	if !ok {

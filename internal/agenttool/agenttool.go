@@ -66,6 +66,9 @@ type Spec struct {
 	// Clip marks a short cut from a long video: it speaks the long
 	// video's narration, already in narration/, so tts is refused.
 	Clip bool `json:"clip,omitempty"`
+	// Thumbnails is how many thumbnail variants a long video needs; 0
+	// keeps a frame of the video.
+	Thumbnails int `json:"thumbnails,omitempty"`
 }
 
 // Env is the tool configuration read from the environment.
@@ -120,6 +123,10 @@ const usage = `usage: kurgu tool <command> [flags]
   library use <id>                                 put a library item in place and credit it
   clip   --first N --last M                        a short cut from a long video: speak sentences N–M
                                                    of the window in sources/clip.md instead
+  thumbnail [--n 2]                                draw and check thumbnail.html's variants into
+                                                   thumbnails/<n>.jpg and <n>.small.jpg
+  thumbnail --stills 12.4,30                       full-size video frames for the thumbnails, into
+                                                   thumbnails/stills/<t>.jpg
 `
 
 // Run executes one tool command.
@@ -177,6 +184,13 @@ func Run(ctx context.Context, e Env, args []string) error {
 			return err
 		}
 		return e.clip(*first, *last)
+	case "thumbnail":
+		stills := fs.String("stills", "", "comma-separated composition times to render as stills")
+		n := fs.Int("n", 0, "draw only this variant")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		return e.thumbnail(ctx, *stills, *n)
 	case "library":
 		kind := fs.String("type", "", "music, video or photo; default all")
 		query := fs.String("query", "", "words to look for in titles, tags and descriptions")

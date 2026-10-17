@@ -422,7 +422,7 @@ func (a *API) finishRender(w http.ResponseWriter, r *http.Request) error {
 			if err := json.NewDecoder(io.LimitReader(part, 1<<20)).Decode(&meta); err != nil {
 				return apperror.Wrap(apperror.BadRequest, err, "malformed meta")
 			}
-		case renderArtifacts[name]:
+		case renderArtifacts[name] || storydomain.IsThumbnailArtifact(name):
 			path := filepath.Join(tmp, name)
 			f, err := os.Create(path) //nolint:gosec // fixed names in a temp dir
 			if err != nil {

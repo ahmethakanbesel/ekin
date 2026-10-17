@@ -63,6 +63,7 @@ type Renderer interface {
 	MusicTrack(ctx context.Context, in string, offset, duration float64, out string) error
 	Mix(ctx context.Context, video, narration, music string, duration float64, out string) error
 	Poster(ctx context.Context, video string, t float64, out string) error
+	Thumbnails(ctx context.Context, dir, pagePath string, ns []int, small bool, outDir string) ([]render.ThumbnailShot, render.Meta, []string, error)
 }
 
 // Library is the part of the media library a draft needs: what it may

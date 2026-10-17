@@ -163,8 +163,9 @@ func (s *Service) EditContent(ctx context.Context, workspaceID, storyID, deliver
 		return nil, err
 	}
 	var (
-		retime  *storydomain.Feedback
-		preview storydomain.Render
+		retime     *storydomain.Feedback
+		preview    storydomain.Render
+		thumbnails storydomain.Thumbnails
 	)
 	switch {
 	case st.AtScript(d.ID()):
@@ -178,13 +179,14 @@ func (s *Service) EditContent(ctx context.Context, workspaceID, storyID, deliver
 		retime = &fb
 		delete(artifacts, storydomain.ArtifactNarration) // the old audio no longer matches
 	case d.IsVideo():
-		// The picture is unchanged: keep showing the rendered preview.
-		for _, name := range []string{storydomain.ArtifactPreview, storydomain.ArtifactPoster} {
-			if key, ok := prev.Artifacts[name]; ok {
+		// The picture is unchanged: keep showing the rendered preview and
+		// the thumbnails.
+		for name, key := range prev.Artifacts {
+			if name == storydomain.ArtifactPreview || name == storydomain.ArtifactPoster || storydomain.IsThumbnailArtifact(name) {
 				artifacts[name] = key
 			}
 		}
-		preview = prev.Preview
+		preview, thumbnails = prev.Preview, prev.Thumbnails
 	}
 	out, err := s.mutate(ctx, storyID, func(ctx context.Context, st *storydomain.Story) error {
 		d, err := st.Deliverable(deliverableID)
@@ -198,7 +200,7 @@ func (s *Service) EditContent(ctx context.Context, workspaceID, storyID, deliver
 		if err != nil {
 			return err
 		}
-		rev.Preview = preview
+		rev.Preview, rev.Thumbnails = preview, thumbnails
 		if err := s.stories.PutRevision(ctx, rev); err != nil {
 			return err
 		}

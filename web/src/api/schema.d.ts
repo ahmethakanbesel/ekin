@@ -1092,6 +1092,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/thumbnail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Picks the thumbnail variant of the latest revision a long video goes out with, while it is in review or approved but not yet published. 0 goes back to the recommended one. */
+        put: operations["pickThumbnail"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/thumbnails/{n}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+                n: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Changes the words of thumbnail variant n of a long video in review, without the agent: a new revision whose thumbnails alone are drawn again, in seconds. `revision` must still be the latest (409 Conflict otherwise). */
+        patch: operations["editThumbnail"];
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/retry": {
         parameters: {
             query?: never;
@@ -1479,8 +1522,11 @@ export interface components {
         };
         /** @enum {string} */
         DeliverableStatus: "waiting" | "queued" | "drafting" | "rendering" | "review" | "finalizing" | "ready" | "publishing" | "published" | "rejected" | "failed";
-        /** @enum {string} */
-        FeedbackScope: "all" | "script" | "voice" | "visuals" | "music" | "metadata";
+        /**
+         * @description What a note is about. thumbnail (a long video's thumbnail variants): when every note of a round is about them, the agent changes only the thumbnails and the video is not rendered again.
+         * @enum {string}
+         */
+        FeedbackScope: "all" | "script" | "voice" | "visuals" | "music" | "metadata" | "thumbnail";
         FeedbackNoteInput: {
             text: string;
             scope?: components["schemas"]["FeedbackScope"];
@@ -1551,6 +1597,8 @@ export interface components {
             measured?: components["schemas"]["Measures"];
             /** @description For a short cut from a long video (sourceId), the span of the long video's narration it speaks. */
             clip?: components["schemas"]["Clip"];
+            /** @description Long videos: the thumbnail variant a person picked; absent when nobody did, and the recommended one goes out. */
+            thumbnail?: number;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -1706,8 +1754,26 @@ export interface components {
             stage?: "script";
             measured?: components["schemas"]["Measures"];
             annotation?: components["schemas"]["Annotation"];
+            thumbnails?: components["schemas"]["Thumbnails"];
             /** Format: date-time */
             createdAt: string;
+        };
+        /** @description A long video's designed thumbnail variants, each served as the revision artifact thumb-<n>.jpg (all of them as thumbnails.zip). */
+        Thumbnails: {
+            recommended: number;
+            variants: components["schemas"]["Thumbnail"][];
+        };
+        Thumbnail: {
+            n: number;
+            /** @description The idea behind the variant, e.g. frame, type or contrast. */
+            concept: string;
+            /** @description The words on the thumbnail */
+            text: string;
+            /**
+             * Format: double
+             * @description The video time of the still it uses, if any.
+             */
+            stillSeconds?: number;
         };
         /** @description A person's note on a revision; absent when it has none. */
         Annotation: {
@@ -1788,6 +1854,8 @@ export interface components {
              */
             reviewAt?: "video" | "script";
             media?: components["schemas"]["MediaSources"];
+            /** @description How many designed thumbnail variants a long video gets, for the reviewer to pick from; 0 keeps a frame grabbed from the video. Shorts always keep that frame. Absent: 3. */
+            thumbnails?: number;
         };
         AdHocInput: {
             /** @description Free text — what you want made. */
@@ -4528,6 +4596,70 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ShortsInput"];
+            };
+        };
+        responses: {
+            /** @description The updated story. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Story"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    pickThumbnail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    variant: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The updated story. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Story"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    editThumbnail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+                n: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    revision: number;
+                    text: string;
+                };
             };
         };
         responses: {

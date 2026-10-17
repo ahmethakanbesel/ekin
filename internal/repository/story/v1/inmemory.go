@@ -137,6 +137,7 @@ func (r *InMemory) PutRevision(_ context.Context, rev storydomain.Revision) erro
 	k := revKey{rev.DeliverableID, rev.Number}
 	if old, ok := r.revisions[k]; ok {
 		old.Artifacts, old.Notes, old.Measures, old.Preview = maps.Clone(rev.Artifacts), rev.Notes, rev.Measures, rev.Preview
+		old.Thumbnails = rev.Thumbnails
 		r.revisions[k] = old
 		return nil
 	}

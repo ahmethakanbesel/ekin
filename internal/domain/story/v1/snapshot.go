@@ -39,6 +39,7 @@ type DeliverableSnapshot struct {
 	Measures                 Measures
 	ScriptApprovedAt         time.Time
 	Clip                     *ClipSnapshot
+	Thumbnail                int
 	CreatedAt, UpdatedAt     time.Time
 }
 
@@ -71,7 +72,7 @@ func (s *Story) Snapshot() Snapshot {
 			Status: string(d.status), FailedStep: string(d.failedStep), Revision: d.revision,
 			Pending: d.pending, Failure: d.failure, Session: d.session, ApprovedAt: d.approvedAt,
 			Published: d.published, PublishJob: d.publishJob, Measures: d.measures, ScriptApprovedAt: d.scriptApprovedAt,
-			CreatedAt: d.createdAt, UpdatedAt: d.updatedAt,
+			Thumbnail: d.thumbnail, CreatedAt: d.createdAt, UpdatedAt: d.updatedAt,
 		}
 		if d.video != nil {
 			v := pipelinedomain.SnapshotVideo(*d.video)
@@ -132,13 +133,16 @@ func Rehydrate(s Snapshot) (*Story, error) {
 		if ds.Measures.Duration < 0 || ds.Measures.Words < 0 {
 			return nil, apperror.New(apperror.InternalError, "negative deliverable measures")
 		}
+		if ds.Thumbnail < 0 || ds.Thumbnail > MaxThumbnails {
+			return nil, apperror.New(apperror.InternalError, "invalid picked thumbnail")
+		}
 		d := &Deliverable{
 			id: ds.ID, kind: kind, role: Role(ds.Role), sourceID: ds.SourceID, language: dl,
 			status: status, failedStep: Status(ds.FailedStep), revision: ds.Revision, pending: ds.Pending,
 			failure: ds.Failure, session: ds.Session, approvedBy: ds.ApprovedBy,
 			approvedAt: timeutil.Normalize(ds.ApprovedAt), published: ds.Published, publishJob: ds.PublishJob, measures: ds.Measures,
-			scriptApprovedAt: timeutil.Normalize(ds.ScriptApprovedAt),
-			createdAt:        timeutil.Normalize(ds.CreatedAt), updatedAt: timeutil.Normalize(ds.UpdatedAt),
+			scriptApprovedAt: timeutil.Normalize(ds.ScriptApprovedAt), thumbnail: ds.Thumbnail,
+			createdAt: timeutil.Normalize(ds.CreatedAt), updatedAt: timeutil.Normalize(ds.UpdatedAt),
 		}
 		if ds.Video != nil {
 			v, err := pipelinedomain.VideoFromSnapshot(*ds.Video)

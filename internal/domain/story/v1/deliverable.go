@@ -76,6 +76,8 @@ const (
 	ScopeVisuals  Scope = "visuals"
 	ScopeMusic    Scope = "music"
 	ScopeMetadata Scope = "metadata"
+	// ScopeThumbnail is about a long video's thumbnail variants alone.
+	ScopeThumbnail Scope = "thumbnail"
 )
 
 // Note is one thing a reviewer wants changed: what it is about, where
@@ -139,7 +141,7 @@ func newNote(n Note) (Note, error) {
 	switch n.Scope {
 	case "":
 		n.Scope = ScopeAll
-	case ScopeAll, ScopeScript, ScopeVoice, ScopeVisuals, ScopeMusic, ScopeMetadata:
+	case ScopeAll, ScopeScript, ScopeVoice, ScopeVisuals, ScopeMusic, ScopeMetadata, ScopeThumbnail:
 	default:
 		return Note{}, apperror.New(apperror.ValidationFailed, "unknown feedback scope")
 	}
@@ -246,7 +248,10 @@ type Deliverable struct {
 	scriptApprovedAt time.Time
 	// clip is the span of the source long video a short was cut from;
 	// nil for every other deliverable.
-	clip      *Clip
+	clip *Clip
+	// thumbnail is the thumbnail variant a person picked; 0 for the
+	// recommended one.
+	thumbnail int
 	createdAt time.Time
 	updatedAt time.Time
 }
@@ -297,6 +302,9 @@ type Revision struct {
 	// Annotation is a person's note on the revision; zero when it has
 	// none.
 	Annotation Annotation
+	// Thumbnails are a long video's thumbnail variants (thumbnails.json),
+	// once rendered; their files are ThumbnailArtifact(n).
+	Thumbnails Thumbnails
 	CreatedAt  time.Time
 }
 
@@ -359,6 +367,9 @@ const (
 	// caption track, made on request from its word timings.
 	ArtifactCaptionsSRT = "captions.srt"
 	ArtifactCaptionsVTT = "captions.vtt"
+	// ArtifactThumbnailsZip holds every thumbnail variant, packed on
+	// request.
+	ArtifactThumbnailsZip = "thumbnails.zip"
 )
 
 // Captioned reports whether the revision has narration with word timings
@@ -369,11 +380,15 @@ func (r Revision) Captioned() bool {
 }
 
 // ArtifactNames are the names of the revision's artifacts, sorted: the
-// stored ones and, for narrated video, its captions.
+// stored ones and those made on request (a narrated video's captions,
+// its thumbnail variants as a zip).
 func (r Revision) ArtifactNames() []string {
 	names := slices.Collect(maps.Keys(r.Artifacts))
 	if r.Captioned() {
 		names = append(names, ArtifactCaptionsSRT, ArtifactCaptionsVTT)
+	}
+	if !r.Thumbnails.IsZero() {
+		names = append(names, ArtifactThumbnailsZip)
 	}
 	slices.Sort(names)
 	return slices.Compact(names)
@@ -435,6 +450,7 @@ func (s *Story) Drafted(id uuid.UUID, artifacts map[string]string, session, note
 		return Revision{}, err
 	}
 	d.revision++
+	d.thumbnail = 0
 	d.measures = Measures{Words: max(m.Words, 0), Narrator: m.Narrator}
 	rev := Revision{
 		DeliverableID: d.id, Number: d.revision, Feedback: d.pending,

@@ -26,7 +26,7 @@ and stop:
   for the target word count instead.
 - In step 6, write `metadata.json` without chapters{{if .Long}} (they need the
   narration timings, which come once the script is approved){{end}}.
-- Skip steps 3, 4, 5 and 7: no composition, frames, music or check yet.
+- Skip steps 3, 4, 5{{if .Thumbnails}}, 7 and 8: no composition, frames, music, check or thumbnails yet.{{else}} and 7: no composition, frames, music or check yet.{{end}}
 
 `script.md` is what the reviewer reads: for every scene, the narration itself,
 word for word as in `narration/narration.txt`, and the visual idea under it,
@@ -111,6 +111,29 @@ Work in this order and do not stop until `{{.Tool}} check` passes.
    caption-only stretches and on stretches where nothing changes, and warns
    when the visuals leave the lower part of their area empty. Fix warnings too
    unless the brief or `STYLE.md` calls for it.
+{{- if .Thumbnails}}
+8. **Thumbnails.** Design {{.Thumbnails}} thumbnail {{if eq .Thumbnails 1}}variant{{else}}variants, each a different
+   concept (not a colour tweak of another){{end}}, for the reviewer to pick from.
+   Concepts that work: **frame**, a strong still from the video with a 2–4 word
+   hook; **type**, bold typography, a number or a short claim on the house
+   palette; **contrast**, a before/after, a question, or two things set against
+   each other.
+   - Write `thumbnails.json`:
+     `{"recommended": 1, "variants": [{"n": 1, "concept": "frame", "text": "...", "still": 12.4}]}`.
+     `text` is the words on the thumbnail in {{.LanguageName}}, at most 5 words.
+     It sits next to the title in YouTube's grid, so it adds to the title and
+     never repeats it. `still` (optional) is the composition time of the frame
+     the variant uses. `recommended` is the variant you would publish.
+   - For stills, run `{{.Tool}} thumbnail --stills 12.4,30`: it writes full-size
+     frames to `thumbnails/stills/12.4.jpg` and so on, for the page's `<img>`.
+   - Write `thumbnail.html` with `Kurgu.thumbnails` (see **Thumbnails** in
+     `KIT.md`): one 1280×720 page that draws any variant, taking its words from
+     `variant.text`, never typed into the page, so a person can change them later.
+   - Run `{{.Tool}} thumbnail` and fix every error. Then read the
+     `thumbnails/<n>.small.jpg` files: 320 px wide is how a phone's feed shows
+     them. Text must be large and few, faces or the main shape clear, contrast
+     high, and the bottom-right corner (YouTube's duration badge) empty.
+{{- end}}
 {{if .Media.Library}}
 {{template "media.md" .}}{{end}}
 You may only run `{{.Tool}} ...` commands in the shell. Keep all files inside this

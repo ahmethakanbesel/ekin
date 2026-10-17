@@ -407,6 +407,132 @@ func (r *Renderer) Snapshot(ctx context.Context, dir, pagePath string, times []f
 	return paths, s.problems.List(), nil
 }
 
+// ThumbnailShot is one rendered thumbnail variant: the full-size JPEG,
+// the page's visible text, and the text drawn over the corner YouTube
+// covers with the video's duration.
+type ThumbnailShot struct {
+	N      int
+	Path   string
+	Small  string // FeedWidth wide, as a phone's feed shows it; "" unless asked for
+	Bytes  int    // size of the full JPEG
+	Text   string
+	Corner []string
+}
+
+// Thumbnail sizes: YouTube's limit and recommendation, and a feed's.
+const (
+	MaxThumbnailBytes = 2 << 20
+	FeedWidth         = 320
+)
+
+// thumbnailInspect lays out nothing; it reads the page after a variant
+// was drawn: its visible text, and text whose box reaches into the
+// bottom-right corner (the last 18% × 14%) YouTube covers.
+const thumbnailInspect = `(() => {
+	const W = window.innerWidth, H = window.innerHeight, cx = W * 0.82, cy = H * 0.86;
+	const corner = [];
+	const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+	for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+		const text = n.textContent.trim();
+		const el = n.parentElement;
+		if (!text || !el) continue;
+		const cs = getComputedStyle(el);
+		if (cs.visibility === "hidden" || cs.display === "none" || Number(cs.opacity) === 0) continue;
+		const range = document.createRange();
+		range.selectNodeContents(n);
+		for (const b of range.getClientRects()) {
+			if (b.width > 0 && b.height > 0 && b.right > cx && b.bottom > cy && b.left < W && b.top < H) {
+				corner.push(text);
+				break;
+			}
+		}
+	}
+	return {text: document.body.innerText || "", corner};
+})()`
+
+// inspected is what thumbnailInspect reads.
+type inspected struct {
+	Text   string   `json:"text"`
+	Corner []string `json:"corner"`
+}
+
+// Thumbnails draws variants ns of a thumbnail page (Kurgu.thumbnails)
+// at its declared size into outDir/<n>.jpg, each under
+// MaxThumbnailBytes, plus outDir/<n>.small.jpg when small is set. It
+// returns the page's declaration and every problem the page reported.
+func (r *Renderer) Thumbnails(ctx context.Context, dir, pagePath string, ns []int, small bool, outDir string) ([]ThumbnailShot, Meta, []string, error) {
+	s, err := r.open(ctx, dir)
+	if err != nil {
+		return nil, Meta{}, nil, err
+	}
+	defer s.close()
+	tab, m, err := s.tab(pagePath, 1)
+	if err != nil {
+		return nil, m, s.problems.List(), err
+	}
+	if isPage, err := chromedp.Run(tab, chromedp.Evaluate[bool](`!!(window.kurgu && window.kurgu.thumbnailPage)`)); err != nil || !isPage {
+		return nil, m, s.problems.List(), fmt.Errorf("render: %s must declare itself with Kurgu.thumbnails", pagePath)
+	}
+	if err := os.MkdirAll(outDir, 0o750); err != nil {
+		return nil, m, nil, err
+	}
+	var shots []ThumbnailShot
+	for _, n := range ns {
+		cctx, cancel := context.WithTimeout(tab, frameTimeout)
+		_, err := chromedp.Run(cctx, chromedp.Evaluate[bool](
+			`Promise.resolve(window.kurgu.thumbnail(`+strconv.Itoa(n)+`)).then(() => true)`, chromedp.EvalAwaitPromise))
+		cancel()
+		if err != nil {
+			return shots, m, s.problems.List(), fmt.Errorf("render: thumbnail %d: %w", n, err)
+		}
+		seen, err := chromedp.Run(tab, chromedp.Evaluate[inspected](thumbnailInspect))
+		if err != nil {
+			return shots, m, s.problems.List(), fmt.Errorf("render: thumbnail %d: %w", n, err)
+		}
+		shot := ThumbnailShot{N: n, Text: seen.Text, Corner: seen.Corner, Path: filepath.Join(outDir, strconv.Itoa(n)+".jpg")}
+		var data []byte
+		for _, q := range []int{92, 85, 75, 65, 55, 45} {
+			if data, err = capture(tab, page.CaptureScreenshotFormatJpeg, q); err != nil {
+				return shots, m, s.problems.List(), err
+			}
+			if len(data) <= MaxThumbnailBytes {
+				break
+			}
+		}
+		if err := os.WriteFile(shot.Path, data, 0o600); err != nil {
+			return shots, m, nil, err
+		}
+		shot.Bytes = len(data)
+		if small {
+			data, err := captureScaled(tab, m, float64(FeedWidth)/float64(m.Width))
+			if err != nil {
+				return shots, m, s.problems.List(), err
+			}
+			shot.Small = filepath.Join(outDir, strconv.Itoa(n)+".small.jpg")
+			if err := os.WriteFile(shot.Small, data, 0o600); err != nil {
+				return shots, m, nil, err
+			}
+		}
+		shots = append(shots, shot)
+	}
+	return shots, m, s.problems.List(), nil
+}
+
+// captureScaled screenshots the whole page drawn at scale, as JPEG.
+func captureScaled(ctx context.Context, m Meta, scale float64) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, frameTimeout)
+	defer cancel()
+	q := int64(85)
+	res, err := chromedp.Call(ctx, page.CaptureScreenshot, page.CaptureScreenshotParams{
+		Format: page.CaptureScreenshotFormatJpeg, Quality: &q,
+		Clip: &page.Viewport{X: 0, Y: 0, Width: float64(m.Width), Height: float64(m.Height), Scale: scale},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res.Data, nil
+}
+
 // Sample is one frame of a composition as luminance at a small size.
 type Sample struct {
 	T    float64

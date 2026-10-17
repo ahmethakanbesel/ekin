@@ -148,3 +148,45 @@ func TestProductionChecksMedia(t *testing.T) {
 		})
 	}
 }
+
+func TestThumbnailCount(t *testing.T) {
+	n := func(v int) *int { return &v }
+	tests := []struct {
+		name    string
+		in      *int
+		want    pipeline.ThumbnailCount
+		count   int
+		wire    *int
+		wantErr bool
+	}{
+		{name: "absent is the default", in: nil, want: 0, count: 3, wire: nil},
+		{name: "zero turns them off", in: n(0), want: pipeline.ThumbnailsOff, count: 0, wire: n(0)},
+		{name: "one", in: n(1), want: 1, count: 1, wire: n(1)},
+		{name: "four", in: n(4), want: 4, count: 4, wire: n(4)},
+		{name: "five", in: n(5), wantErr: true},
+		{name: "negative", in: n(-1), wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := pipeline.ParseThumbnailCount(tt.in)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ParseThumbnailCount() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+			if got != tt.want || got.Count() != tt.count {
+				t.Fatalf("ParseThumbnailCount() = %d (count %d), want %d (count %d)", got, got.Count(), tt.want, tt.count)
+			}
+			if w := got.Wire(); (w == nil) != (tt.wire == nil) || (w != nil && *w != *tt.wire) {
+				t.Fatalf("Wire() = %v, want %v", w, tt.wire)
+			}
+			if err := (pipeline.Production{Thumbnails: got}).Check(); err != nil {
+				t.Fatalf("Check() = %v", err)
+			}
+		})
+	}
+	if err := (pipeline.Production{Thumbnails: 5}).Check(); err == nil {
+		t.Fatal("Check() accepted 5 thumbnail variants")
+	}
+}

@@ -233,6 +233,9 @@ func ProductionOf(in *gen.Production) (pipelinedomain.Production, error) {
 			return out, err
 		}
 	}
+	if out.Thumbnails, err = pipelinedomain.ParseThumbnailCount(in.Thumbnails); err != nil {
+		return out, err
+	}
 	if m := in.Media; m != nil {
 		for _, kind := range []struct {
 			in  *gen.MediaSource
@@ -290,6 +293,7 @@ func ProductionToWire(p pipelinedomain.Production) *gen.Production {
 		}
 		out.Media = &gen.MediaSources{Music: source(p.Media.Music), Video: source(p.Media.Video), Photo: source(p.Media.Photo)}
 	}
+	out.Thumbnails = p.Thumbnails.Wire()
 	return out
 }
 

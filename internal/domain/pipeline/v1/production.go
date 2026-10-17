@@ -30,6 +30,9 @@ type Production struct {
 	// Media says, per kind, whether music and stock are made fresh, come
 	// from the workspace's library, or both.
 	Media librarydomain.Policy `json:"media,omitzero"`
+	// Thumbnails is how many designed thumbnail variants a long video
+	// gets; shorts keep their poster frame.
+	Thumbnails ThumbnailCount `json:"thumbnails,omitempty"`
 }
 
 // Check reports whether every setting is valid.
@@ -52,6 +55,9 @@ func (p Production) Check() error {
 	if _, err := ParseReviewPoint(string(p.ReviewAt)); err != nil {
 		return err
 	}
+	if p.Thumbnails < ThumbnailsOff || p.Thumbnails > MaxThumbnailCount {
+		return apperror.New(apperror.ValidationFailed, "thumbnail variants must be 0 to 4")
+	}
 	return p.Media.Check()
 }
 
@@ -65,6 +71,51 @@ func (p Production) CheckFor(outputs Outputs) error {
 		return apperror.New(apperror.ValidationFailed, "reviewing the script first needs a video output")
 	}
 	return nil
+}
+
+// ThumbnailCount is how many thumbnail variants a long video gets. The
+// zero value is unset and means DefaultThumbnails; ThumbnailsOff keeps
+// the poster frame grabbed from the video.
+type ThumbnailCount int
+
+const (
+	ThumbnailsOff     ThumbnailCount = -1
+	DefaultThumbnails                = 3
+	MaxThumbnailCount ThumbnailCount = 4
+)
+
+// ParseThumbnailCount reads a wire count: absent (nil) is the default,
+// 0 turns thumbnails off, 1–4 asks for that many variants.
+func ParseThumbnailCount(n *int) (ThumbnailCount, error) {
+	switch {
+	case n == nil:
+		return 0, nil
+	case *n == 0:
+		return ThumbnailsOff, nil
+	case *n >= 1 && *n <= int(MaxThumbnailCount):
+		return ThumbnailCount(*n), nil
+	}
+	return 0, apperror.New(apperror.ValidationFailed, "thumbnail variants must be 0 to 4")
+}
+
+// Count is how many variants to make: 0 for none.
+func (c ThumbnailCount) Count() int {
+	switch {
+	case c == 0:
+		return DefaultThumbnails
+	case c < 0:
+		return 0
+	}
+	return int(c)
+}
+
+// Wire is the count as the API shows it; nil when unset.
+func (c ThumbnailCount) Wire() *int {
+	if c == 0 {
+		return nil
+	}
+	n := c.Count()
+	return &n
 }
 
 // ReviewPoint is when a person first reviews a video.

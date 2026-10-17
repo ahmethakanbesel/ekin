@@ -3,6 +3,7 @@ package story_test
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -128,6 +129,27 @@ func TestConformance(t *testing.T) {
 			_ = stale.Rendered(video.ID(), 0, now)
 			if err := repo.Save(ctx, stale); !apperror.Is(err, apperror.StaleVersion) {
 				t.Fatalf("stale save = %v", err)
+			}
+
+			// A revision's thumbnail variants and the deliverable's pick.
+			thumbs, err := storydomain.ParseThumbnails([]byte(`{"recommended": 2, "variants": [
+				{"n": 1, "concept": "frame", "text": "Kaygı mı?", "still": 12.4}, {"n": 2, "concept": "type", "text": "3 fark"}]}`), 2)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rev.Thumbnails = thumbs
+			_ = repo.PutRevision(ctx, rev)
+			if back, _ := repo.Revision(ctx, video.ID(), 1); !reflect.DeepEqual(back.Thumbnails, thumbs) {
+				t.Fatalf("thumbnails = %+v, want %+v", back.Thumbnails, thumbs)
+			}
+			if err := rendered.PickThumbnail(video.ID(), 1, thumbs, now); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.Save(ctx, rendered); err != nil {
+				t.Fatal(err)
+			}
+			if picked, _ := repo.Get(ctx, ws, s.ID()); picked.Lead().Thumbnail() != 1 {
+				t.Fatalf("picked thumbnail = %d", picked.Lead().Thumbnail())
 			}
 
 			// A round of several notes is stored whole, pending and on

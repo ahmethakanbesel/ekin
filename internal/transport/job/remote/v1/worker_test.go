@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -79,6 +80,16 @@ func (renderer) Mix(_ context.Context, _, _, _ string, _ float64, out string) er
 }
 func (renderer) Poster(_ context.Context, _ string, _ float64, out string) error {
 	return os.WriteFile(out, []byte("jpg"), 0o600)
+}
+func (renderer) Thumbnails(_ context.Context, _, _ string, ns []int, _ bool, outDir string) ([]render.ThumbnailShot, render.Meta, []string, error) {
+	_ = os.MkdirAll(outDir, 0o750)
+	var shots []render.ThumbnailShot
+	for _, n := range ns {
+		p := filepath.Join(outDir, strconv.Itoa(n)+".jpg")
+		_ = os.WriteFile(p, []byte("thumb"), 0o600)
+		shots = append(shots, render.ThumbnailShot{N: n, Path: p})
+	}
+	return shots, render.Meta{Width: 1280, Height: 720, FPS: 1, Duration: 1}, nil, nil
 }
 
 func TestRemoteWorkerDraftsAndRenders(t *testing.T) {

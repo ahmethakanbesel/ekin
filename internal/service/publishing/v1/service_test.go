@@ -28,9 +28,12 @@ import (
 	"kurgu/pkg/secretbox"
 )
 
-func fakeGoogle(t *testing.T) (*httptest.Server, *string) {
+// fakeGoogle answers like Google's OAuth and YouTube APIs. It records
+// the privacy of the last upload and the last thumbnail sent, which it
+// refuses (as for an unverified channel) when it reads "refuse".
+func fakeGoogle(t *testing.T) (*httptest.Server, *string, *string) {
 	t.Helper()
-	privacy := new(string)
+	privacy, thumbnail := new(string), new(string)
 	mux := http.NewServeMux()
 	var srv *httptest.Server
 	mux.HandleFunc("POST /token", func(w http.ResponseWriter, _ *http.Request) {
@@ -47,10 +50,18 @@ func fakeGoogle(t *testing.T) (*httptest.Server, *string) {
 		w.Header().Set("Location", srv.URL+"/session")
 	})
 	mux.HandleFunc("PUT /session", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"id":"vid9"}`)) })
-	mux.HandleFunc("POST /upload/thumbnails/set", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(403) })
+	mux.HandleFunc("POST /upload/thumbnails/set", func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		*thumbnail = string(raw)
+		if string(raw) == "refuse" {
+			w.WriteHeader(403)
+			return
+		}
+		_, _ = w.Write([]byte(`{}`))
+	})
 	srv = httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	return srv, privacy
+	return srv, privacy, thumbnail
 }
 
 func newService(t *testing.T, google *httptest.Server) *publishingsvc.Service {
@@ -90,7 +101,7 @@ func request(t *testing.T, kind pipelinedomain.Kind, files map[string]string, le
 
 func TestConnectAndUpload(t *testing.T) {
 	ctx := context.Background()
-	google, privacy := fakeGoogle(t)
+	google, privacy, thumbnail := fakeGoogle(t)
 	svc := newService(t, google)
 	ws, user := id.New(), id.New()
 
@@ -123,8 +134,35 @@ func TestConnectAndUpload(t *testing.T) {
 	}, nil)
 	req.WorkspaceID = ws
 	pub, err := svc.Video().Publish(ctx, req)
-	if err != nil || pub.URL != "https://www.youtube.com/shorts/vid9" || *privacy != "unlisted" {
-		t.Fatalf("publish = %+v %v privacy=%s", pub, err, *privacy)
+	if err != nil || pub.URL != "https://www.youtube.com/shorts/vid9" || *privacy != "unlisted" || *thumbnail != "jpg" {
+		t.Fatalf("publish = %+v %v privacy=%s thumbnail=%q", pub, err, *privacy, *thumbnail)
+	}
+
+	// The picked variant goes out as the thumbnail; when YouTube refuses
+	// it, the video is still published and the person is told.
+	tests := []struct {
+		name, image string
+		warned      bool
+	}{
+		{"taken", "picked", false},
+		{"refused", "refuse", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := request(t, pipelinedomain.KindVideo, map[string]string{
+				storydomain.ArtifactMetadata: `{"title":"Ruminasyon","description":"d","tags":[]}`,
+				storydomain.ArtifactFinal:    "mp4", storydomain.ArtifactPoster: "jpg", storydomain.ThumbnailArtifact(2): tt.image,
+			}, nil)
+			req.WorkspaceID, req.Thumbnail = ws, storydomain.ThumbnailArtifact(2)
+			var warnings []string
+			req.Warn = func(m string) { warnings = append(warnings, m) }
+			if _, err := svc.Video().Publish(ctx, req); err != nil {
+				t.Fatal(err)
+			}
+			if *thumbnail != tt.image || (len(warnings) > 0) != tt.warned {
+				t.Fatalf("thumbnail = %q, warnings = %v", *thumbnail, warnings)
+			}
+		})
 	}
 	// Google's error redirect (e.g. access_denied) carries the state, so
 	// the browser can go back to the right workspace.
