@@ -189,21 +189,40 @@ func (h *Handler) ListRevisions(ctx context.Context, req gen.ListRevisionsReques
 	}
 	out := make([]gen.Revision, 0, len(revs))
 	for _, r := range revs {
-		rev := gen.Revision{
-			Number: r.Number, Feedback: feedbackToWire(r.Feedback), Artifacts: r.ArtifactNames(), Notes: r.Notes,
-			Measured: measuresToWire(r.Measures), CreatedAt: r.CreatedAt,
-		}
-		if r.EditedBy != uuid.Nil {
-			by := r.EditedBy
-			rev.EditedBy = &by
-		}
-		if r.Stage == storydomain.StageScript {
-			stage := gen.RevisionStageScript
-			rev.Stage = &stage
-		}
-		out = append(out, rev)
+		out = append(out, revisionToWire(r))
 	}
 	return gen.ListRevisions200JSONResponse{Revisions: out}, nil
+}
+
+func (h *Handler) AnnotateRevision(ctx context.Context, req gen.AnnotateRevisionRequestObject) (gen.AnnotateRevisionResponseObject, error) {
+	p, err := principal.From(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rev, err := h.svc.Annotate(ctx, req.WorkspaceId, req.StoryId, req.DeliverableId, req.Number, p.User.ID(), req.Body.Text)
+	if err != nil {
+		return nil, err
+	}
+	return gen.AnnotateRevision200JSONResponse(revisionToWire(rev)), nil
+}
+
+func revisionToWire(r storydomain.Revision) gen.Revision {
+	rev := gen.Revision{
+		Number: r.Number, Feedback: feedbackToWire(r.Feedback), Artifacts: r.ArtifactNames(), Notes: r.Notes,
+		Measured: measuresToWire(r.Measures), CreatedAt: r.CreatedAt,
+	}
+	if r.EditedBy != uuid.Nil {
+		by := r.EditedBy
+		rev.EditedBy = &by
+	}
+	if r.Stage == storydomain.StageScript {
+		stage := gen.RevisionStageScript
+		rev.Stage = &stage
+	}
+	if a := r.Annotation; !a.IsZero() {
+		rev.Annotation = &gen.Annotation{Text: a.Text, By: a.By, At: a.At}
+	}
+	return rev
 }
 
 func (h *Handler) ApproveDeliverable(ctx context.Context, req gen.ApproveDeliverableRequestObject) (gen.ApproveDeliverableResponseObject, error) {

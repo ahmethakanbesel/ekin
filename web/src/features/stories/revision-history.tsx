@@ -16,6 +16,7 @@ import { formatDateTime, formatRelative, useNow } from "@/lib/time"
 import { cn } from "@/lib/utils"
 import { useMemberNames } from "@/queries/members"
 import { measuredLength, measuredWords } from "./model"
+import { RevisionAnnotation } from "./revision-annotation"
 import { FeedbackNotes } from "./status-alert"
 
 /** How many entries the history lists. */
@@ -33,6 +34,8 @@ const pendingNote = (d: Deliverable) =>
  */
 export function RevisionHistory({
   workspaceId,
+  storyId,
+  canEdit,
   deliverable: d,
   revisions,
   loading,
@@ -41,6 +44,9 @@ export function RevisionHistory({
   lang,
 }: {
   workspaceId: string
+  storyId: string
+  /** Whether the viewer may write team notes. */
+  canEdit: boolean
   deliverable: Deliverable
   /** The story's language, which notes are written in. */
   lang: string
@@ -59,7 +65,8 @@ export function RevisionHistory({
   // The people who edited revisions or wrote notes.
   const nameOf = useMemberNames(
     workspaceId,
-    !!pending?.by || revisions.some((r) => r.editedBy || r.feedback?.by)
+    !!pending?.by ||
+      revisions.some((r) => r.editedBy || r.feedback?.by || r.annotation)
   )
 
   if (loading) {
@@ -153,6 +160,17 @@ export function RevisionHistory({
                 {r.notes.trim() || m.revisions.noNotes}
               </p>
             )}
+            <RevisionAnnotation
+              workspaceId={workspaceId}
+              storyId={storyId}
+              deliverableId={d.id}
+              revision={r}
+              canEdit={canEdit}
+              nameOf={nameOf}
+              now={now}
+              timezone={timezone}
+              lang={lang}
+            />
           </Entry>
         )
       })}

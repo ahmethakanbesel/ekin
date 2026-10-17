@@ -238,6 +238,8 @@ export function ReviewPanel({
           >
             <RevisionHistory
               workspaceId={workspaceId}
+              storyId={story.id}
+              canEdit={canEdit}
               deliverable={d}
               revisions={review.list}
               loading={review.revisions.isPending}

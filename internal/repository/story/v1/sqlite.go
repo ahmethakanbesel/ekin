@@ -412,6 +412,22 @@ func (r *SQLite) PutRevision(ctx context.Context, rev storydomain.Revision) erro
 	return nil
 }
 
+func (r *SQLite) Annotate(ctx context.Context, deliverableID uuid.UUID, number int, a storydomain.Annotation) error {
+	var at sql.NullInt64
+	if !a.IsZero() {
+		at = sql.NullInt64{Int64: timeutil.ToMillis(a.At), Valid: true}
+	}
+	res, err := r.q.W(ctx).ExecContext(ctx, `UPDATE revisions SET annotation = ?, annotated_by = ?, annotated_at = ?
+		WHERE deliverable_id = ? AND number = ?`, a.Text, nullID(a.By), at, deliverableID.String(), number)
+	if err != nil {
+		return fmt.Errorf("annotate revision: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return apperror.New(apperror.NotFound, "revision not found")
+	}
+	return nil
+}
+
 func (r *SQLite) Revisions(ctx context.Context, deliverableID uuid.UUID) ([]storydomain.Revision, error) {
 	return r.revisions(ctx, `deliverable_id = ? ORDER BY number`, deliverableID.String())
 }
@@ -429,7 +445,7 @@ func (r *SQLite) Revision(ctx context.Context, deliverableID uuid.UUID, number i
 
 func (r *SQLite) revisions(ctx context.Context, where string, args ...any) ([]storydomain.Revision, error) {
 	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT deliverable_id, number, feedback, artifacts, notes, edited_by, duration_ms, words, narrator,
-		preview_scale, preview_fps, stage, created_at
+		preview_scale, preview_fps, stage, annotation, annotated_by, annotated_at, created_at
 		FROM revisions WHERE `+where, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query revisions: %w", err)
@@ -449,10 +465,13 @@ func (r *SQLite) revisions(ctx context.Context, where string, args ...any) ([]st
 			scale     sql.NullFloat64
 			fps       sql.NullInt64
 			stage     string
+			note      string
+			noteBy    sql.NullString
+			noteAt    sql.NullInt64
 			created   int64
 		)
 		if err := rows.Scan(&rawID, &rev.Number, &feedback, &artifacts, &rev.Notes, &editedBy, &duration, &words, &narrator,
-			&scale, &fps, &stage, &created); err != nil {
+			&scale, &fps, &stage, &note, &noteBy, &noteAt, &created); err != nil {
 			return nil, fmt.Errorf("scan revision: %w", err)
 		}
 		rev.DeliverableID, _ = uuid.Parse(rawID)
@@ -467,6 +486,10 @@ func (r *SQLite) revisions(ctx context.Context, where string, args ...any) ([]st
 		rev.Measures = measures(duration, words, narrator)
 		rev.Preview = storydomain.Render{Scale: scale.Float64, FPS: int(fps.Int64)}
 		rev.Stage = storydomain.Stage(stage)
+		if note != "" {
+			rev.Annotation.Text, rev.Annotation.At = note, timeutil.FromMillis(noteAt.Int64)
+			rev.Annotation.By, _ = uuid.Parse(noteBy.String)
+		}
 		rev.CreatedAt = timeutil.FromMillis(created)
 		out = append(out, rev)
 	}

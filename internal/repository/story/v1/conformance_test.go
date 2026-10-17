@@ -93,6 +93,26 @@ func TestConformance(t *testing.T) {
 				t.Fatalf("missing revision = %v", err)
 			}
 
+			// A note stays when the revision is written again, and a blank
+			// one removes it.
+			note, _ := storydomain.NewAnnotation("Müzik onaylandı", id.New(), now)
+			if err := repo.Annotate(ctx, video.ID(), 1, note); err != nil {
+				t.Fatal(err)
+			}
+			_ = repo.PutRevision(ctx, rev)
+			if back, _ := repo.Revision(ctx, video.ID(), 1); back.Annotation != note || back.Artifacts["preview.mp4"] != "p" {
+				t.Fatalf("annotated revision = %+v, want note %+v", back, note)
+			}
+			if err := repo.Annotate(ctx, video.ID(), 1, storydomain.Annotation{}); err != nil {
+				t.Fatal(err)
+			}
+			if back, _ := repo.Revision(ctx, video.ID(), 1); !back.Annotation.IsZero() || back.Annotation.By != uuid.Nil {
+				t.Fatalf("cleared note = %+v", back.Annotation)
+			}
+			if err := repo.Annotate(ctx, video.ID(), 2, note); !apperror.Is(err, apperror.NotFound) {
+				t.Fatalf("annotating a missing revision = %v", err)
+			}
+
 			stale, _ := repo.Get(ctx, ws, s.ID())
 			if stale.Version() != 2 || stale.Lead().Status() != storydomain.StatusRendering || stale.Lead().Session() != "sess" {
 				t.Fatalf("saved = v%d %s", stale.Version(), stale.Lead().Status())

@@ -899,6 +899,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions/{number}/annotation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+                number: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Saves a person's note on a revision, replacing the one it had, at any status. Blank text removes the note. The note is for the team and never reaches the agent. */
+        put: operations["annotateRevision"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/approve": {
         parameters: {
             query?: never;
@@ -1683,8 +1705,21 @@ export interface components {
              */
             stage?: "script";
             measured?: components["schemas"]["Measures"];
+            annotation?: components["schemas"]["Annotation"];
             /** Format: date-time */
             createdAt: string;
+        };
+        /** @description A person's note on a revision; absent when it has none. */
+        Annotation: {
+            text: string;
+            /** Format: uuid */
+            by: string;
+            /** Format: date-time */
+            at: string;
+        };
+        AnnotationInput: {
+            /** @description The note; blank removes it. */
+            text: string;
         };
         VideoMetadataContent: {
             title: string;
@@ -4180,6 +4215,36 @@ export interface operations {
                     "application/json": {
                         revisions: components["schemas"]["Revision"][];
                     };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    annotateRevision: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnnotationInput"];
+            };
+        };
+        responses: {
+            /** @description The revision. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Revision"];
                 };
             };
             default: components["responses"]["Error"];

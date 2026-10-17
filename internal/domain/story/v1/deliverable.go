@@ -293,9 +293,43 @@ type Revision struct {
 	Stage Stage
 	// EditedBy is the person who edited this revision in place; Nil when
 	// the agent made it.
-	EditedBy  uuid.UUID
-	CreatedAt time.Time
+	EditedBy uuid.UUID
+	// Annotation is a person's note on the revision; zero when it has
+	// none.
+	Annotation Annotation
+	CreatedAt  time.Time
 }
+
+// MaxAnnotationRunes bounds a revision's note.
+const MaxAnnotationRunes = 4000
+
+// Annotation is the one note a person keeps on a revision, for the team:
+// what was decided, what to remember. It is not feedback and never
+// reaches the agent. Saving it again replaces it.
+type Annotation struct {
+	Text string
+	By   uuid.UUID
+	At   time.Time
+}
+
+// NewAnnotation is by's note at now. Blank text is the zero Annotation,
+// which removes the note.
+func NewAnnotation(text string, by uuid.UUID, now time.Time) (Annotation, error) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return Annotation{}, nil
+	}
+	if n := utf8.RuneCountInString(text); n > MaxAnnotationRunes {
+		return Annotation{}, apperror.New(apperror.ValidationFailed, fmt.Sprintf("a note holds at most %d characters, not %d", MaxAnnotationRunes, n))
+	}
+	if by == uuid.Nil {
+		return Annotation{}, apperror.New(apperror.ValidationFailed, "a note needs its author")
+	}
+	return Annotation{Text: text, By: by, At: timeutil.Normalize(now)}, nil
+}
+
+// IsZero reports whether there is no note.
+func (a Annotation) IsZero() bool { return a.Text == "" }
 
 // Stage is how much of a deliverable a revision holds.
 type Stage string

@@ -1515,6 +1515,35 @@ paths:
                     items: { $ref: "#/components/schemas/Revision" }
         default: { $ref: "#/components/responses/Error" }
 
+  /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions/{number}/annotation:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+      - $ref: "#/components/parameters/DeliverableId"
+      - name: number
+        in: path
+        required: true
+        schema: { type: integer, minimum: 1 }
+    put:
+      operationId: annotateRevision
+      tags: [stories]
+      description: >
+        Saves a person's note on a revision, replacing the one it had, at
+        any status. Blank text removes the note. The note is for the team
+        and never reaches the agent.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AnnotationInput" }
+      responses:
+        "200":
+          description: The revision.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Revision" }
+        default: { $ref: "#/components/responses/Error" }
+
   /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/approve:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"
@@ -2594,7 +2623,26 @@ components:
           enum: [script]
           description: script when the revision holds only a video's script (no narration audio or render yet); absent otherwise.
         measured: { $ref: "#/components/schemas/Measures" }
+        annotation: { $ref: "#/components/schemas/Annotation" }
         createdAt: { type: string, format: date-time }
+
+    Annotation:
+      type: object
+      description: A person's note on a revision; absent when it has none.
+      required: [text, by, at]
+      properties:
+        text: { type: string, maxLength: 4000 }
+        by: { type: string, format: uuid }
+        at: { type: string, format: date-time }
+
+    AnnotationInput:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          maxLength: 4000
+          description: The note; blank removes it.
 
     VideoMetadataContent:
       type: object

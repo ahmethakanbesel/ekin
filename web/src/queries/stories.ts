@@ -22,6 +22,7 @@ import {
   type FeedbackInput,
   type MomentInput,
   type MomentPatch,
+  type Revision,
   type Story,
 } from "@/api/client"
 import { keys } from "./keys"
@@ -350,6 +351,29 @@ export function useEditDeliverableContent(workspaceId: string, storyId: string, 
         void qc.invalidateQueries({ queryKey: keys.story(workspaceId, storyId), exact: true })
         void qc.invalidateQueries({ queryKey: keys.revisions(workspaceId, storyId, deliverableId) })
       }
+    },
+  })
+}
+
+/**
+ * Saves a person's note on one revision, replacing the one it had; blank
+ * text removes it. The revisions on screen take the answer at once.
+ */
+export function useAnnotateRevision(workspaceId: string, storyId: string, deliverableId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ number, text }: { number: number; text: string }) =>
+      call(
+        api.PUT(
+          "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions/{number}/annotation",
+          { params: { path: { workspaceId, storyId, deliverableId, number } }, body: { text } }
+        )
+      ),
+    onSuccess: (rev: Revision) => {
+      qc.setQueriesData<Revision[]>(
+        { queryKey: keys.revisions(workspaceId, storyId, deliverableId) },
+        (old) => old?.map((r) => (r.number === rev.number ? rev : r))
+      )
     },
   })
 }

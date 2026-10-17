@@ -553,3 +553,37 @@ func TestRenderCovers(t *testing.T) {
 		})
 	}
 }
+
+func TestNewAnnotation(t *testing.T) {
+	by := id.New()
+	at := time.Date(2026, 10, 17, 9, 30, 0, 123456789, time.FixedZone("TRT", 3*3600))
+	tests := []struct {
+		name, text string
+		by         uuid.UUID
+		want       story.Annotation
+		code       apperror.Code
+	}{
+		{name: "trimmed", text: "  Sesi Ali onayladı \n", by: by,
+			want: story.Annotation{Text: "Sesi Ali onayladı", By: by, At: time.Date(2026, 10, 17, 6, 30, 0, 123000000, time.UTC)}},
+		{name: "blank removes the note", text: " \n\t", by: by},
+		{name: "blank needs no author", text: ""},
+		{name: "at the limit", text: strings.Repeat("ş", story.MaxAnnotationRunes), by: by,
+			want: story.Annotation{Text: strings.Repeat("ş", story.MaxAnnotationRunes), By: by, At: time.Date(2026, 10, 17, 6, 30, 0, 123000000, time.UTC)}},
+		{name: "too long", text: strings.Repeat("ş", story.MaxAnnotationRunes+1), by: by, code: apperror.ValidationFailed},
+		{name: "no author", text: "not", code: apperror.ValidationFailed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := story.NewAnnotation(tt.text, tt.by, at)
+			if tt.code != "" {
+				if !apperror.Is(err, tt.code) {
+					t.Fatalf("NewAnnotation() error = %v, want %s", err, tt.code)
+				}
+				return
+			}
+			if err != nil || got != tt.want {
+				t.Fatalf("NewAnnotation() = %+v, %v, want %+v", got, err, tt.want)
+			}
+		})
+	}
+}

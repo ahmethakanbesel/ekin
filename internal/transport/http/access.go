@@ -80,6 +80,7 @@ var workspaceActions = map[string]identitydomain.Action{
 	"ListStories":            identitydomain.ActionView,
 	"GetStory":               identitydomain.ActionView,
 	"ListRevisions":          identitydomain.ActionView,
+	"AnnotateRevision":       identitydomain.ActionEdit,
 	"CreateStories":          identitydomain.ActionEdit,
 	"DeleteStory":            identitydomain.ActionEdit,
 	"ApproveDeliverable":     identitydomain.ActionEdit,

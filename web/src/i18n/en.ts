@@ -1009,6 +1009,18 @@ export const en = {
     addressedIn: (n: number) => `Addressed in r${n}`,
     from: (name: string) => `From ${name}`,
   },
+  annotation: {
+    label: "Team note",
+    hint: "For the team. The agent never reads it.",
+    add: "Add a team note",
+    edit: "Edit the team note",
+    by: (name: string | undefined, when: string) => (name ? `${name} · ${when}` : when),
+    placeholder: "What was decided, what to remember…",
+    save: "Save note",
+    cancel: "Cancel",
+    remove: "Remove note",
+    count: (n: number, max: number) => `${n} / ${max}`,
+  },
   panel: {
     revision: "Revision",
     latest: (label: string) => `${label} · latest`,

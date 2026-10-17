@@ -61,6 +61,9 @@ type Repository interface {
 	Revisions(ctx context.Context, deliverableID uuid.UUID) ([]storydomain.Revision, error)
 	// Revision returns NotFound when it does not exist.
 	Revision(ctx context.Context, deliverableID uuid.UUID, number int) (storydomain.Revision, error)
+	// Annotate replaces a revision's note (PutRevision leaves it as it
+	// is); NotFound when the revision does not exist.
+	Annotate(ctx context.Context, deliverableID uuid.UUID, number int, a storydomain.Annotation) error
 
 	// Similar returns the workspace's stories whose title or angle share
 	// trigrams with text, best first.

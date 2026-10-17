@@ -496,6 +496,27 @@ func (s *Service) Revisions(ctx context.Context, workspaceID, storyID, deliverab
 	return s.stories.Revisions(ctx, deliverableID)
 }
 
+// Annotate saves by's note on a revision of a deliverable, replacing the
+// one it had; blank text removes it. Any revision may carry a note,
+// whatever the deliverable's status.
+func (s *Service) Annotate(ctx context.Context, workspaceID, storyID, deliverableID uuid.UUID, number int, by uuid.UUID, text string) (storydomain.Revision, error) {
+	note, err := storydomain.NewAnnotation(text, by, s.now())
+	if err != nil {
+		return storydomain.Revision{}, err
+	}
+	st, err := s.stories.Get(ctx, workspaceID, storyID)
+	if err != nil {
+		return storydomain.Revision{}, err
+	}
+	if _, err := st.Deliverable(deliverableID); err != nil {
+		return storydomain.Revision{}, err
+	}
+	if err := s.stories.Annotate(ctx, deliverableID, number, note); err != nil {
+		return storydomain.Revision{}, err
+	}
+	return s.stories.Revision(ctx, deliverableID, number)
+}
+
 // Delete removes a story, its artifacts and working directories. The
 // check that no step is working on it and the deletion are one
 // transaction, so a worker cannot start a step in between.

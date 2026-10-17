@@ -145,6 +145,19 @@ func (r *InMemory) PutRevision(_ context.Context, rev storydomain.Revision) erro
 	return nil
 }
 
+func (r *InMemory) Annotate(_ context.Context, deliverableID uuid.UUID, number int, a storydomain.Annotation) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	k := revKey{deliverableID, number}
+	rev, ok := r.revisions[k]
+	if !ok {
+		return apperror.New(apperror.NotFound, "revision not found")
+	}
+	rev.Annotation = a
+	r.revisions[k] = rev
+	return nil
+}
+
 func (r *InMemory) Revisions(_ context.Context, deliverableID uuid.UUID) ([]storydomain.Revision, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
