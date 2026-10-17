@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	seodomain "kurgu/internal/domain/seo/v1"
 	"kurgu/internal/apperror"
+	seodomain "kurgu/internal/domain/seo/v1"
 	"kurgu/internal/gen"
 	seosvc "kurgu/internal/service/seo/v1"
 	jobhandler "kurgu/internal/transport/http/job/v1"
