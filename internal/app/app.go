@@ -230,7 +230,7 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, hostProfile
 	}
 	pc := productionsvc.Config{
 		WorkRoot: p.WorkDir, KurguBin: bin, ToolEnv: toolEnv, AgentTimeout: p.AgentTimeout,
-		PreviewScale: p.PreviewScale, FinalScale: p.FinalScale,
+		PreviewScale: p.PreviewScale, FinalScale: p.FinalScale, Shorts: cfg.Shorts,
 	}
 	pc.ExtraEnv = func(context.Context) []string {
 		return []string{"KURGU_PEXELS_API_KEY=" + p.PexelsKey, "KURGU_ELEVENLABS_API_KEY=" + p.ElevenLabsKey}

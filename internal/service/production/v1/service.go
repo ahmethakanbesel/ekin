@@ -149,6 +149,9 @@ type Config struct {
 	// ExtraEnv adds settings read per call (e.g. the Pexels key from the
 	// settings page) to the tools' environment.
 	ExtraEnv func(ctx context.Context) []string
+	// Shorts bound cutting shorts from long videos; the zero value
+	// allows none.
+	Shorts storydomain.ShortsLimits
 }
 
 // Service runs production use cases.

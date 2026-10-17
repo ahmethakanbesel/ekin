@@ -251,7 +251,9 @@ func newFixture(t *testing.T) fixture {
 		if adjust != nil {
 			adjust(&deps)
 		}
-		svc := production.NewService(production.Config{WorkRoot: t.TempDir(), KurguBin: "/usr/local/bin/kurgu"}, deps)
+		svc := production.NewService(production.Config{
+			WorkRoot: t.TempDir(), KurguBin: "/usr/local/bin/kurgu", Shorts: storydomain.DefaultShortsLimits(),
+		}, deps)
 		svc.AddPublisher(fakePublisher{pipelinedomain.KindVideo}).AddPublisher(fakePublisher{pipelinedomain.KindArticle})
 		return svc
 	}
