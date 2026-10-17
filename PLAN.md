@@ -167,4 +167,5 @@ noted.
    and ranks keywords in Go (`seo.Pick`); the agent plus Claude Code plugin remains the
    fallback without a key. Not run against the live service (uses credits).
 9. Long-form — 16:9 compositions with scenes and YouTube chapters (enforced by the
-   check), chunked rendering; not yet produced end to end.
+   check), chunked rendering; ✅ a 2-minute video produced end to end (draft, review,
+   1080p final) and cut into shorts; longer, chaptered videos not yet.

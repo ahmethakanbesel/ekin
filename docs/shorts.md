@@ -141,13 +141,17 @@ The moments listing carries the shorts limits, so the UI can bound its inputs.
 Each phase ships on its own with tests (domain table tests, repository conformance,
 service with inmemory repos and a fixed clock, `httptest` through the router).
 
-0. **A real long video.** Long-form is not yet produced end to end (PLAN §8.9); phase 2
-   needs at least one approved long video to try against.
+0. ✅ **A real long video.** Verified end to end on the Mac (2026-10-17) with the real
+   agent, okur narration and renderer: a 2-minute Turkish long video asking for 2 shorts
+   (`KURGU_SHORTS_SOURCE_MIN=90s` for the run) was approved, rendered at 1080p and, with
+   no publisher, went ready; the scan picked 0:00–0:21 and 1:11–1:52; both shorts drafted
+   in clip mode and reached review, each speaking the long video's audio sample for
+   sample, as new 9:16 compositions with a hook card and karaoke captions.
 1. ✅ **Domain and limits** — `ShortsLimits` from env, `Clip`, `Moment`, the rules above,
    migration 00027, repository conformance, moments service.
 2. ✅ **Clip-mode drafting** — slicing in `prepare`, `prompts/clip.md`, `kurgu tool clip`,
    enforcement, and the moments and shorts endpoints with manual ranges. Usable end to
-   end from here through the API (not yet run against a real long video).
+   end from here through the API.
 3. ✅ **Scan and moments panel** — the `story.moments` job (control queue: one typed
    agent call, like idea planning, so remote workers need nothing new; the agent
    answers by sentence number, so moments always fall on sentences), the scan
