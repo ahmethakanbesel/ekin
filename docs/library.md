@@ -87,8 +87,9 @@ the deliverable is decided, only what its latest revision uses is kept.
 
 1. **On every finished draft.** When a video revision is finished and the workspace
    collects at least one kind, `FinishDraft` enqueues `library.harvest` (io queue, unique
-   key per revision) in the transaction that saves the revision.
-2. The job restores the revision's work dir (`ensureWorkDir`) and reads
+   key per revision) in the transaction that saves the revision. Script-only revisions
+   and shorts are skipped: a short's media is its long video's.
+2. The job unpacks the revision's archived work dir and reads
    `assets/credits.json`. Only files that `composition.html` actually references are
    taken; downloaded-but-unused clips are skipped.
 3. Per kind that is switched on, new items are saved **provisional**, with `harvested
@@ -103,8 +104,8 @@ the deliverable is decided, only what its latest revision uses is kept.
      score's sha256 already exists. A score that started from a library item and was
      edited becomes a new asset with `derived from`.
 4. Items from the library itself are not harvested again; their use is a Usage row.
-5. **On the decision.** Approving or rejecting the deliverable enqueues
-   `library.settle` (unique key per deliverable) in the transaction that saves the
+5. **On the decision.** Approving the video (not a script) or rejecting it enqueues
+   `library.harvest` with `settle` (its own unique key) in the transaction that saves the
    decision. It first harvests the decided revision (idempotent, so it does not matter
    whether that revision's harvest already ran), then settles every provisional item
    harvested from the deliverable's revisions:
@@ -242,7 +243,9 @@ Each phase ships on its own with tests (domain table tests, repository conforman
 service with inmemory repos and a fixed clock, `httptest` through the router, the
 agent tool against a fake blob store and a fake worker API).
 
-Built: phases 1 and 2. Only the server's own worker can fetch library files until
+Built: phases 1–3. A composed score keeps a 30 s Opus `preview` rendered from it, for
+listening in the library; saving switches sit in workspace Settings. Only the server's
+own worker can fetch library files until
 phase 4; on a remote worker `kurgu tool library use` says the library is not reachable.
 
 1. ✅ **Library context and uploads** — Asset aggregate, migration (`library_assets`,
@@ -252,7 +255,7 @@ phase 4; on a remote worker `kurgu tool library use` says the library is not rea
    `prepare`; `kurgu tool library` (local blob store); `music.json` + `MusicTrack`;
    Usage rows; prompts; enforcement in tools and `validate`; Media section in the
    pipeline and ad-hoc forms.
-3. **Harvest** — collect settings and UI, richer `credits.json` (with `originalUrl`),
+3. ✅ **Harvest** — collect settings and UI, richer `credits.json` (with `originalUrl`),
    `music.meta.json`, `library.harvest` on finished drafts, `library.settle` on the
    decision, Save to library in the review panel.
 4. **Remote workers** — worker API route for library files and the tool's remote fetch

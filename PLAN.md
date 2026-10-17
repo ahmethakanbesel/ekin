@@ -35,7 +35,9 @@ Update this file whenever a decision below changes.
 - **Media library**: music, stock videos and photos kept per workspace for reuse
   (docs/library.md). Uploaded files are processed with ffmpeg; each pipeline or request
   picks, per kind, whether drafts compose and search fresh, use the library only, or
-  look there first. Usage is counted, never limited.
+  look there first. Usage is counted, never limited. Optionally (per kind, off by default)
+  drafts' Pexels stock and composed scores are saved as they finish; once the video is
+  decided only what its last revision used is kept.
 - **Thumbnails**: a long video gets 1–4 designed thumbnail variants (3 by default) drawn
   on a page of their own; the reviewer picks one, rewords them in place or sends notes
   on them alone, none of which renders the video again (docs/thumbnails.md). Shorts
