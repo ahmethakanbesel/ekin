@@ -24,6 +24,10 @@ export const en = {
     actions: "Actions",
     back: "Back",
     close: "Close",
+    loadMore: "Load more",
+    loadingMore: "Loading more…",
+    noMatch: (q: string) => `Nothing matches “${q}”`,
+    noMatchBody: "Check the spelling, or search for fewer words.",
   },
   errors: {
     unknown: "Something went wrong.",
@@ -616,7 +620,8 @@ export const en = {
       rejected: "Rejected",
       failed: "Failed",
     } as Record<string, string>,
-    showing: (n: number) => `Showing the latest ${n}`,
+    search: "Search stories",
+    searchPlaceholder: "Search titles…",
     planning: (n: number) =>
       n === 1 ? "The agent is planning 1 request…" : `The agent is planning ${n} requests…`,
     planningBody: "New stories appear here when it is done.",
@@ -1084,6 +1089,8 @@ export const en = {
     emptyBody:
       "Upload books, papers or notes. Their text is extracted page by page, so pipelines can reference exact page ranges.",
     emptyBodyReadOnly: "Editors upload documents here; knowledge pipelines then reference their pages.",
+    search: "Search documents",
+    searchPlaceholder: "Search titles…",
     readOnlyHint: "You have view access, so documents cannot be uploaded, renamed or deleted.",
     columns: {
       title: "Title",
@@ -1207,7 +1214,6 @@ export const en = {
     cancelConfirm: "Cancel job",
     keep: "Keep",
     cancelled: "Job cancelled",
-    showing: (n: number) => `Showing the latest ${n} requests`,
     request: {
       steps: (n: number) => (n === 1 ? "1 step" : `${n} steps`),
       more: (n: number) => `+${n} more`,
@@ -1337,6 +1343,8 @@ export const en = {
     openseoCredentials: "Open System → Credentials",
     openseoErrorHint: "Check the API key and endpoint in System → Credentials.",
     opportunitiesTitle: "Opportunities",
+    search: "Search keywords",
+    searchPlaceholder: "Search keywords…",
     readOnlyHint: "You have view access, so keywords cannot be imported, dismissed or reopened.",
     tabs: { open: "Open", used: "Used", dismissed: "Dismissed", all: "All" },
     columns: {

@@ -17,7 +17,7 @@ import {
 } from "@/features/knowledge/tokens"
 import { m } from "@/i18n"
 import { withFieldGroup } from "@/lib/form"
-import { documentsQuery } from "@/queries/documents"
+import { allDocumentsQuery } from "@/queries/documents"
 import { NumberInput, Row, shownError } from "./form-parts"
 import { LIMITS, emptyRef, toInt, type RefValues } from "./model"
 
@@ -47,7 +47,7 @@ export const RefsFields = withFieldGroup({
     submitted,
     idPrefix,
   }) {
-    const documents = useQuery(documentsQuery(workspaceId))
+    const documents = useQuery(allDocumentsQuery(workspaceId))
     const refs = useStore(group.store, (s) => s.values.refs)
     // The range error sits on fromPage but concerns both pages, so it is
     // shown once either page was touched.

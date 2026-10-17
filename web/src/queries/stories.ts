@@ -1,8 +1,10 @@
 import {
   MutationObserver,
+  infiniteQueryOptions,
   queryOptions,
   useMutation,
   useQueryClient,
+  type InfiniteData,
   type QueryClient,
 } from "@tanstack/react-query"
 
@@ -21,8 +23,16 @@ import {
   type Story,
 } from "@/api/client"
 import { keys } from "./keys"
+import { cursorPaging, keepWhileSearching, pageRows, type Cursor } from "./paging"
 
-export const STORY_LIST_LIMIT = 200
+/** Stories per page of a list: whole rows of the two- and four-column grid. */
+export const STORY_PAGE_SIZE = 48
+
+/**
+ * How many stories a window holds (see storyWindowQuery): enough for any
+ * real review queue, small enough to poll.
+ */
+export const STORY_WINDOW = 200
 
 /** Statuses in which the system (not a person) moves a deliverable on. */
 export const WORKING: readonly DeliverableStatus[] = [
@@ -41,26 +51,77 @@ export const storyWorking = (s: Story) => s.deliverables.some(isWorking)
 const POLL_LIST_MS = 5_000
 const POLL_STORY_MS = 3_000
 
-export const storiesQuery = (workspaceId: string, status: DeliverableStatus[]) =>
+type StoryPage = { stories: Story[]; nextCursor?: string }
+type StoryPages = InfiniteData<StoryPage, Cursor>
+
+const storyRows = (data: StoryPages) => pageRows(data.pages, (p) => p.stories)
+
+export type StoryFilter = { status: DeliverableStatus[]; q?: string }
+
+/**
+ * A list page's stories, newest first, a page at a time (`fetchNextPage`
+ * follows the cursor). The data is the loaded stories, flattened.
+ */
+export const storiesQuery = (workspaceId: string, { status, q = "" }: StoryFilter) => {
+  const queryKey = keys.storyList(workspaceId, { status, q, limit: STORY_PAGE_SIZE })
+  return infiniteQueryOptions({
+    queryKey,
+    queryFn: ({ pageParam, signal }) =>
+      call(
+        api.GET("/workspaces/{workspaceId}/stories", {
+          params: {
+            path: { workspaceId },
+            query: {
+              status: status.length > 0 ? status : undefined,
+              q: q || undefined,
+              limit: STORY_PAGE_SIZE,
+              cursor: pageParam,
+            },
+          },
+          signal,
+        })
+      ),
+    ...cursorPaging,
+    select: storyRows,
+    placeholderData: keepWhileSearching<StoryPages>(queryKey),
+    refetchInterval: (query) =>
+      query.state.data?.pages.some((p) => p.stories.some(storyWorking)) ? POLL_LIST_MS : false,
+  })
+}
+
+/** The newest stories with some statuses; `more` when there are older ones. */
+export type StoryWindow = { stories: Story[]; more: boolean }
+
+/**
+ * The newest STORY_WINDOW stories with these statuses, in one request:
+ * what counts, the review queue and names read, rather than a list a
+ * person pages through. `more` means the window is cut off, so a count
+ * taken from it is a floor ("200+").
+ */
+export const storyWindowQuery = (workspaceId: string, status: DeliverableStatus[]) =>
   queryOptions({
-    queryKey: keys.storyList(workspaceId, { status, limit: STORY_LIST_LIMIT }),
-    queryFn: async ({ signal }) => {
+    queryKey: keys.storyWindow(workspaceId, status),
+    queryFn: async ({ signal }): Promise<StoryWindow> => {
       const res = await call(
         api.GET("/workspaces/{workspaceId}/stories", {
           params: {
             path: { workspaceId },
             query: {
               status: status.length > 0 ? status : undefined,
-              limit: STORY_LIST_LIMIT,
+              limit: STORY_WINDOW,
             },
           },
           signal,
         })
       )
-      return res.stories
+      return { stories: res.stories, more: res.nextCursor !== undefined }
     },
-    refetchInterval: (q) => (q.state.data?.some(storyWorking) ? POLL_LIST_MS : false),
+    refetchInterval: (q) => (q.state.data?.stories.some(storyWorking) ? POLL_LIST_MS : false),
   })
+
+/** "12", or "200+" for a window cut off at its limit. */
+export const windowCount = (w: StoryWindow, n = w.stories.length) =>
+  w.more ? `${n}+` : String(n)
 
 export const storyQuery = (workspaceId: string, storyId: string) =>
   queryOptions({
@@ -304,8 +365,12 @@ export function useDeleteStory(workspaceId: string) {
       return storyId
     },
     onSuccess: (storyId) => {
-      qc.setQueriesData<Story[]>({ queryKey: keys.storyLists(workspaceId) }, (old) =>
-        old?.filter((s) => s.id !== storyId)
+      const keep = (s: Story) => s.id !== storyId
+      qc.setQueriesData<StoryPages>({ queryKey: keys.storiesPaged(workspaceId) }, (old) =>
+        old && { ...old, pages: old.pages.map((p) => ({ ...p, stories: p.stories.filter(keep) })) }
+      )
+      qc.setQueriesData<StoryWindow>({ queryKey: keys.storyWindows(workspaceId) }, (old) =>
+        old && { ...old, stories: old.stories.filter(keep) }
       )
       void qc.invalidateQueries({ queryKey: keys.storyLists(workspaceId) })
     },

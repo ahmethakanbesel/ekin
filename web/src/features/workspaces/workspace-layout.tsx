@@ -47,7 +47,7 @@ import { TAB_STATUSES } from "@/features/stories/model"
 import { TemplateDraftWatcher } from "@/features/templates/draft-watch"
 import { m } from "@/i18n"
 import { cn } from "@/lib/utils"
-import { STORY_LIST_LIMIT, storiesQuery } from "@/queries/stories"
+import { storyWindowQuery, windowCount } from "@/queries/stories"
 import { workspaceQuery } from "@/queries/workspaces"
 import { WorkspaceContext } from "./context"
 import { WorkspaceSwitcher } from "./workspace-switcher"
@@ -103,14 +103,14 @@ function useSidebarOpen(onStory: boolean) {
 export function WorkspaceLayout() {
   const { workspaceId } = useParams({ from: "/w/$workspaceId" })
   const ws = useQuery(workspaceQuery(workspaceId))
-  // Shares its cache with the "Needs review" tab.
+  // The review queue in one request (shared with the "Needs review" count
+  // and the story page), so the badge is exact up to its window ("200+").
   const review = useQuery({
-    ...storiesQuery(workspaceId, TAB_STATUSES.review),
+    ...storyWindowQuery(workspaceId, TAB_STATUSES.review),
     enabled: ws.isSuccess,
     refetchInterval: REVIEW_COUNT_MS,
     refetchIntervalInBackground: true,
   })
-  const reviewCount = review.data?.length ?? 0
   const onStory = useMatches({
     select: (ms) => ms.some((r) => r.routeId === STORY_ROUTE),
   })
@@ -154,12 +154,8 @@ export function WorkspaceLayout() {
   }
 
   const workspace = ws.data
-  const badge =
-    reviewCount > 0
-      ? reviewCount >= STORY_LIST_LIMIT
-        ? `${STORY_LIST_LIMIT}+`
-        : String(reviewCount)
-      : null
+  const reviewCount = review.data?.stories.length ?? 0
+  const badge = review.data && reviewCount > 0 ? windowCount(review.data) : null
   const params = { workspaceId }
 
   return (

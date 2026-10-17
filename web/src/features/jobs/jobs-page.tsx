@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import {
   BanIcon,
@@ -20,6 +20,7 @@ import type { Document, Job, JobStatus, Pipeline, Story } from "@/api/client"
 import {
   EmptyState,
   ErrorState,
+  LoadMore,
   PageHeader,
   TableSkeleton,
 } from "@/components/page"
@@ -64,10 +65,10 @@ import {
 } from "@/lib/tones"
 import { useRetained } from "@/lib/use-retained"
 import { cn } from "@/lib/utils"
-import { documentsQuery } from "@/queries/documents"
-import { JOB_LIST_LIMIT, jobsQuery, useCancelJob } from "@/queries/jobs"
+import { allDocumentsQuery } from "@/queries/documents"
+import { jobsQuery, useCancelJob } from "@/queries/jobs"
 import { pipelinesQuery } from "@/queries/pipelines"
-import { storiesQuery } from "@/queries/stories"
+import { storyWindowQuery } from "@/queries/stories"
 import {
   PHASES,
   groupRequests,
@@ -81,6 +82,7 @@ import {
 import { QueueBadge, QueueDot } from "./queue"
 import {
   JOB_STATUSES,
+  QUEUE_KINDS,
   parseQueueFilter,
   parseStatusFilter,
   serializeStatusFilter,
@@ -152,14 +154,20 @@ export function JobsPage() {
   const navigate = useNavigate({ from: "/w/$workspaceId/jobs" })
   const status = parseStatusFilter(search.status)
   const queue = parseQueueFilter(search.queue)
-  const jobs = useQuery({
-    ...jobsQuery(workspace.id, status),
+  // Polling refetches every page loaded so far.
+  const jobs = useInfiniteQuery({
+    ...jobsQuery(workspace.id, {
+      status,
+      kind: queue ? QUEUE_KINDS[queue] : [],
+    }),
     refetchInterval: 5_000,
     refetchIntervalInBackground: false,
   })
-  const stories = useQuery(storiesQuery(workspace.id, []))
+  // Names for the requests: the newest stories (a request for an older
+  // one falls back to its phase) and every document.
+  const stories = useQuery(storyWindowQuery(workspace.id, []))
   const pipelines = useQuery(pipelinesQuery(workspace.id))
-  const documents = useQuery(documentsQuery(workspace.id))
+  const documents = useQuery(allDocumentsQuery(workspace.id))
   const now = useNow(5_000)
   const [cancelling, setCancelling] = useState<Job | null>(null)
   const throttle = useThrottle() // admins only
@@ -168,20 +176,18 @@ export function JobsPage() {
 
   const lookup = useMemo<Lookup>(
     () => ({
-      stories: new Map((stories.data ?? []).map((s) => [s.id, s])),
+      stories: new Map((stories.data?.stories ?? []).map((s) => [s.id, s])),
       pipelines: new Map((pipelines.data ?? []).map((p) => [p.id, p])),
       documents: new Map((documents.data ?? []).map((d) => [d.id, d])),
     }),
     [stories.data, pipelines.data, documents.data]
   )
-  // Grouped from every job, so a request keeps all its steps; the queue
-  // filter then keeps the requests that touched that queue.
-  const requests = useMemo(() => {
-    const all = groupRequests(jobs.data ?? [], now)
-    return queue
-      ? all.filter((r) => r.steps.some((s) => s.job.queue === queue))
-      : all
-  }, [jobs.data, now, queue])
+  // Grouped from every job, so a request keeps all its steps. The server
+  // filters: by status, and by queue through the kinds it runs.
+  const requests = useMemo(
+    () => groupRequests(jobs.data ?? [], now),
+    [jobs.data, now]
+  )
   const isOpen = (r: Request) => folds[r.id] ?? r.active
   const anyOpen = requests.some(isOpen)
 
@@ -208,7 +214,7 @@ export function JobsPage() {
 
   let body
   if (jobs.isPending) body = <TableSkeleton rows={6} />
-  else if (jobs.isError)
+  else if (jobs.isLoadingError)
     body = <ErrorState error={jobs.error} onRetry={() => void jobs.refetch()} />
   else if (requests.length === 0)
     body = (
@@ -239,11 +245,7 @@ export function JobsPage() {
             />
           ))}
         </div>
-        {requests.length >= JOB_LIST_LIMIT ? (
-          <p className="mt-3 text-xs text-muted-foreground">
-            {m.jobs.showing(JOB_LIST_LIMIT)}
-          </p>
-        ) : null}
+        <LoadMore query={jobs} />
       </>
     )
 

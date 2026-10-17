@@ -36,7 +36,7 @@ import { useMediaQuery } from "@/hooks/use-media-query"
 import { m } from "@/i18n"
 import { cn } from "@/lib/utils"
 import { pipelinesQuery } from "@/queries/pipelines"
-import { storiesQuery, storyQuery } from "@/queries/stories"
+import { storyQuery, storyWindowQuery } from "@/queries/stories"
 import { ActionRail } from "./action-rail"
 import { BackToStories } from "./back-link"
 import { DiscardChangesDialog } from "./discard-dialog"
@@ -94,11 +94,11 @@ export function StoryPage() {
   const workspace = useWorkspace()
   const { storyId } = useParams({ from: ROUTE })
   // The drafts waiting for review (shared with the inbox and its count).
-  const review = useQuery(storiesQuery(workspace.id, TAB_STATUSES.review))
+  const review = useQuery(storyWindowQuery(workspace.id, TAB_STATUSES.review))
   const query = useQuery({
     ...storyQuery(workspace.id, storyId),
     // Moving through the feed shows the listed story while it loads.
-    placeholderData: () => review.data?.find((s) => s.id === storyId),
+    placeholderData: () => review.data?.stories.find((s) => s.id === storyId),
   })
 
   if (query.isPending) {
@@ -136,7 +136,7 @@ export function StoryPage() {
       </div>
     )
   }
-  return <StoryView story={query.data} reviewList={review.data} />
+  return <StoryView story={query.data} reviewList={review.data?.stories} />
 }
 
 /** The deliverable to open first: one waiting for review, else the first. */

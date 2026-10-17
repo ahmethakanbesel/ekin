@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useInfiniteQuery } from "@tanstack/react-query"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import {
   ArrowUpRightIcon,
@@ -15,10 +15,12 @@ import type { Opportunity } from "@/api/client"
 import {
   EmptyState,
   ErrorState,
+  LoadMore,
   PageHeader,
   ReadOnlyNote,
   TableSkeleton,
 } from "@/components/page"
+import { SearchField } from "@/components/search-field"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -52,7 +54,10 @@ export function SeoPage() {
   const search = useSearch({ from: ROUTE })
   const navigate = useNavigate({ from: ROUTE })
   const tab: OpportunityTab = search.status ?? "open"
-  const list = useQuery(opportunitiesQuery(workspace.id, tab))
+  const q = search.q ?? ""
+  const list = useInfiniteQuery(
+    opportunitiesQuery(workspace.id, { status: tab, q })
+  )
   const now = useNow()
   const [importing, setImporting] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -68,8 +73,16 @@ export function SeoPage() {
 
   let body
   if (list.isPending) body = <TableSkeleton rows={5} />
-  else if (list.isError)
+  else if (list.isLoadingError)
     body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />
+  else if (list.data.length === 0 && q)
+    body = (
+      <EmptyState
+        icon={<SearchIcon />}
+        title={m.common.noMatch(q)}
+        body={m.common.noMatchBody}
+      />
+    )
   else if (list.data.length === 0) {
     const empty = m.seo.empty[tab]
     body = (
@@ -82,44 +95,53 @@ export function SeoPage() {
     )
   } else
     body = (
-      <div className="rounded-xl border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="pl-4">{m.seo.columns.keyword}</TableHead>
-              {tab === "all" ? (
-                <TableHead>{m.seo.columns.status}</TableHead>
-              ) : null}
-              <TableHead className="text-right" title={m.seo.volumeHint}>
-                {m.seo.columns.volume}
-              </TableHead>
-              <TableHead className="text-right" title={m.seo.difficultyHint}>
-                {m.seo.columns.difficulty}
-              </TableHead>
-              <TableHead>{m.seo.columns.intent}</TableHead>
-              <TableHead className="text-right" title={m.seo.scoreHint}>
-                {m.seo.columns.score}
-              </TableHead>
-              <TableHead>{m.seo.columns.source}</TableHead>
-              <TableHead>{m.seo.columns.added}</TableHead>
-              <TableHead className="w-12 pr-4">
-                <span className="sr-only">{m.common.actions}</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {list.data.map((o) => (
-              <OpportunityRow
-                key={o.id}
-                opportunity={o}
-                showStatus={tab === "all"}
-                canEdit={canEdit}
-                now={now}
-              />
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <>
+        <div
+          aria-busy={list.isPlaceholderData || undefined}
+          className={cn(
+            "rounded-xl border transition-opacity",
+            list.isPlaceholderData && "opacity-60"
+          )}
+        >
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pl-4">{m.seo.columns.keyword}</TableHead>
+                {tab === "all" ? (
+                  <TableHead>{m.seo.columns.status}</TableHead>
+                ) : null}
+                <TableHead className="text-right" title={m.seo.volumeHint}>
+                  {m.seo.columns.volume}
+                </TableHead>
+                <TableHead className="text-right" title={m.seo.difficultyHint}>
+                  {m.seo.columns.difficulty}
+                </TableHead>
+                <TableHead>{m.seo.columns.intent}</TableHead>
+                <TableHead className="text-right" title={m.seo.scoreHint}>
+                  {m.seo.columns.score}
+                </TableHead>
+                <TableHead>{m.seo.columns.source}</TableHead>
+                <TableHead>{m.seo.columns.added}</TableHead>
+                <TableHead className="w-12 pr-4">
+                  <span className="sr-only">{m.common.actions}</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list.data.map((o) => (
+                <OpportunityRow
+                  key={o.id}
+                  opportunity={o}
+                  showStatus={tab === "all"}
+                  canEdit={canEdit}
+                  now={now}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <LoadMore query={list} />
+      </>
     )
 
   return (
@@ -147,29 +169,45 @@ export function SeoPage() {
             ) : null}
           </div>
           {canEdit ? null : <ReadOnlyNote>{m.seo.readOnlyHint}</ReadOnlyNote>}
-          <Tabs
-            value={tab}
-            onValueChange={(next) =>
-              void navigate({
-                search:
-                  next === "open"
-                    ? {}
-                    : { status: next as Exclude<OpportunityTab, "open"> },
-                replace: true,
-              })
-            }
-            className="mb-4"
-          >
-            <div className="-mx-1 overflow-x-auto px-1 pb-1">
-              <TabsList aria-label={m.seo.opportunitiesTitle}>
-                {OPPORTUNITY_TABS.map((t) => (
-                  <TabsTrigger key={t} value={t} className="flex-none">
-                    {m.seo.tabs[t]}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </div>
-          </Tabs>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+            <Tabs
+              value={tab}
+              onValueChange={(next) =>
+                void navigate({
+                  search: (prev) => ({
+                    q: prev.q,
+                    status:
+                      next === "open"
+                        ? undefined
+                        : (next as Exclude<OpportunityTab, "open">),
+                  }),
+                  replace: true,
+                })
+              }
+              className="max-w-full min-w-0"
+            >
+              <div className="-mx-1 overflow-x-auto px-1 pb-1">
+                <TabsList aria-label={m.seo.opportunitiesTitle}>
+                  {OPPORTUNITY_TABS.map((t) => (
+                    <TabsTrigger key={t} value={t} className="flex-none">
+                      {m.seo.tabs[t]}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
+            </Tabs>
+            <SearchField
+              value={q}
+              onChange={(next) =>
+                void navigate({
+                  search: (prev) => ({ ...prev, q: next || undefined }),
+                  replace: true,
+                })
+              }
+              label={m.seo.search}
+              placeholder={m.seo.searchPlaceholder}
+            />
+          </div>
           {body}
         </section>
         <aside className="grid gap-6">

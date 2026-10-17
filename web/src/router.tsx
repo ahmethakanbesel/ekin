@@ -21,7 +21,7 @@ import { safeNext, validateLoginSearch } from "@/features/auth/search"
 import { JobsPage } from "@/features/jobs/jobs-page"
 import { DocumentPage } from "@/features/knowledge/document-page"
 import { KnowledgePage } from "@/features/knowledge/knowledge-page"
-import { validateDocumentSearch } from "@/features/knowledge/search"
+import { validateDocumentSearch, validateKnowledgeSearch } from "@/features/knowledge/search"
 import { validateJobsSearch } from "@/features/jobs/search"
 import { MembersPage } from "@/features/members/members-page"
 import { PipelinesPage } from "@/features/pipelines/list-page"
@@ -186,6 +186,7 @@ const editPipelineRoute = createRoute({
 const knowledgeRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "/knowledge",
+  validateSearch: validateKnowledgeSearch,
   component: KnowledgePage,
 })
 

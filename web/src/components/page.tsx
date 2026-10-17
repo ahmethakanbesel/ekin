@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { AlertCircleIcon, LockIcon } from "lucide-react"
+import { AlertCircleIcon, Loader2Icon, LockIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -162,5 +162,51 @@ export function ReadOnlyNote({
       <LockIcon className="size-4 shrink-0" />
       {children}
     </p>
+  )
+}
+
+/**
+ * The foot of a paged list: loads the next page, says so while it does,
+ * and is gone once the last page is in (or while a new search loads).
+ */
+export function LoadMore({
+  query,
+  size,
+  className,
+}: {
+  query: {
+    hasNextPage: boolean
+    isFetchingNextPage: boolean
+    /** Rows kept from the previous search while this one loads. */
+    isPlaceholderData: boolean
+    isFetchNextPageError: boolean
+    error: unknown
+    fetchNextPage: () => Promise<unknown>
+  }
+  size?: "sm" | "default"
+  className?: string
+}) {
+  if (!query.hasNextPage || query.isPlaceholderData) return null
+  const busy = query.isFetchingNextPage
+  return (
+    <div className={cn("flex flex-col items-center gap-2 pt-6", className)}>
+      <Button
+        variant="outline"
+        size={size}
+        disabled={busy}
+        aria-busy={busy || undefined}
+        onClick={() => void query.fetchNextPage()}
+      >
+        {busy ? (
+          <Loader2Icon data-icon="inline-start" className="animate-spin" />
+        ) : null}
+        {busy ? m.common.loadingMore : m.common.loadMore}
+      </Button>
+      {query.isFetchNextPageError && !busy ? (
+        <p role="alert" className="text-xs text-destructive">
+          {errorMessage(query.error)}
+        </p>
+      ) : null}
+    </div>
   )
 }

@@ -1,16 +1,24 @@
 import { useRef, useState, type DragEvent } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
-import { AlertCircleIcon, LibraryIcon, UploadIcon, XIcon } from "lucide-react"
+import { useInfiniteQuery } from "@tanstack/react-query"
+import { Link, useNavigate, useSearch } from "@tanstack/react-router"
+import {
+  AlertCircleIcon,
+  LibraryIcon,
+  SearchIcon,
+  UploadIcon,
+  XIcon,
+} from "lucide-react"
 
 import type { Document } from "@/api/client"
 import {
   EmptyState,
   ErrorState,
+  LoadMore,
   PageHeader,
   ReadOnlyNote,
   TableSkeleton,
 } from "@/components/page"
+import { SearchField } from "@/components/search-field"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import {
@@ -32,10 +40,15 @@ import { DocumentMenu } from "./document-actions"
 import { tokensLabel } from "./tokens"
 import { ACCEPTED_EXTENSIONS, useUploads, type UploadItem } from "./use-uploads"
 
+const ROUTE = "/w/$workspaceId/knowledge"
+
 export function KnowledgePage() {
   const workspace = useWorkspace()
   const canEdit = useCan("edit")
-  const list = useQuery(documentsQuery(workspace.id))
+  const search = useSearch({ from: ROUTE })
+  const navigate = useNavigate({ from: ROUTE })
+  const q = search.q ?? ""
+  const list = useInfiniteQuery(documentsQuery(workspace.id, { q }))
   const uploads = useUploads(workspace.id)
   const input = useRef<HTMLInputElement>(null)
   const drop = useFileDrop(canEdit, uploads.add)
@@ -49,8 +62,16 @@ export function KnowledgePage() {
 
   let body
   if (list.isPending) body = <TableSkeleton />
-  else if (list.isError)
+  else if (list.isLoadingError)
     body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />
+  else if (list.data.length === 0 && q)
+    body = (
+      <EmptyState
+        icon={<SearchIcon />}
+        title={m.common.noMatch(q)}
+        body={m.common.noMatchBody}
+      />
+    )
   else if (list.data.length === 0)
     body = (
       <EmptyState
@@ -71,51 +92,64 @@ export function KnowledgePage() {
     )
   else
     body = (
-      <div className="rounded-xl border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="pl-4">
-                {m.knowledge.columns.title}
-              </TableHead>
-              <TableHead>{m.knowledge.columns.format}</TableHead>
-              <TableHead className="text-right">
-                {m.knowledge.columns.pages}
-              </TableHead>
-              <TableHead className="text-right">
-                {m.knowledge.columns.tokens}
-              </TableHead>
-              <TableHead className="text-right">
-                {m.knowledge.columns.size}
-              </TableHead>
-              <TableHead>{m.knowledge.columns.status}</TableHead>
-              <TableHead>{m.knowledge.columns.uploaded}</TableHead>
-              <TableHead className="w-12 pr-4">
-                <span className="sr-only">{m.common.actions}</span>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {list.data.map((d) => (
-              <DocumentRow
-                key={d.id}
-                doc={d}
-                workspaceId={workspace.id}
-                timezone={workspace.timezone}
-                canEdit={canEdit}
-              />
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+      <>
+        <div
+          aria-busy={list.isPlaceholderData || undefined}
+          className={cn(
+            "rounded-xl border transition-opacity",
+            list.isPlaceholderData && "opacity-60"
+          )}
+        >
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pl-4">
+                  {m.knowledge.columns.title}
+                </TableHead>
+                <TableHead>{m.knowledge.columns.format}</TableHead>
+                <TableHead className="text-right">
+                  {m.knowledge.columns.pages}
+                </TableHead>
+                <TableHead className="text-right">
+                  {m.knowledge.columns.tokens}
+                </TableHead>
+                <TableHead className="text-right">
+                  {m.knowledge.columns.size}
+                </TableHead>
+                <TableHead>{m.knowledge.columns.status}</TableHead>
+                <TableHead>{m.knowledge.columns.uploaded}</TableHead>
+                <TableHead className="w-12 pr-4">
+                  <span className="sr-only">{m.common.actions}</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {list.data.map((d) => (
+                <DocumentRow
+                  key={d.id}
+                  doc={d}
+                  workspaceId={workspace.id}
+                  timezone={workspace.timezone}
+                  canEdit={canEdit}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <LoadMore query={list} />
+      </>
     )
+
+  // The header's upload and the search box come with a list; a search
+  // that matches nothing keeps them.
+  const hasList = q !== "" || !!list.data?.length
 
   return (
     <div className="relative" {...drop.handlers}>
       <PageHeader
         title={m.knowledge.title}
         description={m.knowledge.description}
-        actions={list.data?.length ? uploadButton : null}
+        actions={hasList ? uploadButton : null}
       />
       {canEdit ? (
         <input
@@ -137,6 +171,20 @@ export function KnowledgePage() {
         onCancel={uploads.cancel}
         onDismiss={uploads.dismiss}
       />
+      {hasList ? (
+        <SearchField
+          className="mb-4"
+          value={q}
+          onChange={(next) =>
+            void navigate({
+              search: { q: next || undefined },
+              replace: true,
+            })
+          }
+          label={m.knowledge.search}
+          placeholder={m.knowledge.searchPlaceholder}
+        />
+      ) : null}
       {body}
       {drop.over ? (
         <div className="pointer-events-none absolute -inset-2 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-foreground/50 bg-background/85 backdrop-blur-sm">

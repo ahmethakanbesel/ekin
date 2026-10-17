@@ -1,13 +1,21 @@
-import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query"
+import {
+  infiniteQueryOptions,
+  queryOptions,
+  useMutation,
+  useQueryClient,
+  type InfiniteData,
+} from "@tanstack/react-query"
 
 import {
   api,
   call,
+  type Opportunity,
   type OpportunityInput,
   type OpportunityStatus,
   type SEOProfile,
 } from "@/api/client"
 import { keys } from "./keys"
+import { cursorPaging, keepWhileSearching, pageRows, type Cursor } from "./paging"
 
 /** The server takes at most this many keywords per import request. */
 export const IMPORT_BATCH = 500
@@ -40,22 +48,45 @@ export function useSaveSeoProfile(workspaceId: string) {
   })
 }
 
-export const opportunitiesQuery = (workspaceId: string, status: OpportunityStatus | "all") =>
-  queryOptions({
-    queryKey: keys.opportunityList(workspaceId, status),
-    queryFn: async ({ signal }) => {
-      const res = await call(
+/** Opportunities per page of the list. */
+export const OPPORTUNITY_PAGE_SIZE = 50
+
+type OpportunityPage = { opportunities: Opportunity[]; nextCursor?: string }
+type OpportunityPages = InfiniteData<OpportunityPage, Cursor>
+
+const opportunityRows = (data: OpportunityPages) => pageRows(data.pages, (p) => p.opportunities)
+
+/**
+ * Keyword opportunities (open, used, dismissed; best score first within
+ * each), a page at a time; `q` searches keywords on the server.
+ */
+export const opportunitiesQuery = (
+  workspaceId: string,
+  { status, q = "" }: { status: OpportunityStatus | "all"; q?: string }
+) => {
+  const queryKey = keys.opportunityList(workspaceId, { status, q, limit: OPPORTUNITY_PAGE_SIZE })
+  return infiniteQueryOptions({
+    queryKey,
+    queryFn: ({ pageParam, signal }) =>
+      call(
         api.GET("/workspaces/{workspaceId}/opportunities", {
           params: {
             path: { workspaceId },
-            query: { status: status === "all" ? undefined : [status] },
+            query: {
+              status: status === "all" ? undefined : [status],
+              q: q || undefined,
+              limit: OPPORTUNITY_PAGE_SIZE,
+              cursor: pageParam,
+            },
           },
           signal,
         })
-      )
-      return res.opportunities
-    },
+      ),
+    ...cursorPaging,
+    select: opportunityRows,
+    placeholderData: keepWhileSearching<OpportunityPages>(queryKey),
   })
+}
 
 /** Adds keywords in batches the server accepts; resolves to how many were new. */
 export function useImportOpportunities(workspaceId: string) {

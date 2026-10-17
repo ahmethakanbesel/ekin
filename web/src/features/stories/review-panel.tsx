@@ -23,7 +23,7 @@ import { errorMessage } from "@/lib/errors"
 import { formatDateTime, formatRelative, useNow } from "@/lib/time"
 import { pipelineHue } from "@/lib/tones"
 import { cn } from "@/lib/utils"
-import { documentsQuery } from "@/queries/documents"
+import { allDocumentsQuery } from "@/queries/documents"
 import { StatusBadge } from "./badges"
 import {
   deliverableLabel,
@@ -610,7 +610,7 @@ function RefList({
   workspaceId: string
   refs: KnowledgeRef[]
 }) {
-  const documents = useQuery(documentsQuery(workspaceId))
+  const documents = useQuery(allDocumentsQuery(workspaceId))
   const byId = useMemo(
     () => new Map((documents.data ?? []).map((d) => [d.id.toLowerCase(), d])),
     [documents.data]

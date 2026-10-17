@@ -1,15 +1,27 @@
 import { useEffect, useMemo, useRef } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
-import { InboxIcon, Loader2Icon, PlayIcon, PlusIcon } from "lucide-react"
+import {
+  InboxIcon,
+  Loader2Icon,
+  PlayIcon,
+  PlusIcon,
+  SearchIcon,
+} from "lucide-react"
 
-import type { Job, Pipeline, Story } from "@/api/client"
+import type { Job, Pipeline } from "@/api/client"
 import {
   EmptyState,
   ErrorState,
+  LoadMore,
   PageHeader,
   ReadOnlyNote,
 } from "@/components/page"
+import { SearchField } from "@/components/search-field"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -17,41 +29,46 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { useNow } from "@/lib/time"
-import { jobsQuery } from "@/queries/jobs"
+import { cn } from "@/lib/utils"
+import { jobRows, jobsQuery, type JobPages } from "@/queries/jobs"
 import { keys } from "@/queries/keys"
 import { pipelinesQuery } from "@/queries/pipelines"
-import { STORY_LIST_LIMIT, storiesQuery } from "@/queries/stories"
+import {
+  storiesQuery,
+  storyWindowQuery,
+  windowCount,
+  type StoryWindow,
+} from "@/queries/stories"
 import { STORY_TABS, TAB_STATUSES, type StoryTab } from "./model"
 import { PosterCard } from "./poster-card"
 
 const ROUTE = "/w/$workspaceId/stories"
 
 /** Job kinds that turn into new stories when they finish. */
-const PLANNING_KINDS = new Set(["story.adhoc", "pipeline.run"])
+const PLANNING_KINDS = ["story.adhoc", "pipeline.run"]
 const POLL_PLANNING_MS = 5_000
 
 /**
- * Stories per tab, counted from the unfiltered list (it shares its cache
- * with the All tab). A list cut off at the limit makes every count a floor.
+ * Stories per tab, counted from the newest stories of any status (one
+ * window, shared with the jobs page's names) rather than from the paged
+ * lists. A window cut off at its limit makes every count a floor.
  */
-function useTabCounts(workspaceId: string, review: Story[] | undefined) {
-  const all = useQuery(storiesQuery(workspaceId, TAB_STATUSES.all))
+function useTabCounts(workspaceId: string, review: StoryWindow | undefined) {
+  const all = useQuery(storyWindowQuery(workspaceId, TAB_STATUSES.all))
   return useMemo(() => {
     if (!all.data) return undefined
-    const capped = all.data.length >= STORY_LIST_LIMIT
-    const label = (n: number, cut = capped) => (cut ? `${n}+` : String(n))
+    const recent = all.data
     const counts = {} as Record<StoryTab, string>
     for (const tab of STORY_TABS) {
       const statuses = TAB_STATUSES[tab]
       const n =
         statuses.length === 0
-          ? all.data.length
-          : all.data.filter((s) => statuses.includes(s.status)).length
-      counts[tab] = label(n)
+          ? recent.stories.length
+          : recent.stories.filter((s) => statuses.includes(s.status)).length
+      counts[tab] = windowCount(recent, n)
     }
-    // Its own query, so it stays exact while the All list is cut off.
-    if (review)
-      counts.review = label(review.length, review.length >= STORY_LIST_LIMIT)
+    // Its own window, so it stays exact while the All window is cut off.
+    if (review) counts.review = windowCount(review)
     return counts
   }, [all.data, review])
 }
@@ -62,9 +79,12 @@ export function StoriesPage() {
   const search = useSearch({ from: ROUTE })
   const navigate = useNavigate({ from: ROUTE })
   const tab: StoryTab = search.tab ?? "review"
-  const list = useQuery(storiesQuery(workspace.id, TAB_STATUSES[tab]))
-  // Shares its cache with the nav badge.
-  const review = useQuery(storiesQuery(workspace.id, TAB_STATUSES.review))
+  const q = search.q ?? ""
+  const list = useInfiniteQuery(
+    storiesQuery(workspace.id, { status: TAB_STATUSES[tab], q })
+  )
+  // The whole review queue (shared with the nav badge), not the paged tab.
+  const review = useQuery(storyWindowQuery(workspace.id, TAB_STATUSES.review))
   const counts = useTabCounts(workspace.id, review.data)
   const pipelines = useQuery(pipelinesQuery(workspace.id))
   const planning = usePlanningJobs(workspace.id)
@@ -78,7 +98,7 @@ export function StoriesPage() {
     [pipelines.data]
   )
 
-  const firstReview = review.data?.[0]
+  const firstReview = review.data?.stories[0]
   const newButton = canEdit ? (
     <Button
       variant={firstReview ? "outline" : "default"}
@@ -112,8 +132,16 @@ export function StoriesPage() {
 
   let body
   if (list.isPending) body = <PosterSkeleton />
-  else if (list.isError)
+  else if (list.isLoadingError)
     body = <ErrorState error={list.error} onRetry={() => void list.refetch()} />
+  else if (list.data.length === 0 && q)
+    body = (
+      <EmptyState
+        icon={<SearchIcon />}
+        title={m.common.noMatch(q)}
+        body={m.common.noMatchBody}
+      />
+    )
   else if (list.data.length === 0) {
     const empty = m.stories.empty[tab]
     body = (
@@ -129,7 +157,11 @@ export function StoriesPage() {
       <>
         <ul
           aria-label={m.stories.tabs[tab]}
-          className="grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-4 lg:gap-x-6"
+          aria-busy={list.isPlaceholderData || undefined}
+          className={cn(
+            "grid grid-cols-2 gap-x-4 gap-y-8 transition-opacity lg:grid-cols-4 lg:gap-x-6",
+            list.isPlaceholderData && "opacity-60"
+          )}
         >
           {list.data.map((s) => (
             <li key={s.id} className="min-w-0">
@@ -147,11 +179,7 @@ export function StoriesPage() {
             </li>
           ))}
         </ul>
-        {list.data.length >= STORY_LIST_LIMIT ? (
-          <p className="mt-6 text-xs text-muted-foreground">
-            {m.stories.showing(STORY_LIST_LIMIT)}
-          </p>
-        ) : null}
+        <LoadMore query={list} className="pt-8" />
       </>
     )
 
@@ -170,37 +198,53 @@ export function StoriesPage() {
         }
       />
       {canEdit ? null : <ReadOnlyNote>{m.stories.readOnlyHint}</ReadOnlyNote>}
-      <Tabs
-        value={tab}
-        onValueChange={(next) =>
-          void navigate({
-            search: next === "review" ? {} : { tab: next as StoryTab },
-            replace: true,
-          })
-        }
-        className="mb-6"
-      >
-        <div className="scroll-area -mx-4 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
-          <TabsList aria-label={m.stories.title}>
-            {STORY_TABS.map((t) => (
-              <TabsTrigger key={t} value={t} className="flex-none">
-                {m.stories.tabs[t]}
-                {counts ? (
-                  t === "review" && counts.review !== "0" ? (
-                    <span className="tabular rounded-full bg-primary px-1.5 text-xs leading-4 font-semibold text-primary-foreground inset-ring inset-ring-primary-ink">
-                      {counts.review}
-                    </span>
-                  ) : (
-                    <span className="tabular text-xs text-muted-foreground">
-                      {counts[t]}
-                    </span>
-                  )
-                ) : null}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
-      </Tabs>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <Tabs
+          value={tab}
+          onValueChange={(next) =>
+            void navigate({
+              search: (prev) => ({
+                q: prev.q,
+                tab: next === "review" ? undefined : (next as StoryTab),
+              }),
+              replace: true,
+            })
+          }
+          className="max-w-full min-w-0"
+        >
+          <div className="scroll-area -mx-4 min-w-0 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0">
+            <TabsList aria-label={m.stories.title}>
+              {STORY_TABS.map((t) => (
+                <TabsTrigger key={t} value={t} className="flex-none">
+                  {m.stories.tabs[t]}
+                  {counts ? (
+                    t === "review" && counts.review !== "0" ? (
+                      <span className="tabular rounded-full bg-primary px-1.5 text-xs leading-4 font-semibold text-primary-foreground inset-ring inset-ring-primary-ink">
+                        {counts.review}
+                      </span>
+                    ) : (
+                      <span className="tabular text-xs text-muted-foreground">
+                        {counts[t]}
+                      </span>
+                    )
+                  ) : null}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+        </Tabs>
+        <SearchField
+          value={q}
+          onChange={(next) =>
+            void navigate({
+              search: (prev) => ({ ...prev, q: next || undefined }),
+              replace: true,
+            })
+          }
+          label={m.stories.search}
+          placeholder={m.stories.searchPlaceholder}
+        />
+      </div>
       {planning.length > 0 && tab !== "done" && tab !== "failed" ? (
         <PlanningNote count={planning.length} />
       ) : null}
@@ -227,23 +271,30 @@ function PosterSkeleton() {
   )
 }
 
+/** The list holds whole requests: keep their planning jobs still at work. */
+const planningJobs = (data: JobPages): Job[] =>
+  jobRows(data).filter(
+    (j) =>
+      PLANNING_KINDS.includes(j.kind) &&
+      (j.status === "queued" || j.status === "running")
+  )
+
 /**
  * Queued or running jobs that will produce stories (ad-hoc requests and
  * pipeline runs). While there are any, the story lists refresh too, so
  * new stories show up without a reload.
  */
 function usePlanningJobs(workspaceId: string): Job[] {
-  const jobs = useQuery({
-    ...jobsQuery(workspaceId, ["queued", "running"]),
-    // The list holds whole requests: keep their planning jobs still at work.
-    select: (all) =>
-      all.filter(
-        (j) =>
-          PLANNING_KINDS.has(j.kind) &&
-          (j.status === "queued" || j.status === "running")
-      ),
+  // The first page is enough: it counts requests, and nobody has dozens
+  // of plans waiting at once.
+  const jobs = useInfiniteQuery({
+    ...jobsQuery(workspaceId, {
+      status: ["queued", "running"],
+      kind: PLANNING_KINDS,
+    }),
+    select: planningJobs,
     refetchInterval: (q) =>
-      q.state.data?.some((j) => PLANNING_KINDS.has(j.kind))
+      q.state.data?.pages.some((p) => p.jobs.length > 0)
         ? POLL_PLANNING_MS
         : false,
   })

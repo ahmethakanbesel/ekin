@@ -29,7 +29,7 @@ import { VoiceOverrideSection } from "@/features/voice/override-section"
 import { emptyOverride } from "@/features/voice/model"
 import { m } from "@/i18n"
 import { useAppForm } from "@/lib/form"
-import { documentsQuery } from "@/queries/documents"
+import { allDocumentsQuery } from "@/queries/documents"
 import { NumberInput, Row, Section, shownError } from "./form-parts"
 import { ProductionSection } from "./production-section"
 import { SelfReviewSection } from "./self-review-section"
@@ -79,7 +79,7 @@ export function PipelineForm({
   readOnly = false,
   onSubmit,
 }: Props) {
-  const documents = useQuery(documentsQuery(workspaceId))
+  const documents = useQuery(allDocumentsQuery(workspaceId))
   const known: KnownDocuments | undefined = useMemo(
     () => documents.data && new Map(documents.data.map((d) => [d.id.toLowerCase(), d])),
     [documents.data]

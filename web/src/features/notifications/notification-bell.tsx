@@ -1,5 +1,5 @@
 import { useState, useSyncExternalStore } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import {
   BellIcon,
@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 
 import type { Notification } from "@/api/client"
+import { LoadMore } from "@/components/page"
 import {
   Popover,
   PopoverContent,
@@ -88,10 +89,12 @@ export function NotificationBell({
   timezone: string
   className?: string
 }) {
-  const query = useQuery({
-    ...notificationsQuery(workspaceId),
+  const options = notificationsQuery(workspaceId)
+  const query = useInfiniteQuery({
+    ...options,
     refetchIntervalInBackground: true,
   })
+  const qc = useQueryClient()
   const seen = useSeen(workspaceId)
   // The mark the list was opened with, so items new on this opening stay
   // highlighted until it closes.
@@ -112,7 +115,16 @@ export function NotificationBell({
     if (next) {
       setOpenedWith(seen)
       if (newest > seen) writeSeen(workspaceId, newest)
-    } else setOpenedWith(null)
+    } else {
+      setOpenedWith(null)
+      // Back to the first page, so polling refetches one page, not every
+      // page read while the list was open.
+      qc.setQueryData(options.queryKey, (d) =>
+        d && d.pages.length > 1
+          ? { pages: d.pages.slice(0, 1), pageParams: d.pageParams.slice(0, 1) }
+          : d
+      )
+    }
   }
 
   let body
@@ -123,7 +135,7 @@ export function NotificationBell({
         <Skeleton className="h-12 w-full" />
       </div>
     )
-  else if (query.isError)
+  else if (query.isLoadingError)
     body = (
       <p className="p-3 text-sm text-muted-foreground">
         {errorMessage(query.error)}
@@ -150,6 +162,11 @@ export function NotificationBell({
             />
           </li>
         ))}
+        {query.hasNextPage ? (
+          <li>
+            <LoadMore query={query} size="sm" className="pt-2 pb-1" />
+          </li>
+        ) : null}
       </ul>
     )
 

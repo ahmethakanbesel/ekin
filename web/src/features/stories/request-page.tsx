@@ -31,7 +31,7 @@ import { errorMessage } from "@/lib/errors"
 import { useAppForm } from "@/lib/form"
 import { formatInteger } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { documentsQuery } from "@/queries/documents"
+import { allDocumentsQuery } from "@/queries/documents"
 import { useCreateStories } from "@/queries/stories"
 import { BackToStories } from "./back-link"
 import {
@@ -70,7 +70,7 @@ export function NewRequestPage() {
 function RequestForm({ workspaceId }: { workspaceId: string }) {
   const create = useCreateStories(workspaceId)
   const navigate = useNavigate()
-  const documents = useQuery(documentsQuery(workspaceId))
+  const documents = useQuery(allDocumentsQuery(workspaceId))
   const known: KnownDocuments | undefined = useMemo(
     () => documents.data && new Map(documents.data.map((d) => [d.id.toLowerCase(), d])),
     [documents.data]
