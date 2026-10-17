@@ -5,7 +5,6 @@ package handler
 import (
 	"context"
 	voicehandler "kurgu/internal/transport/http/voice/v1"
-	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -190,13 +189,8 @@ func (h *Handler) ListRevisions(ctx context.Context, req gen.ListRevisionsReques
 	}
 	out := make([]gen.Revision, 0, len(revs))
 	for _, r := range revs {
-		names := make([]string, 0, len(r.Artifacts))
-		for name := range r.Artifacts {
-			names = append(names, name)
-		}
-		slices.Sort(names)
 		rev := gen.Revision{
-			Number: r.Number, Feedback: feedbackToWire(r.Feedback), Artifacts: names, Notes: r.Notes,
+			Number: r.Number, Feedback: feedbackToWire(r.Feedback), Artifacts: r.ArtifactNames(), Notes: r.Notes,
 			Measured: measuresToWire(r.Measures), CreatedAt: r.CreatedAt,
 		}
 		if r.EditedBy != uuid.Nil {

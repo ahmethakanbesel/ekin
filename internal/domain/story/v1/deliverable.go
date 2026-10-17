@@ -321,7 +321,29 @@ const (
 	// ArtifactNarrationText is what the voice says (or will say, while a
 	// script waits for approval).
 	ArtifactNarrationText = "narration.txt"
+	// ArtifactCaptionsSRT and ArtifactCaptionsVTT are the narration's
+	// caption track, made on request from its word timings.
+	ArtifactCaptionsSRT = "captions.srt"
+	ArtifactCaptionsVTT = "captions.vtt"
 )
+
+// Captioned reports whether the revision has narration with word timings
+// to make captions from.
+func (r Revision) Captioned() bool {
+	_, ok := r.Artifacts[ArtifactNarration]
+	return ok
+}
+
+// ArtifactNames are the names of the revision's artifacts, sorted: the
+// stored ones and, for narrated video, its captions.
+func (r Revision) ArtifactNames() []string {
+	names := slices.Collect(maps.Keys(r.Artifacts))
+	if r.Captioned() {
+		names = append(names, ArtifactCaptionsSRT, ArtifactCaptionsVTT)
+	}
+	slices.Sort(names)
+	return slices.Compact(names)
+}
 
 func (s *Story) find(id uuid.UUID, allowed ...Status) (*Deliverable, error) {
 	d, err := s.Deliverable(id)

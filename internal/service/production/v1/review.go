@@ -1,6 +1,7 @@
 package production
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"errors"
@@ -531,6 +532,13 @@ func (s *Service) Artifact(ctx context.Context, workspaceID, storyID, deliverabl
 	rev, err := s.stories.Revision(ctx, deliverableID, revision)
 	if err != nil {
 		return nil, 0, err
+	}
+	if name == storydomain.ArtifactCaptionsSRT || name == storydomain.ArtifactCaptionsVTT {
+		b, err := s.captions(ctx, rev, name)
+		if err != nil {
+			return nil, 0, err
+		}
+		return io.NopCloser(bytes.NewReader(b)), int64(len(b)), nil
 	}
 	key, ok := rev.Artifacts[name]
 	if !ok {

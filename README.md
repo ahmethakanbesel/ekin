@@ -62,6 +62,14 @@ new revision. Text and metadata edits stay in review (a video keeps its preview)
 narration goes back to the agent, which keeps the text word for word, narrates it again
 and re-times the visuals to it. That takes a minute or two.
 
+## Captions
+
+Every narrated video revision offers `captions.srt` and `captions.vtt` under **Files** in
+the review panel and on the story page. They are made on request from the narration's word
+timings (written words, not the pronunciation dictionary's respellings): sentences end a
+cue, and a cue holds at most two lines of 42 characters and six seconds. Upload either to
+YouTube Studio or a player as a caption track.
+
 ## Voice
 
 **Settings → Voice** sets how narration sounds, per language: the engine, then its voice,
