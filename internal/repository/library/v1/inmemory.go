@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -18,16 +19,17 @@ import (
 
 // InMemory is a Repository for service tests.
 type InMemory struct {
-	mu     sync.RWMutex
-	assets map[uuid.UUID]librarydomain.Snapshot
-	usages []librarydomain.Usage
+	mu      sync.RWMutex
+	assets  map[uuid.UUID]librarydomain.Snapshot
+	usages  []librarydomain.Usage
+	collect map[uuid.UUID]librarydomain.Collect
 }
 
 var _ Repository = (*InMemory)(nil)
 
 // NewInMemory returns an empty InMemory repository.
 func NewInMemory() *InMemory {
-	return &InMemory{assets: map[uuid.UUID]librarydomain.Snapshot{}}
+	return &InMemory{assets: map[uuid.UUID]librarydomain.Snapshot{}, collect: map[uuid.UUID]librarydomain.Collect{}}
 }
 
 func (r *InMemory) Create(_ context.Context, a *librarydomain.Asset) error {
@@ -35,7 +37,7 @@ func (r *InMemory) Create(_ context.Context, a *librarydomain.Asset) error {
 	defer r.mu.Unlock()
 	s := a.Snapshot()
 	for _, o := range r.assets {
-		if o.WorkspaceID == s.WorkspaceID && o.SHA256 == s.SHA256 {
+		if o.WorkspaceID == s.WorkspaceID && (o.SHA256 == s.SHA256 || s.Harvest.SourceRef != "" && o.Harvest.SourceRef == s.Harvest.SourceRef) {
 			return duplicate()
 		}
 	}
@@ -55,8 +57,8 @@ func (r *InMemory) Update(_ context.Context, a *librarydomain.Asset) error {
 	}
 	s := a.Snapshot()
 	// What Update does not write stays as created.
-	s.Kind, s.Origin, s.Filename, s.Size, s.SHA256, s.CreatedBy, s.CreatedAt =
-		old.Kind, old.Origin, old.Filename, old.Size, old.SHA256, old.CreatedBy, old.CreatedAt
+	s.Kind, s.Origin, s.Filename, s.Size, s.SHA256, s.CreatedBy, s.CreatedAt, s.Harvest =
+		old.Kind, old.Origin, old.Filename, old.Size, old.SHA256, old.CreatedBy, old.CreatedAt, old.Harvest
 	r.assets[s.ID] = s
 	return nil
 }
@@ -79,6 +81,53 @@ func (r *InMemory) GetByID(_ context.Context, id uuid.UUID) (*librarydomain.Asse
 		return nil, notFound()
 	}
 	return librarydomain.Rehydrate(s)
+}
+
+func (r *InMemory) FindBySourceRef(_ context.Context, workspaceID uuid.UUID, ref string) (*librarydomain.Asset, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, s := range r.assets {
+		if s.WorkspaceID == workspaceID && ref != "" && s.Harvest.SourceRef == ref {
+			return librarydomain.Rehydrate(s)
+		}
+	}
+	return nil, notFound()
+}
+
+func (r *InMemory) Provisional(_ context.Context, workspaceID, deliverableID uuid.UUID) ([]*librarydomain.Asset, error) {
+	r.mu.RLock()
+	var snaps []librarydomain.Snapshot
+	for _, s := range r.assets {
+		if s.WorkspaceID == workspaceID && s.Harvest.DeliverableID == deliverableID && s.Provisional {
+			snaps = append(snaps, s)
+		}
+	}
+	r.mu.RUnlock()
+	slices.SortFunc(snaps, func(a, b librarydomain.Snapshot) int {
+		return cmp.Or(a.CreatedAt.Compare(b.CreatedAt), cmp.Compare(a.ID.String(), b.ID.String()))
+	})
+	out := make([]*librarydomain.Asset, 0, len(snaps))
+	for _, s := range snaps {
+		a, err := librarydomain.Rehydrate(s)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, nil
+}
+
+func (r *InMemory) GetCollect(_ context.Context, workspaceID uuid.UUID) (librarydomain.Collect, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.collect[workspaceID], nil
+}
+
+func (r *InMemory) SaveCollect(_ context.Context, workspaceID uuid.UUID, c librarydomain.Collect, _ time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.collect[workspaceID] = c
+	return nil
 }
 
 func (r *InMemory) FindBySHA256(_ context.Context, workspaceID uuid.UUID, sha256 string) (*librarydomain.Asset, error) {

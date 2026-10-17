@@ -30,7 +30,8 @@ var _ Repository = (*SQLite)(nil)
 func NewSQLite(q db.QuerierSource) *SQLite { return &SQLite{q: q} }
 
 const columns = `id, workspace_id, kind, origin, status, title, description, tags, mood, tempo, credit, filename, size, sha256,
-	format, width, height, orientation, duration_ms, poster, failure, created_by, created_at, updated_at, archived_at`
+	format, width, height, orientation, duration_ms, poster, failure, created_by, created_at, updated_at, archived_at,
+	provisional, kept, harvest_story, harvest_deliverable, harvest_revision, source_ref, source_url, original_url, derived_from`
 
 func (r *SQLite) Create(ctx context.Context, a *librarydomain.Asset) error {
 	args, err := values(a)
@@ -38,7 +39,7 @@ func (r *SQLite) Create(ctx context.Context, a *librarydomain.Asset) error {
 		return err
 	}
 	_, err = r.q.W(ctx).ExecContext(ctx, `INSERT INTO library_assets (`+columns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args...)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args...)
 	if db.IsUniqueViolation(err) {
 		return duplicate()
 	}
@@ -57,11 +58,11 @@ func (r *SQLite) Update(ctx context.Context, a *librarydomain.Asset) error {
 	res, err := r.q.W(ctx).ExecContext(ctx,
 		`UPDATE library_assets SET status = ?, title = ?, description = ?, tags = ?, mood = ?, tempo = ?, credit = ?,
 		        format = ?, width = ?, height = ?, orientation = ?, duration_ms = ?, poster = ?, failure = ?,
-		        updated_at = ?, archived_at = ?
+		        updated_at = ?, archived_at = ?, provisional = ?, kept = ?
 		  WHERE id = ? AND workspace_id = ?`,
 		s.Status, s.Title, s.Description, tags, s.Mood, s.Tempo, credit,
 		s.Format, s.Width, s.Height, string(a.Orientation()), s.Duration.Milliseconds(), s.Poster, s.Failure,
-		timeutil.ToMillis(s.UpdatedAt), nullTime(s.ArchivedAt), s.ID.String(), s.WorkspaceID.String())
+		timeutil.ToMillis(s.UpdatedAt), nullTime(s.ArchivedAt), s.Provisional, s.Kept, s.ID.String(), s.WorkspaceID.String())
 	if err != nil {
 		return fmt.Errorf("update asset: %w", err)
 	}
@@ -77,6 +78,54 @@ func (r *SQLite) Get(ctx context.Context, workspaceID, id uuid.UUID) (*librarydo
 
 func (r *SQLite) GetByID(ctx context.Context, id uuid.UUID) (*librarydomain.Asset, error) {
 	return r.get(ctx, `id = ?`, id.String())
+}
+
+func (r *SQLite) FindBySourceRef(ctx context.Context, workspaceID uuid.UUID, ref string) (*librarydomain.Asset, error) {
+	return r.get(ctx, `workspace_id = ? AND source_ref = ?`, workspaceID.String(), ref)
+}
+
+func (r *SQLite) Provisional(ctx context.Context, workspaceID, deliverableID uuid.UUID) ([]*librarydomain.Asset, error) {
+	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT `+columns+` FROM library_assets
+		WHERE workspace_id = ? AND harvest_deliverable = ? AND provisional = 1 ORDER BY created_at, id`,
+		workspaceID.String(), deliverableID.String())
+	if err != nil {
+		return nil, fmt.Errorf("list provisional assets: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []*librarydomain.Asset
+	for rows.Next() {
+		a, err := scan(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+func (r *SQLite) GetCollect(ctx context.Context, workspaceID uuid.UUID) (librarydomain.Collect, error) {
+	var c librarydomain.Collect
+	err := r.q.R(ctx).QueryRowContext(ctx, `SELECT music, video, photo FROM library_settings WHERE workspace_id = ?`,
+		workspaceID.String()).Scan(&c.Music, &c.Video, &c.Photo)
+	if errors.Is(err, sql.ErrNoRows) {
+		return librarydomain.Collect{}, nil
+	}
+	if err != nil {
+		return c, fmt.Errorf("get library settings: %w", err)
+	}
+	return c, nil
+}
+
+func (r *SQLite) SaveCollect(ctx context.Context, workspaceID uuid.UUID, c librarydomain.Collect, now time.Time) error {
+	_, err := r.q.W(ctx).ExecContext(ctx, `INSERT INTO library_settings (workspace_id, music, video, photo, updated_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT (workspace_id) DO UPDATE SET music = excluded.music, video = excluded.video, photo = excluded.photo,
+		updated_at = excluded.updated_at`,
+		workspaceID.String(), c.Music, c.Video, c.Photo, timeutil.ToMillis(now))
+	if err != nil {
+		return fmt.Errorf("save library settings: %w", err)
+	}
+	return nil
 }
 
 func (r *SQLite) FindBySHA256(ctx context.Context, workspaceID uuid.UUID, sha256 string) (*librarydomain.Asset, error) {
@@ -258,8 +307,12 @@ func values(a *librarydomain.Asset) ([]any, error) {
 		credit, s.Filename, s.Size, s.SHA256, s.Format, s.Width, s.Height, string(a.Orientation()), s.Duration.Milliseconds(),
 		s.Poster, s.Failure, nullID(s.CreatedBy), timeutil.ToMillis(s.CreatedAt), timeutil.ToMillis(s.UpdatedAt),
 		nullTime(s.ArchivedAt),
+		s.Provisional, s.Kept, nullID(s.Harvest.StoryID), nullID(s.Harvest.DeliverableID), s.Harvest.Revision,
+		nullString(s.Harvest.SourceRef), s.Harvest.SourceURL, s.Harvest.OriginalURL, nullID(s.Harvest.DerivedFrom),
 	}, nil
 }
+
+func nullString(v string) sql.NullString { return sql.NullString{String: v, Valid: v != ""} }
 
 type scanner interface{ Scan(dest ...any) error }
 
@@ -272,10 +325,14 @@ func scan(s scanner) (*librarydomain.Asset, error) {
 		createdBy                  sql.NullString
 		createdAt, updatedAt       int64
 		archivedAt                 sql.NullInt64
+		story, deliverable         sql.NullString
+		sourceRef, derived         sql.NullString
 	)
 	err := s.Scan(&rawID, &rawWS, &snap.Kind, &snap.Origin, &snap.Status, &snap.Title, &snap.Description, &tags, &snap.Mood,
 		&snap.Tempo, &credit, &snap.Filename, &snap.Size, &snap.SHA256, &snap.Format, &snap.Width, &snap.Height, &orientation,
-		&durationMS, &snap.Poster, &snap.Failure, &createdBy, &createdAt, &updatedAt, &archivedAt)
+		&durationMS, &snap.Poster, &snap.Failure, &createdBy, &createdAt, &updatedAt, &archivedAt,
+		&snap.Provisional, &snap.Kept, &story, &deliverable, &snap.Harvest.Revision, &sourceRef, &snap.Harvest.SourceURL,
+		&snap.Harvest.OriginalURL, &derived)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, err
@@ -302,6 +359,10 @@ func scan(s scanner) (*librarydomain.Asset, error) {
 	if archivedAt.Valid {
 		snap.ArchivedAt = timeutil.FromMillis(archivedAt.Int64)
 	}
+	snap.Harvest.StoryID, _ = uuid.Parse(story.String)
+	snap.Harvest.DeliverableID, _ = uuid.Parse(deliverable.String)
+	snap.Harvest.DerivedFrom, _ = uuid.Parse(derived.String)
+	snap.Harvest.SourceRef = sourceRef.String
 	return librarydomain.Rehydrate(snap)
 }
 

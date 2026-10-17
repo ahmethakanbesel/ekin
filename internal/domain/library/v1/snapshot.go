@@ -26,6 +26,8 @@ type Snapshot struct {
 	Duration                         time.Duration
 	Poster                           bool
 	Failure                          string
+	Provisional, Kept                bool
+	Harvest                          Harvest
 	CreatedAt, UpdatedAt, ArchivedAt time.Time
 }
 
@@ -37,6 +39,7 @@ func (a *Asset) Snapshot() Snapshot {
 		Title: a.title, Description: a.description, Tags: slices.Clone(a.tags), Mood: a.mood, Tempo: a.tempo,
 		Credit: a.credit, Filename: a.filename, Size: a.size, SHA256: a.sha256, Format: a.format,
 		Width: a.width, Height: a.height, Duration: a.duration, Poster: a.poster, Failure: a.failure,
+		Provisional: a.provisional, Kept: a.kept, Harvest: a.harvest,
 		CreatedAt: a.createdAt, UpdatedAt: a.updatedAt, ArchivedAt: a.archivedAt,
 	}
 }
@@ -68,6 +71,7 @@ func Rehydrate(s Snapshot) (*Asset, error) {
 		title: s.Title, description: s.Description, tags: tags, mood: s.Mood, tempo: s.Tempo,
 		credit: s.Credit, filename: s.Filename, size: s.Size, sha256: s.SHA256, format: s.Format,
 		width: s.Width, height: s.Height, duration: s.Duration, poster: s.Poster, failure: s.Failure,
+		provisional: s.Provisional, kept: s.Kept, harvest: s.Harvest,
 		createdAt: timeutil.Normalize(s.CreatedAt), updatedAt: timeutil.Normalize(s.UpdatedAt),
 		archivedAt: normalizeOptional(s.ArchivedAt),
 	}, nil

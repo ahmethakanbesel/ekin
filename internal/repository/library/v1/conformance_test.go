@@ -175,3 +175,67 @@ func TestConformance(t *testing.T) {
 		})
 	}
 }
+
+func TestHarvestConformance(t *testing.T) {
+	for name, open := range impls() {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			repo, ws := open(t)
+			deliverable := id.New()
+			harvested := func(ref, sha string, at time.Time) *librarydomain.Asset {
+				t.Helper()
+				h := librarydomain.Harvest{StoryID: id.New(), DeliverableID: deliverable, Revision: 1, SourceRef: ref,
+					SourceURL: "https://www.pexels.com/video/1/", OriginalURL: "https://videos.pexels.com/1.mp4"}
+				a, err := librarydomain.NewHarvested(id.New(), ws, uuid.Nil, librarydomain.KindVideo, librarydomain.OriginPexels, h,
+					librarydomain.Saved{SHA256: sha, Size: 5, Media: librarydomain.Media{Format: "webm", Width: 1080, Height: 1920, Duration: time.Second}},
+					librarydomain.Details{Title: "Sea", Credit: librarydomain.Credit{Author: "Ana"}}, false, at)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return a
+			}
+			first, second := harvested("pexels:video:1", "a", now), harvested("pexels:video:2", "b", now.Add(time.Minute))
+			for _, a := range []*librarydomain.Asset{first, second} {
+				if err := repo.Create(ctx, a); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := repo.Create(ctx, harvested("pexels:video:1", "c", now)); !apperror.Is(err, apperror.Conflict) {
+				t.Fatalf("same source twice err = %v", err)
+			}
+			got, err := repo.FindBySourceRef(ctx, ws, "pexels:video:1")
+			if err != nil || !reflect.DeepEqual(got.Snapshot(), first.Snapshot()) {
+				t.Fatalf("find by source = %+v, %v\nwant %+v", got.Snapshot(), err, first.Snapshot())
+			}
+			if _, err := repo.FindBySourceRef(ctx, ws, "pexels:video:9"); !apperror.Is(err, apperror.AssetNotFound) {
+				t.Fatalf("unknown source err = %v", err)
+			}
+			list, err := repo.Provisional(ctx, ws, deliverable)
+			if err != nil || len(list) != 2 || list[0].ID() != first.ID() {
+				t.Fatalf("provisional = %v, %v", list, err)
+			}
+			first.Keep(now)
+			if err := repo.Update(ctx, first); err != nil {
+				t.Fatal(err)
+			}
+			if list, _ := repo.Provisional(ctx, ws, deliverable); len(list) != 1 || list[0].ID() != second.ID() {
+				t.Fatalf("provisional after keeping one = %v", list)
+			}
+			if got, _ := repo.Get(ctx, ws, first.ID()); !got.Kept() || got.Provisional() {
+				t.Fatalf("kept = %+v", got.Snapshot())
+			}
+
+			if c, err := repo.GetCollect(ctx, ws); err != nil || c.Any() {
+				t.Fatalf("default collect = %+v, %v", c, err)
+			}
+			for _, c := range []librarydomain.Collect{{Music: true, Photo: true}, {Video: true}} {
+				if err := repo.SaveCollect(ctx, ws, c, now); err != nil {
+					t.Fatal(err)
+				}
+				if got, err := repo.GetCollect(ctx, ws); err != nil || got != c {
+					t.Fatalf("collect = %+v, %v; want %+v", got, err, c)
+				}
+			}
+		})
+	}
+}

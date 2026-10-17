@@ -3,6 +3,7 @@ package library
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -55,6 +56,16 @@ type Repository interface {
 	// FindBySHA256 returns the workspace's asset with that file hash, or
 	// AssetNotFound.
 	FindBySHA256(ctx context.Context, workspaceID uuid.UUID, sha256 string) (*librarydomain.Asset, error)
+	// FindBySourceRef returns the workspace's asset saved from that outside
+	// item ("pexels:video:123"), or AssetNotFound.
+	FindBySourceRef(ctx context.Context, workspaceID uuid.UUID, ref string) (*librarydomain.Asset, error)
+	// Provisional lists the provisional assets saved from a deliverable's
+	// drafts, oldest first.
+	Provisional(ctx context.Context, workspaceID, deliverableID uuid.UUID) ([]*librarydomain.Asset, error)
+	// GetCollect returns which kinds the workspace saves from its drafts;
+	// nothing when never set.
+	GetCollect(ctx context.Context, workspaceID uuid.UUID) (librarydomain.Collect, error)
+	SaveCollect(ctx context.Context, workspaceID uuid.UUID, c librarydomain.Collect, now time.Time) error
 	// List returns a page of the workspace's assets, newest first, and
 	// the cursor of the next page ("" after the last).
 	List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*librarydomain.Asset, string, error)

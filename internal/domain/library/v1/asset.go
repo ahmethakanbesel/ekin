@@ -233,6 +233,12 @@ type Asset struct {
 	duration    time.Duration
 	poster      bool
 	failure     string
+	// provisional marks an asset saved from a draft whose deliverable is
+	// not yet decided; kept, one a person saved or edited, which is never
+	// pruned.
+	provisional bool
+	kept        bool
+	harvest     Harvest
 	createdBy   uuid.UUID
 	createdAt   time.Time
 	updatedAt   time.Time
@@ -308,6 +314,9 @@ func (a *Asset) Describe(d Details, now time.Time) error {
 		return err
 	}
 	a.title, a.description, a.tags, a.mood, a.tempo, a.credit = title, description, tags, mood, d.Tempo, credit
+	// A person describing it wants it: it stays whatever happens to the
+	// draft it came from.
+	a.kept, a.provisional = true, false
 	a.updatedAt = timeutil.Normalize(now)
 	return nil
 }
@@ -348,6 +357,93 @@ func normalizeCredit(c Credit) (Credit, error) {
 		}
 	}
 	return c, nil
+}
+
+// Harvest is where an asset saved from a draft came from.
+type Harvest struct {
+	StoryID       uuid.UUID
+	DeliverableID uuid.UUID
+	Revision      int
+	// SourceRef identifies the outside item ("pexels:video:123"), so it is
+	// saved once; SourceURL is its page, OriginalURL the file the stored
+	// one was cut from. Empty for composed music.
+	SourceRef   string
+	SourceURL   string
+	OriginalURL string
+	// DerivedFrom is the library score a composed one was adapted from.
+	DerivedFrom uuid.UUID
+}
+
+// Saved is a file a draft used, ready to keep: its hash and size, and
+// what processing would have reported.
+type Saved struct {
+	SHA256 string
+	Size   int64
+	Media  Media
+}
+
+// NewHarvested keeps a draft's Pexels stock or composed score. Saved by
+// the automatic harvest it is provisional until its deliverable is
+// decided; saved by a person (kept) it is not.
+func NewHarvested(id, workspaceID, createdBy uuid.UUID, kind Kind, origin Origin, h Harvest, f Saved, d Details,
+	kept bool, now time.Time) (*Asset, error) {
+	switch {
+	case id == uuid.Nil || workspaceID == uuid.Nil:
+		return nil, apperror.New(apperror.ValidationFailed, "asset and workspace ids are required")
+	case h.StoryID == uuid.Nil || h.DeliverableID == uuid.Nil || h.Revision < 1:
+		return nil, apperror.New(apperror.ValidationFailed, "a saved asset needs the revision it came from")
+	case f.SHA256 == "" || f.Size <= 0:
+		return nil, apperror.New(apperror.ValidationFailed, "a saved asset needs its file")
+	case origin == OriginPexels && (kind == KindMusic || h.SourceRef == "" || d.Credit.Author == ""):
+		return nil, apperror.New(apperror.ValidationFailed, "Pexels stock needs its id and author")
+	case origin == OriginGenerated && (kind != KindMusic || h.SourceRef != ""):
+		return nil, apperror.New(apperror.ValidationFailed, "only music is composed")
+	case origin == OriginUpload:
+		return nil, apperror.New(apperror.ValidationFailed, "uploads are not harvested")
+	}
+	if _, err := ParseOrigin(string(origin)); err != nil {
+		return nil, err
+	}
+	now = timeutil.Normalize(now)
+	a := &Asset{
+		id: id, workspaceID: workspaceID, kind: kind, origin: origin, status: StatusProcessing,
+		size: f.Size, sha256: f.SHA256, harvest: h, createdBy: createdBy, createdAt: now, updatedAt: now,
+	}
+	if err := a.Describe(d, now); err != nil {
+		return nil, err
+	}
+	a.kept, a.provisional = kept, !kept
+	if err := a.Ingested(f.Media, now); err != nil {
+		return nil, err
+	}
+	if a.status != StatusReady {
+		return nil, apperror.New(apperror.ValidationFailed, "the file cannot be kept: "+a.failure)
+	}
+	return a, nil
+}
+
+// Keep marks the asset wanted by a person: never pruned.
+func (a *Asset) Keep(now time.Time) {
+	if !a.kept || a.provisional {
+		a.kept, a.provisional = true, false
+		a.updatedAt = timeutil.Normalize(now)
+	}
+}
+
+// Settle decides a provisional asset once its deliverable is decided: it
+// stays when the decided revision uses it, a person kept it, or another
+// video used it meanwhile, and is no longer provisional; otherwise it
+// should be deleted (false). Assets that are not provisional always stay.
+func (a *Asset) Settle(usedByDecided, usedElsewhere bool, now time.Time) bool {
+	if !a.provisional {
+		return true
+	}
+	if usedByDecided || a.kept || usedElsewhere {
+		a.provisional = false
+		a.updatedAt = timeutil.Normalize(now)
+		return true
+	}
+	return false
 }
 
 // Ingested records the processed main file. A file past its kind's
@@ -519,3 +615,6 @@ func (a *Asset) CreatedBy() uuid.UUID    { return a.createdBy }
 func (a *Asset) CreatedAt() time.Time    { return a.createdAt }
 func (a *Asset) UpdatedAt() time.Time    { return a.updatedAt }
 func (a *Asset) ArchivedAt() time.Time   { return a.archivedAt }
+func (a *Asset) Provisional() bool       { return a.provisional }
+func (a *Asset) Kept() bool              { return a.kept }
+func (a *Asset) Harvest() Harvest        { return a.harvest }
