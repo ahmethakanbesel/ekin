@@ -4,7 +4,8 @@ A video gets a few designed thumbnails instead of one grabbed frame. The agent d
 two to four variants with different concepts on a page of their own, the render step
 turns them into full-size JPEGs, and the reviewer picks one before approving it (or
 sends notes on the thumbnails alone, without a new video render). Publishing uploads the
-picked variant. Once the video is live, a person can switch to another variant later.
+picked variant. Once the video is live, every variant stays available to download.
+Long videos only: shorts keep today's poster frame.
 
 ## 1. Where we are
 
@@ -81,8 +82,9 @@ Domain rules:
 
 - `ParseThumbnails(raw, want)` — parses `thumbnails.json` and checks counts, numbers,
   word limit and the recommended variant. Used by `validate` and by the finish step.
-- `st.PickThumbnail(did, n)` — allowed while the video is in review, ready or
-  published. n must exist on the current revision. A new revision resets the pick to 0.
+- `st.PickThumbnail(did, n)` — allowed while the video is in review or ready, not
+  once it is published. n must exist on the current revision. A new revision resets
+  the pick to 0.
 - `d.ThumbnailFor(rev)` — the picked number, else the recommended one, else 0 (fall
   back to `poster.jpg`).
 - `ScopeThumbnail` joins the feedback scopes. Feedback whose notes are all
@@ -90,16 +92,15 @@ Domain rules:
   resumes with `revise-thumbnail.md`, and the render job runs in thumbnail mode (§5).
 
 **Persistence**: `deliverables.thumbnail INTEGER NOT NULL DEFAULT 0`;
-`revisions.thumbnails TEXT` (JSON of variants and recommended). A
-`thumbnail_changes` table (workspace, deliverable, variant, external id, at, by) records
-changes made after publishing (§6). Each new table goes through the repository
-conformance suite.
+`revisions.thumbnails TEXT` (JSON of variants and recommended). The repository
+conformance suite covers both columns.
 
 ## 5. Flow
 
 1. **Setting.** `Production.Thumbnails` (pipeline and ad-hoc request): 0–4, default 3.
-   0 keeps today's grabbed frame and skips the step in the prompt. `CheckFor` only
-   allows it with a video output.
+   0 keeps today's grabbed frame and skips the step in the prompt. Only long videos
+   use it: `CheckFor` refuses a non-zero count without a long video output, and a
+   short deliverable (automatic or cut from a long video) always runs with 0.
 2. **Draft.** The agent writes and checks the thumbnails as in §3. `validate` runs
    `ParseThumbnails` and requires the page.
 3. **Render.** `RunRender` (preview only) renders every variant with `Snapshot` at
@@ -120,13 +121,10 @@ conformance suite.
 - **Edit the text in place.** Changing a variant's words in the review panel writes an
   edited revision (`st.Edited`, as for scripts) with the new `thumbnails.json` and
   queues a thumbnail-only render. No agent run is needed.
-- **Switch after publishing.** `PickThumbnail` on a published video enqueues
-  `publishing.thumbnail` (io queue, unique per deliverable). That job calls
-  `thumbnails.set` with the new file and appends to `thumbnail_changes`. The story page
-  shows the history, so the person can compare dates against Studio's analytics.
-- **Test & Compare.** As far as we know, YouTube's built-in A/B test is in Studio only,
-  with no Data API for it (check before phase 3). Kurgu offers *Download variants*
-  (a zip of the `thumb-*.jpg` files) so a person can start the test in Studio by hand.
+- **Download after publishing.** A published video's variants are download only:
+  *Download variants* (a zip of the `thumb-*.jpg` files) and each one on its own.
+  A person uploads another one in Studio by hand, for example to start Studio's
+  Test & Compare. Kurgu does not change a published video's thumbnail.
 
 ## 7. API
 
@@ -135,7 +133,6 @@ conformance suite.
 | Revisions gain `thumbnails {recommended, variants[]}`, deliverables gain `thumbnail` | view |
 | `PUT /workspaces/{ws}/stories/{id}/deliverables/{did}/thumbnail` `{variant}` | edit |
 | `PATCH /workspaces/{ws}/stories/{id}/deliverables/{did}/thumbnails/{n}` `{text}` (edited revision) | edit |
-| `GET /workspaces/{ws}/stories/{id}/deliverables/{did}/thumbnail-changes` | view |
 | `thumb-<n>.jpg` through the existing revision media route; `thumbnails.zip` built on request | view |
 | Feedback notes accept scope `thumbnail` | edit |
 | Pipelines and ad-hoc requests gain `production.thumbnails` | edit |
@@ -149,10 +146,10 @@ Each new operation goes into the access table (`TestAccessRulesCoverSpec`).
   and channel name, the way YouTube's grid shows it. Concept label, a *Recommended*
   badge, a radio to pick, inline text edit, and a note field that defaults to the
   `thumbnail` scope.
-- **Story page** for a published video: the current thumbnail, *Change thumbnail*
-  (same picker), the change history and *Download variants*.
+- **Story page** for a published video: the uploaded thumbnail, the other variants
+  and *Download variants*. There is no picker here.
 - **Pipeline and request forms**: "Thumbnail variants" (0–4) in the production
-  settings, hidden without a video output.
+  settings, shown only with a long video output.
 - The inbox poster stays `poster.jpg`. Its card is 9:16 for every draft, and a 16:9
   thumbnail would be cropped or letterboxed.
 
@@ -167,15 +164,15 @@ service tests with in-memory repos and a fixed clock, and `httptest` through the
    thumbnail.
 2. **Pick and revise.** `PickThumbnail`, `ScopeThumbnail`, `revise-thumbnail.md`,
    thumbnail-only renders, the review panel.
-3. **Edit and switch.** In-place text edits, switching after publishing with
-   `publishing.thumbnail`, change history, the variants zip.
+3. **Edit and download.** In-place text edits, the variants on the story page, the
+   variants zip.
 4. **House style.** An optional thumbnail guide on templates (brand mark, corner, font
    weight) passed to the agent with `STYLE.md`. After that, the picked thumbnail as
    the article's cover or OG image, once the marketing site's schema has a field for it.
 
 When phase 1 lands, add thumbnails to PLAN.md §1 and §6.
 
-## 10. Decisions and open questions
+## 10. Decisions
 
 - **A page, not a frame.** Thumbnails need large text, a different crop and a different
   hierarchy than any moment of the video. A separate static page lets the agent
@@ -184,10 +181,10 @@ When phase 1 lands, add thumbnails to PLAN.md §1 and §6.
   text fix needs no agent run.
 - **Render once, at full size.** Stills are cheap and scale-independent, so they are
   rendered with the preview and kept for the final render.
-- **Shorts — open.** The Shorts feed shows a frame chosen in the app, and how the API
-  thumbnail is used for Shorts is unclear. Until that is checked, shorts keep
-  `Thumbnails = 0` and today's poster frame. A "cover frame" picker for shorts can
-  follow.
-- **CTR per variant — open.** Whether the YouTube Analytics API returns impressions
-  click-through rate for a channel's videos decides whether Kurgu could rank variants
-  itself. Until then, the change history plus Studio covers it.
+- **No shorts.** Shorts keep today's poster frame. The Shorts feed shows a frame
+  chosen in the app, so designed variants would mostly go unseen.
+- **Download only after publishing.** Kurgu uploads the picked variant once, at
+  publishing. Later changes and Studio's Test & Compare are done by hand with the
+  downloaded files. There is no `publishing.thumbnail` job and no change history.
+- **No CTR tracking.** Kurgu does not read click-through rates or rank variants by
+  performance.
