@@ -226,6 +226,19 @@ func (s *Story) Deliverable(id uuid.UUID) (*Deliverable, error) {
 	return nil, apperror.New(apperror.NotFound, "deliverable not found")
 }
 
+// CheckDeletable refuses to delete a story while a step works on one
+// of its deliverables (drafting, rendering, publishing): its worker
+// would lose the story under it.
+func (s *Story) CheckDeletable() error {
+	for _, d := range s.deliverables {
+		switch d.status {
+		case StatusDrafting, StatusRendering, StatusFinalizing, StatusPublishing:
+			return apperror.New(apperror.Conflict, "the story is being worked on; wait for the current step to finish")
+		}
+	}
+	return nil
+}
+
 // Deliverables returns the story's deliverables, lead first.
 func (s *Story) Deliverables() []*Deliverable { return append([]*Deliverable(nil), s.deliverables...) }
 

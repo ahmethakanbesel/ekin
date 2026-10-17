@@ -1190,3 +1190,71 @@ func TestDecisionAndItsFollowUpAreOneTransaction(t *testing.T) {
 		})
 	}
 }
+
+// racingStories runs race once, right after the next Get.
+type racingStories struct {
+	storyrepo.Repository
+	race func()
+}
+
+func (r *racingStories) Get(ctx context.Context, ws, id uuid.UUID) (*storydomain.Story, error) {
+	st, err := r.Repository.Get(ctx, ws, id)
+	if race := r.race; race != nil {
+		r.race = nil
+		race()
+	}
+	return st, err
+}
+
+// A worker starting a draft while the story is being deleted either
+// finds it gone or stops the deletion: never drafts a deleted story.
+func TestDeleteRacingADraftNeverOrphansIt(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	article, _ := pipelinedomain.NewArticleSpec(900, nil)
+	outputs, _ := pipelinedomain.NewOutputs(nil, &article, "")
+	source, _ := pipelinedomain.NewPromptSource("Kaygı üzerine.")
+	p, err := f.pipelines.Create(ctx, f.ws, pipelinedomain.Definition{Name: "A", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.pipelines.RunNow(ctx, f.ws, p.ID(), 1)
+	run, _ := f.jobs.Claim(ctx, jobdomain.Queues, []string{pipelinesvc.KindRun}, "test", time.Minute)
+	var rp pipelinesvc.RunPayload
+	_ = json.Unmarshal(run.Payload(), &rp)
+	if err := f.svc.PlanRun(ctx, rp); err != nil {
+		t.Fatal(err)
+	}
+	st := f.story(t)
+	dp := production.DeliverablePayload{StoryID: st.ID(), DeliverableID: st.Lead().ID()}
+
+	began := make(chan error, 1)
+	var stories *racingStories
+	deleter := f.hostWith(func(deps *production.Deps) {
+		stories = &racingStories{Repository: deps.Stories}
+		deps.Stories = stories
+	})
+	stories.race = func() {
+		// The worker starts its draft as the story is being deleted; it
+		// gets the time it needs unless the deletion holds it off.
+		go func() {
+			_, _, err := f.svc.BeginDraft(context.Background(), dp)
+			began <- err
+		}()
+		select {
+		case err := <-began:
+			began <- err
+		case <-time.After(300 * time.Millisecond):
+		}
+	}
+	delErr := deleter.Delete(ctx, f.ws, st.ID())
+	beginErr := <-began
+	switch {
+	case delErr == nil && beginErr == nil:
+		t.Fatal("the story was deleted while its draft began")
+	case delErr == nil && !errors.Is(beginErr, jobdomain.ErrPermanent):
+		t.Fatalf("the draft of a deleted story = %v, want a permanent refusal", beginErr)
+	case delErr != nil && !apperror.Is(delErr, apperror.Conflict):
+		t.Fatalf("delete = %v", delErr)
+	}
+}

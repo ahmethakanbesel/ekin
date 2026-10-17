@@ -418,19 +418,22 @@ func (s *Service) Revisions(ctx context.Context, workspaceID, storyID, deliverab
 	return s.stories.Revisions(ctx, deliverableID)
 }
 
-// Delete removes a story, its artifacts and working directories.
+// Delete removes a story, its artifacts and working directories. The
+// check that no step is working on it and the deletion are one
+// transaction, so a worker cannot start a step in between.
 func (s *Service) Delete(ctx context.Context, workspaceID, storyID uuid.UUID) error {
-	st, err := s.stories.Get(ctx, workspaceID, storyID)
-	if err != nil {
-		return err
-	}
-	for _, d := range st.Deliverables() {
-		switch d.Status() {
-		case storydomain.StatusDrafting, storydomain.StatusRendering, storydomain.StatusFinalizing, storydomain.StatusPublishing:
-			return apperror.New(apperror.Conflict, "the story is being worked on; wait for the current step to finish")
+	var st *storydomain.Story
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		var err error
+		if st, err = s.stories.Get(ctx, workspaceID, storyID); err != nil {
+			return err
 		}
-	}
-	if err := s.stories.Delete(ctx, workspaceID, storyID); err != nil {
+		if err := st.CheckDeletable(); err != nil {
+			return err
+		}
+		return s.stories.Delete(ctx, workspaceID, storyID)
+	})
+	if err != nil {
 		return err
 	}
 	for _, d := range st.Deliverables() {
