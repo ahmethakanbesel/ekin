@@ -34,7 +34,7 @@ func TestSearchVideoPicksSmallestAdequate(t *testing.T) {
 	defer srv.Close()
 	c := &pexels.Client{APIKey: "key", BaseURL: srv.URL}
 	got, err := c.Search(context.Background(), "video", "calm sea", "portrait", 1, 1080)
-	if err != nil || len(got) != 1 || got[0].Width != 1080 || got[0].Author != "Ana" {
+	if err != nil || len(got) != 1 || got[0].Width != 1080 || got[0].Author != "Ana" || got[0].OriginalURL != srv.URL+"/f/4k" {
 		t.Fatalf("search = %+v, %v", got, err)
 	}
 	p := filepath.Join(t.TempDir(), "a.mp4")

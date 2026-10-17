@@ -6,12 +6,15 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
+	"kurgu/internal/adapter/pexels"
 	"kurgu/internal/agenttool"
 	librarydomain "kurgu/internal/domain/library/v1"
 )
@@ -243,5 +246,38 @@ func TestCheckMedia(t *testing.T) {
 				t.Fatalf("problems = %v, want one with %q", problems, tt.want)
 			}
 		})
+	}
+}
+
+// Stock photos are credited with what saving them to the library needs:
+// the Pexels id, size, alt text and the file they came from.
+func TestStockCreditsForTheLibrary(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/search":
+			_, _ = w.Write([]byte(`{"photos":[{"id":77,"url":"https://www.pexels.com/photo/77/","width":3000,"height":2000,
+			"photographer":"Ana","photographer_url":"u","alt":"A calm sea","src":{"original":"` + srv.URL + `/o","large2x":"` + srv.URL + `/l"}}]}`))
+		case "/l":
+			_, _ = w.Write([]byte("jpeg"))
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer srv.Close()
+	dir := workDir(t, nil)
+	e := agenttool.Env{Dir: dir, Pexels: pexels.Client{APIKey: "key", BaseURL: srv.URL}, Spec: agenttool.Spec{Width: 1080, Height: 1920}}
+	for range 2 { // the same photo twice is credited once
+		if _, err := run(t, e, "stock", "--query", "sea", "--type", "photo"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	credits := agenttool.ReadCredits(dir)
+	if len(credits) != 1 {
+		t.Fatalf("credits = %+v", credits)
+	}
+	c := credits[0]
+	if c.Kind != "photo" || c.ExternalID != "77" || c.Alt != "A calm sea" || c.OriginalURL != srv.URL+"/o" || c.Width == 0 || c.Author != "Ana" {
+		t.Fatalf("credit = %+v", c)
 	}
 }

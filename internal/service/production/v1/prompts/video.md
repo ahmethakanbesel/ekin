@@ -100,6 +100,8 @@ Work in this order and do not stop until `{{.Tool}} check` passes.
 5. **Music (optional).** If the brief does not forbid it, {{if .Media.Library}}add music
    as **Media sources** below says{{else}}write `music.js`{{end}}
    (calm, quiet, under the voice) and run `{{.Tool}} music`{{if .Media.Library}} for a score{{end}}.
+   Describe a score you write in `music.meta.json`, in English, so it can be found
+   again: `{"title": "...", "mood": "calm, hopeful", "tempo": 72, "description": "one line"}`.
 6. **Metadata.** Write `metadata.json`:
    `{"title": "...", "description": "...", "tags": ["..."]{{if .Long}}, "chapters": [{"at": 0, "title": "..."}]{{end}}}`
    in {{.LanguageName}}. Title ≤ 70 characters, specific, no clickbait, no

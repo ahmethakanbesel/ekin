@@ -25,7 +25,7 @@ func TestPromptsNameEachMediaSource(t *testing.T) {
 		{
 			name:    "fresh reads as before",
 			page:    "video.md",
-			want:    []string{"Stock footage is optional", "write `music.js`"},
+			want:    []string{"Stock footage is optional", "write `music.js`", "`music.meta.json`"},
 			notWant: []string{"Media sources", "library"},
 		},
 		{

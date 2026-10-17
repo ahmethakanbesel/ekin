@@ -3,6 +3,7 @@
 package pexels
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -37,7 +38,10 @@ type Media struct {
 	Height      int     `json:"height"`
 	Duration    float64 `json:"duration,omitempty"`
 	DownloadURL string  `json:"-"`
-	Alt         string  `json:"alt,omitempty"`
+	// OriginalURL is the largest file Pexels offers: the one to fetch again
+	// when a bigger or longer cut is needed.
+	OriginalURL string `json:"-"`
+	Alt         string `json:"alt,omitempty"`
 }
 
 func (c *Client) base() string {
@@ -126,8 +130,9 @@ func (c *Client) Search(ctx context.Context, kind, query string, orientation Ori
 			if link == "" {
 				continue
 			}
+			largest := files[len(files)-1].Link
 			out = append(out, Media{ID: v.ID, Kind: "video", PageURL: v.URL, Author: v.User.Name, AuthorURL: v.User.URL,
-				Width: w, Height: h, Duration: v.Duration, DownloadURL: link})
+				Width: w, Height: h, Duration: v.Duration, DownloadURL: link, OriginalURL: largest})
 			if len(out) == count {
 				break
 			}
@@ -158,7 +163,7 @@ func (c *Client) Search(ctx context.Context, kind, query string, orientation Ori
 			link = p.Src.Original
 		}
 		out = append(out, Media{ID: p.ID, Kind: "photo", PageURL: p.URL, Author: p.Photographer, AuthorURL: p.PhotographerURL,
-			Width: p.Width, Height: p.Height, DownloadURL: link, Alt: p.Alt})
+			Width: p.Width, Height: p.Height, DownloadURL: link, OriginalURL: cmp.Or(p.Src.Original, link), Alt: p.Alt})
 		if len(out) == count {
 			break
 		}

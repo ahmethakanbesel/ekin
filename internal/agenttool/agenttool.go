@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -448,6 +449,37 @@ type Credit struct {
 	// Library is the library asset the file came from; "" for stock
 	// fetched from Pexels.
 	Library string `json:"library,omitempty"`
+	// For Pexels stock: its id, size and alt text, and the file the stored
+	// one was cut from.
+	ExternalID  string `json:"externalId,omitempty"`
+	Width       int    `json:"width,omitempty"`
+	Height      int    `json:"height,omitempty"`
+	Alt         string `json:"alt,omitempty"`
+	OriginalURL string `json:"originalUrl,omitempty"`
+}
+
+// MusicMeta is music.meta.json: how the agent describes a score it
+// composed, for the library.
+type MusicMeta struct {
+	Title       string `json:"title"`
+	Mood        string `json:"mood,omitempty"`
+	Tempo       int    `json:"tempo,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+// ReadMusicMeta reads music.meta.json; the zero value when absent or
+// unreadable.
+func ReadMusicMeta(dir string) MusicMeta {
+	var m MusicMeta
+	if raw, err := os.ReadFile(filepath.Join(dir, "music.meta.json")); err == nil { //nolint:gosec // agent dir
+		_ = json.Unmarshal(raw, &m)
+	}
+	return m
+}
+
+// ReadCredits reads assets/credits.json; none when absent.
+func ReadCredits(dir string) []Credit {
+	return readCredits(filepath.Join(dir, "assets", "credits.json"))
 }
 
 func (e Env) stock(ctx context.Context, query, kind string, count int) error {
@@ -510,7 +542,9 @@ func (e Env) stock(ctx context.Context, query, kind string, count int) error {
 			}
 		}
 		rel, _ := filepath.Rel(e.Dir, file)
+		credits = slices.DeleteFunc(credits, func(c Credit) bool { return c.File == rel })
 		credits = append(credits, Credit{File: rel, Source: "Pexels", Kind: it.Kind, Author: it.Author, URL: it.PageURL, Query: query,
+			ExternalID: strconv.Itoa(it.ID), Width: it.Width, Height: it.Height, Alt: it.Alt, OriginalURL: it.OriginalURL,
 			Seconds: int(math.Min(it.Duration, 15))})
 		desc := fmt.Sprintf("%s  (%dx%d", rel, it.Width, it.Height)
 		if it.Kind == "video" {
