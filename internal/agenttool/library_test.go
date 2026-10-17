@@ -281,3 +281,25 @@ func TestStockCreditsForTheLibrary(t *testing.T) {
 		t.Fatalf("credit = %+v", c)
 	}
 }
+
+func TestUsedStock(t *testing.T) {
+	dir := workDir(t, nil)
+	write := func(name, content string) {
+		_ = os.MkdirAll(filepath.Dir(filepath.Join(dir, name)), 0o750)
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("composition.html", `<video src="assets/pexels-video-11.webm"></video><img src="assets/pexels-photo-22.jpg"><img src="assets/library-x.jpg">`)
+	b, _ := json.Marshal([]agenttool.Credit{
+		{File: "assets/pexels-video-11.webm", Source: "Pexels", Kind: "video", ExternalID: "11"},
+		{File: "assets/pexels-photo-22.jpg", Source: "Pexels"}, // written before credits carried kind and id
+		{File: "assets/pexels-video-33.webm", Source: "Pexels", Kind: "video", ExternalID: "33"}, // downloaded, unused
+		{File: "assets/library-x.jpg", Source: "Library", Kind: "photo", Library: "x"},
+	})
+	write("assets/credits.json", string(b))
+	got := agenttool.UsedStock(dir)
+	if len(got) != 2 || got[0].ExternalID != "11" || got[1].Kind != "photo" || got[1].ExternalID != "22" {
+		t.Fatalf("used stock = %+v", got)
+	}
+}

@@ -1,6 +1,7 @@
 package production_test
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"io"
@@ -146,4 +147,114 @@ func ingestTrack(t *testing.T, f fixture, library *librarysvc.Service, name stri
 		t.Fatal(err)
 	}
 	return a
+}
+
+// draftMedia is what a video draft holds: Pexels clips its composition
+// shows (by id) and a composed score.
+func draftMedia(clips ...string) map[string]string {
+	var credits []agenttool.Credit
+	files := map[string]string{
+		"music.js":        "window.kurguMusic = () => {}",
+		"music.meta.json": `{"title":"Sakin piyano","mood":"calm","tempo":70}`,
+	}
+	page := `<script src="/kit/kurgu.js"></script>`
+	for _, id := range clips {
+		name := "assets/pexels-video-" + id + ".webm"
+		files[name] = "clip " + id
+		page += `<video src="` + name + `"></video>`
+		credits = append(credits, agenttool.Credit{File: name, Source: "Pexels", Kind: "video", ExternalID: id, Author: "Ana",
+			URL: "https://www.pexels.com/video/" + id + "/", Alt: "sea at dusk", Query: "sea", OriginalURL: "https://videos.pexels.com/" + id + ".mp4"})
+	}
+	raw, _ := json.Marshal(credits)
+	files["assets/credits.json"] = string(raw)
+	files["composition.html"] = page
+	return files
+}
+
+// With saving on, each finished draft saves its Pexels clips and score as
+// provisional; approving the video keeps what the approved revision uses
+// and deletes what a later revision replaced.
+func TestDraftsSaveToTheLibrary(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	library := newLibrary(t, f)
+	if _, err := library.SaveCollect(ctx, f.ws, librarydomain.Collect{Music: true, Video: true}); err != nil {
+		t.Fatal(err)
+	}
+	svc := f.hostWith(func(d *production.Deps) { d.Library = library })
+	f.agent.files = draftMedia("1")
+
+	video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
+	outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
+	if _, err := svc.QueueAdHoc(ctx, f.ws, id.New(), production.AdHocRequest{Idea: "Kaygı", Count: 1,
+		Language: pipelinedomain.Turkish, Outputs: outputs}); err != nil {
+		t.Fatal(err)
+	}
+	f.drainOn(t, svc)
+	saved := func() map[string]*librarydomain.Asset {
+		t.Helper()
+		list, _, err := library.List(ctx, f.ws, librarysvc.Filter{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := map[string]*librarydomain.Asset{}
+		for _, a := range list {
+			out[cmp.Or(a.Harvest().SourceRef, string(a.Origin()))] = a
+		}
+		return out
+	}
+	got := saved()
+	clip1, score := got["pexels:video:1"], got["generated"]
+	if len(got) != 2 || clip1 == nil || score == nil || !clip1.Provisional() || !score.Provisional() {
+		t.Fatalf("after the first draft = %v", got)
+	}
+	if clip1.Title() != "Sea at dusk" || clip1.Credit().Licence != "Pexels License" || clip1.Harvest().OriginalURL != "https://videos.pexels.com/1.mp4" ||
+		score.Title() != "Sakin piyano" || score.Mood() != "calm" || score.Tempo() != 70 {
+		t.Fatalf("details = %+v / %+v", clip1.Snapshot(), score.Snapshot())
+	}
+
+	// The second draft swaps the clip; the score stays the same file.
+	st := f.story(t)
+	f.agent.files = draftMedia("2")
+	fb, _ := storydomain.NewFeedback([]storydomain.Note{{Text: "Başka bir deniz görüntüsü"}}, id.New(), time.Now())
+	if _, err := svc.RequestChanges(ctx, f.ws, st.ID(), st.Lead().ID(), fb); err != nil {
+		t.Fatal(err)
+	}
+	f.drainOn(t, svc)
+	if got := saved(); len(got) != 3 || got["pexels:video:2"] == nil {
+		t.Fatalf("after the second draft = %v", got)
+	}
+
+	if _, err := svc.Approve(ctx, f.ws, st.ID(), st.Lead().ID(), id.New()); err != nil {
+		t.Fatal(err)
+	}
+	f.drainOn(t, svc)
+	got = saved()
+	if len(got) != 2 || got["pexels:video:1"] != nil || got["pexels:video:2"] == nil || got["generated"] == nil {
+		t.Fatalf("after approval = %v", got)
+	}
+	for ref, a := range got {
+		if a.Provisional() {
+			t.Fatalf("%s still provisional", ref)
+		}
+	}
+}
+
+// Saving off (the default) saves nothing.
+func TestDraftsSaveNothingByDefault(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	library := newLibrary(t, f)
+	svc := f.hostWith(func(d *production.Deps) { d.Library = library })
+	f.agent.files = draftMedia("1")
+	video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
+	outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
+	if _, err := svc.QueueAdHoc(ctx, f.ws, id.New(), production.AdHocRequest{Idea: "Kaygı", Count: 1,
+		Language: pipelinedomain.Turkish, Outputs: outputs}); err != nil {
+		t.Fatal(err)
+	}
+	f.drainOn(t, svc)
+	if list, _, _ := library.List(ctx, f.ws, librarysvc.Filter{}); len(list) != 0 {
+		t.Fatalf("saved = %d", len(list))
+	}
 }

@@ -66,11 +66,16 @@ type Renderer interface {
 	Thumbnails(ctx context.Context, dir, pagePath string, ns []int, small bool, outDir string) ([]render.ThumbnailShot, render.Meta, []string, error)
 }
 
-// Library is the part of the media library a draft needs: what it may
-// use, and a record of what it used.
+// Library is the part of the media library production needs: what a
+// draft may use and a record of what it used, and saving what drafts
+// made or fetched (internal/service/library).
 type Library interface {
 	Catalog(ctx context.Context, workspaceID uuid.UUID, kinds []librarydomain.Kind, orientation librarydomain.Orientation) ([]librarysvc.Entry, error)
 	RecordUsage(ctx context.Context, workspaceID, storyID, deliverableID uuid.UUID, revision int, assetIDs []uuid.UUID) error
+	Collect(ctx context.Context, workspaceID uuid.UUID) (librarydomain.Collect, error)
+	Find(ctx context.Context, workspaceID uuid.UUID, h librarysvc.Harvestable) (*librarydomain.Asset, error)
+	Save(ctx context.Context, workspaceID, actorID uuid.UUID, h librarysvc.Harvestable, kept bool) (*librarydomain.Asset, error)
+	Settle(ctx context.Context, workspaceID, deliverableID uuid.UUID, decided librarysvc.Decided) (int, error)
 }
 
 // Enqueuer is the part of the job service this package needs.

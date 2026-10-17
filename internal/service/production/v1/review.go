@@ -357,6 +357,12 @@ func (s *Service) Approve(ctx context.Context, workspaceID, storyID, deliverable
 				return err
 			}
 		}
+		if d.Status() == storydomain.StatusFinalizing || d.Status() == storydomain.StatusReady {
+			// The video is decided (approving a script only starts it).
+			if err := s.enqueueHarvest(ctx, st, d, d.Revision(), true); err != nil {
+				return err
+			}
+		}
 		if d.Status() == storydomain.StatusReady {
 			return s.ready(ctx, st, d)
 		}
@@ -403,8 +409,12 @@ func (s *Service) RequestChanges(ctx context.Context, workspaceID, storyID, deli
 
 // Reject drops a deliverable.
 func (s *Service) Reject(ctx context.Context, workspaceID, storyID, deliverableID uuid.UUID) (*storydomain.Story, error) {
-	return s.change(ctx, workspaceID, storyID, func(_ context.Context, st *storydomain.Story) error {
-		return st.Reject(deliverableID, s.now())
+	return s.change(ctx, workspaceID, storyID, func(ctx context.Context, st *storydomain.Story) error {
+		if err := st.Reject(deliverableID, s.now()); err != nil {
+			return err
+		}
+		d, _ := st.Deliverable(deliverableID)
+		return s.enqueueHarvest(ctx, st, d, d.Revision(), true)
 	})
 }
 

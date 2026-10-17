@@ -20,6 +20,7 @@ func Register(r *jobsvc.Runner, svc *productionsvc.Service) {
 	r.Register(productionsvc.KindMoments, handle(svc.FindMoments))
 	r.Register(productionsvc.KindDraft, handle(svc.Draft))
 	r.Register(productionsvc.KindRender, handle(svc.Render))
+	r.Register(productionsvc.KindHarvest, handle(svc.Harvest))
 	r.Register(productionsvc.KindPublish, func(ctx context.Context, j *jobdomain.Job) error {
 		var p productionsvc.DeliverablePayload
 		if err := json.Unmarshal(j.Payload(), &p); err != nil {

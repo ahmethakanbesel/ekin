@@ -295,6 +295,11 @@ func (s *Service) FinishDraft(ctx context.Context, task DraftTask, dir string, r
 			return err
 		}
 		d, _ := st.Deliverable(p.DeliverableID)
+		if rev.Stage != storydomain.StageScript {
+			if err := s.enqueueHarvest(ctx, st, d, rev.Number, false); err != nil {
+				return err
+			}
+		}
 		return s.enqueueStep(ctx, st, d)
 	})
 	if apperror.Is(err, apperror.ValidationFailed) && recut != nil {

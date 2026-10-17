@@ -79,6 +79,9 @@ type fakeAgent struct {
 	// with kurgu tool library, fetching through library.
 	useLibrary []string
 	library    agenttool.Fetcher
+	// files, when set, are written into every video draft (path → content):
+	// stock, a score and their credits.
+	files map[string]string
 	// moveClip, when set, has the next short's draft move its cut to
 	// these window sentences with kurgu tool clip.
 	moveClip []string
@@ -204,6 +207,12 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 		write("metadata.json", `{"title":"Kaygı nedir?","description":"Kısa açıklama.","tags":["kaygı"]}`)
 		if err := a.takeFromLibrary(ctx, req); err != nil {
 			return claude.Result{}, err
+		}
+		a.mu.Lock()
+		files := a.files
+		a.mu.Unlock()
+		for name, content := range files {
+			write(name, content)
 		}
 	default:
 		body := strings.Repeat("Kaygı ile ilgili açıklayıcı bir cümle. ", 150)
@@ -482,7 +491,8 @@ func (f fixture) drain(t *testing.T) {
 func (f fixture) drainOn(t *testing.T, svc *production.Service) {
 	t.Helper()
 	ctx := context.Background()
-	kinds := []string{pipelinesvc.KindRun, production.KindAdHoc, production.KindMoments, production.KindDraft, production.KindRender, production.KindPublish}
+	kinds := []string{pipelinesvc.KindRun, production.KindAdHoc, production.KindMoments, production.KindDraft, production.KindRender,
+		production.KindPublish, production.KindHarvest}
 	for range 50 {
 		j, err := f.jobs.Claim(ctx, jobdomain.Queues, kinds, "test", time.Minute)
 		if err != nil {
@@ -506,6 +516,10 @@ func (f fixture) drainOn(t *testing.T, svc *production.Service) {
 			var p production.MomentsPayload
 			_ = json.Unmarshal(j.Payload(), &p)
 			runErr = svc.FindMoments(ctx, p)
+		case production.KindHarvest:
+			var p production.HarvestPayload
+			_ = json.Unmarshal(j.Payload(), &p)
+			runErr = svc.Harvest(ctx, p)
 		default:
 			var p production.DeliverablePayload
 			_ = json.Unmarshal(j.Payload(), &p)

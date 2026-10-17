@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -336,6 +337,33 @@ func CheckMedia(dir string, spec Spec) []string {
 	}
 	return problems
 }
+
+// UsedStock lists the Pexels stock dir's composition uses, each with its
+// kind and Pexels id (read from the file name for credits written before
+// they carried them).
+func UsedStock(dir string) []Credit {
+	var out []Credit
+	for _, c := range ReadCredits(dir) {
+		if c.Library != "" || c.Source != "Pexels" || !referenced(dir, c.File) {
+			continue
+		}
+		if c.Kind == "" {
+			c.Kind = kindFromFile(c.File)
+		}
+		if c.ExternalID == "" {
+			if m := pexelsName.FindStringSubmatch(filepath.Base(c.File)); m != nil {
+				c.ExternalID = m[1]
+			}
+		}
+		if c.Kind != "" && c.ExternalID != "" {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// pexelsName is how kurgu tool stock names a file: pexels-<kind>-<id>.
+var pexelsName = regexp.MustCompile(`^pexels-(?:video|photo)-(\d+)\.`)
 
 func exists(dir, file string) bool {
 	_, err := os.Stat(filepath.Join(dir, file))
