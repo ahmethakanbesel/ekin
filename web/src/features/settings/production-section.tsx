@@ -18,7 +18,8 @@ import { errorMessage } from "@/lib/errors"
 import { cn } from "@/lib/utils"
 import { pipelinesQuery } from "@/queries/pipelines"
 import { useSaveWorkspaceProduction, workspaceProductionQuery } from "@/queries/production"
-import { LayeredCard } from "./layered"
+import { TemplateSelect } from "@/features/templates/template-select"
+import { LayeredCard, LayeredGroup, LayeredRow } from "./layered"
 import { ProductionFields, changedLabels, countSet, serverResolved } from "./production-fields"
 import { SettingsSectionHeader } from "./settings-page"
 
@@ -52,7 +53,7 @@ export function ProductionSection() {
     body = (
       // Re-mount the form when the stored defaults change underneath it.
       <ProductionForm
-        key={JSON.stringify([query.data.defaults, query.data.selfReviewRounds])}
+        key={JSON.stringify([query.data.defaults, query.data.selfReviewRounds, query.data.templateId])}
         stored={query.data}
         readOnly={!canManage}
       />
@@ -74,19 +75,34 @@ function ProductionForm({ stored, readOnly }: { stored: WorkspaceProduction; rea
   const save = useSaveWorkspaceProduction(workspace.id)
   const [initial] = useState(() => fromProduction(stored.defaults, stored.selfReviewRounds))
   const [value, setValue] = useState(initial)
+  const savedTemplate = stored.templateId ?? ""
+  const [templateId, setTemplateId] = useState(savedTemplate)
   const t = m.settings.production
   // The summary counts what is saved; the save bar names what is not.
-  const { set, total } = countSet(initial, { video: true, longVideo: true })
-  const changed = changedLabels(value, initial)
+  const counted = countSet(initial, { video: true, longVideo: true })
+  const set = counted.set + (savedTemplate ? 1 : 0)
+  const total = counted.total + 1
+  const changed = [
+    ...(templateId !== savedTemplate ? [t.defaultTemplate] : []),
+    ...changedLabels(value, initial),
+  ]
   const dirty = changed.length > 0
   const pipelines = useQuery(pipelinesQuery(workspace.id))
   const overriding = (pipelines.data ?? []).filter(
-    (p) => p.definition.production !== undefined || p.definition.selfReviewRounds !== undefined
+    (p) =>
+      p.definition.production !== undefined ||
+      p.definition.selfReviewRounds !== undefined ||
+      p.definition.templateId !== undefined ||
+      !!p.definition.noTemplate
   ).length
 
   const submit = async () => {
     try {
-      await save.mutateAsync({ defaults: toProduction(value) ?? {}, selfReviewRounds: toSelfReview(value) })
+      await save.mutateAsync({
+        defaults: toProduction(value) ?? {},
+        selfReviewRounds: toSelfReview(value),
+        templateId: templateId || undefined,
+      })
       toast.success(t.saved)
     } catch {
       // shown in the banner
@@ -139,7 +155,14 @@ function ProductionForm({ stored, readOnly }: { stored: WorkspaceProduction; rea
               </p>
               <div className="flex gap-2">
                 {dirty ? (
-                  <Button type="button" variant="outline" onClick={() => setValue(initial)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setValue(initial)
+                      setTemplateId(savedTemplate)
+                    }}
+                  >
                     {m.settings.discard}
                   </Button>
                 ) : null}
@@ -156,6 +179,30 @@ function ProductionForm({ stored, readOnly }: { stored: WorkspaceProduction; rea
         }
       >
         <div className="pb-4">
+          <LayeredGroup title={t.groups.style}>
+            <LayeredRow
+              label={t.defaultTemplate}
+              htmlFor="ws-production-template"
+              hint={t.defaultTemplateHint}
+              inherited={{ value: m.templates.picker.none, source: m.settings.layers.builtIn }}
+              set={templateId !== ""}
+              dirty={templateId !== savedTemplate}
+              readOnly={readOnly}
+              onReset={() => setTemplateId("")}
+            >
+              {(describedBy) => (
+                <TemplateSelect
+                  id="ws-production-template"
+                  value={templateId}
+                  onChange={setTemplateId}
+                  kinds={["video", "article"]}
+                  bare
+                  describedBy={describedBy}
+                  disabled={readOnly}
+                />
+              )}
+            </LayeredRow>
+          </LayeredGroup>
           <ProductionFields
             idPrefix="ws-production"
             value={value}

@@ -221,6 +221,7 @@ export function PipelineForm({
               value={field.state.value}
               onChange={field.handleChange}
               kinds={chosenKinds({ videoEnabled, articleEnabled })}
+              inherits
               disabled={readOnly}
             />
           )}

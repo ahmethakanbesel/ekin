@@ -11,6 +11,7 @@ export type FinalFps = NonNullable<Production["finalFps"]>
 export type ReviewAt = NonNullable<Production["reviewAt"]>
 export type MediaSource = Schemas["MediaSource"]
 export type MediaKind = "music" | "video" | "photo"
+import { NO_TEMPLATE } from "@/features/templates/model"
 import { emptyOverride, fromOverride, toOverride, type VoiceOverrideValues } from "@/features/voice/model"
 import { m } from "@/i18n"
 
@@ -63,7 +64,7 @@ export type PipelineFormValues = OutputsValues & {
   source: { kind: SourceKind; instructions: string; refs: RefValues[] }
   scheduled: boolean
   schedule: { cron: string; timezone: string; batch: string }
-  /** The house style; "" for none. */
+  /** The house style: an id, NO_TEMPLATE for none, "" for the workspace default. */
   templateId: string
   /** Narration voice or speed for this pipeline; "" for the workspace's. */
   voice: VoiceOverrideValues
@@ -140,6 +141,12 @@ export function toProduction(v: ProductionValues): Production | undefined {
   return Object.keys(out).length > 0 ? out : undefined
 }
 
+/** A form's template choice on the wire: an id, none, or neither (inherit). */
+export function templateWire(templateId: string): { templateId?: string; noTemplate?: boolean } {
+  if (templateId === NO_TEMPLATE) return { noTemplate: true }
+  return templateId ? { templateId } : {}
+}
+
 /** Self-review rounds on the wire; undefined inherits. */
 export function toSelfReview(v: ProductionValues): number | undefined {
   return v.selfReview ?? undefined
@@ -213,7 +220,7 @@ export function fromDefinition(
           batch: String(def.schedule.batch),
         }
       : base.schedule,
-    templateId: def.templateId ?? "",
+    templateId: def.noTemplate ? NO_TEMPLATE : (def.templateId ?? ""),
     voice: fromOverride(def.voice),
     production: fromProduction(def.production, def.selfReviewRounds),
   }
@@ -274,7 +281,7 @@ export function toDefinition(v: PipelineFormValues): PipelineDefinition {
           batch: toInt(v.schedule.batch) ?? 0,
         }
       : undefined,
-    templateId: v.templateId || undefined,
+    ...templateWire(v.templateId),
     voice: toOverride(v.voice),
     selfReviewRounds: toSelfReview(v.production),
     production: toProduction(v.production),

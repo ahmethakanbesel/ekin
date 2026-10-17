@@ -276,7 +276,9 @@ export const en = {
     unsavedRow: "Unsaved",
     production: {
       title: "Production",
-      groups: { drafting: "Drafting", render: "Render", review: "Review" },
+      groups: { style: "House style", drafting: "Drafting", render: "Render", review: "Review" },
+      defaultTemplate: "Default template",
+      defaultTemplateHint: "The house style for stories whose pipeline or request picks none of its own. Each template applies to the outputs it is made for.",
       fps: (n: number) => `${n} fps`,
       claudeDefault: "Claude Code's choice",
       fresh: { music: "Composes its own", video: "Searches Pexels", photo: "Searches Pexels" } as Record<string, string>,

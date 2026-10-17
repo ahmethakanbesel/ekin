@@ -223,3 +223,6 @@ export function validateTemplate(v: TemplateFormValues): Partial<Record<string, 
   })
   return fields
 }
+
+/** A pipeline's or request's template choice meaning "no template" ("" takes the workspace default). */
+export const NO_TEMPLATE = "none"

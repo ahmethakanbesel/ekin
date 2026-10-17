@@ -249,6 +249,7 @@ function RequestForm({ workspaceId }: { workspaceId: string }) {
                 value={field.state.value}
                 onChange={field.handleChange}
                 kinds={chosenKinds({ videoEnabled, articleEnabled })}
+                inherits
               />
             )}
           </form.Field>
