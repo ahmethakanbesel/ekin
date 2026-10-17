@@ -49,7 +49,8 @@ internal/transport/job/library/v1/   library.ingest, library.harvest
 | created by, created at, archived at | archived items leave the catalog but keep their history |
 
 Domain rules on it: `New…` per origin guards the fields that origin needs (a Pexels item
-needs its source ref and author, an upload needs a credit or the "own work" flag);
+needs its source ref and author; an upload's credit is optional, empty meaning the
+uploader's own work);
 `a.Ingested(files, meta, now)`, `a.Failed(reason)`, `a.Retag(...)` (also marks it kept),
 `a.Keep()`, `a.Archive(now)`, `a.Fits(orientation)` (a portrait short only gets portrait
 or square media), and `a.Settle(decided, usages)` — whether a provisional item stays or
@@ -176,7 +177,9 @@ the agent in two steps:
 - `kurgu tool music` and `check` fail when `music.js` exists in `library` music mode
   and does not come from a library score (its sha256 is in the catalog).
 - `check` fails when a `credits.json` entry used by the composition has no `library`
-  id in `library` mode, and when both `music.js` and `music.json` exist.
+  id in `library` mode, and when both `music.js` and `music.json` exist. A library
+  item outside the draft's catalog passes when its file is present: a short arrives
+  with its long video's media, and an item may be archived since.
 
 **Render.** `RunRender` uses `music.js` as today, or else `music.json`'s file: the
 renderer gains `MusicTrack(file, offset, duration, out)` (trim from offset, loop when
@@ -212,8 +215,8 @@ Outside the spec (CONVENTIONS §11 gains a third route group):
 with Range support, same session and `view` check as revision media. And the worker
 route in §4.
 
-Delete removes the blobs and the row; Usage rows keep the story link with the asset
-shown as "deleted". Revisions are unaffected because they hold their own copies.
+Delete removes the blobs, the row and its usages. Revisions are unaffected because
+they hold their own copies.
 
 ## 6. Web UI
 
@@ -239,10 +242,13 @@ Each phase ships on its own with tests (domain table tests, repository conforman
 service with inmemory repos and a fixed clock, `httptest` through the router, the
 agent tool against a fake blob store and a fake worker API).
 
-1. **Library context and uploads** — Asset aggregate, migration (`library_assets`,
+Built: phases 1 and 2. Only the server's own worker can fetch library files until
+phase 4; on a remote worker `kurgu tool library use` says the library is not reachable.
+
+1. ✅ **Library context and uploads** — Asset aggregate, migration (`library_assets`,
    `library_usages`, `library_settings`), upload + `library.ingest`, list / get / edit /
    delete / media route, Library page with upload. Useful alone as a place to keep media.
-2. **Using the library** — Policy on pipelines, ad-hoc requests and `Brief`; catalog in
+2. ✅ **Using the library** — Policy on pipelines, ad-hoc requests and `Brief`; catalog in
    `prepare`; `kurgu tool library` (local blob store); `music.json` + `MusicTrack`;
    Usage rows; prompts; enforcement in tools and `validate`; Media section in the
    pipeline and ad-hoc forms.

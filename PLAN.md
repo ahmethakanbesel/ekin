@@ -32,6 +32,10 @@ Update this file whenever a decision below changes.
 - **Knowledge base**: upload PDF / TXT / MD / EPUB, extract text per page, estimate tokens
   per page, preview in the browser, reference several documents and page ranges at once.
   Only the referenced pages are given to the agent. No RAG / indexing for now.
+- **Media library**: music, stock videos and photos kept per workspace for reuse
+  (docs/library.md). Uploaded files are processed with ffmpeg; each pipeline or request
+  picks, per kind, whether drafts compose and search fresh, use the library only, or
+  look there first. Usage is counted, never limited.
 - **Deduplication**: every idea is compared against previous stories before production.
 - **Multi-user ready**: everything is scoped to a workspace; users have roles.
 
@@ -50,8 +54,8 @@ Update this file whenever a decision below changes.
 | Decision model | OpenRouter `typesafe/jev-1.13` for typed decisions only: the duplicate-idea verdict for titles that are similar but not identical (trigram score 0.35–0.6). Ideas themselves come from Claude Code with a JSON schema. |
 | Render engine | **Vanilla** (docs/benchmarks/render.md): `composition.html` + `window.kurgu.renderAt(t)` driven by Go chromedp, frames piped to ffmpeg. `HeadlessExperimental.beginFrame` in chrome-headless-shell on Linux (3–13× faster on 0.5–1 vCPU), screenshots on macOS. Remotion: licence cost; Revideo: canvas-only, broken with ffmpeg 8. |
 | TTS | `Speech` port. Turkish: okur-tts (with word timings from its duration predictor). English: Kokoro-82M (timestamped ONNX). |
-| Music | `Music` port. MVP: procedural — the agent writes a Tone.js score rendered offline in Chromium. Paid API (Lyria) may follow. |
-| Stock media | Pexels video and photos (no audio); clips are transcoded to short VP8 WebM so the composition can seek them frame by frame. |
+| Music | `Music` port. MVP: procedural — the agent writes a Tone.js score rendered offline in Chromium. Paid API (Lyria) may follow. Or a library track (`music.json`), cut to length and faded out. |
+| Stock media | Pexels video and photos (no audio); clips are transcoded to short VP8 WebM so the composition can seek them frame by frame. Or library items, through `kurgu tool library`. |
 | Blog | Markdown with the site's frontmatter committed to `marketing/src/content/blog/{tr,en}` in one commit through the GitHub Git Data API, or written into a local checkout. Video embeds become privacy-enhanced iframes. No CMS migration. |
 | Notifications | In-app feed + SMTP digests (one email per person per flush, `KURGU_NOTIFY_EVERY`). Invitations are emailed when SMTP is set. |
 | Deployment | Dokploy, Compose type (needs `cpuset` / `cpu_shares`). Also runs natively on macOS. |
@@ -97,6 +101,7 @@ Container ceiling on the VPS: `cpuset: "1"`, `cpu_shares: 64`, `cpus: 0.5`,
 | workspace | Workspace (timezone) |
 | pipeline | Pipeline (language, outputs, source, schedule, status) |
 | knowledge | Document, Page, Ref (document + page ranges), Coverage |
+| library | Asset (music, video, photo; uploaded, Pexels or composed), Usage, media source Policy |
 | seo | Opportunity (keyword, volume, difficulty, intent), SEO profile |
 | voice | Voice settings per language (engine voice, speed, pauses, seed, quality), pronunciation dictionary, per-pipeline override |
 | template | Template (house style: guide, palette, fonts, music mood); built-ins in code, workspace copies and agent drafts in the database |
