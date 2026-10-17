@@ -82,11 +82,16 @@ func (r *SQLite) writeDeliverables(ctx context.Context, snap storydomain.Snapsho
 		if !d.ScriptApprovedAt.IsZero() {
 			scriptApprovedAt = sql.NullInt64{Int64: timeutil.ToMillis(d.ScriptApprovedAt), Valid: true}
 		}
+		var clipStart, clipEnd sql.NullInt64
+		if d.Clip != nil {
+			clipStart = sql.NullInt64{Int64: d.Clip.Start.Milliseconds(), Valid: true}
+			clipEnd = sql.NullInt64{Int64: d.Clip.End.Milliseconds(), Valid: true}
+		}
 		_, err := q.ExecContext(ctx, `INSERT INTO deliverables
 			(id, story_id, position, kind, role, source_id, language, video, article, status, revision, pending,
 			 failure, failed_step, session, approved_by, approved_at, published, publish_job, duration_ms, words, narrator,
-			 script_approved_at, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			 script_approved_at, clip_start_ms, clip_end_ms, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (id) DO UPDATE SET
 			  status = excluded.status, revision = excluded.revision, pending = excluded.pending,
 			  failure = excluded.failure, failed_step = excluded.failed_step, session = excluded.session,
@@ -96,9 +101,29 @@ func (r *SQLite) writeDeliverables(ctx context.Context, snap storydomain.Snapsho
 			d.ID.String(), snap.ID.String(), i, d.Kind, d.Role, nullID(d.SourceID), d.Language, video, article,
 			d.Status, d.Revision, pending, d.Failure, d.FailedStep, d.Session, nullID(d.ApprovedBy), approvedAt,
 			published, nullID(d.PublishJob), nullMillis(d.Measures.Duration), nullPositive(d.Measures.Words), nullNarrator(d.Measures.Narrator),
-			scriptApprovedAt, timeutil.ToMillis(d.CreatedAt), timeutil.ToMillis(d.UpdatedAt))
+			scriptApprovedAt, clipStart, clipEnd, timeutil.ToMillis(d.CreatedAt), timeutil.ToMillis(d.UpdatedAt))
 		if err != nil {
 			return fmt.Errorf("write deliverable: %w", err)
+		}
+	}
+	return r.writeMoments(ctx, snap)
+}
+
+// writeMoments replaces the story's moments: the agent's new
+// suggestions replace its old ones, so rows come and go.
+func (r *SQLite) writeMoments(ctx context.Context, snap storydomain.Snapshot) error {
+	q := r.q.W(ctx)
+	if _, err := q.ExecContext(ctx, `DELETE FROM story_moments WHERE story_id = ?`, snap.ID.String()); err != nil {
+		return fmt.Errorf("clear moments: %w", err)
+	}
+	for _, m := range snap.Moments {
+		if _, err := q.ExecContext(ctx, `INSERT INTO story_moments
+			(id, workspace_id, story_id, source_id, start_ms, end_ms, hook, reason, score, origin, status, short_id, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			m.ID.String(), snap.WorkspaceID.String(), snap.ID.String(), m.SourceID.String(),
+			m.Clip.Start.Milliseconds(), m.Clip.End.Milliseconds(), m.Hook, m.Reason, m.Score, m.Origin, m.Status,
+			nullID(m.ShortID), timeutil.ToMillis(m.CreatedAt), timeutil.ToMillis(m.UpdatedAt)); err != nil {
+			return fmt.Errorf("write moment: %w", err)
 		}
 	}
 	return nil
@@ -221,9 +246,14 @@ func (r *SQLite) load(ctx context.Context, query string, args ...any) ([]*storyd
 	if err != nil {
 		return nil, err
 	}
+	moments, err := r.moments(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]*storydomain.Story, 0, len(snaps))
 	for _, s := range snaps {
 		s.Deliverables = byStory[s.ID]
+		s.Moments = moments[s.ID]
 		st, err := storydomain.Rehydrate(s)
 		if err != nil {
 			return nil, err
@@ -246,7 +276,7 @@ func (r *SQLite) deliverables(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 	}
 	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT story_id, id, kind, role, source_id, language, video, article, status,
 		revision, pending, failure, failed_step, session, approved_by, approved_at, published, publish_job, duration_ms, words,
-		narrator, script_approved_at, created_at, updated_at
+		narrator, script_approved_at, clip_start_ms, clip_end_ms, created_at, updated_at
 		FROM deliverables WHERE story_id IN (`+strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")+`)
 		ORDER BY story_id, position`, args...)
 	if err != nil {
@@ -262,11 +292,12 @@ func (r *SQLite) deliverables(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 			narrator, publishJob               sql.NullString
 			approvedAt, durationMS, words      sql.NullInt64
 			scriptApprovedAt                   sql.NullInt64
+			clipStart, clipEnd                 sql.NullInt64
 			created, updated                   int64
 		)
 		if err := rows.Scan(&rawStory, &rawID, &d.Kind, &d.Role, &sourceID, &d.Language, &video, &article, &d.Status,
 			&d.Revision, &pending, &d.Failure, &d.FailedStep, &d.Session, &approvedBy, &approvedAt, &published, &publishJob,
-			&durationMS, &words, &narrator, &scriptApprovedAt, &created, &updated); err != nil {
+			&durationMS, &words, &narrator, &scriptApprovedAt, &clipStart, &clipEnd, &created, &updated); err != nil {
 			return nil, fmt.Errorf("scan deliverable: %w", err)
 		}
 		d.ID, _ = uuid.Parse(rawID)
@@ -293,10 +324,57 @@ func (r *SQLite) deliverables(ctx context.Context, ids []uuid.UUID) (map[uuid.UU
 		if scriptApprovedAt.Valid {
 			d.ScriptApprovedAt = timeutil.FromMillis(scriptApprovedAt.Int64)
 		}
+		if clipStart.Valid && clipEnd.Valid {
+			d.Clip = &storydomain.ClipSnapshot{
+				Start: time.Duration(clipStart.Int64) * time.Millisecond, End: time.Duration(clipEnd.Int64) * time.Millisecond,
+			}
+		}
 		d.Measures = measures(durationMS, words, narrator)
 		d.CreatedAt, d.UpdatedAt = timeutil.FromMillis(created), timeutil.FromMillis(updated)
 		storyID, _ := uuid.Parse(rawStory)
 		out[storyID] = append(out[storyID], d)
+	}
+	return out, rows.Err()
+}
+
+// moments loads the moments of every story in ids in one query, by
+// story.
+func (r *SQLite) moments(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]storydomain.MomentSnapshot, error) {
+	out := map[uuid.UUID][]storydomain.MomentSnapshot{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	args := make([]any, 0, len(ids))
+	for _, id := range ids {
+		args = append(args, id.String())
+	}
+	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT story_id, id, source_id, start_ms, end_ms, hook, reason, score, origin,
+		status, short_id, created_at, updated_at
+		FROM story_moments WHERE story_id IN (`+strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")+`)
+		ORDER BY story_id, start_ms, id`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query moments: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var (
+			m                       storydomain.MomentSnapshot
+			rawStory, rawID, rawSrc string
+			shortID                 sql.NullString
+			start, end              int64
+			created, updated        int64
+		)
+		if err := rows.Scan(&rawStory, &rawID, &rawSrc, &start, &end, &m.Hook, &m.Reason, &m.Score, &m.Origin,
+			&m.Status, &shortID, &created, &updated); err != nil {
+			return nil, fmt.Errorf("scan moment: %w", err)
+		}
+		m.ID, _ = uuid.Parse(rawID)
+		m.SourceID, _ = uuid.Parse(rawSrc)
+		m.ShortID = parseNullID(shortID)
+		m.Clip = storydomain.ClipSnapshot{Start: time.Duration(start) * time.Millisecond, End: time.Duration(end) * time.Millisecond}
+		m.CreatedAt, m.UpdatedAt = timeutil.FromMillis(created), timeutil.FromMillis(updated)
+		storyID, _ := uuid.Parse(rawStory)
+		out[storyID] = append(out[storyID], m)
 	}
 	return out, rows.Err()
 }

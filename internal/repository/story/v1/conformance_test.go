@@ -414,3 +414,105 @@ func TestScriptReviewRoundTrip(t *testing.T) {
 		})
 	}
 }
+
+func TestShortsRoundTrip(t *testing.T) {
+	impls := map[string]func(t *testing.T) (storyrepo.Repository, uuid.UUID){
+		"inmemory": func(*testing.T) (storyrepo.Repository, uuid.UUID) { return storyrepo.NewInMemory(), id.New() },
+		"sqlite": func(t *testing.T) (storyrepo.Repository, uuid.UUID) {
+			_, tx := dbtest.Open(t)
+			w, _ := workspacedomain.New(id.New(), "ws", time.UTC, now)
+			if err := workspacerepo.NewSQLite(tx).Create(context.Background(), w); err != nil {
+				t.Fatal(err)
+			}
+			return storyrepo.NewSQLite(tx), w.ID()
+		},
+	}
+	sec := func(s float64) time.Duration { return time.Duration(s * float64(time.Second)) }
+	var segs []storydomain.Segment
+	for s := 0.0; s < 600; s += 5 {
+		segs = append(segs, storydomain.Segment{Start: sec(s), End: sec(s + 4.6)})
+	}
+	clip := func(start, end float64) storydomain.Clip {
+		c, _ := storydomain.NewClip(sec(start), sec(end))
+		return c
+	}
+	limits := storydomain.DefaultShortsLimits()
+	for name, open := range impls {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			repo, ws := open(t)
+			v, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatLong, pipelinedomain.Horizontal, 10*time.Minute)
+			o, _ := pipelinedomain.NewOutputs(&v, nil, "")
+			idea, _ := storydomain.NewIdea("Duygu adlandırma", "açı", nil)
+			s, err := storydomain.New(id.New(), storydomain.Plan{
+				WorkspaceID: ws, Origin: storydomain.OriginManual, Language: pipelinedomain.Turkish, Idea: idea, Outputs: o,
+			}, id.New, now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.Create(ctx, s); err != nil {
+				t.Fatal(err)
+			}
+			long := s.Lead()
+			_, _ = s.StartDrafting(long.ID(), now)
+			_, _ = s.Drafted(long.ID(), nil, "", "", storydomain.Measures{}, now)
+			_ = s.Rendered(long.ID(), 10*time.Minute, now)
+			_, _ = s.Approve(long.ID(), id.New(), id.New, now)
+			if err := s.Rendered(long.ID(), 10*time.Minute, now); err != nil {
+				t.Fatal(err)
+			}
+			kept, err := s.SuggestMoments(long.ID(), []storydomain.MomentDraft{
+				{Clip: clip(10, 40), Hook: "Öfkeyi adlandır", Reason: "Tek başına anlaşılıyor", Score: 90},
+				{Clip: clip(200, 230), Score: 40},
+			}, segs, limits, id.New, now)
+			if err != nil || len(kept) != 2 {
+				t.Fatalf("suggest = %d %v", len(kept), err)
+			}
+			made, err := s.AddShorts(long.ID(), []uuid.UUID{kept[0].ID()}, limits, id.New, now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.Save(ctx, s); err != nil {
+				t.Fatal(err)
+			}
+
+			got, err := repo.Get(ctx, ws, s.ID())
+			if err != nil {
+				t.Fatal(err)
+			}
+			short, err := got.Deliverable(made[0].ID())
+			if err != nil || short.Clip() == nil || *short.Clip() != kept[0].Clip() {
+				t.Fatalf("short = %+v %v", short, err)
+			}
+			if got.Lead().Clip() != nil {
+				t.Fatal("the long video came back with a clip")
+			}
+			moments := got.Moments(long.ID())
+			if len(moments) != 2 {
+				t.Fatalf("moments = %d, want 2", len(moments))
+			}
+			if m := moments[0]; m.ID() != kept[0].ID() || m.Hook() != "Öfkeyi adlandır" || m.Reason() != "Tek başına anlaşılıyor" ||
+				m.Score() != 90 || m.Status() != storydomain.MomentMade || m.ShortID() != short.ID() || m.Clip() != kept[0].Clip() ||
+				!m.CreatedAt().Equal(now) {
+				t.Fatalf("moment = %+v", m)
+			}
+
+			// A new scan replaces the agent's open suggestion; the made
+			// moment stays.
+			if _, err := got.SuggestMoments(long.ID(), []storydomain.MomentDraft{{Clip: clip(400, 430), Score: 70}}, segs, limits, id.New, now); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.Save(ctx, got); err != nil {
+				t.Fatal(err)
+			}
+			again, _ := repo.Get(ctx, ws, s.ID())
+			var starts []float64
+			for _, m := range again.Moments(long.ID()) {
+				starts = append(starts, m.Clip().Start().Seconds())
+			}
+			if want := []float64{10, 400}; !slices.Equal(starts, want) {
+				t.Fatalf("moments start at %v, want %v", starts, want)
+			}
+		})
+	}
+}
