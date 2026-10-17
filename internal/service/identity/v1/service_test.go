@@ -415,3 +415,41 @@ func TestOnlyOneFirstAccountIsAdmin(t *testing.T) {
 		t.Fatalf("admins: a %v, b %v; want exactly one", a.IsAdmin(), b.IsAdmin())
 	}
 }
+
+// Guesses sent in parallel get no more tries than sequential ones: the
+// lock counts an attempt before checking its password.
+func TestParallelGuessesHitTheLimit(t *testing.T) {
+	const guesses, limit = 40, 10
+	tests := []struct {
+		name  string
+		email string
+	}{
+		{name: "an account", email: "a@example.com"},
+		{name: "no account", email: "ghost@example.com"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			f.user(t, "a@example.com")
+			var wg sync.WaitGroup
+			var mu sync.Mutex
+			checked := 0
+			for range guesses {
+				wg.Go(func() {
+					_, err := f.svc.Login(context.Background(), email(t, tt.email), "wrong-password-1234")
+					if apperror.Is(err, apperror.Unauthenticated) {
+						mu.Lock()
+						checked++
+						mu.Unlock()
+					} else if !apperror.Is(err, apperror.TooManyAttempts) {
+						t.Errorf("login = %v", err)
+					}
+				})
+			}
+			wg.Wait()
+			if checked != limit {
+				t.Fatalf("%d of %d parallel guesses were checked, want %d", checked, guesses, limit)
+			}
+		})
+	}
+}

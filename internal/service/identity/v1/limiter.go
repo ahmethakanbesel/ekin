@@ -19,14 +19,11 @@ func newLimiter(maxFails int, window time.Duration) *limiter {
 	return &limiter{max: maxFails, window: window, fails: map[string][]time.Time{}}
 }
 
-// blocked reports whether key has used up its attempts at now.
-func (l *limiter) blocked(key string, now time.Time) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return len(l.recent(key, now)) >= l.max
-}
-
-func (l *limiter) fail(key string, now time.Time) {
+// attempt counts an attempt for key at now and reports whether it may
+// go ahead: false once key has used up its attempts. It counts before
+// the password is checked, so parallel guesses cannot all slip in under
+// the limit; a successful attempt clears the count (reset).
+func (l *limiter) attempt(key string, now time.Time) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if len(l.fails) > 10_000 {
@@ -34,7 +31,12 @@ func (l *limiter) fail(key string, now time.Time) {
 			l.recent(k, now)
 		}
 	}
-	l.fails[key] = append(l.recent(key, now), now)
+	recent := l.recent(key, now)
+	if len(recent) >= l.max {
+		return false
+	}
+	l.fails[key] = append(recent, now)
+	return true
 }
 
 func (l *limiter) reset(key string) {

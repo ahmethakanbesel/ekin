@@ -155,17 +155,15 @@ func (s *Service) ResetPassword(ctx context.Context, email identitydomain.Email,
 // and wrong passwords fail the same way, in about the same time.
 func (s *Service) Login(ctx context.Context, email identitydomain.Email, password string) (SignIn, error) {
 	now := s.now()
-	key := string(email)
-	if s.limiter.blocked(key, now) {
-		return SignIn{}, apperror.New(apperror.TooManyAttempts, "too many failed attempts; try again in 15 minutes")
-	}
 	u, err := s.repo.GetUserByEmail(ctx, email)
 	if err != nil && !apperror.Is(err, apperror.UserNotFound) {
 		return SignIn{}, err
 	}
 	if u == nil {
+		if !s.limiter.attempt(string(email), now) {
+			return SignIn{}, errTooMany
+		}
 		_, _ = s.hasher.Verify(s.dummy(), password)
-		s.limiter.fail(key, now)
 		return SignIn{}, errBadCredentials
 	}
 	if err := s.checkPassword(u, password, now); err != nil {
@@ -174,21 +172,23 @@ func (s *Service) Login(ctx context.Context, email identitydomain.Email, passwor
 	return s.startSession(ctx, u, now)
 }
 
-var errBadCredentials = apperror.New(apperror.Unauthenticated, "wrong email or password")
+var (
+	errBadCredentials = apperror.New(apperror.Unauthenticated, "wrong email or password")
+	errTooMany        = apperror.New(apperror.TooManyAttempts, "too many failed attempts; try again in 15 minutes")
+)
 
 // checkPassword verifies password against u, counting failures.
 func (s *Service) checkPassword(u *identitydomain.User, password string, now time.Time) error {
 	key := string(u.Email())
-	if s.limiter.blocked(key, now) {
-		return apperror.New(apperror.TooManyAttempts, "too many failed attempts; try again in 15 minutes")
+	if !s.limiter.attempt(key, now) {
+		return errTooMany
 	}
 	ok, err := s.hasher.Verify(u.PasswordHash(), password)
 	if err != nil {
 		return fmt.Errorf("verify password: %w", err)
 	}
 	if !ok {
-		s.limiter.fail(key, now)
-		return errBadCredentials
+		return errBadCredentials // the attempt counted
 	}
 	s.limiter.reset(key)
 	return nil
