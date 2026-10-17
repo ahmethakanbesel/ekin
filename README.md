@@ -99,6 +99,7 @@ environment variables below, which remain the fallback.
 | Authoring agent | `claude` signed in (Mac) or `CLAUDE_CODE_OAUTH_TOKEN` (server); `KURGU_CLAUDE_MODEL`, `KURGU_CLAUDE_EFFORT` (`low` … `max`; the CLI's default when unset) |
 | Speech | `tools/speech` scripts via `uv` (weights download on first use) |
 | Stock footage | `KURGU_PEXELS_API_KEY` |
+| Shorts from long videos | `KURGU_SHORTS_SOURCE_MIN/MAX` (4m / 60m), `KURGU_SHORTS_CLIP_MIN/MAX` (20s / 60s), `KURGU_SHORTS_MAX_PER_VIDEO` (5), `KURGU_SHORTS_MIN_GAP` (30s) — see `docs/shorts.md` |
 | ElevenLabs narration | `KURGU_ELEVENLABS_API_KEY`, or System → Credentials. A hybrid worker reads only its own environment. |
 | Email digests | `KURGU_SMTP_HOST/PORT/USERNAME/PASSWORD/FROM` |
 | Duplicate verdicts | `KURGU_OPENROUTER_API_KEY` (Jev) |

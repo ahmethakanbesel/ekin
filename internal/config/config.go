@@ -14,7 +14,9 @@ import (
 	"strings"
 	"time"
 
+	"kurgu/internal/apperror"
 	jobdomain "kurgu/internal/domain/job/v1"
+	storydomain "kurgu/internal/domain/story/v1"
 )
 
 // Config is the process configuration.
@@ -36,6 +38,8 @@ type Config struct {
 	Notify         Notify
 	Publishing     Publishing
 	Remote         Remote
+	// Shorts bound cutting shorts from long videos (docs/shorts.md §2).
+	Shorts storydomain.ShortsLimits
 }
 
 // Remote configures the hybrid-worker API on both ends: the server
@@ -263,6 +267,17 @@ func load(getenv func(string) string) (Config, error) {
 		YouTubeClientID: str("KURGU_YOUTUBE_CLIENT_ID", ""), YouTubeClientSecret: str("KURGU_YOUTUBE_CLIENT_SECRET", ""),
 		SecretKeyFile: str("KURGU_SECRET_KEY_FILE", filepath.Join(dataDir, "secret.key")), SecretKey: str("KURGU_SECRET_KEY", ""),
 	}
+	def := storydomain.DefaultShortsLimits()
+	shorts, err := storydomain.NewShortsLimits(
+		duration("KURGU_SHORTS_SOURCE_MIN", def.SourceMin()), duration("KURGU_SHORTS_SOURCE_MAX", def.SourceMax()),
+		duration("KURGU_SHORTS_CLIP_MIN", def.ClipMin()), duration("KURGU_SHORTS_CLIP_MAX", def.ClipMax()),
+		int(number("KURGU_SHORTS_MAX_PER_VIDEO", float64(def.MaxPerVideo()), 0, storydomain.MaxShortsPerVideo)),
+		duration("KURGU_SHORTS_MIN_GAP", def.MinGap()),
+	)
+	if err != nil {
+		errs = append(errs, "KURGU_SHORTS_*: "+apperror.Message(err))
+	}
+	cfg.Shorts = shorts
 	if t := cfg.Notify.SMTPTLS; t != "starttls" && t != "tls" && t != "none" {
 		errs = append(errs, "KURGU_SMTP_TLS: must be starttls, tls or none")
 	}

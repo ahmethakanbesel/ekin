@@ -48,6 +48,28 @@ func TestLoadHeavyQueuesAndNice(t *testing.T) {
 	}
 }
 
+func TestLoadShortsLimits(t *testing.T) {
+	cfg, err := load(env(nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l := cfg.Shorts; l.SourceMin() != 4*time.Minute || l.SourceMax() != time.Hour || l.ClipMin() != 20*time.Second ||
+		l.ClipMax() != time.Minute || l.MaxPerVideo() != 5 || l.MinGap() != 30*time.Second {
+		t.Fatalf("default shorts limits = %+v", l)
+	}
+	cfg, err = load(env(map[string]string{
+		"KURGU_SHORTS_SOURCE_MIN": "8m", "KURGU_SHORTS_SOURCE_MAX": "30m", "KURGU_SHORTS_CLIP_MIN": "15s",
+		"KURGU_SHORTS_CLIP_MAX": "90s", "KURGU_SHORTS_MAX_PER_VIDEO": "3", "KURGU_SHORTS_MIN_GAP": "0s",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if l := cfg.Shorts; l.SourceMin() != 8*time.Minute || l.SourceMax() != 30*time.Minute || l.ClipMin() != 15*time.Second ||
+		l.ClipMax() != 90*time.Second || l.MaxPerVideo() != 3 || l.MinGap() != 0 {
+		t.Fatalf("shorts limits = %+v", l)
+	}
+}
+
 func TestLoadRejectsBadValues(t *testing.T) {
 	tests := []struct {
 		name string
@@ -66,6 +88,10 @@ func TestLoadRejectsBadValues(t *testing.T) {
 		{"s3 without bucket", map[string]string{"KURGU_BLOB_DRIVER": "s3", "KURGU_S3_ENDPOINT": "https://x"}, "KURGU_S3_BUCKET"},
 		{"relative public url", map[string]string{"KURGU_PUBLIC_URL": "kurgu.example.com"}, "KURGU_PUBLIC_URL"},
 		{"public url with path", map[string]string{"KURGU_PUBLIC_URL": "https://example.com/kurgu"}, "KURGU_PUBLIC_URL"},
+		{"bad shorts duration", map[string]string{"KURGU_SHORTS_SOURCE_MIN": "long"}, "KURGU_SHORTS_SOURCE_MIN"},
+		{"shorts source minimum above maximum", map[string]string{"KURGU_SHORTS_SOURCE_MIN": "90m"}, "KURGU_SHORTS_*"},
+		{"short over 3 minutes", map[string]string{"KURGU_SHORTS_CLIP_MAX": "4m"}, "KURGU_SHORTS_*"},
+		{"too many shorts per video", map[string]string{"KURGU_SHORTS_MAX_PER_VIDEO": "21"}, "KURGU_SHORTS_MAX_PER_VIDEO"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
