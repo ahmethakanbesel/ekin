@@ -419,7 +419,13 @@ func (s *Service) binDir(ctx context.Context) string {
 	if s.cfg.KurguBin == "" {
 		return ""
 	}
-	dir := filepath.Join(s.cfg.WorkRoot, ".bin")
+	// Absolute: the agent's shell runs in the deliverable's directory, so
+	// a relative work root (KURGU_DATA_DIR=data) would leave kurgu off it.
+	dir, err := filepath.Abs(filepath.Join(s.cfg.WorkRoot, ".bin"))
+	if err != nil {
+		s.log.WarnContext(ctx, "cannot link kurgu for the agent", slog.Any("error", err))
+		return ""
+	}
 	link := filepath.Join(dir, "kurgu")
 	if target, err := os.Readlink(link); err == nil && target == s.cfg.KurguBin {
 		return dir
