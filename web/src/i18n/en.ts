@@ -129,7 +129,7 @@ export const en = {
   },
   invite: {
     title: (workspace: string) => `Join ${workspace}`,
-    description: "You have been invited to a Ekin workspace.",
+    description: "You have been invited to an Ekin workspace.",
     invitedEmail: "Invited email",
     role: "Role",
     expires: "Expires",

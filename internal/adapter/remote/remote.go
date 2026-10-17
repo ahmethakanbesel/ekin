@@ -1,5 +1,5 @@
 // Package remote is the hybrid worker's side of the worker API: it
-// claims jobs from a Ekin server over HTTP and moves working
+// claims jobs from an Ekin server over HTTP and moves working
 // directories and renders back and forth.
 package remote
 

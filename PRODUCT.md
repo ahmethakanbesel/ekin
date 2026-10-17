@@ -14,6 +14,8 @@ Bun, React, TanStack (Router, Query, Form, Table), shadcn on Base UI, Tailwind v
 
 Ekin turns ideas, knowledge-base documents and SEO opportunities into YouTube videos and blog articles, renders them unattended, and holds every piece for human review before anything is published.
 
+It is a tool for content-led growth, not an editor: a team grows its audience by publishing steadily, and Ekin keeps that steady (pipelines on a schedule, a long video cut into shorts, an article beside each video). It does not compete with After Effects, Premiere or CapCut, and its surfaces never borrow their timeline-and-clapperboard imagery.
+
 ## Users and scene
 
 - First user: acme, a small team. Turkish first, English second.

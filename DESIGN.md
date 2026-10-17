@@ -390,7 +390,7 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 - **Sidebar:** stock shadcn sidebar on Sidebar Linen; the active item takes the stone accent fill and medium weight, never cornflower. The review count is a Cornflower Ink number.
 - **Phone nav strip:** 32px items in Stone Text; active on stone fill with Ink text; the review count is a Cornflower pill.
 - **Settings section nav:** 32px items in Ink at 8px corners with a stone hover; the current section takes Stone Fill, medium weight and a 1px Ink-at-70% inset edge, never cornflower.
-- **Brand mark:** a 32px cornflower square with a clapperboard and the ink boundary; it is the identity asset, not a pattern for other surfaces.
+- **Brand mark:** a 32px cornflower square with the sprout (a stem and two filled leaves, `brand/mark.svg`) in Cornflower On and the ink boundary; it is the identity asset, not a pattern for other surfaces. Name, voice, logo files and usage rules live in `brand/README.md`.
 
 ## Do's and Don'ts
 
