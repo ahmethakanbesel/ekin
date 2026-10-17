@@ -100,6 +100,15 @@ func TestLibrary(t *testing.T) {
 		t.Fatalf("ingested = %+v", photo)
 	}
 
+	if photo.UsageCount != 0 {
+		t.Fatalf("usage count = %d", photo.UsageCount)
+	}
+	var usages struct{ Usages []gen.LibraryUsage }
+	owner.call("GET", assetPath+"/usages", nil, 200, &usages)
+	if usages.Usages == nil || len(usages.Usages) != 0 {
+		t.Fatalf("usages = %+v", usages)
+	}
+
 	// The main file streams with Range support.
 	res := owner.do("GET", assetPath+"/files/main", nil, http.Header{"Range": {"bytes=0-3"}})
 	raw, _ := io.ReadAll(res.Body)
@@ -176,4 +185,32 @@ func TestLibrary(t *testing.T) {
 	owner.call("DELETE", assetPath, nil, 204, nil)
 	owner.fail("GET", assetPath, nil, 404, "AssetNotFound")
 	srv.client(t).fail("GET", assetPath+"/files/main", nil, 401, "Unauthenticated")
+}
+
+// A pipeline's production settings carry each kind's media source; an
+// absent kind reads back as fresh.
+func TestPipelineMediaSources(t *testing.T) {
+	srv := newServer(t)
+	owner := srv.signedIn(t, "owner@example.com")
+	ws := owner.workspace("acme")
+	base := "/api/v1/workspaces/" + ws.Id.String() + "/pipelines"
+
+	def := shortsDefinition()
+	def["production"] = map[string]any{"media": map[string]any{"music": "library", "video": "mixed"}}
+	var p gen.Pipeline
+	owner.call("POST", base, def, 201, &p)
+	m := p.Definition.Production.Media
+	if m == nil || *m.Music != gen.MediaSourceLibrary || *m.Video != gen.MediaSourceMixed || *m.Photo != gen.MediaSourceFresh {
+		t.Fatalf("media = %+v", m)
+	}
+
+	def["production"] = map[string]any{"media": map[string]any{"music": "fresh"}}
+	var redefined gen.Pipeline
+	owner.call("PUT", base+"/"+p.Id.String(), map[string]any{"version": p.Version, "definition": def}, 200, &redefined)
+	if redefined.Definition.Production != nil {
+		t.Fatalf("all fresh should read as defaults: %+v", redefined.Definition.Production)
+	}
+
+	def["production"] = map[string]any{"media": map[string]any{"photo": "everything"}}
+	owner.fail("POST", base, def, 400, "ValidationFailed")
 }

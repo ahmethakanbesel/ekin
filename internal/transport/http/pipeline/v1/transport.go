@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"kurgu/internal/apperror"
+	librarydomain "kurgu/internal/domain/library/v1"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	workspacedomain "kurgu/internal/domain/workspace/v1"
 	"kurgu/internal/gen"
@@ -217,6 +218,19 @@ func ProductionOf(in *gen.Production) (pipelinedomain.Production, error) {
 			return out, err
 		}
 	}
+	if m := in.Media; m != nil {
+		for _, kind := range []struct {
+			in  *gen.MediaSource
+			out *librarydomain.Mode
+		}{{m.Music, &out.Media.Music}, {m.Video, &out.Media.Video}, {m.Photo, &out.Media.Photo}} {
+			if kind.in == nil {
+				continue
+			}
+			if *kind.out, err = librarydomain.ParseMode(string(*kind.in)); err != nil {
+				return out, err
+			}
+		}
+	}
 	return out, nil
 }
 
@@ -241,6 +255,13 @@ func ProductionToWire(p pipelinedomain.Production) *gen.Production {
 	if p.ReviewAt == pipelinedomain.ReviewScript {
 		at := gen.ProductionReviewAtScript
 		out.ReviewAt = &at
+	}
+	if p.Media != (librarydomain.Policy{}) {
+		source := func(m librarydomain.Mode) *gen.MediaSource {
+			s := gen.MediaSource(m.String())
+			return &s
+		}
+		out.Media = &gen.MediaSources{Music: source(p.Media.Music), Video: source(p.Media.Video), Photo: source(p.Media.Photo)}
 	}
 	return out
 }

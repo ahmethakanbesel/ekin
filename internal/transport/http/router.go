@@ -146,7 +146,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		pipelines:  pipelinehandler.New(d.Pipelines),
 		jobs:       jobhandler.New(d.Jobs),
 		documents:  knowledgehandler.New(d.Knowledge),
-		library:    libraryhandler.New(d.Library),
+		library:    libraryhandler.New(d.Library, storiesOf(d.Production)),
 		stories:    storyhandler.New(d.Production, d.Feed),
 		system:     d.System,
 		publishing: publishinghandler.New(d.Publishing),
@@ -180,6 +180,15 @@ func NewRouter(d Deps) (http.Handler, error) {
 	}))
 	mux.Handle("/", readOnly(spa(d.UI)))
 	return recoverer(d.Log, securityHeaders(logRequests(d.Log, csrf.Handler(limitBody(mux))))), nil
+}
+
+// storiesOf names the stories library usages point at; nil without the
+// production service (tests that leave it out).
+func storiesOf(p *productionsvc.Service) libraryhandler.Stories {
+	if p == nil {
+		return nil
+	}
+	return p
 }
 
 // securityHeaders sets headers every response should carry. no-referrer

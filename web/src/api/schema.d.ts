@@ -376,6 +376,25 @@ export interface paths {
         patch: operations["updateLibraryAsset"];
         trace?: never;
     };
+    "/workspaces/{workspaceId}/library/assets/{assetId}/usages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                assetId: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listLibraryAssetUsages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/library/assets/{assetId}/retry": {
         parameters: {
             query?: never;
@@ -1383,6 +1402,17 @@ export interface components {
             tempo?: number;
             credit?: components["schemas"]["LibraryCredit"];
         };
+        LibraryUsage: {
+            /** Format: uuid */
+            storyId: string;
+            /** @description Absent when the story was deleted since. */
+            storyTitle?: string;
+            /** Format: uuid */
+            deliverableId: string;
+            revision: number;
+            /** Format: date-time */
+            usedAt: string;
+        };
         LibraryAssetPatch: {
             /** @description Replaces every editable detail. */
             details?: components["schemas"]["LibraryAssetDetails"];
@@ -1414,6 +1444,8 @@ export interface components {
             /** @description Videos and uploaded music. */
             durationSeconds?: number;
             hasPoster: boolean;
+            /** @description How many videos used it; reuse is unlimited. */
+            usageCount: number;
             /** @description Why processing failed. */
             failure?: string;
             /** Format: date-time */
@@ -1679,6 +1711,17 @@ export interface components {
          * @enum {string}
          */
         DraftEffort: "low" | "medium" | "high" | "xhigh" | "max";
+        /**
+         * @description Where a video's media of one kind comes from. fresh (the default): the agent composes music and searches Pexels for stock. library: only the workspace's library. mixed: the library first, fresh when nothing there fits.
+         * @enum {string}
+         */
+        MediaSource: "fresh" | "library" | "mixed";
+        /** @description Each kind's media source; an absent kind is fresh. */
+        MediaSources: {
+            music?: components["schemas"]["MediaSource"];
+            video?: components["schemas"]["MediaSource"];
+            photo?: components["schemas"]["MediaSource"];
+        };
         /** @description How stories are made, set per pipeline or request. Every absent field takes the workspace default. */
         Production: {
             /** @description Claude model the agent drafts and revises with: a model id (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace's model (System → Credentials, then KURGU_CLAUDE_MODEL). */
@@ -1694,6 +1737,7 @@ export interface components {
              * @enum {string}
              */
             reviewAt?: "video" | "script";
+            media?: components["schemas"]["MediaSources"];
         };
         AdHocInput: {
             /** @description Free text — what you want made. */
@@ -3057,6 +3101,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LibraryAsset"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listLibraryAssetUsages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                assetId: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The revisions that used the asset, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        usages: components["schemas"]["LibraryUsage"][];
+                    };
                 };
             };
             default: components["responses"]["Error"];

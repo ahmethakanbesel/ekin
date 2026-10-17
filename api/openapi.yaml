@@ -694,6 +694,27 @@ paths:
           description: Deleted with its files.
         default: { $ref: "#/components/responses/Error" }
 
+  /workspaces/{workspaceId}/library/assets/{assetId}/usages:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/AssetId"
+    get:
+      operationId: listLibraryAssetUsages
+      tags: [library]
+      responses:
+        "200":
+          description: The revisions that used the asset, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [usages]
+                properties:
+                  usages:
+                    type: array
+                    items: { $ref: "#/components/schemas/LibraryUsage" }
+        default: { $ref: "#/components/responses/Error" }
+
   /workspaces/{workspaceId}/library/assets/{assetId}/retry:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"
@@ -2237,6 +2258,18 @@ components:
           description: Beats per minute, music only; 0 for unknown.
         credit: { $ref: "#/components/schemas/LibraryCredit" }
 
+    LibraryUsage:
+      type: object
+      required: [storyId, deliverableId, revision, usedAt]
+      properties:
+        storyId: { type: string, format: uuid }
+        storyTitle:
+          type: string
+          description: Absent when the story was deleted since.
+        deliverableId: { type: string, format: uuid }
+        revision: { type: integer }
+        usedAt: { type: string, format: date-time }
+
     LibraryAssetPatch:
       type: object
       properties:
@@ -2249,7 +2282,7 @@ components:
 
     LibraryAsset:
       type: object
-      required: [id, kind, origin, status, title, description, tags, credit, filename, size, hasPoster, createdAt, updatedAt]
+      required: [id, kind, origin, status, title, description, tags, credit, filename, size, hasPoster, usageCount, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         kind: { $ref: "#/components/schemas/LibraryAssetKind" }
@@ -2277,6 +2310,9 @@ components:
           type: number
           description: Videos and uploaded music.
         hasPoster: { type: boolean }
+        usageCount:
+          type: integer
+          description: How many videos used it; reuse is unlimited.
         failure:
           type: string
           description: Why processing failed.
@@ -2593,6 +2629,23 @@ components:
       enum: [low, medium, high, xhigh, max]
       description: How hard the authoring agent thinks while drafting (Claude Code's --effort).
 
+    MediaSource:
+      type: string
+      enum: [fresh, library, mixed]
+      description: >-
+        Where a video's media of one kind comes from. fresh (the default): the
+        agent composes music and searches Pexels for stock. library: only the
+        workspace's library. mixed: the library first, fresh when nothing there
+        fits.
+
+    MediaSources:
+      type: object
+      description: Each kind's media source; an absent kind is fresh.
+      properties:
+        music: { $ref: "#/components/schemas/MediaSource" }
+        video: { $ref: "#/components/schemas/MediaSource" }
+        photo: { $ref: "#/components/schemas/MediaSource" }
+
     Production:
       type: object
       description: >-
@@ -2623,6 +2676,7 @@ components:
             rendered preview. script: the script, narration text and metadata
             first; approving them has the agent build the video, which is then
             reviewed as usual. script needs a video output.
+        media: { $ref: "#/components/schemas/MediaSources" }
 
     AdHocInput:
       type: object
