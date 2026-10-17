@@ -1,0 +1,110 @@
+---
+import { accessUrl, facts } from "../site"
+import Mark from "./Mark.astro"
+---
+
+<section class="wrap section ruled" aria-label="What else to know">
+  <ul class="facts">
+    {
+      facts.map((f) => (
+        <li>
+          <h3>{f.title}</h3>
+          <p>{f.text}</p>
+        </li>
+      ))
+    }
+  </ul>
+</section>
+
+<section id="access" class="wrap cta" aria-labelledby="cta-title">
+  <div class="cta-card">
+    <span class="icon"><Mark size={28} /></span>
+    <h2 id="cta-title">Plant the first idea.</h2>
+    <p class="lede">
+      Ekin is in early access. Tell us what you publish and what you want it to grow into.
+    </p>
+    <a class="button button-primary" href={accessUrl}>Get early access</a>
+  </div>
+</section>
+
+<footer class="wrap ruled">
+  <span class="brand"><Mark size={16} /> Ekin</span>
+  <span>Ekin is Turkish for the crop standing in the field.</span>
+  <span>© {new Date().getFullYear()}</span>
+</footer>
+
+<style>
+  .section {
+    padding-block: 64px;
+  }
+  .facts {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 28px;
+  }
+  @media (min-width: 860px) {
+    .facts {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .facts li {
+    display: grid;
+    gap: 6px;
+    align-content: start;
+  }
+  h3 {
+    font-size: 1.125rem;
+  }
+  .facts p {
+    color: var(--stone-text);
+  }
+  .cta {
+    padding-block: 24px 72px;
+  }
+  .cta-card {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+    gap: 16px;
+    padding: 56px 20px;
+    border-radius: 24px;
+    background: var(--paper);
+    color: var(--paper-ink);
+    box-shadow: inset 0 0 0 1px var(--paper-edge);
+  }
+  .cta-card .lede {
+    color: color-mix(in oklch, var(--paper-ink) 70%, var(--paper));
+  }
+  .icon {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: var(--cornflower);
+    color: var(--cornflower-on);
+    box-shadow: inset 0 0 0 1px var(--cornflower-ink);
+  }
+  h2 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    letter-spacing: -0.035em;
+  }
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    justify-content: space-between;
+    padding-block: 24px 40px;
+    color: var(--stone-text);
+    font-size: 0.875rem;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+</style>

@@ -1,0 +1,23 @@
+---
+import Closing from "../components/Closing.astro"
+import Contrast from "../components/Contrast.astro"
+import Desk from "../components/Desk.astro"
+import Header from "../components/Header.astro"
+import Hero from "../components/Hero.astro"
+import Steps from "../components/Steps.astro"
+import Story from "../components/Story.astro"
+import Base from "../layouts/Base.astro"
+import { description, title } from "../site"
+---
+
+<Base title={title} description={description}>
+  <Header />
+  <main>
+    <Hero />
+    <Steps />
+    <Story />
+    <Desk />
+    <Contrast />
+    <Closing />
+  </main>
+</Base>

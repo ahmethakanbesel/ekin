@@ -1,0 +1,82 @@
+---
+import { contrasts } from "../site"
+---
+
+<section class="wrap section ruled" aria-labelledby="contrast-title">
+  <div class="head">
+    <p class="eyebrow">Not an editor</p>
+    <h2 id="contrast-title">You decide. You don't edit.</h2>
+    <p class="lede">
+      Editors are for crafting one piece. Ekin is for publishing steadily, so the hours go into
+      judging the work rather than assembling it.
+    </p>
+  </div>
+  <table>
+    <caption class="visually-hidden">An editor compared with Ekin</caption>
+    <thead>
+      <tr>
+        <th scope="col">In a video editor</th>
+        <th scope="col">In Ekin</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        contrasts.map((c) => (
+          <tr>
+            <td>{c.editor}</td>
+            <td>{c.ekin}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</section>
+
+<style>
+  .section {
+    padding-block: 72px;
+    display: grid;
+    gap: 40px;
+  }
+  @media (min-width: 1000px) {
+    .section {
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 56px;
+    }
+  }
+  .head {
+    display: grid;
+    gap: 14px;
+    align-content: start;
+  }
+  h2 {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+  }
+  th {
+    text-align: left;
+    font-size: 0.8125rem;
+    font-weight: 550;
+    padding: 0 12px 12px 0;
+    border-bottom: 2px solid var(--ink);
+  }
+  th:first-child {
+    color: var(--stone-text);
+  }
+  td {
+    vertical-align: top;
+    padding: 14px 12px 14px 0;
+    border-bottom: 1px solid var(--hairline);
+    width: 50%;
+  }
+  td:first-child {
+    color: var(--stone-text);
+  }
+  td:last-child {
+    font-weight: 500;
+  }
+</style>

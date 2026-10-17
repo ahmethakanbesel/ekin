@@ -1,0 +1,23 @@
+---
+// The sprout (brand/mark.svg), drawn in currentColor.
+interface Props {
+  size?: number
+}
+const { size = 16 } = Astro.props
+---
+
+<svg
+  viewBox="0 0 24 24"
+  width={size}
+  height={size}
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  <path d="M12 21V11"></path>
+  <path d="M12 14c0-3.3-2.7-6-6-6 0 3.3 2.7 6 6 6Z" fill="currentColor"></path>
+  <path d="M12 11c0-4.4 3.1-7 7-7 0 4.4-3.1 7-7 7Z" fill="currentColor"></path>
+</svg>

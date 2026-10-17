@@ -1,0 +1,202 @@
+---
+// The review desk as it works today: a draft, its notes pinned to
+// moments and scoped to a part, and the decision.
+const notes = [
+  { at: "0:42", scope: "Visuals", text: "Show the breathing count on screen, not only in the voice." },
+  { at: "1:12", scope: "Script", text: "Say who the advice is for before the steps." },
+]
+---
+
+<section id="desk" class="wrap section ruled" aria-labelledby="desk-title">
+  <div class="head">
+    <p class="eyebrow">The review desk</p>
+    <h2 id="desk-title">Nothing goes out unseen.</h2>
+    <p class="lede">
+      Sit down once or twice a day. Watch or read each draft, pin notes to the moments that need
+      work, and send them back in one go. The agent writes the next revision; you approve when it is
+      right.
+    </p>
+  </div>
+
+  <figure class="desk" aria-label="A draft in review with two notes">
+    <div class="frame">
+      <span class="frame-title">Box breathing in four steps</span>
+      <span class="play" aria-hidden="true"></span>
+      <span class="scrub" aria-hidden="true">
+        <span class="fill"></span>
+        <span class="pin" style="left: 18%"></span>
+        <span class="pin" style="left: 29%"></span>
+      </span>
+    </div>
+    <div class="side">
+      <p class="state"><span class="dot" aria-hidden="true"></span>Revision 2 is ready for review</p>
+      <ul class="notes">
+        {
+          notes.map((n) => (
+            <li>
+              <span class="when">
+                <code>{n.at}</code> · {n.scope}
+              </span>
+              <span>{n.text}</span>
+            </li>
+          ))
+        }
+      </ul>
+      <div class="decide" aria-hidden="true">
+        <span class="b primary">Send 2 notes</span>
+        <span class="b">Approve</span>
+      </div>
+    </div>
+  </figure>
+</section>
+
+<style>
+  .section {
+    padding-block: 72px;
+    display: grid;
+    gap: 40px;
+  }
+  .head {
+    display: grid;
+    gap: 14px;
+    max-width: 44rem;
+  }
+  h2 {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+  }
+  .desk {
+    margin: 0;
+    display: grid;
+    gap: 16px;
+    padding: 16px;
+    border-radius: 18px;
+    background: var(--card);
+    box-shadow: var(--shadow), inset 0 0 0 1px var(--hairline);
+  }
+  @media (min-width: 860px) {
+    .desk {
+      grid-template-columns: 1.4fr 1fr;
+      gap: 24px;
+      padding: 20px;
+    }
+  }
+  .frame {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    border-radius: 12px;
+    background:
+      radial-gradient(80% 100% at 80% 0%, oklch(1 0 0 / 18%), transparent 60%),
+      var(--poster-4);
+    color: oklch(1 0 0);
+    padding: 18px;
+    overflow: hidden;
+  }
+  .frame-title {
+    font-size: clamp(1.125rem, 3vw, 1.75rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    max-width: 14ch;
+    display: block;
+    line-height: 1.1;
+  }
+  .play {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 52px;
+    height: 52px;
+    margin: -26px 0 0 -26px;
+    border-radius: 50%;
+    background: oklch(1 0 0 / 22%);
+  }
+  .play::after {
+    content: "";
+    position: absolute;
+    left: 21px;
+    top: 16px;
+    border-left: 14px solid oklch(1 0 0);
+    border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+  }
+  .scrub {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 16px;
+    height: 6px;
+    border-radius: 999px;
+    background: oklch(1 0 0 / 30%);
+  }
+  .fill {
+    position: absolute;
+    inset: 0 62% 0 0;
+    border-radius: 999px;
+    background: oklch(1 0 0);
+  }
+  .pin {
+    position: absolute;
+    top: -3px;
+    width: 12px;
+    height: 12px;
+    margin-left: -6px;
+    border-radius: 50%;
+    background: var(--cornflower);
+    box-shadow: 0 0 0 2px var(--poster-4);
+  }
+  .side {
+    display: grid;
+    gap: 14px;
+    align-content: start;
+  }
+  .state {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 550;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--cornflower-ink);
+  }
+  .notes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 10px;
+  }
+  .notes li {
+    display: grid;
+    gap: 4px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--stone-fill);
+    font-size: 0.9375rem;
+  }
+  .when {
+    font-size: 0.75rem;
+    color: var(--stone-text);
+  }
+  .decide {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .b {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 550;
+    box-shadow: inset 0 0 0 1px var(--hairline);
+  }
+  .primary {
+    background: var(--cornflower);
+    color: var(--cornflower-on);
+    box-shadow: inset 0 0 0 1px var(--cornflower-ink);
+  }
+</style>

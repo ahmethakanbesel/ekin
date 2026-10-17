@@ -1,0 +1,70 @@
+---
+import { accessUrl } from "../site"
+import Mark from "./Mark.astro"
+---
+
+<header class="wrap">
+  <a class="brand" href="/" aria-label="Ekin home">
+    <span class="icon"><Mark size={18} /></span>
+    <span class="name">Ekin</span>
+  </a>
+  <nav aria-label="Sections">
+    <a href="#how">How it works</a>
+    <a href="#desk" class="wide">Review</a>
+    <a class="button button-quiet" href={accessUrl}>Early access</a>
+  </nav>
+</header>
+
+<style>
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-block: 20px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .icon {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--cornflower);
+    color: var(--cornflower-on);
+    box-shadow: inset 0 0 0 1px var(--cornflower-ink);
+  }
+  .name {
+    font-weight: 600;
+    font-size: 1.0625rem;
+    letter-spacing: -0.025em;
+  }
+  nav {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 0.9375rem;
+  }
+  nav a:not(.button) {
+    color: var(--stone-text);
+    text-decoration: none;
+  }
+  nav a:not(.button):hover {
+    color: var(--ink);
+  }
+  nav .button {
+    min-height: 36px;
+    padding: 0 14px;
+  }
+  @media (max-width: 560px) {
+    nav a:not(.button) {
+      display: none;
+    }
+  }
+</style>

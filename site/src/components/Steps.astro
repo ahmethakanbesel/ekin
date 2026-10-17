@@ -1,0 +1,76 @@
+---
+import { steps } from "../site"
+---
+
+<section id="how" class="wrap section ruled" aria-labelledby="how-title">
+  <div class="head">
+    <p class="eyebrow">How it works</p>
+    <h2 id="how-title">Plant once. Review what grows.</h2>
+  </div>
+  <ol class="steps">
+    {
+      steps.map((s, i) => (
+        <li>
+          <span class="n" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+          <h3>{s.name}</h3>
+          <p class="verb">{s.verb}</p>
+          <p>{s.text}</p>
+        </li>
+      ))
+    }
+  </ol>
+</section>
+
+<style>
+  .section {
+    padding-block: 72px;
+  }
+  .head {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+  h2 {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+  }
+  .steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 32px;
+  }
+  @media (min-width: 720px) {
+    .steps {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (min-width: 1040px) {
+    .steps {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 28px;
+    }
+  }
+  li {
+    display: grid;
+    gap: 6px;
+    align-content: start;
+    padding-top: 16px;
+    border-top: 2px solid var(--ink);
+  }
+  .n {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--stone-text);
+  }
+  h3 {
+    font-size: 1.375rem;
+  }
+  .verb {
+    font-weight: 550;
+    margin-bottom: 4px;
+  }
+  li p:last-child {
+    color: var(--stone-text);
+  }
+</style>

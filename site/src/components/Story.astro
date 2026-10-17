@@ -1,0 +1,191 @@
+---
+// One long video and what grows from it: shorts recomposed from its
+// moments, the article beside it and the article's translation.
+const shorts = [
+  { at: "0:00–0:21", hook: "Is anger one word?", said: "it", rest: "starts in the body" },
+  { at: "3:40–4:22", hook: "The 90-second wave", said: "ninety", rest: "seconds, then it fades" },
+  { at: "6:05–6:51", hook: "Name it to calm it", said: "name", rest: "it to calm it" },
+]
+---
+
+<section class="wrap section ruled" aria-labelledby="story-title">
+  <div class="text">
+    <p class="eyebrow">One story, many pieces</p>
+    <h2 id="story-title">A long video is the trunk.</h2>
+    <p class="lede">
+      When a long video goes live, Ekin finds the moments that stand on their own and lays each out
+      again as a vertical Short, speaking the long video's own narration. An article, and its
+      translations, grow from the same story.
+    </p>
+  </div>
+
+  <figure class="tree" aria-label="A long video branching into Shorts and an article">
+    <div class="long">
+      <span class="tag">Video · 16:9 · 8:12</span>
+      <span class="long-title">How anger works</span>
+      <span class="track" aria-hidden="true">
+        <span style="left: 0%; width: 4.3%"></span>
+        <span style="left: 44.7%; width: 8.5%"></span>
+        <span style="left: 74.2%; width: 9.3%"></span>
+      </span>
+    </div>
+    <div class="branches">
+      {
+        shorts.map((s) => (
+          <div class="short">
+            <span class="tag"><span class="kind">Short · </span>{s.at}</span>
+            <span class="short-hook">{s.hook}</span>
+            <span class="caption" aria-hidden="true">
+              <b>{s.said}</b> {s.rest}
+            </span>
+          </div>
+        ))
+      }
+      <div class="article">
+        <span class="tag">Article · English</span>
+        <span class="article-title">How anger works, and what helps</span>
+        <span class="lines" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+        <span class="tag">+ Türkçe</span>
+      </div>
+    </div>
+  </figure>
+</section>
+
+<style>
+  .section {
+    padding-block: 72px;
+    display: grid;
+    gap: 40px;
+  }
+  @media (min-width: 1000px) {
+    .section {
+      grid-template-columns: 0.9fr 1.1fr;
+      align-items: center;
+      gap: 56px;
+    }
+  }
+  .text {
+    display: grid;
+    gap: 14px;
+  }
+  h2 {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+  }
+  .tree {
+    margin: 0;
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+  }
+  .tag {
+    font-size: 0.6875rem;
+    font-family: var(--font-mono);
+    color: var(--stone-text);
+  }
+  .long {
+    display: grid;
+    gap: 10px;
+    padding: 16px;
+    border-radius: var(--radius);
+    background:
+      radial-gradient(90% 120% at 15% 0%, oklch(1 0 0 / 20%), transparent 60%),
+      var(--poster-2);
+    color: oklch(1 0 0);
+  }
+  .long .tag {
+    color: oklch(1 0 0 / 80%);
+  }
+  .long-title {
+    font-size: 1.5rem;
+    font-weight: 650;
+    letter-spacing: -0.03em;
+  }
+  .track {
+    position: relative;
+    height: 8px;
+    border-radius: 999px;
+    background: oklch(1 0 0 / 28%);
+  }
+  .track span {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: 999px;
+    background: oklch(1 0 0);
+  }
+  .branches {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .short {
+    position: relative;
+    aspect-ratio: 9 / 16;
+    border-radius: 12px;
+    padding: 10px;
+    display: grid;
+    align-content: space-between;
+    background: color-mix(in oklch, var(--poster-2) 92%, black);
+    color: oklch(1 0 0);
+    overflow: hidden;
+  }
+  .short .tag {
+    color: oklch(1 0 0 / 75%);
+    font-size: 0.625rem;
+  }
+  @media (max-width: 520px) {
+    .short .kind {
+      display: none;
+    }
+  }
+  .short-hook {
+    font-size: clamp(0.875rem, 2.4vw, 1.0625rem);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    position: absolute;
+    top: 22%;
+    left: 10px;
+    right: 10px;
+  }
+  .caption {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    text-align: center;
+    opacity: 0.6;
+    padding-bottom: 18%;
+  }
+  .caption b {
+    opacity: 1;
+    color: oklch(0.92 0.12 95);
+  }
+  .article {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    background: var(--paper);
+    color: var(--paper-ink);
+    box-shadow: inset 0 0 0 1px var(--paper-edge);
+  }
+  .article .tag {
+    color: color-mix(in oklch, var(--paper-ink) 60%, var(--paper));
+  }
+  .article-title {
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+  .lines {
+    display: grid;
+    gap: 5px;
+  }
+  .lines span {
+    height: 4px;
+    border-radius: 2px;
+    background: color-mix(in oklch, var(--paper-ink) 18%, var(--paper));
+  }
+  .lines span:nth-child(4) {
+    width: 55%;
+  }
+</style>
