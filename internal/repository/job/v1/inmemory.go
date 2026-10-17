@@ -130,7 +130,7 @@ func (r *InMemory) List(_ context.Context, workspaceID uuid.UUID, f Filter) ([]*
 }
 
 func (r *InMemory) NextClaimable(_ context.Context, queues []jobdomain.Queue, kinds []string, now time.Time) (*jobdomain.Job, error) {
-	all, err := r.collect(func(*jobdomain.Job) bool { return true }, func(a, b *jobdomain.Job) bool { return false }, 0)
+	all, err := r.collect(func(*jobdomain.Job) bool { return true }, func(*jobdomain.Job, *jobdomain.Job) bool { return false }, 0)
 	if err != nil {
 		return nil, err
 	}
