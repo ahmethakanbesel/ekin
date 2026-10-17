@@ -281,6 +281,23 @@ export function approveDeliverable(
   }).mutate()
 }
 
+/**
+ * Rejects a deliverable outside a component (one of a batch) and stores
+ * the story it returns, through the mutation cache like approveDeliverable.
+ */
+export function rejectDeliverable(
+  qc: QueryClient,
+  path: { workspaceId: string; storyId: string; deliverableId: string }
+): Promise<Story> {
+  return new MutationObserver(qc, {
+    mutationFn: () => call(postAction("reject", path)),
+    onSuccess: (s: Story) => {
+      qc.setQueryData(keys.story(path.workspaceId, s.id), s)
+      void qc.invalidateQueries({ queryKey: keys.storyLists(path.workspaceId) })
+    },
+  }).mutate()
+}
+
 /** Approve, reject, retry or publish one deliverable. */
 export function useDeliverableAction(workspaceId: string, storyId: string, action: DeliverableAction) {
   const store = useStoreStory(workspaceId)

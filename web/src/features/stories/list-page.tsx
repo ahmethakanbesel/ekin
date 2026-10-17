@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   useInfiniteQuery,
   useQuery,
@@ -13,7 +13,7 @@ import {
   SearchIcon,
 } from "lucide-react"
 
-import type { Job, Pipeline } from "@/api/client"
+import type { Job, Pipeline, Story } from "@/api/client"
 import {
   EmptyState,
   ErrorState,
@@ -39,6 +39,8 @@ import {
   windowCount,
   type StoryWindow,
 } from "@/queries/stories"
+import { BatchBar } from "./batch-bar"
+import { decidable } from "./batch-actions"
 import { STORY_TABS, TAB_STATUSES, type StoryTab } from "./model"
 import { PosterCard } from "./poster-card"
 
@@ -97,6 +99,37 @@ export function StoriesPage() {
       ),
     [pipelines.data]
   )
+
+  // Stories picked for a batch decision, for this tab and search only.
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set())
+  const [anchor, setAnchor] = useState<string | null>(null)
+  const scope = `${tab}\n${q}`
+  const [selectedIn, setSelectedIn] = useState(scope)
+  if (selectedIn !== scope) {
+    setSelectedIn(scope)
+    setSelected(new Set())
+    setAnchor(null)
+  }
+  const decidableStories = useMemo(
+    () => (canEdit ? (list.data ?? []).filter(decidable) : []),
+    [canEdit, list.data]
+  )
+  const chosen = decidableStories.filter((s) => selected.has(s.id))
+  /** Toggles a story; with range, sets every story from the last one toggled to it alike. */
+  const toggle = (s: Story, range: boolean) => {
+    const next = new Set(selected)
+    const on = !selected.has(s.id)
+    const from = anchor ? decidableStories.findIndex((x) => x.id === anchor) : -1
+    const to = decidableStories.findIndex((x) => x.id === s.id)
+    if (range && from >= 0 && to >= 0) {
+      for (const x of decidableStories.slice(Math.min(from, to), Math.max(from, to) + 1))
+        if (on) next.add(x.id)
+        else next.delete(x.id)
+    } else if (on) next.add(s.id)
+    else next.delete(s.id)
+    setSelected(next)
+    setAnchor(s.id)
+  }
 
   const firstReview = review.data?.stories[0]
   const newButton = canEdit ? (
@@ -175,11 +208,25 @@ export function StoriesPage() {
                 timezone={workspace.timezone}
                 now={now}
                 inReviewTab={tab === "review"}
+                selection={
+                  canEdit && decidable(s)
+                    ? { selected: selected.has(s.id), onToggle: (range) => toggle(s, range) }
+                    : undefined
+                }
               />
             </li>
           ))}
         </ul>
-        <LoadMore query={list} className="pt-8" />
+        <LoadMore query={list} className={cn("pt-8", chosen.length > 0 && "pb-24")} />
+        {chosen.length > 0 ? (
+          <BatchBar
+            workspaceId={workspace.id}
+            chosen={chosen}
+            selectable={decidableStories.length}
+            onSelectAll={() => setSelected(new Set(decidableStories.map((s) => s.id)))}
+            onSelect={(ids) => setSelected(new Set(ids))}
+          />
+        ) : null}
       </>
     )
 

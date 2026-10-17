@@ -10,6 +10,7 @@ import {
 
 import type { Deliverable, Story } from "@/api/client"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { m } from "@/i18n"
 import { formatDateTime, formatRelative } from "@/lib/time"
 import { pipelineHue } from "@/lib/tones"
@@ -47,6 +48,7 @@ export function PosterCard({
   timezone,
   now,
   inReviewTab = false,
+  selection,
 }: {
   workspaceId: string
   story: Story
@@ -56,6 +58,8 @@ export function PosterCard({
   now: number
   /** On the Needs review tab the tab says "in review"; the poster does not repeat it. */
   inReviewTab?: boolean
+  /** For a story a batch can decide: whether it is selected, and how to toggle it. */
+  selection?: { selected: boolean; onToggle: (range: boolean) => void }
 }) {
   const lead = leadOf(s)
   const hue = pipelineHue(s.pipelineId)
@@ -66,11 +70,24 @@ export function PosterCard({
     pipeline = pipelineName ?? (pipelinesLoaded ? m.stories.deletedPipeline : undefined)
 
   return (
-    <article className="min-w-0" aria-labelledby={`story-${s.id}`}>
+    <article className="relative min-w-0" aria-labelledby={`story-${s.id}`}>
+      {selection ? (
+        <Checkbox
+          checked={selection.selected}
+          onCheckedChange={(_, e) => selection.onToggle(e.event instanceof MouseEvent && e.event.shiftKey)}
+          aria-label={m.stories.batch.select(s.title)}
+          // Shift-click selects a range; it must not select the page's text.
+          onMouseDown={(e) => e.shiftKey && e.preventDefault()}
+          className="absolute top-3.5 right-3.5 z-10 size-5 border-white/70 bg-black/40 shadow-sm backdrop-blur-sm data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground [&_svg]:size-4"
+        />
+      ) : null}
       <Link
         to="/w/$workspaceId/stories/$storyId"
         params={{ workspaceId, storyId: s.id }}
-        className="group block rounded-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+        className={cn(
+          "group block rounded-xl outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
+          selection?.selected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+        )}
       >
         {lead?.kind === "article" ? (
           <ArticlePoster story={s} lead={lead} quiet={inReviewTab} />

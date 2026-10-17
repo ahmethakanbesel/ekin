@@ -622,6 +622,30 @@ export const en = {
     batch: "Items per run must be 1–20.",
   },
   stories: {
+    batch: {
+      label: "Selected stories",
+      select: (title: string) => `Select “${title}”`,
+      selected: (n: number) => `${n} selected`,
+      drafts: (n: number) => (n === 1 ? "1 draft in review" : `${n} drafts in review`),
+      selectAll: (n: number) => `Select all ${n}`,
+      approve: "Approve",
+      reject: "Reject…",
+      clear: "Clear selection",
+      approving: (n: number) => (n === 1 ? "Approving 1 draft…" : `Approving ${n} drafts…`),
+      approved: (n: number) => (n === 1 ? "1 draft approved" : `${n} drafts approved`),
+      approvedPartly: (ok: number, failed: number) => `${ok} approved; ${failed} could not be`,
+      undone: (n: number) => (n === 1 ? "Approval undone — 1 draft stays in review" : `Approvals undone — ${n} drafts stay in review`),
+      rejectTitle: (n: number) => (n === 1 ? "Reject 1 draft?" : `Reject ${n} drafts?`),
+      rejectBody: (n: number) =>
+        n === 1
+          ? "The agent stops working on it, and anything waiting to be made from it is rejected too. This cannot be undone."
+          : "The agent stops working on them, and anything waiting to be made from them is rejected too. This cannot be undone.",
+      more: (n: number) => `and ${n} more`,
+      rejecting: "Rejecting…",
+      rejected: (n: number) => (n === 1 ? "1 draft rejected" : `${n} drafts rejected`),
+      rejectedPartly: (ok: number, failed: number) => `${ok} rejected; ${failed} could not be`,
+      hint: "Shift-click selects a range. Esc clears.",
+    },
     title: "Review",
     description: "Stories the agent produced. Review drafts, follow progress and publish.",
     newRequest: "New request",
