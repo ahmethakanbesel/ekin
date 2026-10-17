@@ -59,6 +59,9 @@ type Template struct {
 	Source      Source
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	// Version counts saved edits, for optimistic concurrency; a new
+	// template is at 1.
+	Version int64
 }
 
 // Spec is the editable part of a template.
@@ -77,7 +80,7 @@ func New(id, workspaceID uuid.UUID, spec Spec, source Source, now time.Time) (Te
 		return Template{}, apperror.New(apperror.ValidationFailed, "template id is required")
 	}
 	now = timeutil.Normalize(now)
-	t := Template{ID: id, WorkspaceID: workspaceID, Source: source, CreatedAt: now}
+	t := Template{ID: id, WorkspaceID: workspaceID, Source: source, CreatedAt: now, Version: 1}
 	return t, t.apply(spec, now)
 }
 

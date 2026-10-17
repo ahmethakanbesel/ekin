@@ -160,19 +160,25 @@ func (s *Service) Create(ctx context.Context, workspaceID uuid.UUID, spec templa
 	if err != nil {
 		return t, err
 	}
-	return t, s.repo.Save(ctx, t)
+	return t, s.repo.Create(ctx, t)
 }
 
-// Update changes a workspace template.
-func (s *Service) Update(ctx context.Context, workspaceID, templateID uuid.UUID, spec templatedomain.Spec) (templatedomain.Template, error) {
+// Update changes a workspace template. version is the version the caller
+// read (0: whatever is stored now); a newer stored version fails with
+// StaleVersion instead of overwriting someone else's edit, and a template
+// deleted meanwhile stays deleted.
+func (s *Service) Update(ctx context.Context, workspaceID, templateID uuid.UUID, version int64, spec templatedomain.Spec) (templatedomain.Template, error) {
 	t, err := s.Get(ctx, workspaceID, templateID)
 	if err != nil {
 		return t, err
 	}
+	if version != 0 && version != t.Version {
+		return t, apperror.New(apperror.StaleVersion, "the template was changed by someone else; reload and retry")
+	}
 	if err := t.Update(spec, s.now()); err != nil {
 		return t, err
 	}
-	return t, s.repo.Save(ctx, t)
+	return s.repo.Update(ctx, t)
 }
 
 // Duplicate copies any template into the workspace as an editable one.
@@ -277,7 +283,7 @@ Here is an example of the expected depth and format of "guide":
 	if err != nil {
 		return jobdomain.Permanent(err)
 	}
-	return s.repo.Save(ctx, t)
+	return s.repo.Create(ctx, t)
 }
 
 func notesLine(notes string) string {

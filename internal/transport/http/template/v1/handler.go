@@ -47,7 +47,11 @@ func (h *Handler) CreateTemplate(ctx context.Context, req gen.CreateTemplateRequ
 }
 
 func (h *Handler) UpdateTemplate(ctx context.Context, req gen.UpdateTemplateRequestObject) (gen.UpdateTemplateResponseObject, error) {
-	t, err := h.svc.Update(ctx, req.WorkspaceId, req.TemplateId, specOf(*req.Body))
+	var version int64
+	if req.Body.Version != nil {
+		version = *req.Body.Version
+	}
+	t, err := h.svc.Update(ctx, req.WorkspaceId, req.TemplateId, version, specOf(*req.Body))
 	if err != nil {
 		return nil, err
 	}
@@ -127,5 +131,6 @@ func ToWire(t templatedomain.Template) gen.Template {
 		Id: t.ID, Name: t.Name, Description: t.Description, Inspiration: t.Inspiration, Kinds: kinds, Guide: t.Guide,
 		Palette: palette, HeadingFont: gen.TemplateFont(t.HeadingFont), BodyFont: gen.TemplateFont(t.BodyFont),
 		MusicMood: t.MusicMood, Source: gen.TemplateSource(t.Source), CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt,
+		Version: t.Version,
 	}
 }

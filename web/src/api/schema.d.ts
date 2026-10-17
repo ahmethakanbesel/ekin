@@ -733,7 +733,7 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getTemplate"];
-        /** @description Built-ins are read-only (403); duplicate them first. */
+        /** @description Built-ins are read-only (403); duplicate them first. Send the `version` you read to refuse overwriting a newer edit (409). A template deleted meanwhile answers 404. */
         put: operations["updateTemplate"];
         post?: never;
         delete: operations["deleteTemplate"];
@@ -1602,6 +1602,11 @@ export interface components {
             headingFont?: components["schemas"]["TemplateFont"];
             bodyFont?: components["schemas"]["TemplateFont"];
             musicMood?: string;
+            /**
+             * Format: int64
+             * @description On update, the version the caller read; a newer stored version answers 409 StaleVersion instead of overwriting someone else's edit. Omitted, the update applies to whatever is stored.
+             */
+            version?: number;
         };
         Template: {
             /** Format: uuid */
@@ -1621,6 +1626,8 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+            /** Format: int64 */
+            version: number;
         };
         SEOProfile: {
             /** @description e.g. example.com */

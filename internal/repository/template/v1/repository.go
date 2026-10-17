@@ -18,7 +18,11 @@ import (
 
 // Repository stores workspace templates.
 type Repository interface {
-	Save(ctx context.Context, t templatedomain.Template) error
+	Create(ctx context.Context, t templatedomain.Template) error
+	// Update stores t if the stored version is still t.Version and
+	// returns it at the next version: StaleVersion when someone saved
+	// meanwhile, NotFound when it was deleted (it is not brought back).
+	Update(ctx context.Context, t templatedomain.Template) (templatedomain.Template, error)
 	// Get returns NotFound when the template is not in the workspace.
 	Get(ctx context.Context, workspaceID, id uuid.UUID) (templatedomain.Template, error)
 	List(ctx context.Context, workspaceID uuid.UUID) ([]templatedomain.Template, error)
@@ -33,15 +37,37 @@ func NewSQLite(q db.QuerierSource) *SQLite { return &SQLite{q: q} }
 
 func notFound() error { return apperror.New(apperror.NotFound, "template not found") }
 
-func (r *SQLite) Save(ctx context.Context, t templatedomain.Template) error {
+func (r *SQLite) Create(ctx context.Context, t templatedomain.Template) error {
 	spec, _ := json.Marshal(t.Spec())
-	_, err := r.q.W(ctx).ExecContext(ctx, `INSERT INTO templates (id, workspace_id, spec, source, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO UPDATE SET spec = excluded.spec, updated_at = excluded.updated_at`,
-		t.ID.String(), t.WorkspaceID.String(), string(spec), string(t.Source), timeutil.ToMillis(t.CreatedAt), timeutil.ToMillis(t.UpdatedAt))
+	_, err := r.q.W(ctx).ExecContext(ctx, `INSERT INTO templates (id, workspace_id, spec, source, created_at, updated_at, version)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		t.ID.String(), t.WorkspaceID.String(), string(spec), string(t.Source), timeutil.ToMillis(t.CreatedAt), timeutil.ToMillis(t.UpdatedAt), t.Version)
 	if err != nil {
-		return fmt.Errorf("save template: %w", err)
+		return fmt.Errorf("create template: %w", err)
 	}
 	return nil
+}
+
+func (r *SQLite) Update(ctx context.Context, t templatedomain.Template) (templatedomain.Template, error) {
+	spec, _ := json.Marshal(t.Spec())
+	res, err := r.q.W(ctx).ExecContext(ctx, `UPDATE templates SET spec = ?, updated_at = ?, version = version + 1
+		WHERE workspace_id = ? AND id = ? AND version = ?`,
+		string(spec), timeutil.ToMillis(t.UpdatedAt), t.WorkspaceID.String(), t.ID.String(), t.Version)
+	if err != nil {
+		return t, fmt.Errorf("update template: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		if _, err := r.Get(ctx, t.WorkspaceID, t.ID); err != nil {
+			return t, err
+		}
+		return t, stale()
+	}
+	t.Version++
+	return t, nil
+}
+
+func stale() error {
+	return apperror.New(apperror.StaleVersion, "the template was changed by someone else; reload and retry")
 }
 
 func (r *SQLite) Get(ctx context.Context, workspaceID, id uuid.UUID) (templatedomain.Template, error) {
@@ -71,7 +97,7 @@ func (r *SQLite) Delete(ctx context.Context, workspaceID, id uuid.UUID) error {
 }
 
 func (r *SQLite) query(ctx context.Context, tail string, args ...any) ([]templatedomain.Template, error) {
-	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT id, workspace_id, spec, source, created_at, updated_at FROM templates `+tail, args...)
+	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT id, workspace_id, spec, source, created_at, updated_at, version FROM templates `+tail, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query templates: %w", err)
 	}
@@ -80,9 +106,9 @@ func (r *SQLite) query(ctx context.Context, tail string, args ...any) ([]templat
 	for rows.Next() {
 		var (
 			rawID, rawWS, spec, source string
-			created, updated           int64
+			created, updated, version  int64
 		)
-		if err := rows.Scan(&rawID, &rawWS, &spec, &source, &created, &updated); err != nil {
+		if err := rows.Scan(&rawID, &rawWS, &spec, &source, &created, &updated, &version); err != nil {
 			return nil, err
 		}
 		var s templatedomain.Spec
@@ -95,7 +121,7 @@ func (r *SQLite) query(ctx context.Context, tail string, args ...any) ([]templat
 		if err != nil {
 			return nil, err
 		}
-		t.UpdatedAt = timeutil.FromMillis(updated)
+		t.UpdatedAt, t.Version = timeutil.FromMillis(updated), version
 		out = append(out, t)
 	}
 	return out, rows.Err()
@@ -110,17 +136,32 @@ type InMemory struct {
 // NewInMemory returns an empty repository.
 func NewInMemory() *InMemory { return &InMemory{} }
 
-func (r *InMemory) Save(_ context.Context, t templatedomain.Template) error {
+func (r *InMemory) Create(_ context.Context, t templatedomain.Template) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	for i := range r.rows {
-		if r.rows[i].ID == t.ID {
-			r.rows[i] = t
-			return nil
+	for _, x := range r.rows {
+		if x.ID == t.ID {
+			return apperror.New(apperror.Conflict, "template exists")
 		}
 	}
 	r.rows = append(r.rows, t)
 	return nil
+}
+
+func (r *InMemory) Update(_ context.Context, t templatedomain.Template) (templatedomain.Template, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := range r.rows {
+		if r.rows[i].WorkspaceID == t.WorkspaceID && r.rows[i].ID == t.ID {
+			if r.rows[i].Version != t.Version {
+				return t, stale()
+			}
+			t.Version++
+			r.rows[i] = t
+			return t, nil
+		}
+	}
+	return t, notFound()
 }
 
 func (r *InMemory) Get(_ context.Context, ws, id uuid.UUID) (templatedomain.Template, error) {

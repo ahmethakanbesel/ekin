@@ -1186,7 +1186,10 @@ paths:
     put:
       operationId: updateTemplate
       tags: [templates]
-      description: Built-ins are read-only (403); duplicate them first.
+      description: >-
+        Built-ins are read-only (403); duplicate them first. Send the
+        `version` you read to refuse overwriting a newer edit (409).
+        A template deleted meanwhile answers 404.
       requestBody:
         required: true
         content:
@@ -2435,10 +2438,17 @@ components:
         headingFont: { $ref: "#/components/schemas/TemplateFont" }
         bodyFont: { $ref: "#/components/schemas/TemplateFont" }
         musicMood: { type: string, maxLength: 300 }
+        version:
+          type: integer
+          format: int64
+          description: >-
+            On update, the version the caller read; a newer stored version
+            answers 409 StaleVersion instead of overwriting someone else's
+            edit. Omitted, the update applies to whatever is stored.
 
     Template:
       type: object
-      required: [id, name, description, inspiration, kinds, guide, palette, headingFont, bodyFont, musicMood, source, createdAt, updatedAt]
+      required: [id, name, description, inspiration, kinds, guide, palette, headingFont, bodyFont, musicMood, source, createdAt, updatedAt, version]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -2459,6 +2469,7 @@ components:
           enum: [builtin, custom, generated]
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
 
     SEOProfile:
       type: object
