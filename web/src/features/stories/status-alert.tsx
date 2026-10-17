@@ -194,7 +194,7 @@ function FailureBody({
           />
           {m.banner.technicalDetails}
         </summary>
-        <span className="mt-1.5 block max-h-40 overflow-y-auto font-mono text-xs whitespace-pre-wrap">
+        <span className="mt-1.5 block max-h-40 overflow-y-auto font-mono text-xs whitespace-pre-wrap wrap-anywhere">
           {d.failure || m.banner.noFailure}
         </span>
       </details>

@@ -83,7 +83,7 @@ export function ReviewPanel({
   const narrator = nameNarrator(current?.measured?.narrator, d.language)
 
   return (
-    <div className="grid">
+    <div className="grid grid-cols-[minmax(0,1fr)]">
       <Section className="space-y-4">
         <StatusBanner
           story={story}
