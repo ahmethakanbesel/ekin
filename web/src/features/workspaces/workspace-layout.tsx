@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router"
 import {
   InboxIcon,
+  ImagesIcon,
   LibraryIcon,
   ListChecksIcon,
   PaletteIcon,
@@ -63,6 +64,11 @@ const navItems = [
     to: "/w/$workspaceId/knowledge",
     label: m.nav.knowledge,
     icon: LibraryIcon,
+  },
+  {
+    to: "/w/$workspaceId/library",
+    label: m.nav.library,
+    icon: ImagesIcon,
   },
   { to: "/w/$workspaceId/seo", label: m.nav.seo, icon: TrendingUpIcon },
   {

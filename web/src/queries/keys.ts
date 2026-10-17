@@ -1,4 +1,4 @@
-import type { DeliverableStatus, JobStatus, OpportunityStatus } from "@/api/client"
+import type { DeliverableStatus, JobStatus, LibraryAssetKind, OpportunityStatus } from "@/api/client"
 
 /** A paged list's server-side filter, as its query key holds it. */
 type Paged<F> = F & { q?: string; limit: number }
@@ -52,6 +52,14 @@ export const keys = {
     ["workspaces", workspaceId, "documents", documentId, "pages", chunk] as const,
   documentContents: (workspaceId: string, documentId: string, version: string) =>
     ["workspaces", workspaceId, "documents", documentId, "contents", version] as const,
+  library: (workspaceId: string) => ["workspaces", workspaceId, "library"] as const,
+  // Lists sit under "list", so refreshing them leaves each asset's own
+  // query alone.
+  libraryLists: (workspaceId: string) => ["workspaces", workspaceId, "library", "list"] as const,
+  libraryList: (workspaceId: string, filter: Paged<{ kind: LibraryAssetKind | "all"; archived: boolean }>) =>
+    ["workspaces", workspaceId, "library", "list", filter] as const,
+  libraryAsset: (workspaceId: string, assetId: string) =>
+    ["workspaces", workspaceId, "library", assetId] as const,
   jobs: (workspaceId: string) => ["workspaces", workspaceId, "jobs"] as const,
   jobList: (workspaceId: string, filter: Paged<{ status: JobStatus[]; kind: string[] }>) =>
     ["workspaces", workspaceId, "jobs", "list", filter] as const,
