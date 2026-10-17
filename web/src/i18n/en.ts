@@ -1581,6 +1581,9 @@ export const en = {
       editTitle: "Edit template",
       created: "Template created",
       saved: "Template saved",
+      staleTitle: "This template changed since you opened it",
+      staleBody:
+        "Someone saved a newer version. Reload to get it — your unsaved edits here will be lost.",
       forbidden: "Your role in this workspace does not allow changing templates.",
       sections: {
         basics: "Basics",

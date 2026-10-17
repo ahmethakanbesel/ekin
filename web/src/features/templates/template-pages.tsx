@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate, useParams } from "@tanstack/react-router"
 import { toast } from "sonner"
@@ -109,16 +109,26 @@ export function EditTemplatePage() {
     }
     return <ErrorState error={query.error} onRetry={() => void query.refetch()} />
   }
-  return <EditTemplate template={query.data} />
+  return <EditTemplate template={query.data} reload={async () => (await query.refetch()).data} />
 }
 
-function EditTemplate({ template }: { template: Template }) {
+function EditTemplate({
+  template,
+  reload,
+}: {
+  template: Template
+  reload: () => Promise<Template | undefined>
+}) {
   const workspace = useWorkspace()
   const canEdit = useCan("edit")
   const update = useUpdateTemplate(workspace.id, template.id)
   const navigate = useNavigate()
   const [error, setError] = useState<unknown>(null)
-  const [initial] = useState(() => fromTemplate(template))
+  // The version (and values) the user started from. PUT sends this
+  // version; a newer stored one answers 409 StaleVersion.
+  const [base, setBase] = useState(template)
+  const [reloading, setReloading] = useState(false)
+  const initial = useMemo(() => fromTemplate(base), [base])
   const detail = {
     to: "/w/$workspaceId/templates/$templateId",
     params: { workspaceId: workspace.id, templateId: template.id },
@@ -143,23 +153,53 @@ function EditTemplate({ template }: { template: Template }) {
   const submit = async (input: TemplateInput) => {
     setError(null)
     try {
-      await update.mutateAsync(input)
+      await update.mutateAsync({ ...input, version: base.version })
       toast.success(m.templates.form.saved)
       void navigate(detail)
     } catch (err) {
       setError(err)
-      toast.error(errorMessage(err))
+      if (!isApiError(err, "StaleVersion")) toast.error(errorMessage(err))
     }
   }
+
+  const doReload = async () => {
+    setReloading(true)
+    try {
+      const fresh = await reload()
+      if (fresh) {
+        setBase(fresh)
+        setError(null)
+      }
+    } finally {
+      setReloading(false)
+    }
+  }
+
+  const banner = isApiError(error, "StaleVersion") ? (
+    <Banner
+      tone="warning"
+      title={m.templates.form.staleTitle}
+      action={
+        <Button size="sm" variant="outline" disabled={reloading} onClick={() => void doReload()}>
+          {m.common.reload}
+        </Button>
+      }
+    >
+      <p>{m.templates.form.staleBody}</p>
+    </Banner>
+  ) : (
+    <ServerError error={error} />
+  )
 
   return (
     <div className="max-w-6xl">
       <BackToTemplates workspaceId={workspace.id} />
       <PageHeader title={m.templates.form.editTitle} description={template.name} />
       <TemplateForm
+        key={base.version}
         initialValues={initial}
         submitLabel={m.templates.form.submitSave}
-        banner={<ServerError error={error} />}
+        banner={banner}
         cancel={
           <Button variant="outline" render={<Link {...detail} />} nativeButton={false}>
             {m.common.cancel}
