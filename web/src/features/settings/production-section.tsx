@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
 import { toast } from "sonner"
 
 import type { WorkspaceProduction } from "@/api/client"
@@ -10,14 +11,15 @@ import {
   fromProduction,
   toProduction,
   toSelfReview,
-  type ProductionValues,
 } from "@/features/pipelines/model"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
+import { cn } from "@/lib/utils"
+import { pipelinesQuery } from "@/queries/pipelines"
 import { useSaveWorkspaceProduction, workspaceProductionQuery } from "@/queries/production"
 import { LayeredCard } from "./layered"
-import { ProductionFields, countSet, serverResolved } from "./production-fields"
+import { ProductionFields, changedLabels, countSet, serverResolved } from "./production-fields"
 import { SettingsSectionHeader } from "./settings-page"
 
 /**
@@ -31,7 +33,19 @@ export function ProductionSection() {
   const query = useQuery(workspaceProductionQuery(workspace.id))
 
   let body
-  if (query.isPending) body = <Skeleton className="h-[34rem] w-full rounded-xl" />
+  if (query.isPending)
+    body = (
+      <div className="grid gap-3 rounded-xl p-6 ring-1 ring-foreground/10" aria-busy="true" aria-label={m.common.loading}>
+        <Skeleton className="h-5 w-2/3" />
+        {Array.from({ length: 8 }, (_, i) => (
+          <div key={i} className="grid grid-cols-[10rem_1fr_16rem] items-center gap-5 py-2">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-4 w-36" />
+            <Skeleton className="h-9 w-full" />
+          </div>
+        ))}
+      </div>
+    )
   else if (query.isError)
     body = <ErrorState error={query.error} onRetry={() => void query.refetch()} />
   else
@@ -55,23 +69,20 @@ export function ProductionSection() {
   )
 }
 
-const flat = (v: ProductionValues) => ({ ...v, ...v.media, media: undefined })
-
-/** How many settings differ between two sets of values. */
-function changes(a: ProductionValues, b: ProductionValues): number {
-  const fa = flat(a)
-  const fb = flat(b)
-  return (Object.keys(fa) as (keyof typeof fa)[]).filter((k) => fa[k] !== fb[k]).length
-}
-
 function ProductionForm({ stored, readOnly }: { stored: WorkspaceProduction; readOnly: boolean }) {
   const workspace = useWorkspace()
   const save = useSaveWorkspaceProduction(workspace.id)
   const [initial] = useState(() => fromProduction(stored.defaults, stored.selfReviewRounds))
   const [value, setValue] = useState(initial)
   const t = m.settings.production
-  const { set, total } = countSet(value, { video: true, longVideo: true })
-  const changed = changes(value, initial)
+  // The summary counts what is saved; the save bar names what is not.
+  const { set, total } = countSet(initial, { video: true, longVideo: true })
+  const changed = changedLabels(value, initial)
+  const dirty = changed.length > 0
+  const pipelines = useQuery(pipelinesQuery(workspace.id))
+  const overriding = (pipelines.data ?? []).filter(
+    (p) => p.definition.production !== undefined || p.definition.selfReviewRounds !== undefined
+  ).length
 
   const submit = async () => {
     try {
@@ -97,26 +108,45 @@ function ProductionForm({ stored, readOnly }: { stored: WorkspaceProduction; rea
             <span className="font-medium text-foreground tabular">
               {m.settings.setCount(set, total, workspace.name)}
             </span>
+            {pipelines.data ? (
+              <>
+                {" · "}
+                <Link
+                  to="/w/$workspaceId/pipelines"
+                  params={{ workspaceId: workspace.id }}
+                  className="underline decoration-input underline-offset-4 hover:text-foreground"
+                >
+                  {overriding > 0 ? t.reach(overriding) : t.allFollow}
+                </Link>
+              </>
+            ) : null}
           </>
         }
         fromLabel={m.settings.columns.inherited}
         hereLabel={workspace.name}
+        // Unclipped, so the save bar can stick to the bottom of the screen.
+        className="overflow-visible"
         footer={
           readOnly ? null : (
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t px-6 py-4">
-              <p className="text-sm text-muted-foreground tabular" aria-live="polite">
-                {changed > 0 ? m.settings.unsaved(changed) : t.allSaved}
+            <div
+              className={cn(
+                "flex flex-wrap items-center justify-between gap-3 rounded-b-xl border-t px-6 py-4",
+                dirty && "sticky bottom-0 z-10 bg-card/95 backdrop-blur"
+              )}
+            >
+              <p className="min-w-0 text-sm text-muted-foreground tabular" aria-live="polite">
+                {dirty ? t.unsavedNamed(changed.length, changed.join(", ")) : t.allSaved}
               </p>
               <div className="flex gap-2">
-                {changed > 0 ? (
+                {dirty ? (
                   <Button type="button" variant="outline" onClick={() => setValue(initial)}>
                     {m.settings.discard}
                   </Button>
                 ) : null}
                 <Button
                   type="submit"
-                  variant={changed > 0 ? "default" : "outline"}
-                  disabled={changed === 0 || save.isPending}
+                  variant={dirty ? "default" : "outline"}
+                  disabled={!dirty || save.isPending}
                 >
                   {save.isPending ? m.common.saving : t.save}
                 </Button>
@@ -130,6 +160,7 @@ function ProductionForm({ stored, readOnly }: { stored: WorkspaceProduction; rea
             idPrefix="ws-production"
             value={value}
             onChange={setValue}
+            saved={initial}
             inherited={serverResolved(stored.server)}
             here={workspace.name}
             video

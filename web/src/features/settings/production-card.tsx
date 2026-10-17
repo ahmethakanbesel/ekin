@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 
-import { ErrorState } from "@/components/page"
+import { ErrorState, ReadOnlyNote } from "@/components/page"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -124,7 +124,7 @@ export function ProductionCard({
           <Link
             to="/w/$workspaceId/settings/production"
             params={{ workspaceId: workspace.id }}
-            className="font-medium text-foreground underline-offset-4 hover:underline"
+            className="font-medium text-foreground underline decoration-input underline-offset-4 hover:decoration-foreground"
           >
             {t.workspaceLink}
           </Link>
@@ -134,6 +134,7 @@ export function ProductionCard({
       fromLabel={m.settings.columns.inherited}
       hereLabel={here}
     >
+      {readOnly ? <ReadOnlyNote className="mx-6 mt-3 mb-0">{t.readOnly}</ReadOnlyNote> : null}
       <div className="pb-4">{body}</div>
     </LayeredCard>
   )

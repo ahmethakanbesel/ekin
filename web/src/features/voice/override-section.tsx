@@ -97,6 +97,7 @@ export function VoiceOverrideRows({
           ) : engine.voices.length > 0 ? (
             <VoiceSelect
               id={id("voice")}
+              className={value.voice ? "w-full font-medium" : "w-full text-muted-foreground"}
               engine={engine}
               value={value.voice}
               defaultLabel={m.settings.inheritOption(String(inheritedVoice.value))}
@@ -154,11 +155,13 @@ export function VoiceOverrideRows({
             <Button
               type="button"
               variant="outline"
-              className="w-full justify-start font-normal text-muted-foreground"
+              className="w-full justify-between border-input bg-transparent font-normal text-muted-foreground shadow-xs dark:bg-input/30"
               disabled={readOnly}
+              aria-label={t.overrideSpeed}
               onClick={() => onChange({ ...value, speed: String(workspaceSpeed) })}
             >
-              {t.overrideSpeed}
+              {m.settings.inheritOption(m.voice.speedValue(formatDecimal(workspaceSpeed)))}
+              <span className="text-xs font-medium text-foreground">{t.change}</span>
             </Button>
           )
         }
@@ -167,7 +170,7 @@ export function VoiceOverrideRows({
         <Link
           to="/w/$workspaceId/settings/voice"
           params={{ workspaceId: workspace.id }}
-          className="font-medium text-foreground underline-offset-4 hover:underline"
+          className="font-medium text-foreground underline decoration-input underline-offset-4 hover:decoration-foreground"
         >
           {t.settingsLink}
         </Link>

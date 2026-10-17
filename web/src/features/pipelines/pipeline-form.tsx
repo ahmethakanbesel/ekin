@@ -416,7 +416,7 @@ export function PipelineForm({
 
       {banner}
 
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap justify-end gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur md:-mx-8 md:px-8">
         <Button
           variant="outline"
           render={<Link to="/w/$workspaceId/pipelines" params={{ workspaceId }} />}

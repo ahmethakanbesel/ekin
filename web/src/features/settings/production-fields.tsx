@@ -68,6 +68,9 @@ function modelLabel(id: string): string {
   return MODELS.find((it) => it.value === id)?.label ?? id
 }
 
+/** What "fresh" means per kind: the agent composes music and searches Pexels for stock. */
+const fresh = (k: MediaKind) => m.settings.production.fresh[k]
+
 const label = {
   draftModel: (v: string) => modelLabel(v),
   draftEffort: (v: string) => t.efforts[v] ?? v,
@@ -76,7 +79,7 @@ const label = {
   fps: (n: number) => m.settings.production.fps(n),
   reviewAt: (v: string) => t.reviewPoints[v] ?? v,
   thumbnails: (n: number) => t.thumbnailCounts(n),
-  media: (v: string) => t.mediaSources[v] ?? v,
+  media: (k: MediaKind, v: string) => (v === "fresh" ? fresh(k) : (t.mediaSources[v] ?? v)),
 }
 
 /** What the server and the built-ins give, as Settings › Production inherits it. */
@@ -86,7 +89,7 @@ export function serverResolved(server: ServerProduction | undefined): Resolved {
   const s = server
   const media = (k: MediaKind): [MediaKey, ResolvedValue] => [
     `media.${k}`,
-    { value: label.media(BUILT_IN.media), source: B, raw: BUILT_IN.media },
+    { value: label.media(k, BUILT_IN.media), source: B, raw: BUILT_IN.media },
   ]
   return {
     draftModel: s?.draftModel
@@ -130,7 +133,7 @@ export function layerResolved(v: ProductionValues, below: Resolved, source: stri
   if (v.reviewAt) put("reviewAt", v.reviewAt, label.reviewAt(v.reviewAt))
   if (v.thumbnails !== null) put("thumbnails", v.thumbnails, label.thumbnails(v.thumbnails))
   for (const k of MEDIA_KINDS)
-    if (v.media[k]) put(`media.${k}`, v.media[k], label.media(v.media[k]))
+    if (v.media[k]) put(`media.${k}`, v.media[k], label.media(k, v.media[k]))
   return out
 }
 
@@ -143,6 +146,35 @@ export function countSet(v: ProductionValues, opts: { video: boolean; longVideo:
     set: shown.filter((x) => x !== "" && x !== 0 && x !== null).length,
     total: shown.length,
   }
+}
+
+/** A setting's value at one layer as a select value; "" when unset. */
+function current(v: ProductionValues, k: Key): string {
+  if (k.startsWith("media.")) return v.media[k.slice(6) as MediaKind]
+  const x = v[k as Exclude<Key, MediaKey>]
+  return x === null || x === 0 ? "" : String(x)
+}
+
+const ROW_LABELS: Record<Key, string> = {
+  draftModel: t.model,
+  draftEffort: t.effort,
+  selfReview: m.pipelineForm.selfReview.title,
+  previewQuality: t.previewQuality,
+  finalQuality: t.finalQuality,
+  previewFps: t.previewFps,
+  finalFps: t.finalFps,
+  reviewAt: t.reviewAt,
+  thumbnails: t.thumbnails,
+  "media.music": t.mediaKinds.music,
+  "media.video": t.mediaKinds.video,
+  "media.photo": t.mediaKinds.photo,
+}
+
+/** The labels of the settings that differ between two sets of values, in row order. */
+export function changedLabels(a: ProductionValues, b: ProductionValues): string[] {
+  return (Object.keys(ROW_LABELS) as Key[])
+    .filter((k) => current(a, k) !== current(b, k))
+    .map((k) => ROW_LABELS[k])
 }
 
 /** The height of a quality label ("720p" → 720); 0 when unknown. */
@@ -160,12 +192,15 @@ export function ProductionFields({
   onChange,
   inherited,
   here,
+  saved,
   video,
   longVideo,
   readOnly = false,
 }: {
   idPrefix: string
   value: ProductionValues
+  /** The stored values, to mark rows with unsaved changes. */
+  saved?: ProductionValues
   onChange: (next: ProductionValues) => void
   /** What each setting resolves to without this layer. */
   inherited: Resolved
@@ -191,7 +226,7 @@ export function ProductionFields({
   const row = (
     k: Key,
     text: string,
-    current: string,
+    own: string,
     options: { value: string; label: string }[],
     write: (raw: string) => void,
     hint?: ReactNode
@@ -202,14 +237,15 @@ export function ProductionFields({
       htmlFor={id(k)}
       hint={hint}
       inherited={inherited[k]}
-      set={current !== ""}
+      set={own !== ""}
+      dirty={!!saved && current(saved, k) !== own}
       onReset={() => write("")}
       readOnly={readOnly}
     >
       {(describedBy) => (
         <LayeredSelect
           id={id(k)}
-          value={current}
+          value={own}
           options={options}
           inheritLabel={inheritLabel(k)}
           describedBy={describedBy}
@@ -303,9 +339,11 @@ export function ProductionFields({
               `media.${k}`,
               t.mediaKinds[k],
               value.media[k],
-              MEDIA_SOURCES.map((s) => ({ value: s, label: t.mediaSources[s] })),
+              MEDIA_SOURCES.map((s) => ({ value: s, label: label.media(k, s) })),
               (v) => set({ media: { ...value.media, [k]: v as MediaSource | "" } }),
-              <MediaHint kind={k} source={String(effective[`media.${k}`].raw) as MediaSource} />
+              effective[`media.${k}`].raw === "fresh" ? undefined : (
+                <MediaHint kind={k} source={effective[`media.${k}`].raw as MediaSource} />
+              )
             )
           )}
         </LayeredGroup>
@@ -318,7 +356,8 @@ export function ProductionFields({
 function MediaHint({ kind, source }: { kind: MediaKind; source: MediaSource }) {
   const workspace = useWorkspace()
   const size = useQuery({ ...librarySizeQuery(workspace.id, kind), enabled: source !== "fresh" })
-  if (source === "fresh" || !size.data) return <>{t.freshHints[kind]}</>
+  // "Composes its own" or "Searches Pexels" already says it.
+  if (source === "fresh" || !size.data) return null
   const empty = size.data.count === 0
   return (
     <>

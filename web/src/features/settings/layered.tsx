@@ -53,9 +53,11 @@ export function LayeredCard({
   fromLabel,
   hereLabel,
   footer,
+  className,
   children,
 }: {
   id?: string
+  className?: string
   /** Omitted where the section heading already names the card. */
   title?: string
   description?: ReactNode
@@ -66,7 +68,7 @@ export function LayeredCard({
   children: ReactNode
 }) {
   return (
-    <Card id={id} className="gap-0 pb-0">
+    <Card id={id} className={cn("gap-0 pb-0", className)}>
       <CardHeader className="pb-4">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           {title ? <CardTitle>{title}</CardTitle> : null}
@@ -119,6 +121,7 @@ export function LayeredRow({
   hint,
   inherited,
   set,
+  dirty = false,
   onReset,
   readOnly = false,
   children,
@@ -129,6 +132,8 @@ export function LayeredRow({
   inherited: Inherited
   /** Whether this layer sets its own value. */
   set: boolean
+  /** Whether the row differs from what is saved. */
+  dirty?: boolean
   onReset: () => void
   readOnly?: boolean
   children: (describedBy: string) => ReactNode
@@ -143,6 +148,12 @@ export function LayeredRow({
         <label htmlFor={htmlFor} className="text-sm font-medium">
           {label}
         </label>
+        {dirty ? (
+          <span className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground md:ml-0 md:flex">
+            <span aria-hidden className="size-1.5 rounded-full bg-foreground/70" />
+            {m.settings.unsavedRow}
+          </span>
+        ) : null}
       </div>
       <p
         id={inheritedId}
@@ -167,7 +178,7 @@ export function LayeredRow({
             type="button"
             variant="link"
             size="sm"
-            className="h-auto px-0 text-foreground decoration-input"
+            className="h-auto px-0 text-foreground underline decoration-input underline-offset-4 hover:decoration-foreground"
             aria-label={m.settings.resetLabel(label, inherited.source)}
             onClick={onReset}
           >
