@@ -120,7 +120,7 @@ Container ceiling on the VPS: `cpuset: "1"`, `cpu_shares: 64`, `cpus: 0.5`,
 | publishing | Channel (YouTube, sealed refresh token), BlogTarget, Publication |
 | job | Job (queue, kind, unique key, attempts, lease) |
 | settings | Host profiles (throttle) and credentials (sealed, override env) |
-| defaults | Workspace production defaults (model, effort, self-review, render quality and frame rate, first review, media sources, thumbnails) |
+| defaults | Workspace production defaults (model, effort, self-review, render quality and frame rate, first review, media sources, thumbnails) and default template |
 | notify | Email digests |
 
 A derived deliverable starts once its lead is live (published, or ready when no publisher
@@ -136,6 +136,11 @@ settings page: credentials and the host profile, kept by the operator on `/syste
 into the story's brief at planning, so later changes leave planned stories alone. The
 UI shows each setting beside what it inherits and where from. The throttle is changed
 only on `/system`; Jobs shows paused hosts and links there.
+
+The template follows the same chain: a pipeline or request picks a template, picks none
+(`noTemplate`), or takes the workspace default. The server's Claude model and effort are
+resolved into the brief at planning too, so remote workers draft with the model shown in
+the UI; they keep their own keys and Claude login from their own environment.
 
 ## 6. Production flow
 
