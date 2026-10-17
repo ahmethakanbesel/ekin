@@ -5,7 +5,7 @@ import { toast } from "sonner"
 
 import { isApiError, type VoiceConfig, type VoiceEngine, type VoiceSettings } from "@/api/client"
 import { Badge } from "@/components/ui/badge"
-import { Banner, ErrorState, ReadOnlyNote } from "@/components/page"
+import { Banner, ErrorState } from "@/components/page"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { Row } from "@/features/pipelines/form-parts"
+import { SettingsSectionHeader } from "@/features/settings/settings-page"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
@@ -49,7 +50,7 @@ import {
 import { SliderRow } from "./slider-row"
 import { VoiceSelect } from "./voice-select"
 
-/** Workspace settings: narration per language, with previews and pronunciations. */
+/** Settings › Voice: narration per language, with previews and pronunciations. */
 export function VoiceSection() {
   const workspace = useWorkspace()
   const canManage = useCan("manage")
@@ -92,16 +93,13 @@ export function VoiceSection() {
     )
 
   return (
-    <section id="voice" className="mt-10 scroll-mt-8">
-      <div className="mb-4 space-y-1">
-        <h2 className="font-heading text-lg font-semibold tracking-tight">{m.voice.title}</h2>
-        <p className="text-sm text-muted-foreground">{m.voice.description}</p>
-      </div>
-      {canManage ? null : (
-        <ReadOnlyNote>{canEdit ? m.voice.readOnlyHint : m.voice.readOnlyViewer}</ReadOnlyNote>
-      )}
+    <div className="max-w-3xl">
+      <SettingsSectionHeader
+        section="voice"
+        readOnly={canManage ? undefined : canEdit ? m.voice.readOnlyHint : m.voice.readOnlyViewer}
+      />
       {body}
-    </section>
+    </div>
   )
 }
 

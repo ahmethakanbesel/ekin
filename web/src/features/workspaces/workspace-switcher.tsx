@@ -27,7 +27,6 @@ const sectionRoutes = {
   pipelines: "/w/$workspaceId/pipelines",
   knowledge: "/w/$workspaceId/knowledge",
   jobs: "/w/$workspaceId/jobs",
-  members: "/w/$workspaceId/members",
   settings: "/w/$workspaceId/settings",
 } as const
 

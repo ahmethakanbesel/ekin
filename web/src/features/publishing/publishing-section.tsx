@@ -1,17 +1,30 @@
+import { useCallback } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { useNavigate, useSearch } from "@tanstack/react-router"
 
-import { ErrorState, ReadOnlyNote } from "@/components/page"
+import { ErrorState } from "@/components/page"
 import { Skeleton } from "@/components/ui/skeleton"
+import { SettingsSectionHeader } from "@/features/settings/settings-page"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { integrationsQuery } from "@/queries/integrations"
 import { BlogCard } from "./blog-card"
 import { YouTubeCard } from "./youtube-card"
+import { useYouTubeReturn } from "./youtube-return"
 
-/** Workspace settings → Publishing: the YouTube channel and the blog. */
+const ROUTE = "/w/$workspaceId/settings/publishing"
+
+/**
+ * Settings › Publishing: the YouTube channel and the blog. Google's
+ * consent screen comes back here with ?youtube=connected|error.
+ */
 export function PublishingSection() {
   const workspace = useWorkspace()
   const canManage = useCan("manage")
+  const search = useSearch({ from: ROUTE })
+  const navigate = useNavigate({ from: ROUTE })
+  const clear = useCallback(() => void navigate({ search: {}, replace: true }), [navigate])
+  useYouTubeReturn(search, clear, workspace.id)
   const query = useQuery(integrationsQuery(workspace.id))
 
   let body
@@ -34,15 +47,12 @@ export function PublishingSection() {
     )
 
   return (
-    <section id="publishing" className="mt-10 scroll-mt-8">
-      <div className="mb-4 space-y-1">
-        <h2 className="font-heading text-lg font-semibold tracking-tight">
-          {m.workspace.publishingTitle}
-        </h2>
-        <p className="text-sm text-muted-foreground">{m.workspace.publishingDescription}</p>
-      </div>
-      {canManage ? null : <ReadOnlyNote>{m.workspace.publishingReadOnly}</ReadOnlyNote>}
+    <div className="max-w-3xl">
+      <SettingsSectionHeader
+        section="publishing"
+        readOnly={canManage ? undefined : m.workspace.publishingReadOnly}
+      />
       {body}
-    </section>
+    </div>
   )
 }

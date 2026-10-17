@@ -25,9 +25,10 @@ import { validateDocumentSearch, validateKnowledgeSearch } from "@/features/know
 import { LibraryPage } from "@/features/library/library-page"
 import { validateLibrarySearch } from "@/features/library/search"
 import { validateJobsSearch } from "@/features/jobs/search"
-import { MembersPage } from "@/features/members/members-page"
+import { MembersSection } from "@/features/members/members-page"
 import { PipelinesPage } from "@/features/pipelines/list-page"
 import { EditPipelinePage, NewPipelinePage } from "@/features/pipelines/pipeline-pages"
+import { PublishingSection } from "@/features/publishing/publishing-section"
 import { validateYouTubeReturn } from "@/features/publishing/youtube-return"
 import { validateSeoSearch } from "@/features/seo/search"
 import { SeoPage } from "@/features/seo/seo-page"
@@ -39,9 +40,13 @@ import { TemplatePage } from "@/features/templates/detail-page"
 import { TemplatesPage } from "@/features/templates/list-page"
 import { validateTemplatesSearch } from "@/features/templates/search"
 import { EditTemplatePage, NewTemplatePage } from "@/features/templates/template-pages"
+import { GeneralSection } from "@/features/settings/general-section"
+import { ProductionSection } from "@/features/settings/production-section"
+import { LibrarySection, SeoSection } from "@/features/settings/sections"
+import { SettingsLayout } from "@/features/settings/settings-page"
 import { SystemPage } from "@/features/system/system-page"
+import { VoiceSection } from "@/features/voice/voice-section"
 import { HomePage } from "@/features/workspaces/home-page"
-import { WorkspaceSettingsPage } from "@/features/workspaces/settings-page"
 import { WorkspaceLayout } from "@/features/workspaces/workspace-layout"
 import { m } from "@/i18n"
 import { currentUser } from "@/queries/auth"
@@ -245,18 +250,75 @@ const jobsRoute = createRoute({
   component: JobsPage,
 })
 
+// Members used to be its own page; it is a settings section now.
 const membersRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "/members",
-  component: MembersPage,
+  beforeLoad: ({ params }) => {
+    throw redirect({ to: "/w/$workspaceId/settings/members", params, replace: true })
+  },
 })
 
 const settingsRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "/settings",
-  // Google's consent screen comes back here with ?youtube=connected|error.
+  component: SettingsLayout,
+})
+
+const settingsIndexRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/",
+  // Google's consent screen comes back to /settings with ?youtube=…, for
+  // the Publishing section.
   validateSearch: validateYouTubeReturn,
-  component: WorkspaceSettingsPage,
+  beforeLoad: ({ params, search }) => {
+    if (search.youtube)
+      throw redirect({ to: "/w/$workspaceId/settings/publishing", params, search, replace: true })
+    throw redirect({ to: "/w/$workspaceId/settings/general", params, replace: true })
+  },
+})
+
+const settingsGeneralRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/general",
+  component: GeneralSection,
+})
+
+const settingsProductionRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/production",
+  component: ProductionSection,
+})
+
+const settingsVoiceRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/voice",
+  component: VoiceSection,
+})
+
+const settingsPublishingRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/publishing",
+  validateSearch: validateYouTubeReturn,
+  component: PublishingSection,
+})
+
+const settingsLibraryRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/library",
+  component: LibrarySection,
+})
+
+const settingsSeoRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/seo",
+  component: SeoSection,
+})
+
+const settingsMembersRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/members",
+  component: MembersSection,
 })
 
 const routeTree = rootRoute.addChildren([
@@ -283,7 +345,16 @@ const routeTree = rootRoute.addChildren([
     editTemplateRoute,
     jobsRoute,
     membersRoute,
-    settingsRoute,
+    settingsRoute.addChildren([
+      settingsIndexRoute,
+      settingsGeneralRoute,
+      settingsProductionRoute,
+      settingsVoiceRoute,
+      settingsPublishingRoute,
+      settingsLibraryRoute,
+      settingsSeoRoute,
+      settingsMembersRoute,
+    ]),
   ]),
 ])
 

@@ -25,14 +25,12 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { TemplateSelect } from "@/features/templates/template-select"
-import { VoiceOverrideSection } from "@/features/voice/override-section"
+import { ProductionCard } from "@/features/settings/production-card"
 import { emptyOverride } from "@/features/voice/model"
 import { m } from "@/i18n"
 import { useAppForm } from "@/lib/form"
 import { allDocumentsQuery } from "@/queries/documents"
 import { NumberInput, Row, Section, shownError } from "./form-parts"
-import { ProductionSection } from "./production-section"
-import { SelfReviewSection } from "./self-review-section"
 import {
   LANGUAGES,
   LIMITS,
@@ -229,42 +227,6 @@ export function PipelineForm({
         </form.Field>
       </Section>
 
-      {/* Voice */}
-      <form.Field name="voice">
-        {(field) => (
-          <VoiceOverrideSection
-            idPrefix="pl-voice"
-            language={language}
-            value={field.state.value}
-            onChange={field.handleChange}
-            readOnly={readOnly}
-          />
-        )}
-      </form.Field>
-
-      <form.Field name="selfReview">
-        {(field) => (
-          <SelfReviewSection
-            value={field.state.value}
-            onChange={field.handleChange}
-            readOnly={readOnly}
-          />
-        )}
-      </form.Field>
-
-      <form.Field name="production">
-        {(field) => (
-          <ProductionSection
-            idPrefix="pl-production"
-            value={field.state.value}
-            onChange={field.handleChange}
-            video={videoEnabled}
-            longVideo={longVideo}
-            readOnly={readOnly}
-          />
-        )}
-      </form.Field>
-
       {/* Source */}
       <Section title={m.pipelineForm.sections.source} disabled={readOnly}>
         <FieldGroup className="gap-5">
@@ -430,6 +392,27 @@ export function PipelineForm({
           ) : null}
         </FieldGroup>
       </Section>
+
+      <form.Field name="voice">
+        {(voiceField) => (
+          <form.Field name="production">
+            {(field) => (
+              <ProductionCard
+                layer="pipeline"
+                idPrefix="pl-production"
+                value={field.state.value}
+                onChange={field.handleChange}
+                voice={voiceField.state.value}
+                onVoiceChange={voiceField.handleChange}
+                language={language}
+                video={videoEnabled}
+                longVideo={longVideo}
+                readOnly={readOnly}
+              />
+            )}
+          </form.Field>
+        )}
+      </form.Field>
 
       {banner}
 

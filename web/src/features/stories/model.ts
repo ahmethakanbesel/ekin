@@ -20,11 +20,11 @@ import {
   type OutputsValues,
   type PipelineFieldErrors,
   type PipelineValidation,
+  toSelfReview,
   type ProductionValues,
   type RefValues,
 } from "@/features/pipelines/model"
 import { emptyOverride, toOverride, type VoiceOverrideValues } from "@/features/voice/model"
-import { DEFAULT_SELF_REVIEW } from "@/features/pipelines/self-review-section"
 import { m } from "@/i18n"
 
 // ---- Failures ----
@@ -158,9 +158,7 @@ export type RequestFormValues = OutputsValues & {
   templateId: string
   /** Narration voice or speed for these stories; "" for the workspace's. */
   voice: VoiceOverrideValues
-  /** Self-review rounds per draft; 0 for none. */
-  selfReview: number
-  /** How the stories are made; "" fields take the workspace default. */
+  /** How the stories are made; unset fields take the workspace default. */
   production: ProductionValues
 }
 
@@ -174,7 +172,6 @@ export function defaultRequestValues(): RequestFormValues {
     refs: [],
     templateId: "",
     voice: emptyOverride(),
-    selfReview: DEFAULT_SELF_REVIEW,
     production: emptyProduction(),
   }
 }
@@ -208,7 +205,7 @@ export function toAdHocInput(v: RequestFormValues): AdHocInput {
     refs: v.refs.length > 0 ? toRefs(v.refs) : undefined,
     templateId: v.templateId || undefined,
     voice: toOverride(v.voice),
-    selfReviewRounds: v.selfReview,
+    selfReviewRounds: toSelfReview(v.production),
     production: toProduction(v.production),
   }
 }

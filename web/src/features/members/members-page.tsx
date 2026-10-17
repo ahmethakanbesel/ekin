@@ -5,7 +5,7 @@ import { LogOutIcon, MailIcon, UserMinusIcon, UserPlusIcon, XIcon } from "lucide
 import { toast } from "sonner"
 
 import type { Invitation, Member, Role } from "@/api/client"
-import { Banner, ErrorState, PageHeader, ReadOnlyNote, TableSkeleton } from "@/components/page"
+import { Banner, ErrorState, TableSkeleton } from "@/components/page"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { SettingsSectionHeader } from "@/features/settings/settings-page"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
@@ -50,7 +51,8 @@ import {
 import { InviteDialog } from "./invite-dialog"
 import { isRole, roleItems } from "./roles"
 
-export function MembersPage() {
+/** Settings › Members: who can open the workspace, their roles and invitations. */
+export function MembersSection() {
   const workspace = useWorkspace()
   const canManage = useCan("manage")
   const selfId = useQuery(meQuery()).data?.id ?? ""
@@ -96,9 +98,9 @@ export function MembersPage() {
 
   return (
     <div className="max-w-5xl">
-      <PageHeader
-        title={m.members.title}
-        description={m.members.description}
+      <SettingsSectionHeader
+        section="members"
+        readOnly={canManage ? undefined : m.members.manageHint}
         actions={
           <>
             {self ? (
@@ -116,7 +118,6 @@ export function MembersPage() {
           </>
         }
       />
-      {canManage ? null : <ReadOnlyNote>{m.members.manageHint}</ReadOnlyNote>}
       {body}
       {canManage ? <Invitations /> : null}
       <InviteDialog open={inviting} onOpenChange={setInviting} />

@@ -58,7 +58,7 @@ export const en = {
     switchWorkspace: "Switch workspace",
     newWorkspace: "New workspace",
     allWorkspaces: "All workspaces",
-    system: "System",
+    system: "Server",
     toggleSidebar: "Toggle sidebar",
     breadcrumb: "Breadcrumb",
     sections: "Workspace sections",
@@ -151,8 +151,6 @@ export const en = {
     goToSignIn: "Go to sign in",
   },
   members: {
-    title: "Members",
-    description: "People who can open this workspace, and what they may do.",
     invite: "Invite",
     columns: {
       name: "Name",
@@ -221,22 +219,89 @@ export const en = {
     nameRequired: "Name is required.",
     nameTooLong: "Name must be at most 80 characters.",
     timezoneRequired: "Timezone is required.",
-    settingsTitle: "Workspace settings",
-    settingsDescription:
-      "The timezone is the default for new schedules and is used to display run times.",
     notFound: "This workspace does not exist.",
-    generalTitle: "General",
-    publishingTitle: "Publishing",
-    publishingDescription: "Where approved stories go: videos to YouTube, articles to your blog.",
     publishingReadOnly: "Only owners can connect or change publishing targets.",
+  },
+  settings: {
+    title: "Workspace settings",
+    description: (workspace: string) =>
+      `Defaults for every pipeline and request in ${workspace}. A pipeline or a request can change any of them.`,
+    sectionsLabel: "Settings sections",
+    sections: {
+      general: {
+        title: "General",
+        description:
+          "The workspace's name and timezone. The timezone is the default for new schedules and is used to show run times.",
+      },
+      production: {
+        title: "Production",
+        description: "How stories are made, unless a pipeline or a request says otherwise.",
+      },
+      voice: {
+        title: "Voice",
+        description:
+          "How narration sounds in each language: the voice, its pace and pauses, and how to say tricky words. A pipeline or a request can pick another voice or speed.",
+      },
+      publishing: {
+        title: "Publishing",
+        description: "Where approved stories go: videos to YouTube, articles to your blog.",
+      },
+      library: {
+        title: "Library",
+        description:
+          "What the library keeps from finished drafts. Where drafts take music and stock from is under Production.",
+      },
+      seo: {
+        title: "SEO",
+        description: "The site keyword research is for, and how it reaches OpenSEO.",
+      },
+      members: {
+        title: "Members",
+        description: "People who can open this workspace, and what they may do.",
+      },
+    } as Record<string, { title: string; description: string }>,
+    serverNote: "Credentials, render hosts and the job throttle are server settings, kept by your operator.",
+    serverNoteAdmin: "Credentials, render hosts and the job throttle are server settings.",
+    serverLink: "Server",
+    columns: { setting: "Setting", inherited: "Inherited" },
+    inheritedFrom: (source: string) => `From ${source}:`,
+    overridden: "(replaced here)",
+    setHere: "Set here",
+    reset: "Reset",
+    resetLabel: (label: string, source: string) => `Reset ${label} to the value from ${source}`,
+    layers: { server: "Server", builtIn: "Built-in" },
+    inheritOption: (value: string) => `Inherit · ${value}`,
+    setCount: (n: number, total: number, where: string) => `${n} of ${total} set in ${where}`,
+    unsaved: (n: number) => (n === 1 ? "1 unsaved change" : `${n} unsaved changes`),
+    discard: "Discard",
+    production: {
+      title: "Production",
+      groups: { drafting: "Drafting", render: "Render", review: "Review" },
+      fps: (n: number) => `${n} fps`,
+      claudeDefault: "Claude Code's choice",
+      selfReviewHint: "A fresh agent reviews each draft and the author fixes what it finds, before you see it. Each round adds an agent run.",
+      serverNote: (profile: string) =>
+        `Server values come from the operator's credentials and the "${profile}" host profile. Leave a setting on Inherit to follow it.`,
+      save: "Save production",
+      saved: "Production defaults saved",
+      allSaved: "Every change is saved.",
+      thisPipeline: "This pipeline",
+      thisRequest: "This request",
+      pipelineDescription: "Everything starts from the workspace defaults; change only what this pipeline needs.",
+      requestDescription: "Everything starts from the workspace defaults; change only what these stories need.",
+      workspaceLink: "Workspace defaults",
+      change: "Change settings",
+      allInherited: (workspace: string) => `All from ${workspace}`,
+      changed: (n: number, here: string) => (n === 1 ? `1 changed for ${here}` : `${n} changed for ${here}`),
+    },
   },
   youtube: {
     title: "YouTube",
     description: "Approved videos are uploaded to this channel.",
     notConfiguredTitle: "YouTube is not set up on this server",
     notConfiguredBody:
-      "The server needs KURGU_YOUTUBE_CLIENT_ID and KURGU_YOUTUBE_CLIENT_SECRET from a Google Cloud OAuth client. Once they are set, System checks shows the redirect URI to register with Google.",
-    systemLink: "Open System checks",
+      "The server needs KURGU_YOUTUBE_CLIENT_ID and KURGU_YOUTUBE_CLIENT_SECRET from a Google Cloud OAuth client. Once they are set, Server checks shows the redirect URI to register with Google.",
+    systemLink: "Open Server checks",
     notConnected: "No channel connected",
     notConnectedBody:
       "Connecting takes you to Google to choose a channel and allow uploads, then brings you back here.",
@@ -389,20 +454,11 @@ export const en = {
   pipelineForm: {
     selfReview: {
       title: "Self-review",
-      description:
-        "Before you see a draft, a fresh agent reviews it like an editor (accuracy, the brief, natural language, structure) and the author fixes what it finds.",
       off: "Off",
       rounds: (n: number) => (n === 1 ? "1 round" : `${n} rounds`),
-      offHint: "Drafts come to you as the author finished them.",
-      hint: (n: number) =>
-        n === 1
-          ? "One review; its fixes are not reviewed again. Each round adds an agent run."
-          : `Up to ${n} reviews, stopping as soon as one passes. Each round adds an agent run.`,
     },
     production: {
       title: "Production",
-      description: "How the stories are made. A setting left on Workspace default uses what System sets (credentials and the host profile).",
-      workspaceDefault: "Workspace default",
       model: "Drafting model",
       modelHint: "The Claude model that writes and revises drafts, and runs self-review.",
       effort: "Drafting effort",
@@ -415,7 +471,6 @@ export const en = {
         max: "Max",
       } as Record<string, string>,
       previewQuality: "Preview quality",
-      previewHint: "The resolution you review at. Higher looks closer to the final video and takes longer to render.",
       previewFullHint: "Reviews at final quality; approving uses the preview as the final video, with no second render.",
       qualities: {
         "360p": "360p · fastest",
@@ -424,7 +479,6 @@ export const en = {
         "1080p": "1080p",
       } as Record<string, string>,
       finalQuality: "Final quality",
-      finalHint: "The resolution of the video rendered after approval and published. Higher takes longer to render.",
       finalQualities: {
         "720p": "720p · fastest",
         "1080p": "1080p",
@@ -459,7 +513,6 @@ export const en = {
       thumbnailsDefault: "Default (3)",
       thumbnailCounts: (n: number) => (n === 0 ? "None, use a frame" : n === 1 ? "1 variant" : `${n} variants`),
       media: "Media sources",
-      mediaHint: "Where each video's music, clips and photos come from: made fresh by the agent, or taken from the library.",
       mediaKinds: { music: "Music", video: "Video clips", photo: "Photos" } as Record<string, string>,
       mediaSources: {
         fresh: "Compose / search",
@@ -786,7 +839,7 @@ export const en = {
     /** Whether Retry is likely to help, as guidance, per failed step. */
     failedNext: {
       drafting:
-        "Retry starts the draft again; passing problems such as a timeout or a busy model often clear. If it keeps failing the same way, the agent's setup may need a look in System checks.",
+        "Retry starts the draft again; passing problems such as a timeout or a busy model often clear. If it keeps failing the same way, the agent's setup may need a look in Server checks.",
       rendering:
         "Retrying often works. If it fails again the same way, the composition may be too heavy to render; rejecting it and requesting the story again lets the agent start afresh.",
       finalizing:
@@ -1307,7 +1360,7 @@ export const en = {
     open: (title: string) => `Open “${title}”`,
     uses: (n: number) => (n === 1 ? "used once" : `used ${n}×`),
     settings: {
-      title: "Library",
+      title: "Save from drafts",
       description:
         "Save what drafts use to the library as they finish, to reuse later. When a video is approved or rejected, only what its last revision used is kept.",
       music: "Composed music",
@@ -1547,35 +1600,11 @@ export const en = {
       },
     },
     throttle: {
-      button: "Throttle",
-      title: "Throttle",
-      description: "Changes apply as you make them. Running jobs finish.",
-      profile: "Host profile",
-      thisServer: "this server",
-      running: "Taking new jobs",
-      runningHint: "Workers start queued jobs as slots free up.",
-      paused: "Paused",
-      pausedHint: "No new jobs start; running ones finish.",
-      takeJobs: "Take new jobs",
-      someonePaused: "A profile is paused",
-      slots: "Jobs at once, per queue",
-      oneFewer: (queue: string) => `One fewer ${queue} job at once`,
-      oneMore: (queue: string) => `One more ${queue} job at once`,
-      cooldown: "Cooldown (seconds)",
-      cooldownHint: "Rest after each heavy job. 0–3600.",
-      cpuLimit: "CPU limit",
-      cpuLimitHint: "Share of the host's CPUs for job processes. Linux hosts.",
-      noLimit: "No limit",
-      cpuLimitValue: (pct: number) => `${pct}%`,
-      cpuLimitAria: "CPU limit in percent",
-      heavyQueues: "Counted as heavy",
-      priority: "Priority",
-      priorityHint: "Low lets your own apps go first.",
-      more: "Render and other settings",
       pausedHere: (name: string) =>
         `This server’s worker (profile “${name}”) is paused: no new jobs start. Running ones finish.`,
       pausedRemote: (name: string) => `Workers using profile “${name}” are paused.`,
       resume: "Resume",
+      change: "Throttle on Server",
     },
     phase: {
       plan: "Planning",
@@ -1593,6 +1622,7 @@ export const en = {
     } as Record<string, string>,
   },
   seo: {
+    siteProfile: "Site profile",
     title: "SEO",
     description:
       "Keyword opportunities for SEO pipelines. Each story of an SEO pipeline targets the best open keyword.",
@@ -1647,9 +1677,9 @@ export const en = {
       "Refreshes go through the Claude Code OpenSEO plugin on the worker host, using that connection’s credits.",
     openseoSetUp:
       "To call OpenSEO directly, create an API key in OpenSEO (it starts with oseo_) and add it to the instance credentials.",
-    openseoAskAdmin: "An instance admin adds it under System → Credentials.",
-    openseoCredentials: "Open System → Credentials",
-    openseoErrorHint: "Check the API key and endpoint in System → Credentials.",
+    openseoAskAdmin: "An instance admin adds it under Server → Credentials.",
+    openseoCredentials: "Open Server → Credentials",
+    openseoErrorHint: "Check the API key and endpoint in Server → Credentials.",
     opportunitiesTitle: "Opportunities",
     search: "Search keywords",
     searchPlaceholder: "Search keywords…",
@@ -1738,9 +1768,6 @@ export const en = {
     viewJobs: "View jobs",
   },
   voice: {
-    title: "Voice",
-    description:
-      "How narration sounds in each language: the voice, its pace and pauses, and how to say tricky words.",
     readOnlyHint: "Only owners can change the voice settings. Editors can still play previews.",
     readOnlyViewer: "Only owners can change the voice settings.",
     languages: { tr: "Türkçe", en: "English" } as Record<string, string>,
@@ -1810,8 +1837,8 @@ export const en = {
       usage: (used: string, limit: string, tier: string) =>
         `${used} of ${limit} characters used this period${tier ? ` (${tier} plan)` : ""}.`,
       notConfigured: "No ElevenLabs API key is set.",
-      askAdmin: "Ask an instance admin to add one under System → Credentials.",
-      addKey: "Add the key under System → Credentials",
+      askAdmin: "Ask an instance admin to add one under Server → Credentials.",
+      addKey: "Add the key under Server → Credentials",
       failed: "Could not read the ElevenLabs account",
       pickVoice: "Pick a voice",
       verified: (language: string) => `Verified for ${language}`,
@@ -1830,17 +1857,12 @@ export const en = {
         "0 to 3 seconds. Only between parts of a very long paragraph; ElevenLabs paces sentences itself.",
     },
     override: {
-      title: "Voice (optional)",
-      description: "Use another engine, voice or pace than the workspace's for these stories.",
-      summary: (voice: string, speed: string) => `${voice} · ${speed}`,
+      title: "Voice",
       engine: "Engine",
       voice: "Voice",
-      workspaceDefault: "Workspace default",
       speed: "Speed",
       overrideSpeed: "Change the speed",
       settingsLink: "Workspace voice settings",
-      show: "Show voice options",
-      hide: "Hide voice options",
     },
   },
   templates: {
@@ -1989,8 +2011,8 @@ export const en = {
     },
   },
   system: {
-    title: "System",
-    description: "What this Kurgu server can do.",
+    title: "Server",
+    description: "What this Kurgu server can do, and the settings under every workspace: credentials, and host profiles with the job throttle.",
     version: (v: string) => `Version ${v}`,
     checksTitle: "Checks",
     checksDescription: "Tools and integrations this server has found.",

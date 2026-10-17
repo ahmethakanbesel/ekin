@@ -12,7 +12,6 @@ export type ReviewAt = NonNullable<Production["reviewAt"]>
 export type MediaSource = Schemas["MediaSource"]
 export type MediaKind = "music" | "video" | "photo"
 import { emptyOverride, fromOverride, toOverride, type VoiceOverrideValues } from "@/features/voice/model"
-import { DEFAULT_SELF_REVIEW } from "./self-review-section"
 import { m } from "@/i18n"
 
 // The editable shape of a pipeline. Both output sections are always
@@ -68,52 +67,63 @@ export type PipelineFormValues = OutputsValues & {
   templateId: string
   /** Narration voice or speed for this pipeline; "" for the workspace's. */
   voice: VoiceOverrideValues
-  /** Self-review rounds per draft; 0 for none. */
-  selfReview: number
-  /** How the stories are made; "" fields take the workspace default. */
+  /** How the stories are made; unset fields take the workspace default. */
   production: ProductionValues
 }
 
 /**
- * The production part of a form (pipelines and ad-hoc requests share it;
- * see production-section.tsx). "" means the workspace default.
+ * How stories are made, at one layer (workspace, pipeline or request; see
+ * settings/production-fields.tsx). "", 0 and null are unset: the layer
+ * above decides.
  */
 export type ProductionValues = {
   draftModel: string
   draftEffort: DraftEffort | ""
+  /** Self-review rounds per draft, 0 for none. */
+  selfReview: number | null
   previewQuality: PreviewQuality | ""
   finalQuality: FinalQuality | ""
-  /** Frames per second; 0 means the host profile's. */
+  /** Frames per second. */
   previewFps: PreviewFps | 0
   finalFps: FinalFps | 0
-  reviewAt: ReviewAt
-  /** Where each kind of media comes from; fresh is the default. */
-  media: Record<MediaKind, MediaSource>
-  /** Thumbnail variants a long video gets, 0 for none; null is the default (3). */
+  reviewAt: ReviewAt | ""
+  /** Where each kind of media comes from. */
+  media: Record<MediaKind, MediaSource | "">
+  /** Thumbnail variants a long video gets, 0 for none. */
   thumbnails: number | null
 }
 
-const freshMedia = (): Record<MediaKind, MediaSource> => ({ music: "fresh", video: "fresh", photo: "fresh" })
-
 export function emptyProduction(): ProductionValues {
-  return { draftModel: "", draftEffort: "", previewQuality: "", finalQuality: "", previewFps: 0, finalFps: 0, reviewAt: "video", media: freshMedia(), thumbnails: null }
+  return {
+    draftModel: "",
+    draftEffort: "",
+    selfReview: null,
+    previewQuality: "",
+    finalQuality: "",
+    previewFps: 0,
+    finalFps: 0,
+    reviewAt: "",
+    media: { music: "", video: "", photo: "" },
+    thumbnails: null,
+  }
 }
 
-export function fromProduction(p: Production | undefined): ProductionValues {
+export function fromProduction(p: Production | undefined, selfReviewRounds?: number): ProductionValues {
   return {
     draftModel: p?.draftModel ?? "",
     draftEffort: p?.draftEffort ?? "",
+    selfReview: selfReviewRounds ?? null,
     previewQuality: p?.previewQuality ?? "",
     finalQuality: p?.finalQuality ?? "",
     previewFps: p?.previewFps ?? 0,
     finalFps: p?.finalFps ?? 0,
-    reviewAt: p?.reviewAt ?? "video",
-    media: { ...freshMedia(), ...p?.media },
+    reviewAt: p?.reviewAt ?? "",
+    media: { music: p?.media?.music ?? "", video: p?.media?.video ?? "", photo: p?.media?.photo ?? "" },
     thumbnails: p?.thumbnails ?? null,
   }
 }
 
-/** The wire production settings; undefined when every one is the default. */
+/** The wire production settings (self-review travels apart); undefined when none is set. */
 export function toProduction(v: ProductionValues): Production | undefined {
   const out: Production = {}
   if (v.draftModel) out.draftModel = v.draftModel
@@ -122,10 +132,17 @@ export function toProduction(v: ProductionValues): Production | undefined {
   if (v.finalQuality) out.finalQuality = v.finalQuality
   if (v.previewFps) out.previewFps = v.previewFps
   if (v.finalFps) out.finalFps = v.finalFps
-  if (v.reviewAt === "script") out.reviewAt = v.reviewAt
-  if (Object.values(v.media).some((source) => source !== "fresh")) out.media = { ...v.media }
+  if (v.reviewAt) out.reviewAt = v.reviewAt
+  const media: NonNullable<Production["media"]> = {}
+  for (const k of ["music", "video", "photo"] as const) if (v.media[k]) media[k] = v.media[k]
+  if (Object.keys(media).length > 0) out.media = media
   if (v.thumbnails !== null) out.thumbnails = v.thumbnails
   return Object.keys(out).length > 0 ? out : undefined
+}
+
+/** Self-review rounds on the wire; undefined inherits. */
+export function toSelfReview(v: ProductionValues): number | undefined {
+  return v.selfReview ?? undefined
 }
 
 export function emptyRef(): RefValues {
@@ -152,7 +169,6 @@ export function defaultValues(workspaceTimezone: string): PipelineFormValues {
     schedule: { cron: "0 2 * * *", timezone: workspaceTimezone, batch: "1" },
     templateId: "",
     voice: emptyOverride(),
-    selfReview: DEFAULT_SELF_REVIEW,
     production: emptyProduction(),
   }
 }
@@ -199,8 +215,7 @@ export function fromDefinition(
       : base.schedule,
     templateId: def.templateId ?? "",
     voice: fromOverride(def.voice),
-    selfReview: def.selfReviewRounds ?? DEFAULT_SELF_REVIEW,
-    production: fromProduction(def.production),
+    production: fromProduction(def.production, def.selfReviewRounds),
   }
 }
 
@@ -261,7 +276,7 @@ export function toDefinition(v: PipelineFormValues): PipelineDefinition {
       : undefined,
     templateId: v.templateId || undefined,
     voice: toOverride(v.voice),
-    selfReviewRounds: v.selfReview,
+    selfReviewRounds: toSelfReview(v.production),
     production: toProduction(v.production),
   }
   return def

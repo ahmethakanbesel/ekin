@@ -1,44 +1,32 @@
-import { useCallback } from "react"
 import { useForm } from "@tanstack/react-form"
-import { useNavigate, useSearch } from "@tanstack/react-router"
 import { toast } from "sonner"
 
-import { Banner, PageHeader, ReadOnlyNote } from "@/components/page"
+import { Banner } from "@/components/page"
 import { TimezoneCombobox } from "@/components/timezone-combobox"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { LibrarySettingsCard } from "@/features/library/settings-card"
-import { PublishingSection } from "@/features/publishing/publishing-section"
-import { useYouTubeReturn } from "@/features/publishing/youtube-return"
-import { VoiceSection } from "@/features/voice/voice-section"
+import { useCan, useWorkspace } from "@/features/workspaces/context"
+import { workspaceNameError } from "@/features/workspaces/validation"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { formatDateTime, useNow } from "@/lib/time"
 import { useUpdateWorkspace } from "@/queries/workspaces"
-import { useCan, useWorkspace } from "./context"
-import { workspaceNameError } from "./validation"
+import { SettingsSectionHeader } from "./settings-page"
 
-const ROUTE = "/w/$workspaceId/settings"
-
-export function WorkspaceSettingsPage() {
+/** Settings › General: the workspace's name and timezone. */
+export function GeneralSection() {
   const workspace = useWorkspace()
   const canManage = useCan("manage")
-  const search = useSearch({ from: ROUTE })
-  const navigate = useNavigate({ from: ROUTE })
-  const clear = useCallback(() => void navigate({ search: {}, replace: true }), [navigate])
-  useYouTubeReturn(search, clear, workspace.id)
-
   return (
     <div className="max-w-3xl">
-      <PageHeader title={m.workspace.settingsTitle} description={m.workspace.settingsDescription} />
-      {canManage ? null : <ReadOnlyNote>{m.workspace.readOnlyHint}</ReadOnlyNote>}
+      <SettingsSectionHeader
+        section="general"
+        readOnly={canManage ? undefined : m.workspace.readOnlyHint}
+      />
       {/* Re-mount the form when the stored workspace changes underneath it. */}
       <SettingsForm key={`${workspace.id}:${workspace.updatedAt}`} />
-      <VoiceSection />
-      <PublishingSection />
-      <LibrarySettingsCard className="mt-10" />
     </div>
   )
 }
@@ -65,9 +53,6 @@ function SettingsForm() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{m.workspace.generalTitle}</CardTitle>
-      </CardHeader>
       <CardContent>
         <form
           noValidate

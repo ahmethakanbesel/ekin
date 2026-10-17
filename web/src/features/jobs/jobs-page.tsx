@@ -87,12 +87,7 @@ import {
   parseStatusFilter,
   serializeStatusFilter,
 } from "./search"
-import {
-  PausedBanners,
-  ThrottleControl,
-  ThrottlePanel,
-  useThrottle,
-} from "./throttle"
+import { PausedBanners, ServerLink, useThrottle } from "./throttle"
 
 const statusIcon: Record<JobStatus, LucideIcon> = {
   queued: ClockIcon,
@@ -254,21 +249,11 @@ export function JobsPage() {
       <PageHeader
         title={m.jobs.title}
         description={m.jobs.description}
-        actions={
-          throttle ? (
-            <ThrottleControl throttle={throttle} className="min-[90rem]:hidden" />
-          ) : null
-        }
+        // A paused profile's banner carries the same link.
+        actions={throttle && !throttle.profiles.some((p) => p.paused) ? <ServerLink /> : null}
       />
       {throttle ? <PausedBanners throttle={throttle} /> : null}
-      {/* From 1440px the throttle stays open beside the list (below that the
-          step tables would scroll); narrower screens use the header popover. */}
-      <div
-        className={cn(
-          throttle &&
-            "min-[90rem]:grid min-[90rem]:grid-cols-[minmax(0,1fr)_20rem] min-[90rem]:items-start min-[90rem]:gap-6"
-        )}
-      >
+      <div>
         <div className="min-w-0">
           <div className="mb-4 flex flex-wrap items-start gap-x-4 gap-y-2">
             <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
@@ -329,9 +314,6 @@ export function JobsPage() {
           </div>
           {body}
         </div>
-        {throttle ? (
-          <ThrottlePanel throttle={throttle} className="hidden min-[90rem]:flex" />
-        ) : null}
       </div>
       <CancelJobDialog
         job={cancelling}

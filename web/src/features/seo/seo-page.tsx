@@ -5,6 +5,7 @@ import {
   ArrowUpRightIcon,
   RotateCcwIcon,
   SearchIcon,
+  SettingsIcon,
   SparklesIcon,
   UploadIcon,
   XIcon,
@@ -41,8 +42,6 @@ import { badgeTone } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { opportunitiesQuery, useSetOpportunityStatus } from "@/queries/seo"
 import { ImportDialog } from "./import-dialog"
-import { SeoProfileCard } from "./profile-card"
-import { OpenSeoCard } from "./openseo-card"
 import { RefreshDialog, useRefreshPlan } from "./refresh-dialog"
 import { OPPORTUNITY_TABS, type OpportunityTab } from "./search"
 
@@ -62,7 +61,6 @@ export function SeoPage() {
   const [importing, setImporting] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const plan = useRefreshPlan()
-  const canManage = useCan("manage")
 
   const importButton = canEdit ? (
     <Button variant="outline" onClick={() => setImporting(true)}>
@@ -146,8 +144,23 @@ export function SeoPage() {
 
   return (
     <>
-      <PageHeader title={m.seo.title} description={m.seo.description} />
-      <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <PageHeader
+        title={m.seo.title}
+        description={m.seo.description}
+        actions={
+          <Button
+            variant="outline"
+            render={
+              <Link to="/w/$workspaceId/settings/seo" params={{ workspaceId: workspace.id }} />
+            }
+            nativeButton={false}
+          >
+            <SettingsIcon data-icon="inline-start" />
+            {m.seo.siteProfile}
+          </Button>
+        }
+      />
+      <div>
         <section className="min-w-0">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-heading text-lg font-semibold tracking-tight">
@@ -210,10 +223,6 @@ export function SeoPage() {
           </div>
           {body}
         </section>
-        <aside className="grid gap-6">
-          {canManage ? <OpenSeoCard /> : null}
-          <SeoProfileCard />
-        </aside>
       </div>
       <ImportDialog open={importing} onOpenChange={setImporting} />
       <RefreshDialog open={refreshing} onOpenChange={setRefreshing} />

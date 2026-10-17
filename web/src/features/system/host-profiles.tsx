@@ -176,7 +176,7 @@ export function HostProfiles() {
     query.data?.profiles[0]
 
   return (
-    <section>
+    <section id="profiles" className="scroll-mt-8">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
           <h2 className="font-heading text-lg font-semibold tracking-tight">

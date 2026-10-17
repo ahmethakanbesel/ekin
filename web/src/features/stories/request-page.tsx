@@ -20,11 +20,9 @@ import { NumberInput, Row, Section, shownError } from "@/features/pipelines/form
 import { LANGUAGES, chosenKinds, hasErrors, type KnownDocuments } from "@/features/pipelines/model"
 import { OutputsFields, outputsFieldMap } from "@/features/pipelines/outputs-fields"
 import { RefsFields } from "@/features/pipelines/refs-fields"
+import { ProductionCard } from "@/features/settings/production-card"
 import { TemplateSelect } from "@/features/templates/template-select"
 import { emptyOverride } from "@/features/voice/model"
-import { ProductionSection } from "@/features/pipelines/production-section"
-import { SelfReviewSection } from "@/features/pipelines/self-review-section"
-import { VoiceOverrideSection } from "@/features/voice/override-section"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
@@ -242,33 +240,6 @@ function RequestForm({ workspaceId }: { workspaceId: string }) {
         />
       </Section>
 
-      <form.Field name="voice">
-        {(field) => (
-          <VoiceOverrideSection
-            idPrefix="rq-voice"
-            language={language}
-            value={field.state.value}
-            onChange={field.handleChange}
-          />
-        )}
-      </form.Field>
-
-      <form.Field name="selfReview">
-        {(field) => <SelfReviewSection value={field.state.value} onChange={field.handleChange} />}
-      </form.Field>
-
-      <form.Field name="production">
-        {(field) => (
-          <ProductionSection
-            idPrefix="rq-production"
-            value={field.state.value}
-            onChange={field.handleChange}
-            video={videoEnabled}
-            longVideo={longVideo}
-          />
-        )}
-      </form.Field>
-
       <Section title={m.request.sections.extras} description={m.request.extrasHint}>
         <FieldGroup className="gap-6">
           <form.Field name="templateId">
@@ -314,6 +285,26 @@ function RequestForm({ workspaceId }: { workspaceId: string }) {
           />
         </FieldGroup>
       </Section>
+
+      <form.Field name="voice">
+        {(voiceField) => (
+          <form.Field name="production">
+            {(field) => (
+              <ProductionCard
+                layer="request"
+                idPrefix="rq-production"
+                value={field.state.value}
+                onChange={field.handleChange}
+                voice={voiceField.state.value}
+                onVoiceChange={voiceField.handleChange}
+                language={language}
+                video={videoEnabled}
+                longVideo={longVideo}
+              />
+            )}
+          </form.Field>
+        )}
+      </form.Field>
 
       {create.error ? (
         <Banner title={m.request.serverError}>

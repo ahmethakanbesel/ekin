@@ -115,7 +115,7 @@ export function ReviewPanel({
                   variant="outline"
                   render={
                     <Link
-                      to="/w/$workspaceId/settings"
+                      to="/w/$workspaceId/settings/publishing"
                       params={{ workspaceId }}
                     />
                   }

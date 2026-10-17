@@ -22,7 +22,6 @@ const sections = {
   seo: { to: "/w/$workspaceId/seo", label: m.nav.seo },
   templates: { to: "/w/$workspaceId/templates", label: m.nav.templates },
   jobs: { to: "/w/$workspaceId/jobs", label: m.nav.jobs },
-  members: { to: "/w/$workspaceId/members", label: m.nav.members },
   settings: { to: "/w/$workspaceId/settings", label: m.nav.settings },
 } as const
 
@@ -70,6 +69,11 @@ export function AppBreadcrumb({
     detailLang = story.data?.language
   }
   else if (leaf.routeId === NEW_STORY_ROUTE) detail = m.stories.newRequest
+  else if (part === "settings") {
+    const sub = leaf.pathname.split("/")[4]
+    if (sub && Object.hasOwn(m.settings.sections, sub))
+      detail = m.settings.sections[sub].title
+  }
   // A deeper page of a section (a pipeline, a document) links back to it.
   const atSectionRoot =
     section !== undefined && detail === undefined && leaf.pathname.split("/").length <= 4

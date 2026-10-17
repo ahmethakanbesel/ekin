@@ -15,7 +15,6 @@ import {
   PaletteIcon,
   SettingsIcon,
   TrendingUpIcon,
-  UsersIcon,
   WorkflowIcon,
 } from "lucide-react"
 
@@ -77,7 +76,6 @@ const navItems = [
     icon: PaletteIcon,
   },
   { to: "/w/$workspaceId/jobs", label: m.nav.jobs, icon: ListChecksIcon },
-  { to: "/w/$workspaceId/members", label: m.nav.members, icon: UsersIcon },
   { to: "/w/$workspaceId/settings", label: m.nav.settings, icon: SettingsIcon },
 ] as const
 
