@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
@@ -194,6 +195,10 @@ func (s *Service) EditContent(ctx context.Context, workspaceID, storyID, deliver
 		return s.enqueueStep(ctx, st, d)
 	})
 	if err != nil {
+		// Nothing points at this attempt's files.
+		if key := artifacts[storydomain.ArtifactWorkdir]; key != "" {
+			_ = s.blobs.DeletePrefix(context.WithoutCancel(ctx), path.Dir(key)+"/")
+		}
 		return nil, err
 	}
 	// This host's copy is now older than the revision; the next step

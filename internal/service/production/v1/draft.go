@@ -25,6 +25,7 @@ import (
 	storydomain "kurgu/internal/domain/story/v1"
 	voicedomain "kurgu/internal/domain/voice/v1"
 	"kurgu/pkg/archive"
+	"kurgu/pkg/id"
 )
 
 //go:embed prompts/*.md
@@ -720,10 +721,18 @@ func (s *Service) restore(ctx context.Context, d *storydomain.Deliverable, dir s
 	return archive.Untar(rc, dir)
 }
 
-// archive uploads the working directory and the key outputs of this
-// revision and returns their blob keys.
+// archivePrefix is where one attempt at d's next revision is stored.
+func archivePrefix(st *storydomain.Story, d *storydomain.Deliverable) string {
+	return fmt.Sprintf("ws/%s/stories/%s/%s/r%d/%s/", st.WorkspaceID(), st.ID(), d.ID(), d.Revision()+1, id.New())
+}
+
+// archive uploads the working directory and the key outputs of the
+// next revision and returns their blob keys. Each call writes under a
+// prefix of its own: two attempts at the same revision (two reviewers
+// editing at once) both upload before only one of them is saved, and the
+// other must not overwrite the files the saved one points at.
 func (s *Service) archive(ctx context.Context, st *storydomain.Story, d *storydomain.Deliverable, dir string) (map[string]string, error) {
-	prefix := fmt.Sprintf("ws/%s/stories/%s/%s/r%d/", st.WorkspaceID(), st.ID(), d.ID(), d.Revision()+1)
+	prefix := archivePrefix(st, d)
 	out := map[string]string{}
 	if err := os.WriteFile(filepath.Join(dir, revisionMarker), []byte(strconv.Itoa(d.Revision()+1)), 0o600); err != nil {
 		return nil, err

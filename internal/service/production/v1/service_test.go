@@ -186,6 +186,9 @@ type fixture struct {
 	// host returns another production service on the same database and
 	// blobs with its own work root, like a second worker host.
 	host func() *production.Service
+	// hostOn is host over another blob store.
+	hostOn func(blob.Store) *production.Service
+	blobs  blob.Store
 }
 
 func newFixture(t *testing.T) fixture {
@@ -205,7 +208,7 @@ func newFixture(t *testing.T) fixture {
 	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, agent, t.TempDir())
 	voices := voicesvc.NewService(settingsrepo.NewSQLite(tx), jobs, nil, blobs)
 	pipelines.WithTemplates(templates).WithVoices(voices)
-	host := func() *production.Service {
+	hostOn := func(blobs blob.Store) *production.Service {
 		svc := production.NewService(production.Config{WorkRoot: t.TempDir(), KurguBin: "/usr/local/bin/kurgu"}, production.Deps{
 			Stories: storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx,
 			Blobs: blobs, Agent: agent, Renderer: fakeRenderer{}, SEO: seo, Templates: templates, Voices: voices,
@@ -213,6 +216,7 @@ func newFixture(t *testing.T) fixture {
 		svc.AddPublisher(fakePublisher{pipelinedomain.KindVideo}).AddPublisher(fakePublisher{pipelinedomain.KindArticle})
 		return svc
 	}
+	host := func() *production.Service { return hostOn(blobs) }
 	svc := host()
 	// As transport/job/production.Watch does in the app.
 	for _, kind := range []string{production.KindDraft, production.KindRender, production.KindPublish} {
@@ -222,7 +226,8 @@ func newFixture(t *testing.T) fixture {
 			return svc.Abandoned(ctx, j.Kind(), j.ID(), p, j.LastError())
 		})
 	}
-	return fixture{voices: voices, seo: seo, svc: svc, jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID(), host: host}
+	return fixture{voices: voices, seo: seo, svc: svc, jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID(), host: host,
+		blobs: blobs, hostOn: hostOn}
 }
 
 // drain runs queued jobs until none are left, like a worker would.
@@ -1009,5 +1014,52 @@ func TestDraftWhoseJobEndsCanBeRetried(t *testing.T) {
 				t.Fatalf("after the retry: %s r%d", d.Status(), d.Revision())
 			}
 		})
+	}
+}
+
+// interleavedBlobs runs before once, ahead of the first upload whose key
+// contains match.
+type interleavedBlobs struct {
+	blob.Store
+	match  string
+	before func()
+	once   sync.Once
+}
+
+func (b *interleavedBlobs) Put(ctx context.Context, key string, r io.Reader, size int64) error {
+	if strings.Contains(key, b.match) {
+		b.once.Do(b.before)
+	}
+	return b.Store.Put(ctx, key, r, size)
+}
+
+// Two reviewers edit the same revision at once: one is saved, the other
+// refused, and the saved revision keeps its own files even though the
+// refused edit uploaded after it was saved.
+func TestConcurrentEditsKeepTheSavedOnesFiles(t *testing.T) {
+	ctx := context.Background()
+	f, st := articleFixture(t)
+	d := st.Lead()
+	c, err := f.svc.Content(ctx, f.ws, st.ID(), d.ID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	mine := strings.Replace(*c.Article, "Kaygı nedir", "Kaygı nedir (benim)", 1)
+	theirs := strings.Replace(*c.Article, "Kaygı nedir", "Kaygı nedir (onların)", 1)
+	slow := f.hostOn(&interleavedBlobs{Store: f.blobs, match: "/r2/", before: func() {
+		// The other reviewer saves while this edit is still uploading.
+		if _, err := f.svc.EditContent(ctx, f.ws, st.ID(), d.ID(), id.New(), production.Edit{Revision: 1, Article: &theirs}); err != nil {
+			t.Errorf("their edit: %v", err)
+		}
+	}})
+	if _, err := slow.EditContent(ctx, f.ws, st.ID(), d.ID(), id.New(), production.Edit{Revision: 1, Article: &mine}); !apperror.Is(err, apperror.Conflict) {
+		t.Fatalf("the later save = %v, want a conflict", err)
+	}
+	got, err := f.svc.Content(ctx, f.ws, st.ID(), d.ID())
+	if err != nil || got.Revision != 2 {
+		t.Fatalf("content = r%d %v", got.Revision, err)
+	}
+	if !strings.Contains(*got.Article, "(onların)") {
+		t.Fatalf("revision 2 holds the refused edit:\n%s", *got.Article)
 	}
 }
