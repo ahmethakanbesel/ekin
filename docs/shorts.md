@@ -83,37 +83,43 @@ origin, status, short id, created at), saved with the story like its deliverable
 3. **By hand.** On the long video's page, *Find moments* runs the same scan without
    making shorts; the person adjusts, discards or adds moments (selecting transcript
    text) and presses *Make shorts*.
-4. **Draft (clip mode).** `prepare` for a deliverable with a clip writes:
-   - `narration/speech.wav` — the slice of the source's narration (fades of a few ms at
-     both ends);
-   - `narration/timings.json` — the slice's words and segments, times shifted to 0;
-   - `music/source.wav` — the long video's music at the same offset, with fades; the
-     agent may keep it or compose (library media policy applies);
-   - `assets/` and `assets/credits.json` — copied from the source revision;
-   - `sources/lead.md` — the long script with the clip's part marked;
-   - `sources/frames/` — stills of the source's final render across the clip;
-   - `CLIP.md` — the hook in the first two seconds, word captions, a 9:16 layout, an end
-     card pointing to the full video.
+4. **Draft (clip mode).** `prepare` for a deliverable with a clip writes (pure Go, no
+   ffmpeg on the server: `pkg/wav` copies the span's PCM frames with 15 ms fades):
+   - `narration/speech.wav`, `narration/timings.json`, `narration/narration.txt` — the
+     slice of the long video's narration, times shifted to 0, engine and voice kept;
+   - `clip/window.wav`, `clip/window.json` — the long narration ±15 s around the clip;
+     `clip/clip.json` — where the clip sits in the window and the long video, the short
+     limits, and the earliest and latest cut that keeps the gap to the other shorts;
+   - on the first draft, `assets/` with `credits.json`, `music.js` / `music.json` —
+     copied from the long video's revision, so the score and stock come along (the
+     render makes `music.wav` for the short's length as for any video);
+   - `sources/lead.md` — the long video's script and metadata;
+   - `sources/long/composition.html` and `scenes.json` — how the long video looked
+     (the agent reads the code rather than stills of the render, which would mean
+     downloading the final video on the server);
+   - `sources/clip.md` — the window's sentences, numbered, those in the short marked ▶;
+   - `INSTRUCTIONS.md` from `prompts/clip.md` — the hook in the first two seconds, word
+     captions, a 9:16 layout, an end card pointing to the full video.
 5. **Rules** (in the tools and `validate`, not only the prompt): `kurgu tool tts` is
-   refused in clip mode; the check requires the composition's duration to match the
-   narration slice and captions to be present. `kurgu tool clip --in --out` moves the
-   cut by whole segments within ±15 s of the moment, rewriting the slice, so feedback
-   like "start a sentence earlier" can be done.
+   refused in clip mode; the check fails when the narration is not the clip's length
+   and when the composition does not cover it (plus at most 4 s). `kurgu tool clip
+   --first N --last M` moves the cut to window sentences N–M within the short limits and
+   the gap, rewriting `narration/`; `FinishDraft` records the new clip on the short and
+   its moment (`Story.Recut`). A reviewer cannot edit a short's narration text.
 6. **Review and publishing** as today; the metadata links to the long video.
 
 ## 5. API
 
 | Operation | Access |
 |---|---|
-| `POST /workspaces/{ws}/stories/{id}/deliverables/{did}/moments/scan` | edit |
-| `GET /workspaces/{ws}/stories/{id}/deliverables/{did}/moments` | view |
+| `POST /workspaces/{ws}/stories/{id}/deliverables/{did}/moments/scan` (phase 3) | edit |
+| `GET /workspaces/{ws}/stories/{id}/deliverables/{did}/moments` (moments, sentences, limits, `blocked`) | view |
 | `POST /workspaces/{ws}/stories/{id}/deliverables/{did}/moments` (manual) | edit |
 | `PATCH · DELETE /workspaces/{ws}/stories/{id}/moments/{mid}` | edit |
 | `POST /workspaces/{ws}/stories/{id}/deliverables/{did}/shorts` `{momentIds}` | edit |
 
 Deliverables gain `clip {start, end}`; pipelines and their outputs gain `shorts`.
-`GET /system/limits` (or the existing config endpoint) exposes the shorts limits so the
-UI can bound its inputs.
+The moments listing carries the shorts limits, so the UI can bound its inputs.
 
 ## 6. Web UI
 
@@ -131,10 +137,11 @@ service with inmemory repos and a fixed clock, `httptest` through the router).
 
 0. **A real long video.** Long-form is not yet produced end to end (PLAN §8.9); phase 2
    needs at least one approved long video to try against.
-1. **Domain and limits** — `ShortsLimits` from env, `Clip`, `Moment`, the rules above,
-   migration, repository conformance, moments and shorts endpoints with manual ranges.
-2. **Clip-mode drafting** — slicing in `prepare`, `CLIP.md`, `kurgu tool clip`,
-   enforcement. Usable end to end from here through the API.
+1. ✅ **Domain and limits** — `ShortsLimits` from env, `Clip`, `Moment`, the rules above,
+   migration 00027, repository conformance, moments service.
+2. ✅ **Clip-mode drafting** — slicing in `prepare`, `prompts/clip.md`, `kurgu tool clip`,
+   enforcement, and the moments and shorts endpoints with manual ranges. Usable end to
+   end from here through the API (not yet run against a real long video).
 3. **Scan and moments panel** — `production.moments`, the typed agent call, the UI.
 4. **Pipeline automation** — `outputs.shorts`, scan on live, the form field.
 

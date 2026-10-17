@@ -25,6 +25,10 @@ Update this file whenever a decision below changes.
   revision. Approve or reject per deliverable.
 - **Publishing**: YouTube (private upload → public on approval, after the API audit
   passes) and the marketing site's Astro content collections via git commit.
+- **Shorts from long videos**: once a long video is live, moments of it (spans of whole
+  sentences, found by the agent or chosen by a person) become vertical shorts that speak
+  that slice of its narration with a new 9:16 composition (docs/shorts.md). Limits come
+  from `KURGU_SHORTS_*`.
 - **Knowledge base**: upload PDF / TXT / MD / EPUB, extract text per page, estimate tokens
   per page, preview in the browser, reference several documents and page ranges at once.
   Only the referenced pages are given to the agent. No RAG / indexing for now.
@@ -118,6 +122,10 @@ its translations.
 6. Approve → final render (1080p) → publish → cross-link video ↔ article.
 
 Long-form video is the same flow per chapter, concatenated with ffmpeg.
+
+A short cut from a long video is the same flow, except that `prepare` writes the slice of
+the long video's narration (and a ±15 s window of sentences around it) in place of `tts`,
+and the agent only designs the picture; `kurgu tool clip` moves the cut by whole sentences.
 
 ## 7. External prerequisites
 
