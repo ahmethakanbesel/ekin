@@ -230,8 +230,11 @@ type Deliverable struct {
 	// scriptApprovedAt is when a person approved the video's script;
 	// zero until then, or when the story does not review scripts.
 	scriptApprovedAt time.Time
-	createdAt        time.Time
-	updatedAt        time.Time
+	// clip is the span of the source long video a short was cut from;
+	// nil for every other deliverable.
+	clip      *Clip
+	createdAt time.Time
+	updatedAt time.Time
 }
 
 func (d *Deliverable) ID() uuid.UUID                        { return d.id }
@@ -255,6 +258,7 @@ func (d *Deliverable) Measures() Measures                   { return d.measures 
 func (d *Deliverable) ScriptApprovedAt() time.Time          { return d.scriptApprovedAt }
 func (d *Deliverable) CreatedAt() time.Time                 { return d.createdAt }
 func (d *Deliverable) UpdatedAt() time.Time                 { return d.updatedAt }
+func (d *Deliverable) Clip() *Clip                          { return d.clip }
 func (d *Deliverable) IsVideo() bool                        { return d.kind == pipelinedomain.KindVideo }
 
 // Revision is one agent pass over a deliverable: what was asked (the
@@ -328,7 +332,9 @@ func (s *Story) AtScript(id uuid.UUID) bool {
 }
 
 func (s *Story) atScript(d *Deliverable) bool {
-	return d.IsVideo() && s.brief.Production.ReviewAt == pipelinedomain.ReviewScript && d.scriptApprovedAt.IsZero()
+	// A short cut from a long video speaks the long video's approved
+	// narration, so it has no script of its own to review.
+	return d.IsVideo() && d.clip == nil && s.brief.Production.ReviewAt == pipelinedomain.ReviewScript && d.scriptApprovedAt.IsZero()
 }
 
 // StartDrafting hands a queued deliverable to the agent and returns the

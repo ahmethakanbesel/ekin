@@ -154,6 +154,7 @@ type Story struct {
 	idea         Idea
 	brief        Brief
 	deliverables []*Deliverable
+	moments      []*Moment // spans of long videos that could be shorts
 	createdBy    uuid.UUID
 	createdAt    time.Time
 	updatedAt    time.Time

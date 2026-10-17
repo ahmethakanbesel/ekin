@@ -18,6 +18,7 @@ type Snapshot struct {
 	Idea                                   Idea
 	Brief                                  Brief
 	Deliverables                           []DeliverableSnapshot
+	Moments                                []MomentSnapshot
 	CreatedAt, UpdatedAt                   time.Time
 	Version                                int64
 }
@@ -37,7 +38,23 @@ type DeliverableSnapshot struct {
 	PublishJob               uuid.UUID
 	Measures                 Measures
 	ScriptApprovedAt         time.Time
+	Clip                     *ClipSnapshot
 	CreatedAt, UpdatedAt     time.Time
+}
+
+// ClipSnapshot is the persisted form of a Clip.
+type ClipSnapshot struct {
+	Start, End time.Duration
+}
+
+// MomentSnapshot is the persisted form of a Moment.
+type MomentSnapshot struct {
+	ID, SourceID, ShortID uuid.UUID
+	Clip                  ClipSnapshot
+	Hook, Reason          string
+	Score                 int
+	Origin, Status        string
+	CreatedAt, UpdatedAt  time.Time
 }
 
 // Snapshot returns s's persisted form.
@@ -64,7 +81,17 @@ func (s *Story) Snapshot() Snapshot {
 			a := pipelinedomain.SnapshotArticle(*d.article)
 			ds.Article = &a
 		}
+		if d.clip != nil {
+			ds.Clip = &ClipSnapshot{Start: d.clip.start, End: d.clip.end}
+		}
 		out.Deliverables = append(out.Deliverables, ds)
+	}
+	for _, m := range s.moments {
+		out.Moments = append(out.Moments, MomentSnapshot{
+			ID: m.id, SourceID: m.sourceID, ShortID: m.shortID, Clip: ClipSnapshot{Start: m.clip.start, End: m.clip.end},
+			Hook: m.hook, Reason: m.reason, Score: m.score, Origin: string(m.origin), Status: string(m.status),
+			CreatedAt: m.createdAt, UpdatedAt: m.updatedAt,
+		})
 	}
 	return out
 }
@@ -127,9 +154,59 @@ func Rehydrate(s Snapshot) (*Story, error) {
 			}
 			d.article = &a
 		}
+		if ds.Clip != nil {
+			c, err := NewClip(ds.Clip.Start, ds.Clip.End)
+			if err != nil {
+				return nil, apperror.New(apperror.InternalError, "invalid deliverable clip")
+			}
+			if d.video == nil || d.video.Format() != pipelinedomain.FormatShort || d.sourceID == uuid.Nil {
+				return nil, apperror.New(apperror.InternalError, "a clip on a deliverable that is not a derived short")
+			}
+			d.clip = &c
+		}
 		st.deliverables = append(st.deliverables, d)
 	}
+	for _, ms := range s.Moments {
+		m, err := rehydrateMoment(ms)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := st.Deliverable(m.sourceID); err != nil {
+			return nil, apperror.New(apperror.InternalError, "a moment of a deliverable the story does not have")
+		}
+		st.moments = append(st.moments, m)
+	}
 	return st, nil
+}
+
+func rehydrateMoment(ms MomentSnapshot) (*Moment, error) {
+	c, err := NewClip(ms.Clip.Start, ms.Clip.End)
+	if err != nil {
+		return nil, apperror.New(apperror.InternalError, "invalid moment clip")
+	}
+	origin, status := MomentOrigin(ms.Origin), MomentStatus(ms.Status)
+	switch origin {
+	case MomentByAgent, MomentByPerson:
+	default:
+		return nil, apperror.New(apperror.InternalError, "unknown moment origin")
+	}
+	switch status {
+	case MomentSuggested, MomentDiscarded:
+	case MomentMade:
+		if ms.ShortID == uuid.Nil {
+			return nil, apperror.New(apperror.InternalError, "a made moment without its short")
+		}
+	default:
+		return nil, apperror.New(apperror.InternalError, "unknown moment status")
+	}
+	if ms.ID == uuid.Nil || ms.SourceID == uuid.Nil || ms.Score < 0 || ms.Score > 100 {
+		return nil, apperror.New(apperror.InternalError, "invalid moment")
+	}
+	return &Moment{
+		id: ms.ID, sourceID: ms.SourceID, clip: c, hook: ms.Hook, reason: ms.Reason, score: ms.Score,
+		origin: origin, status: status, shortID: ms.ShortID,
+		createdAt: timeutil.Normalize(ms.CreatedAt), updatedAt: timeutil.Normalize(ms.UpdatedAt),
+	}, nil
 }
 
 // Bump records a successful save, for optimistic concurrency.
