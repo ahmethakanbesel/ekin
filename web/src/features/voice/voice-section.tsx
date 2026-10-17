@@ -93,7 +93,7 @@ export function VoiceSection() {
     )
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-5xl">
       <SettingsSectionHeader
         section="voice"
         readOnly={canManage ? undefined : canEdit ? m.voice.readOnlyHint : m.voice.readOnlyViewer}
