@@ -6,6 +6,7 @@ package claude
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -51,6 +52,9 @@ type Request struct {
 	// unattended runs are not shaped by whatever is installed.
 	UserSettings bool
 	Timeout      time.Duration
+	// Model and Effort override the runner's for this call; empty keeps
+	// the runner's.
+	Model, Effort string
 }
 
 // Result is what the session returned.
@@ -113,11 +117,11 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 	if len(req.Allowed) > 0 {
 		args = append(args, "--allowedTools", strings.Join(req.Allowed, ","))
 	}
-	if r.Model != "" {
-		args = append(args, "--model", r.Model)
+	if model := cmp.Or(req.Model, r.Model); model != "" {
+		args = append(args, "--model", model)
 	}
-	if r.Effort != "" {
-		args = append(args, "--effort", r.Effort)
+	if effort := cmp.Or(req.Effort, r.Effort); effort != "" {
+		args = append(args, "--effort", effort)
 	}
 	if req.AppendSystemPrompt != "" {
 		args = append(args, "--append-system-prompt", req.AppendSystemPrompt)

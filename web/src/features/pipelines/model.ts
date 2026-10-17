@@ -2,6 +2,8 @@ import type { Document, Language, PipelineDefinition, Schemas } from "@/api/clie
 
 type Outputs = Schemas["Outputs"]
 type KnowledgeRef = Schemas["KnowledgeRef"]
+type Production = Schemas["Production"]
+export type DraftEffort = Schemas["DraftEffort"]
 import { emptyOverride, fromOverride, toOverride, type VoiceOverrideValues } from "@/features/voice/model"
 import { DEFAULT_SELF_REVIEW } from "./self-review-section"
 import { m } from "@/i18n"
@@ -59,6 +61,33 @@ export type PipelineFormValues = OutputsValues & {
   voice: VoiceOverrideValues
   /** Self-review rounds per draft; 0 for none. */
   selfReview: number
+  /** How the stories are made; "" fields take the workspace default. */
+  production: ProductionValues
+}
+
+/**
+ * The production part of a form (pipelines and ad-hoc requests share it;
+ * see production-section.tsx). "" means the workspace default.
+ */
+export type ProductionValues = {
+  draftModel: string
+  draftEffort: DraftEffort | ""
+}
+
+export function emptyProduction(): ProductionValues {
+  return { draftModel: "", draftEffort: "" }
+}
+
+export function fromProduction(p: Production | undefined): ProductionValues {
+  return { draftModel: p?.draftModel ?? "", draftEffort: p?.draftEffort ?? "" }
+}
+
+/** The wire production settings; undefined when every one is the default. */
+export function toProduction(v: ProductionValues): Production | undefined {
+  const out: Production = {}
+  if (v.draftModel) out.draftModel = v.draftModel
+  if (v.draftEffort) out.draftEffort = v.draftEffort
+  return Object.keys(out).length > 0 ? out : undefined
 }
 
 export function emptyRef(): RefValues {
@@ -86,6 +115,7 @@ export function defaultValues(workspaceTimezone: string): PipelineFormValues {
     templateId: "",
     voice: emptyOverride(),
     selfReview: DEFAULT_SELF_REVIEW,
+    production: emptyProduction(),
   }
 }
 
@@ -131,6 +161,7 @@ export function fromDefinition(
     templateId: def.templateId ?? "",
     voice: fromOverride(def.voice),
     selfReview: def.selfReviewRounds ?? DEFAULT_SELF_REVIEW,
+    production: fromProduction(def.production),
   }
 }
 
@@ -188,6 +219,7 @@ export function toDefinition(v: PipelineFormValues): PipelineDefinition {
     templateId: v.templateId || undefined,
     voice: toOverride(v.voice),
     selfReviewRounds: v.selfReview,
+    production: toProduction(v.production),
   }
   return def
 }

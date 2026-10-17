@@ -117,6 +117,7 @@ func (s *Service) review(ctx context.Context, task DraftTask, dir string, round,
 	tools := []string{"Read", "Glob", "Grep"}
 	res, err := s.agent.Run(ctx, claude.Request{
 		Dir: dir, Prompt: prompt, Tools: tools, Allowed: tools, JSONSchema: reviewSchema, Timeout: s.cfg.AgentTimeout,
+		Model: task.Agent.Model, Effort: string(task.Agent.Effort),
 	})
 	if err != nil {
 		return verdict{}, err

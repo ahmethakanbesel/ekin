@@ -2041,6 +2041,7 @@ components:
           items: { $ref: "#/components/schemas/KnowledgeRef" }
         templateName: { type: string, description: The house style the story was produced with. }
         keyword: { type: string, description: Target search keyword (SEO pipelines). }
+        production: { $ref: "#/components/schemas/Production" }
         status: { $ref: "#/components/schemas/DeliverableStatus" }
         deliverables:
           type: array
@@ -2096,6 +2097,27 @@ components:
         narration: { type: string }
         metadata: { $ref: "#/components/schemas/VideoMetadataContent" }
 
+    DraftEffort:
+      type: string
+      enum: [low, medium, high, xhigh, max]
+      description: How hard the authoring agent thinks while drafting (Claude Code's --effort).
+
+    Production:
+      type: object
+      description: >-
+        How stories are made, set per pipeline or request. Every absent
+        field takes the workspace default.
+      properties:
+        draftModel:
+          type: string
+          maxLength: 74
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(\[[0-9a-z]{1,8}\])?$'
+          description: >-
+            Claude model the agent drafts and revises with: a model id
+            (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace's
+            model (System → Credentials, then KURGU_CLAUDE_MODEL).
+        draftEffort: { $ref: "#/components/schemas/DraftEffort" }
+
     AdHocInput:
       type: object
       required: [idea, count, language, outputs]
@@ -2127,6 +2149,7 @@ components:
             Rounds of self-review per draft, at most: a fresh agent reviews the
             draft and the author fixes what it reports, until it passes or the
             rounds run out. 0 turns it off; omitted means 1.
+        production: { $ref: "#/components/schemas/Production" }
 
     SystemCheck:
       type: object
@@ -2690,6 +2713,7 @@ components:
             Rounds of self-review per draft, at most: a fresh agent reviews the
             draft and the author fixes what it reports, until it passes or the
             rounds run out. 0 turns it off; omitted means 1.
+        production: { $ref: "#/components/schemas/Production" }
 
     Pipeline:
       type: object

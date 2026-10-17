@@ -62,7 +62,13 @@ type Repository interface {
 	Feed(ctx context.Context, workspaceID uuid.UUID, f FeedFilter) ([]Notification, string, error)
 	// Unsent returns notifications not yet emailed, oldest first.
 	Unsent(ctx context.Context, limit int) ([]Notification, error)
+	// MarkEmailed records that the digest of ids went to everyone; it
+	// forgets their deliveries.
 	MarkEmailed(ctx context.Context, ids []uuid.UUID, at time.Time) error
+	// Delivered returns which of ids were already emailed to recipient.
+	Delivered(ctx context.Context, ids []uuid.UUID, recipient string) (map[uuid.UUID]bool, error)
+	// RecordDelivered records that ids were emailed to recipient.
+	RecordDelivered(ctx context.Context, ids []uuid.UUID, recipient string, at time.Time) error
 }
 
 // SQLite is the production Repository.
@@ -154,15 +160,55 @@ func (r *SQLite) MarkEmailed(ctx context.Context, ids []uuid.UUID, at time.Time)
 	for _, id := range ids {
 		args = append(args, id.String())
 	}
-	_, err := r.q.W(ctx).ExecContext(ctx, `UPDATE notifications SET emailed_at = ? WHERE id IN (`+
-		strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")+`)`, args...)
+	in := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
+	if _, err := r.q.W(ctx).ExecContext(ctx, `UPDATE notifications SET emailed_at = ? WHERE id IN (`+in+`)`, args...); err != nil {
+		return fmt.Errorf("mark emailed: %w", err)
+	}
+	_, err := r.q.W(ctx).ExecContext(ctx, `DELETE FROM notification_deliveries WHERE notification_id IN (`+in+`)`, args[1:]...)
 	return err
+}
+
+func (r *SQLite) Delivered(ctx context.Context, ids []uuid.UUID, recipient string) (map[uuid.UUID]bool, error) {
+	out := map[uuid.UUID]bool{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	args := []any{recipient}
+	for _, id := range ids {
+		args = append(args, id.String())
+	}
+	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT notification_id FROM notification_deliveries
+		WHERE recipient = ? AND notification_id IN (`+strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")+`)`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query deliveries: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		id, _ := uuid.Parse(raw)
+		out[id] = true
+	}
+	return out, rows.Err()
+}
+
+func (r *SQLite) RecordDelivered(ctx context.Context, ids []uuid.UUID, recipient string, at time.Time) error {
+	for _, id := range ids {
+		if _, err := r.q.W(ctx).ExecContext(ctx, `INSERT INTO notification_deliveries (notification_id, recipient, delivered_at)
+			VALUES (?, ?, ?) ON CONFLICT DO NOTHING`, id.String(), recipient, timeutil.ToMillis(at)); err != nil {
+			return fmt.Errorf("record delivery: %w", err)
+		}
+	}
+	return nil
 }
 
 // InMemory is a Repository for tests.
 type InMemory struct {
-	mu   sync.Mutex
-	rows []Notification
+	mu        sync.Mutex
+	rows      []Notification
+	delivered map[uuid.UUID]map[string]bool
 }
 
 // NewInMemory returns an empty repository.
@@ -220,7 +266,35 @@ func (r *InMemory) MarkEmailed(_ context.Context, ids []uuid.UUID, at time.Time)
 	for i := range r.rows {
 		if slices.Contains(ids, r.rows[i].ID) {
 			r.rows[i].EmailedAt = at
+			delete(r.delivered, r.rows[i].ID)
 		}
+	}
+	return nil
+}
+
+func (r *InMemory) Delivered(_ context.Context, ids []uuid.UUID, recipient string) (map[uuid.UUID]bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := map[uuid.UUID]bool{}
+	for _, id := range ids {
+		if r.delivered[id][recipient] {
+			out[id] = true
+		}
+	}
+	return out, nil
+}
+
+func (r *InMemory) RecordDelivered(_ context.Context, ids []uuid.UUID, recipient string, _ time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.delivered == nil {
+		r.delivered = map[uuid.UUID]map[string]bool{}
+	}
+	for _, id := range ids {
+		if r.delivered[id] == nil {
+			r.delivered[id] = map[string]bool{}
+		}
+		r.delivered[id][recipient] = true
 	}
 	return nil
 }

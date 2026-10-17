@@ -5,6 +5,7 @@ package notify
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -103,10 +104,10 @@ func (s *Service) Flush(ctx context.Context) (int, error) {
 		}
 		emailable := slices.DeleteFunc(slices.Clone(items), func(n Notification) bool { return n.Kind == "run" })
 		if s.mailer != nil && s.mailer.Enabled() && len(emailable) > 0 {
-			n, err := s.sendDigest(ctx, ws, emailable)
+			n, err := s.sendDigests(ctx, ws, emailable)
 			sent += n
 			if err != nil {
-				s.log.WarnContext(ctx, "digest not sent; will retry", slog.Any("error", err))
+				s.log.WarnContext(ctx, "digest not sent to everyone; will retry the rest", slog.Any("error", err))
 				continue
 			}
 		}
@@ -117,7 +118,11 @@ func (s *Service) Flush(ctx context.Context) (int, error) {
 	return sent, nil
 }
 
-func (s *Service) sendDigest(ctx context.Context, ws uuid.UUID, items []Notification) (int, error) {
+// sendDigests emails each recipient a digest of the items not yet
+// emailed to them, recording each delivery, so a retry after a partial
+// failure reaches only those who missed it. It reports how many emails
+// went out and the first failure.
+func (s *Service) sendDigests(ctx context.Context, ws uuid.UUID, items []Notification) (int, error) {
 	recipients, err := s.dir.DigestRecipients(ctx, ws)
 	if err != nil || len(recipients) == 0 {
 		return 0, err
@@ -126,6 +131,43 @@ func (s *Service) sendDigest(ctx context.Context, ws uuid.UUID, items []Notifica
 	if err != nil {
 		return 0, err
 	}
+	ids := make([]uuid.UUID, 0, len(items))
+	for _, n := range items {
+		ids = append(ids, n.ID)
+	}
+	sent := 0
+	var errs []error
+	for _, r := range recipients {
+		done, err := s.repo.Delivered(ctx, ids, r.Email)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		var due []Notification
+		var dueIDs []uuid.UUID
+		for _, n := range items {
+			if !done[n.ID] {
+				due, dueIDs = append(due, n), append(dueIDs, n.ID)
+			}
+		}
+		if len(due) == 0 {
+			continue
+		}
+		subject, body := s.digest(ws, name, due)
+		if err := s.mailer.Send(r.Email, subject, body); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", r.Email, err))
+			continue
+		}
+		sent++
+		if err := s.repo.RecordDelivered(ctx, dueIDs, r.Email, s.now()); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return sent, errors.Join(errs...)
+}
+
+// digest is the subject and body of an email about items.
+func (s *Service) digest(ws uuid.UUID, name string, items []Notification) (string, string) {
 	counts := map[string]int{}
 	for _, n := range items {
 		counts[n.Kind]++
@@ -156,14 +198,7 @@ func (s *Service) sendDigest(ctx context.Context, ws uuid.UUID, items []Notifica
 		}
 	}
 	b.WriteString("— Kurgu\nTurn these emails off on your account page.\n")
-	sent := 0
-	for _, r := range recipients {
-		if err := s.mailer.Send(r.Email, subject, b.String()); err != nil {
-			return sent, err
-		}
-		sent++
-	}
-	return sent, nil
+	return subject, b.String()
 }
 
 // Invite emails an invitation link, when mail is configured. It reports

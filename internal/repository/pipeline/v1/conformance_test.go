@@ -59,7 +59,8 @@ func newPipeline(t *testing.T, workspaceID uuid.UUID, cron string, now time.Time
 	pages, _ := pipelinedomain.NewPageRange(4, 12)
 	ref, _ := pipelinedomain.NewKnowledgeRef(id.New(), pages)
 	source, _ := pipelinedomain.NewKnowledgeSource("Yalnızca bu bölümden", []pipelinedomain.KnowledgeRef{ref})
-	def := pipelinedomain.Definition{Name: "Kitap shorts", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source, SelfReview: 2}
+	def := pipelinedomain.Definition{Name: "Kitap shorts", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source, SelfReview: 2,
+		Production: pipelinedomain.Production{Agent: pipelinedomain.Agent{Model: "claude-sonnet-5-5", Effort: pipelinedomain.EffortLow}}}
 	if cron != "" {
 		s, err := pipelinedomain.ParseSchedule(cron, ist, 3)
 		if err != nil {

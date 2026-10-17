@@ -9,8 +9,10 @@ import type {
 } from "@/api/client"
 import {
   defaultOutputs,
+  emptyProduction,
   toInt,
   toOutputs,
+  toProduction,
   toRefs,
   validateOutputs,
   validateRefs,
@@ -18,6 +20,7 @@ import {
   type OutputsValues,
   type PipelineFieldErrors,
   type PipelineValidation,
+  type ProductionValues,
   type RefValues,
 } from "@/features/pipelines/model"
 import { emptyOverride, toOverride, type VoiceOverrideValues } from "@/features/voice/model"
@@ -137,6 +140,8 @@ export type RequestFormValues = OutputsValues & {
   voice: VoiceOverrideValues
   /** Self-review rounds per draft; 0 for none. */
   selfReview: number
+  /** How the stories are made; "" fields take the workspace default. */
+  production: ProductionValues
 }
 
 export function defaultRequestValues(): RequestFormValues {
@@ -150,6 +155,7 @@ export function defaultRequestValues(): RequestFormValues {
     templateId: "",
     voice: emptyOverride(),
     selfReview: DEFAULT_SELF_REVIEW,
+    production: emptyProduction(),
   }
 }
 
@@ -183,5 +189,6 @@ export function toAdHocInput(v: RequestFormValues): AdHocInput {
     templateId: v.templateId || undefined,
     voice: toOverride(v.voice),
     selfReviewRounds: v.selfReview,
+    production: toProduction(v.production),
   }
 }

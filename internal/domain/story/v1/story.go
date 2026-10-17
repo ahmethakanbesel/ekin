@@ -113,6 +113,9 @@ type Brief struct {
 	// SelfReview is the most rounds a fresh agent reviews each draft and
 	// the author fixes what it found; 0 for none.
 	SelfReview int `json:"selfReview,omitempty"`
+	// Production overrides how the story is made (from the pipeline or
+	// request); zero for the workspace defaults.
+	Production pipelinedomain.Production `json:"production,omitzero"`
 }
 
 // TemplateStyle is a copy of a template's style.

@@ -41,6 +41,8 @@ type Definition struct {
 	// SelfReview is how many times, at most, a fresh agent reviews each
 	// draft and the author fixes what it finds; 0 turns it off.
 	SelfReview int
+	// Production overrides how the stories are made; zero for defaults.
+	Production Production
 }
 
 // Self-review bounds: rounds per draft.
@@ -215,13 +217,14 @@ func (p *Pipeline) Voice() *voicedomain.Override {
 	v := *p.def.Voice
 	return &v
 }
-func (p *Pipeline) SelfReview() int      { return p.def.SelfReview }
-func (p *Pipeline) Status() Status       { return p.status }
-func (p *Pipeline) NextRunAt() time.Time { return p.nextRunAt }
-func (p *Pipeline) LastRunAt() time.Time { return p.lastRunAt }
-func (p *Pipeline) CreatedAt() time.Time { return p.createdAt }
-func (p *Pipeline) UpdatedAt() time.Time { return p.updatedAt }
-func (p *Pipeline) Version() int64       { return p.version }
+func (p *Pipeline) SelfReview() int        { return p.def.SelfReview }
+func (p *Pipeline) Production() Production { return p.def.Production }
+func (p *Pipeline) Status() Status         { return p.status }
+func (p *Pipeline) NextRunAt() time.Time   { return p.nextRunAt }
+func (p *Pipeline) LastRunAt() time.Time   { return p.lastRunAt }
+func (p *Pipeline) CreatedAt() time.Time   { return p.createdAt }
+func (p *Pipeline) UpdatedAt() time.Time   { return p.updatedAt }
+func (p *Pipeline) Version() int64         { return p.version }
 
 // Schedule returns the schedule, if the pipeline has one.
 func (p *Pipeline) Schedule() (Schedule, bool) {
@@ -253,6 +256,9 @@ func checkDefinition(def Definition) (Definition, error) {
 		return Definition{}, apperror.New(apperror.ValidationFailed, "an article cannot be translated into its own language")
 	}
 	if err := CheckSelfReview(def.SelfReview); err != nil {
+		return Definition{}, err
+	}
+	if err := def.Production.Check(); err != nil {
 		return Definition{}, err
 	}
 	return def, nil

@@ -47,6 +47,21 @@ func TestRunSuccess(t *testing.T) {
 	}
 }
 
+// A request's model and effort win over the runner's.
+func TestRunRequestOverridesModelAndEffort(t *testing.T) {
+	bin, argsFile := fake(t, `{"type":"result","subtype":"success","is_error":false,"result":"done","session_id":"s1"}`, 0)
+	r := &claude.Runner{Bin: bin, Model: "opus", Effort: "high"}
+	if _, err := r.Run(context.Background(), claude.Request{Dir: t.TempDir(), Prompt: "p", Model: "claude-sonnet-5-5", Effort: "low"}); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(argsFile)
+	args := string(raw)
+	if !strings.Contains(args, "--model\nclaude-sonnet-5-5\n") || !strings.Contains(args, "--effort\nlow\n") ||
+		strings.Contains(args, "\nopus\n") || strings.Contains(args, "\nhigh\n") {
+		t.Fatalf("args:\n%s", args)
+	}
+}
+
 func TestRunErrors(t *testing.T) {
 	bin, _ := fake(t, `{"type":"result","subtype":"error_max_turns","is_error":true,"result":"","session_id":"s2"}`, 1)
 	_, err := (&claude.Runner{Bin: bin}).Run(context.Background(), claude.Request{Dir: t.TempDir(), Prompt: "x"})

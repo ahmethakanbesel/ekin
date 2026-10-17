@@ -34,6 +34,9 @@ func parseDefinition(in gen.PipelineDefinition) (pipelinedomain.Definition, erro
 	}
 	def.Voice = voicehandler.OverrideOf(in.Voice)
 	def.SelfReview = SelfReviewOf(in.SelfReviewRounds)
+	if def.Production, err = ProductionOf(in.Production); err != nil {
+		return pipelinedomain.Definition{}, err
+	}
 	if in.Schedule != nil {
 		loc, err := workspacedomain.ParseTimezone(in.Schedule.Timezone)
 		if err != nil {
@@ -180,7 +183,47 @@ func definitionToWire(p *pipelinedomain.Pipeline) gen.PipelineDefinition {
 	def.Voice = voicehandler.OverrideToWire(p.Voice())
 	rounds := p.SelfReview()
 	def.SelfReviewRounds = &rounds
+	def.Production = ProductionToWire(p.Production())
 	return def
+}
+
+// ProductionOf parses wire production settings (shared with ad-hoc
+// story requests); nil takes every default.
+func ProductionOf(in *gen.Production) (pipelinedomain.Production, error) {
+	var out pipelinedomain.Production
+	if in == nil {
+		return out, nil
+	}
+	var model, effort string
+	if in.DraftModel != nil {
+		model = *in.DraftModel
+	}
+	if in.DraftEffort != nil {
+		effort = string(*in.DraftEffort)
+	}
+	agent, err := pipelinedomain.NewAgent(model, effort)
+	if err != nil {
+		return out, err
+	}
+	out.Agent = agent
+	return out, nil
+}
+
+// ProductionToWire converts production settings; nil when all are
+// defaults.
+func ProductionToWire(p pipelinedomain.Production) *gen.Production {
+	if p == (pipelinedomain.Production{}) {
+		return nil
+	}
+	out := &gen.Production{}
+	if m := p.Agent.Model; m != "" {
+		out.DraftModel = &m
+	}
+	if e := p.Agent.Effort; e != "" {
+		effort := gen.DraftEffort(e)
+		out.DraftEffort = &effort
+	}
+	return out
 }
 
 // SelfReviewOf reads selfReviewRounds, which defaults to one round.

@@ -1314,6 +1314,7 @@ export interface components {
             templateName?: string;
             /** @description Target search keyword (SEO pipelines). */
             keyword?: string;
+            production?: components["schemas"]["Production"];
             status: components["schemas"]["DeliverableStatus"];
             deliverables: components["schemas"]["Deliverable"][];
             /** Format: date-time */
@@ -1357,6 +1358,17 @@ export interface components {
             narration?: string;
             metadata?: components["schemas"]["VideoMetadataContent"];
         };
+        /**
+         * @description How hard the authoring agent thinks while drafting (Claude Code's --effort).
+         * @enum {string}
+         */
+        DraftEffort: "low" | "medium" | "high" | "xhigh" | "max";
+        /** @description How stories are made, set per pipeline or request. Every absent field takes the workspace default. */
+        Production: {
+            /** @description Claude model the agent drafts and revises with: a model id (claude-sonnet-5-5) or an alias (sonnet). Absent: the workspace's model (System → Credentials, then KURGU_CLAUDE_MODEL). */
+            draftModel?: string;
+            draftEffort?: components["schemas"]["DraftEffort"];
+        };
         AdHocInput: {
             /** @description Free text — what you want made. */
             idea: string;
@@ -1374,6 +1386,7 @@ export interface components {
             voice?: components["schemas"]["VoiceOverride"];
             /** @description Rounds of self-review per draft, at most: a fresh agent reviews the draft and the author fixes what it reports, until it passes or the rounds run out. 0 turns it off; omitted means 1. */
             selfReviewRounds?: number;
+            production?: components["schemas"]["Production"];
         };
         SystemCheck: {
             name: string;
@@ -1777,6 +1790,7 @@ export interface components {
             voice?: components["schemas"]["VoiceOverride"];
             /** @description Rounds of self-review per draft, at most: a fresh agent reviews the draft and the author fixes what it reports, until it passes or the rounds run out. 0 turns it off; omitted means 1. */
             selfReviewRounds?: number;
+            production?: components["schemas"]["Production"];
         };
         Pipeline: {
             /** Format: uuid */

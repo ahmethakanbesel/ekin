@@ -1258,3 +1258,65 @@ func TestDeleteRacingADraftNeverOrphansIt(t *testing.T) {
 		t.Fatalf("delete = %v", delErr)
 	}
 }
+
+// A pipeline's or request's drafting model and effort reach every agent
+// turn of a draft (the author, the editor and the author's fix), while
+// idea planning keeps the workspace default.
+func TestDraftingAgentReachesEveryTurn(t *testing.T) {
+	ctx := context.Background()
+	agent := pipelinedomain.Agent{Model: "claude-sonnet-5-5", Effort: pipelinedomain.EffortLow}
+	article, _ := pipelinedomain.NewArticleSpec(900, nil)
+	outputs, _ := pipelinedomain.NewOutputs(nil, &article, "")
+	check := func(t *testing.T, f fixture) {
+		t.Helper()
+		drafting := 0
+		for _, r := range f.agent.prompts {
+			if strings.Contains(string(r.JSONSchema), `"ideas"`) {
+				if r.Model != "" || r.Effort != "" {
+					t.Errorf("idea planning ran with %q/%q", r.Model, r.Effort)
+				}
+				continue
+			}
+			drafting++
+			if r.Model != agent.Model || r.Effort != string(agent.Effort) {
+				t.Errorf("turn %.40q ran with %q/%q", r.Prompt, r.Model, r.Effort)
+			}
+		}
+		if drafting < 3 {
+			t.Fatalf("only %d drafting turns ran", drafting)
+		}
+	}
+
+	t.Run("pipeline", func(t *testing.T) {
+		f := newFixture(t)
+		f.agent.verdicts = []string{reviseOnce}
+		source, _ := pipelinedomain.NewPromptSource("Kaygı üzerine.")
+		p, err := f.pipelines.Create(ctx, f.ws, pipelinedomain.Definition{Name: "A", Language: pipelinedomain.Turkish,
+			Outputs: outputs, Source: source, SelfReview: 1, Production: pipelinedomain.Production{Agent: agent}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = f.pipelines.RunNow(ctx, f.ws, p.ID(), 1)
+		f.drain(t)
+		if got := f.story(t).Brief().Production.Agent; got != agent {
+			t.Fatalf("brief agent = %+v", got)
+		}
+		check(t, f)
+	})
+
+	t.Run("ad-hoc request", func(t *testing.T) {
+		f := newFixture(t)
+		f.agent.verdicts = []string{reviseOnce}
+		req := production.AdHocRequest{Idea: "Kaygı ve endişe farkı", Count: 1, Language: pipelinedomain.Turkish,
+			Outputs: outputs, SelfReview: 1, Production: pipelinedomain.Production{Agent: agent}}
+		if _, err := f.svc.QueueAdHoc(ctx, f.ws, id.New(), req); err != nil {
+			t.Fatal(err)
+		}
+		f.drain(t)
+		check(t, f)
+		req.Production.Agent.Effort = "turbo"
+		if _, err := f.svc.QueueAdHoc(ctx, f.ws, id.New(), req); !apperror.Is(err, apperror.ValidationFailed) {
+			t.Fatalf("unknown effort: err = %v", err)
+		}
+	})
+}

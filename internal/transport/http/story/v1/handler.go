@@ -140,6 +140,9 @@ func (h *Handler) CreateStories(ctx context.Context, req gen.CreateStoriesReques
 	}
 	in.Voice = voicehandler.OverrideOf(req.Body.Voice)
 	in.SelfReview = pipelinehandler.SelfReviewOf(req.Body.SelfReviewRounds)
+	if in.Production, err = pipelinehandler.ProductionOf(req.Body.Production); err != nil {
+		return nil, err
+	}
 	if req.Body.Style != nil {
 		in.Style = *req.Body.Style
 	}
@@ -291,6 +294,7 @@ func ToWire(st *storydomain.Story) gen.Story {
 	if kw := st.Brief().Keyword; kw != "" {
 		out.Keyword = &kw
 	}
+	out.Production = pipelinehandler.ProductionToWire(st.Brief().Production)
 	if refs := st.Brief().Refs; len(refs) > 0 {
 		wire := make([]gen.KnowledgeRef, 0, len(refs))
 		for _, r := range refs {

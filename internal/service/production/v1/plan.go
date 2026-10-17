@@ -53,6 +53,7 @@ type AdHocPayload struct {
 	TemplateID  uuid.UUID                       `json:"templateId,omitempty"`
 	Voice       *voicedomain.Override           `json:"voice,omitempty"`
 	SelfReview  int                             `json:"selfReview,omitempty"`
+	Production  pipelinedomain.Production       `json:"production,omitzero"`
 }
 
 // AdHocRequest is a parsed ad-hoc request.
@@ -69,6 +70,8 @@ type AdHocRequest struct {
 	Voice *voicedomain.Override
 	// SelfReview is the most self-review rounds per draft; 0 for none.
 	SelfReview int
+	// Production overrides how the stories are made; zero for defaults.
+	Production pipelinedomain.Production
 }
 
 // MaxAdHocCount bounds one ad-hoc request.
@@ -88,10 +91,13 @@ func (s *Service) QueueAdHoc(ctx context.Context, workspaceID, actorID uuid.UUID
 	if err := pipelinedomain.CheckSelfReview(req.SelfReview); err != nil {
 		return nil, err
 	}
+	if err := req.Production.Check(); err != nil {
+		return nil, err
+	}
 	p := AdHocPayload{
 		WorkspaceID: workspaceID, ActorID: actorID, Idea: strings.TrimSpace(req.Idea), Count: req.Count,
 		Language: string(req.Language), Style: strings.TrimSpace(req.Style), Lead: string(req.Outputs.Lead()), Refs: req.Refs,
-		TemplateID: req.TemplateID, Voice: req.Voice, SelfReview: req.SelfReview,
+		TemplateID: req.TemplateID, Voice: req.Voice, SelfReview: req.SelfReview, Production: req.Production,
 	}
 	if req.Voice != nil && s.voices != nil {
 		if err := s.voices.CheckOverride(ctx, string(req.Language), *req.Voice); err != nil {
@@ -157,7 +163,7 @@ func (s *Service) PlanAdHoc(ctx context.Context, p AdHocPayload) error {
 		plans = append(plans, storydomain.Plan{
 			WorkspaceID: p.WorkspaceID, Origin: storydomain.OriginAdHoc, Language: lang, Idea: idea.Idea,
 			Brief: storydomain.Brief{Instructions: p.Idea, Style: p.Style, Refs: p.Refs, Template: tmpl, Voice: p.Voice,
-				SelfReview: p.SelfReview},
+				SelfReview: p.SelfReview, Production: p.Production},
 			Outputs: outputs, CreatedBy: p.ActorID,
 		})
 	}
@@ -249,7 +255,8 @@ func (s *Service) PlanRun(ctx context.Context, run pipelinesvc.RunPayload) error
 	}
 	plans := make([]storydomain.Plan, 0, len(ideas))
 	for _, idea := range ideas {
-		brief := storydomain.Brief{Instructions: src.Instructions(), Template: tmpl, Voice: p.Voice(), SelfReview: p.SelfReview()}
+		brief := storydomain.Brief{Instructions: src.Instructions(), Template: tmpl, Voice: p.Voice(), SelfReview: p.SelfReview(),
+			Production: p.Production()}
 		if idea.Window >= 0 && idea.Window < len(windows) {
 			brief.Refs = windows[idea.Window]
 		}

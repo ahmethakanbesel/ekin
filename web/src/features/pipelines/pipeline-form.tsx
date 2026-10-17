@@ -31,6 +31,7 @@ import { m } from "@/i18n"
 import { useAppForm } from "@/lib/form"
 import { documentsQuery } from "@/queries/documents"
 import { NumberInput, Row, Section, shownError } from "./form-parts"
+import { ProductionSection } from "./production-section"
 import { SelfReviewSection } from "./self-review-section"
 import {
   LANGUAGES,
@@ -243,6 +244,17 @@ export function PipelineForm({
       <form.Field name="selfReview">
         {(field) => (
           <SelfReviewSection
+            value={field.state.value}
+            onChange={field.handleChange}
+            readOnly={readOnly}
+          />
+        )}
+      </form.Field>
+
+      <form.Field name="production">
+        {(field) => (
+          <ProductionSection
+            idPrefix="pl-production"
             value={field.state.value}
             onChange={field.handleChange}
             readOnly={readOnly}

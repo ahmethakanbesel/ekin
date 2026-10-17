@@ -6,10 +6,14 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
+	"kurgu/internal/db/dbtest"
+	workspacedomain "kurgu/internal/domain/workspace/v1"
 	notifyrepo "kurgu/internal/repository/notify/v1"
+	workspacerepo "kurgu/internal/repository/workspace/v1"
 	notifysvc "kurgu/internal/service/notify/v1"
 	productionsvc "kurgu/internal/service/production/v1"
 	"kurgu/pkg/id"
@@ -74,5 +78,60 @@ func TestDigest(t *testing.T) {
 	feed, _, _ := svc.Feed(ctx, ws, notifysvc.FeedFilter{Limit: 10})
 	if len(feed) != 3 || feed[0].Kind != "run" {
 		t.Fatalf("feed = %+v", feed)
+	}
+}
+
+// flakyMailer refuses mail to one address while down says so.
+type flakyMailer struct {
+	sent []string
+	down string
+}
+
+func (m *flakyMailer) Enabled() bool { return true }
+func (m *flakyMailer) Send(to, _, _ string) error {
+	if to == m.down {
+		return errors.New("mailbox unavailable")
+	}
+	m.sent = append(m.sent, to)
+	return nil
+}
+
+// A digest that reached only some recipients is retried for the rest
+// alone: nobody gets the same digest twice.
+func TestPartlySentDigestIsRetriedForTheRest(t *testing.T) {
+	repos := map[string]func(t *testing.T) (notifyrepo.Repository, uuid.UUID){
+		"inmemory": func(*testing.T) (notifyrepo.Repository, uuid.UUID) { return notifyrepo.NewInMemory(), id.New() },
+		"sqlite": func(t *testing.T) (notifyrepo.Repository, uuid.UUID) {
+			_, tx := dbtest.Open(t)
+			w, _ := workspacedomain.New(id.New(), "ws", time.UTC, time.Now())
+			if err := workspacerepo.NewSQLite(tx).Create(context.Background(), w); err != nil {
+				t.Fatal(err)
+			}
+			return notifyrepo.NewSQLite(tx), w.ID()
+		},
+	}
+	for name, open := range repos {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			repo, ws := open(t)
+			m := &flakyMailer{down: "b@example.com"}
+			svc := notifysvc.NewService(repo, dir{}, m, "", slog.New(slog.DiscardHandler))
+			if err := svc.Notify(ctx, productionsvc.Event{WorkspaceID: ws, Kind: "review", Title: "Ruminasyon", Detail: "ready"}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := svc.Flush(ctx); err != nil {
+				t.Fatal(err)
+			}
+			m.down = ""
+			if _, err := svc.Flush(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := svc.Flush(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if strings.Join(m.sent, ",") != "a@example.com,b@example.com" {
+				t.Fatalf("sent to %v; want each recipient once", m.sent)
+			}
+		})
 	}
 }

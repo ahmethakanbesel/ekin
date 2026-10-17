@@ -80,6 +80,9 @@ type DraftTask struct {
 	Feedback    *storydomain.Feedback `json:"feedback,omitempty"`
 	// SelfReview is the most self-review rounds (story brief); 0 for none.
 	SelfReview int `json:"selfReview,omitempty"`
+	// Agent is the drafting model and effort; empty fields take the
+	// workspace defaults.
+	Agent pipelinedomain.Agent `json:"agent,omitzero"`
 }
 
 // DraftResult is what the agent produced besides files.
@@ -129,6 +132,7 @@ func (s *Service) BeginDraft(ctx context.Context, p DeliverablePayload) (DraftTa
 	task := DraftTask{
 		Payload: p, Spec: t.spec, Video: d.IsVideo(), Translation: d.Role() == storydomain.RoleTranslation,
 		Revision: d.Revision(), Feedback: feedback, SelfReview: st.Brief().SelfReview,
+		Agent: st.Brief().Production.Agent,
 	}
 	if t.article != nil {
 		task.TargetWords = t.article.Words()
@@ -148,7 +152,8 @@ func (s *Service) RunDraft(ctx context.Context, task DraftTask, dir string) (Dra
 		tools = append(tools, "Bash")
 		allowed = append(allowed, "Bash(kurgu tool:*)")
 	}
-	req := claude.Request{Dir: dir, Tools: tools, Allowed: allowed, Timeout: s.cfg.AgentTimeout, Env: s.toolEnv(ctx, task.Spec)}
+	req := claude.Request{Dir: dir, Tools: tools, Allowed: allowed, Timeout: s.cfg.AgentTimeout, Env: s.toolEnv(ctx, task.Spec),
+		Model: task.Agent.Model, Effort: string(task.Agent.Effort)}
 	var err error
 	req.Prompt, err = draftPrompt(task)
 	if err != nil {
@@ -184,7 +189,7 @@ type author struct {
 func (s *Service) turn(ctx context.Context, a *author, prompt string) error {
 	res, err := s.agent.Run(ctx, claude.Request{
 		Dir: a.req.Dir, Tools: a.req.Tools, Allowed: a.req.Allowed, Timeout: s.cfg.AgentTimeout, Resume: a.session,
-		Env: a.req.Env, Prompt: prompt,
+		Env: a.req.Env, Prompt: prompt, Model: a.req.Model, Effort: a.req.Effort,
 	})
 	if err != nil {
 		return err

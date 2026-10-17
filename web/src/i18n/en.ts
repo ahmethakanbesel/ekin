@@ -393,6 +393,22 @@ export const en = {
           ? "One review; its fixes are not reviewed again. Each round adds an agent run."
           : `Up to ${n} reviews, stopping as soon as one passes. Each round adds an agent run.`,
     },
+    production: {
+      title: "Production",
+      description: "How the stories are made. Each setting left on the workspace default follows System and the voice settings.",
+      workspaceDefault: "Workspace default",
+      model: "Drafting model",
+      modelHint: "The Claude model that writes and revises drafts, and runs self-review.",
+      effort: "Drafting effort",
+      effortHint: "How hard it thinks. Lower is faster and uses less of your plan; higher suits long or tricky drafts.",
+      efforts: {
+        low: "Low",
+        medium: "Medium",
+        high: "High",
+        xhigh: "Extra high",
+        max: "Max",
+      } as Record<string, string>,
+    },
     createTitle: "New pipeline",
     editTitle: "Edit pipeline",
     created: "Pipeline created",

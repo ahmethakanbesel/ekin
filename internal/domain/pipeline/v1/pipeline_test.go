@@ -81,6 +81,8 @@ func TestDefinitionRules(t *testing.T) {
 		}},
 		{"too many self-review rounds", func(d *pipeline.Definition) { d.SelfReview = pipeline.MaxSelfReview + 1 }},
 		{"negative self-review rounds", func(d *pipeline.Definition) { d.SelfReview = -1 }},
+		{"unknown drafting effort", func(d *pipeline.Definition) { d.Production.Agent.Effort = "turbo" }},
+		{"bad drafting model", func(d *pipeline.Definition) { d.Production.Agent.Model = "-x" }},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -292,6 +294,7 @@ func TestSnapshotRoundTrip(t *testing.T) {
 	def.Source = source
 	def.Outputs = outputs
 	def.SelfReview = 3
+	def.Production = pipeline.Production{Agent: pipeline.Agent{Model: "claude-opus-5-5", Effort: pipeline.EffortMedium}}
 	p, err := pipeline.New(uuid.New(), uuid.New(), def, t0)
 	if err != nil {
 		t.Fatal(err)
