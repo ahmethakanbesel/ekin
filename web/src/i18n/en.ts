@@ -1773,7 +1773,6 @@ export const en = {
   voice: {
     groups: { narrator: "Narrator", pace: "Pace and pauses" },
     seedDefault: "The engine picks",
-    unsaved: "Unsaved changes in this language",
     readOnlyHint: "Only owners can change the voice settings. Editors can still play previews.",
     readOnlyViewer: "Only owners can change the voice settings.",
     languages: { tr: "Türkçe", en: "English" } as Record<string, string>,

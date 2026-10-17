@@ -143,7 +143,22 @@ export function HostProfiles() {
   const [creating, setCreating] = useState(false)
 
   let body
-  if (query.isPending) body = <Skeleton className="h-96 w-full rounded-xl" />
+  if (query.isPending)
+    body = (
+      // A profile card's shape: its name, then the Jobs group's rows.
+      <div className="grid gap-4 rounded-xl p-6 ring-1 ring-foreground/10" aria-busy="true" aria-label={m.common.loading}>
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-16 w-full rounded-xl" />
+        <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="flex h-8 items-center justify-between">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-6 w-20" />
+            </div>
+          ))}
+        </div>
+      </div>
+    )
   else if (query.isError)
     body = (
       <ErrorState error={query.error} onRetry={() => void query.refetch()} />

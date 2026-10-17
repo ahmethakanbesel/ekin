@@ -15,11 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { Row } from "@/features/pipelines/form-parts"
-import { LayeredCard, LayeredGroup, LayeredRow, SourceChip } from "@/features/settings/layered"
+import { LayeredCard, LayeredGroup, LayeredRow, LayeredSkeleton, SourceChip } from "@/features/settings/layered"
 import { SettingsSectionHeader } from "@/features/settings/settings-page"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
@@ -60,7 +59,15 @@ export function VoiceSection() {
 
   let body
   if (engines.isPending || settings.isPending)
-    body = <Skeleton className="h-96 w-full rounded-xl" />
+    body = (
+      <LayeredCard
+        title={m.common.loading}
+        fromLabel={m.settings.columns.inherited}
+        hereLabel={workspace.name}
+      >
+        <LayeredSkeleton rows={7} />
+      </LayeredCard>
+    )
   else if (engines.isError || settings.isError)
     body = (
       <ErrorState
@@ -195,6 +202,18 @@ function LanguageCard({
   const engineDefault = defaultConfig(engine)
   const B = m.settings.layers.builtIn
   const storedSeed = seedText(stored)
+  // What the save bar names: each changed setting, then the pronunciations.
+  const changed = [
+    ...(engine.id !== storedEngine.id ? [m.voice.engineLabel] : []),
+    ...(config.voice !== stored.voice ? [m.voice.voice] : []),
+    ...((config.quality ?? "fp32") !== (stored.quality ?? "fp32") && engine.hasQuality ? [m.voice.quality] : []),
+    ...(seed.trim() !== storedSeed ? [m.voice.seed] : []),
+    ...(config.speed !== stored.speed ? [m.voice.speed] : []),
+    ...(config.sentencePause !== stored.sentencePause ? [m.voice.sentencePause] : []),
+    ...(config.paragraphPause !== stored.paragraphPause ? [m.voice.paragraphPause] : []),
+    ...(JSON.stringify(config.elevenlabs ?? null) !== JSON.stringify(stored.elevenlabs ?? null) ? [m.voice.elevenlabs.title] : []),
+    ...(JSON.stringify(toLexicon(rows)) !== JSON.stringify(toLexicon(initialRows)) ? [m.voice.lexiconTitle] : []),
+  ]
   const sliderRow = (
     key: "speed" | "sentencePause" | "paragraphPause",
     label: string,
@@ -258,12 +277,27 @@ function LanguageCard({
                 dirty && "sticky bottom-0 z-10 bg-card/95 backdrop-blur"
               )}
             >
-              <p className="text-sm text-muted-foreground" aria-live="polite">
-                {dirty ? m.voice.unsaved : m.settings.production.allSaved}
+              <p className="min-w-0 text-sm text-muted-foreground" aria-live="polite">
+                {dirty ? m.settings.production.unsavedNamed(changed.length, changed.join(", ")) : m.settings.production.allSaved}
               </p>
-              <Button type="submit" variant={dirty ? "default" : "outline"} disabled={save.isPending || !dirty}>
-                {save.isPending ? m.common.saving : m.voice.save}
-              </Button>
+              <div className="flex gap-2">
+                {dirty ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setConfig(stored)
+                      setSeed(storedSeed)
+                      setRows(initialRows)
+                    }}
+                  >
+                    {m.settings.discard}
+                  </Button>
+                ) : null}
+                <Button type="submit" variant={dirty ? "default" : "outline"} disabled={save.isPending || !dirty}>
+                  {save.isPending ? m.common.saving : m.voice.save}
+                </Button>
+              </div>
             </div>
           ) : null
         }
