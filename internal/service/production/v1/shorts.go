@@ -100,6 +100,23 @@ func (s *Service) DiscardMoment(ctx context.Context, workspaceID, storyID, momen
 	})
 }
 
+// MakeShorts makes a short from each moment of a long video and queues
+// their drafts.
+func (s *Service) MakeShorts(ctx context.Context, workspaceID, storyID, sourceID uuid.UUID, momentIDs []uuid.UUID) (*storydomain.Story, error) {
+	return s.change(ctx, workspaceID, storyID, func(ctx context.Context, st *storydomain.Story) error {
+		made, err := st.AddShorts(sourceID, momentIDs, s.cfg.Shorts, id.New, s.now())
+		if err != nil {
+			return err
+		}
+		for _, d := range made {
+			if err := s.enqueueStep(ctx, st, d); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 // segmentsOf reads the sentence timings of a long video shorts may be
 // cut from.
 func (s *Service) segmentsOf(ctx context.Context, workspaceID, storyID, sourceID uuid.UUID) ([]storydomain.Segment, error) {

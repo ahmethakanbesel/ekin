@@ -3,10 +3,12 @@ package production_test
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -174,5 +176,129 @@ func TestMomentsNeedACuttableLongVideoWithTimings(t *testing.T) {
 				t.Fatalf("AddMoment err = %v, want %s", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+// wavFile is a mono 16-bit PCM WAV of seconds at 1000 frames a second.
+func wavFile(seconds int) []byte {
+	data := make([]byte, seconds*1000*2)
+	for i := range seconds * 1000 {
+		data[2*i] = 100
+	}
+	h := []byte("RIFF")
+	h = binary.LittleEndian.AppendUint32(h, uint32(36+len(data)))
+	h = append(h, "WAVEfmt "...)
+	h = binary.LittleEndian.AppendUint32(h, 16)
+	h = binary.LittleEndian.AppendUint16(h, 1)    // PCM
+	h = binary.LittleEndian.AppendUint16(h, 1)    // mono
+	h = binary.LittleEndian.AppendUint32(h, 1000) // rate
+	h = binary.LittleEndian.AppendUint32(h, 2000) // bytes per second
+	h = binary.LittleEndian.AppendUint16(h, 2)
+	h = binary.LittleEndian.AppendUint16(h, 16)
+	h = append(h, "data"...)
+	h = binary.LittleEndian.AppendUint32(h, uint32(len(data)))
+	return append(h, data...)
+}
+
+func TestShortCutFromALongVideoDraftsFromItsSlice(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	// Back-to-back 5.1 s sentences, two words each, so a four-sentence
+	// moment lasts 20.4 s and fits the fake renderer's 21 s composition.
+	var words, segs []map[string]any
+	for i := range 120 {
+		s := float64(i) * 5.1
+		words = append(words,
+			map[string]any{"text": fmt.Sprintf("Söz%d", i), "start": s, "end": s + 2},
+			map[string]any{"text": "bitti.", "start": s + 2.5, "end": s + 5})
+		segs = append(segs, map[string]any{"text": fmt.Sprintf("Söz%d bitti.", i), "start": s, "end": s + 5.1})
+	}
+	timings, _ := json.Marshal(map[string]any{"engine": "okur", "voice": "v1", "duration": 612, "words": words, "segments": segs})
+	st, long := longVideo(t, f, 10*time.Minute, true, map[string][]byte{
+		"narration/speech.wav":       wavFile(612),
+		"narration/timings.json":     timings,
+		"composition.html":           []byte("<!-- long layout -->"),
+		"scenes.json":                []byte(`[{"at":0}]`),
+		"music.js":                   []byte("// score"),
+		"assets/pexels-video-1.webm": []byte("webm"),
+		"assets/credits.json":        []byte(`[{"file":"assets/pexels-video-1.webm"}]`),
+	})
+
+	c, _ := storydomain.NewClip(sec(51), sec(71.4))
+	_, m, err := f.svc.AddMoment(ctx, f.ws, st.ID(), long, storydomain.MomentDraft{Clip: c, Hook: "Öfkeyi adlandır"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := f.svc.MakeShorts(ctx, f.ws, st.ID(), long, []uuid.UUID{m.ID()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	shorts := got.Shorts(long)
+	if len(shorts) != 1 || shorts[0].Status() != storydomain.StatusQueued {
+		t.Fatalf("shorts = %+v", shorts)
+	}
+	f.drain(t)
+
+	got, _ = f.svc.Get(ctx, f.ws, st.ID())
+	short, _ := got.Deliverable(shorts[0].ID())
+	if short.Status() != storydomain.StatusReview {
+		t.Fatalf("short = %s (%s)", short.Status(), short.Failure())
+	}
+	if len(f.agent.clipDirs) != 1 {
+		t.Fatalf("clip drafts = %d", len(f.agent.clipDirs))
+	}
+	dir := f.agent.clipDirs[0]
+	var sliced struct {
+		Engine   string  `json:"engine"`
+		Voice    string  `json:"voice"`
+		Duration float64 `json:"duration"`
+		Words    []struct {
+			Text       string
+			Start, End float64
+		} `json:"words"`
+		Segments []struct{ Text string } `json:"segments"`
+	}
+	if err := json.Unmarshal([]byte(dir["narration/timings.json"]), &sliced); err != nil {
+		t.Fatal(err)
+	}
+	if sliced.Engine != "okur" || sliced.Voice != "v1" || sliced.Duration != 20.4 || len(sliced.Segments) != 4 ||
+		sliced.Segments[0].Text != "Söz10 bitti." || len(sliced.Words) != 8 || sliced.Words[1].Start != 2.5 {
+		t.Fatalf("sliced timings = %+v", sliced)
+	}
+	if n := len(dir["narration/speech.wav"]); n != 44+20400*2 {
+		t.Fatalf("sliced narration = %d bytes, want %d", n, 44+20400*2)
+	}
+	if dir["narration/narration.txt"] != "Söz10 bitti. Söz11 bitti. Söz12 bitti. Söz13 bitti.\n" {
+		t.Fatalf("narration.txt = %q", dir["narration/narration.txt"])
+	}
+	for name, want := range map[string]string{
+		"assets/pexels-video-1.webm":    "webm",
+		"music.js":                      "// score",
+		"sources/long/composition.html": "<!-- long layout -->",
+		"sources/long/scenes.json":      `[{"at":0}]`,
+	} {
+		if dir[name] != want {
+			t.Fatalf("%s = %q, want %q", name, dir[name], want)
+		}
+	}
+	for name, want := range map[string]string{
+		"INSTRUCTIONS.md": "0:51–1:11 of the long",
+		"BRIEF.md":        "**Cut from:**",
+		"sources/clip.md": "- 0.00–5.10 s: Söz10 bitti.",
+		"sources/lead.md": "# Video script",
+		"KIT.md":          "Kurgu.captions",
+	} {
+		if !strings.Contains(dir[name], want) {
+			t.Fatalf("%s lacks %q:\n%s", name, want, dir[name])
+		}
+	}
+	if strings.Contains(dir["INSTRUCTIONS.md"], "{{") {
+		t.Fatal("INSTRUCTIONS.md has unfilled template fields")
+	}
+
+	// The narration is the long video's: a reviewer cannot rewrite it.
+	n := "Başka bir metin."
+	if _, err := f.svc.EditContent(ctx, f.ws, st.ID(), short.ID(), id.New(), production.Edit{Revision: short.Revision(), Narration: &n}); !apperror.Is(err, apperror.ValidationFailed) {
+		t.Fatalf("editing a short's narration: %v", err)
 	}
 }

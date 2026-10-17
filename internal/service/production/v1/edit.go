@@ -222,6 +222,9 @@ func checkEdit(d *storydomain.Deliverable, e Edit) error {
 		if e.Article != nil {
 			return invalid("a video has no article text")
 		}
+		if e.Narration != nil && d.Clip() != nil {
+			return invalid("a short cut from a long video speaks the long video's narration; change its moment instead")
+		}
 		if e.Narration != nil {
 			n := strings.TrimSpace(*e.Narration)
 			if n == "" || len(n) > maxEditableBytes || !utf8.ValidString(n) {

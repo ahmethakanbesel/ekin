@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/fs"
 	"kurgu/internal/apperror"
 	"os"
 	"path/filepath"
@@ -68,6 +69,9 @@ type fakeAgent struct {
 	// onIdeas, when set, runs once while the agent writes ideas: what
 	// happens elsewhere during a planning job.
 	onIdeas func()
+	// clipDirs holds, per short cut from a long video, the files its
+	// draft found in place (path → content).
+	clipDirs []map[string]string
 }
 
 func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result, error) {
@@ -124,6 +128,22 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 	a.seen = append(a.seen, string(seen))
 	a.mu.Unlock()
 	switch {
+	case strings.Contains(string(instructions), "cut a short from a long video"):
+		found := map[string]string{}
+		_ = filepath.WalkDir(req.Dir, func(p string, e fs.DirEntry, err error) error {
+			if err == nil && e.Type().IsRegular() {
+				rel, _ := filepath.Rel(req.Dir, p)
+				b, _ := os.ReadFile(p) //nolint:gosec // the test's work dir
+				found[rel] = string(b)
+			}
+			return nil
+		})
+		a.mu.Lock()
+		a.clipDirs = append(a.clipDirs, found)
+		a.mu.Unlock()
+		write("script.md", "Sahne 1: Öfkeyi adlandır.")
+		write("composition.html", `<script src="/kit/kurgu.js"></script>`)
+		write("metadata.json", `{"title":"Öfkeyi adlandır #shorts","description":"Kısa açıklama.","tags":["öfke"]}`)
 	case strings.Contains(string(instructions), "**the script only**"):
 		write("script.md", "Sahne 1: Kaygı nedir? Görsel: bir soru işareti.")
 		write("narration/narration.txt", strings.Repeat("Kaygı bedenin bir alarmıdır. ", 10))

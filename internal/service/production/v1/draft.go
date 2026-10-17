@@ -400,6 +400,8 @@ type task struct {
 	article *pipelinedomain.ArticleSpec
 	// targetWords is a video's spoken word target.
 	targetWords int
+	// clip is set for a short cut from a long video.
+	clip *clipMaterial
 }
 
 func (s *Service) toolEnv(ctx context.Context, spec agenttool.Spec) []string {
@@ -499,6 +501,13 @@ func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydo
 	if err != nil {
 		return t, err
 	}
+	if d.Clip() != nil {
+		c, err := s.prepareClip(ctx, st, d, dir)
+		if err != nil {
+			return t, err
+		}
+		t.clip = &c
+	}
 
 	var instructions string
 	data := map[string]any{
@@ -544,7 +553,20 @@ func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydo
 		t.targetWords = int(v.Duration().Seconds() * wps)
 		data["TargetWords"] = t.targetWords
 		data["ScriptOnly"], data["FromScript"] = stage == StageScript, stage == StageFromScript
-		if instructions, err = execute("video.md", data); err != nil {
+		page := "video.md"
+		if t.clip != nil {
+			// The narration is the long video's slice: the composition
+			// covers it, plus an end card at most.
+			length := t.clip.clip.Length().Seconds()
+			t.spec.Clip, t.spec.MinDuration, t.spec.MaxDuration = true, length, length+clipTail
+			t.targetWords = 0
+			data["ClipStart"], data["ClipEnd"] = clock(t.clip.clip.Start()), clock(t.clip.clip.End())
+			data["ClipSeconds"] = strconv.FormatFloat(length, 'f', 1, 64)
+			data["TailSeconds"] = int(clipTail)
+			data["VideoURL"] = source.videoURL
+			page = "clip.md"
+		}
+		if instructions, err = execute(page, data); err != nil {
 			return t, err
 		}
 		kit, err := execute("kit.md", data)
@@ -642,7 +664,12 @@ func (s *Service) brief(st *storydomain.Story, d *storydomain.Deliverable, t tas
 	}
 	switch d.Role() {
 	case storydomain.RoleDerived:
-		b.WriteString("- **Derived:** build this from the approved lead in `sources/lead.md`; stay consistent with it.\n")
+		if t.clip != nil {
+			fmt.Fprintf(&b, "- **Cut from:** the approved long video (`sources/lead.md`), %s–%s; its narration is in `narration/` and `sources/clip.md`.\n",
+				clock(t.clip.clip.Start()), clock(t.clip.clip.End()))
+		} else {
+			b.WriteString("- **Derived:** build this from the approved lead in `sources/lead.md`; stay consistent with it.\n")
+		}
 		if src.videoURL != "" {
 			fmt.Fprintf(&b, "- **Video URL:** %s\n", src.videoURL)
 		}

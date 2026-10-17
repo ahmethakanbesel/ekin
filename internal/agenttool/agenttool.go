@@ -63,6 +63,9 @@ type Spec struct {
 	// Media says, per kind, whether music and stock come from the library,
 	// are made fresh, or both.
 	Media librarydomain.Policy `json:"media,omitzero"`
+	// Clip marks a short cut from a long video: it speaks the long
+	// video's narration, already in narration/, so tts is refused.
+	Clip bool `json:"clip,omitempty"`
 }
 
 // Env is the tool configuration read from the environment.
@@ -185,6 +188,10 @@ func (e Env) path(p string) string {
 }
 
 func (e Env) tts(ctx context.Context, textFile string) error {
+	if e.Spec.Clip {
+		return errors.New("this short speaks the long video's narration: narration/speech.wav and narration/timings.json " +
+			"are already in place and must stay as they are; do not run tts")
+	}
 	lang := e.Spec.Language
 	if lang == "" {
 		lang = "tr"
@@ -307,6 +314,9 @@ func Check(ctx context.Context, r Prober, dir, pagePath string, spec Spec) Repor
 		}
 		if spec.MinDuration > 0 && m.Duration < spec.MinDuration-0.5 {
 			fail("duration %.1f s is under the %.0f s minimum", m.Duration, spec.MinDuration)
+		}
+		if spec.Clip && math.Abs(narration-spec.MinDuration) > 0.1 {
+			fail("narration/timings.json lasts %.2f s, not the clip's %.2f s; the long video's narration must stay as it was prepared", narration, spec.MinDuration)
 		}
 		if narration > 0 && (m.Duration < narration || m.Duration > narration+4) {
 			fail("duration %.2f s must cover the narration (%.2f s) plus at most 4 s of tail", m.Duration, narration)
