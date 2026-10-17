@@ -64,7 +64,7 @@ Domain rules:
   attached), queued; marks each moment `made`. Refused past `MaxPerVideo` shorts of that
   source.
 
-**Pipeline**: `Outputs` gains `shorts` (0–20, only with a long video). It is clamped to
+**Pipeline**: a long video's `VideoSpec` gains `shortsPerVideo` (0–20). It is clamped to
 `MaxPerVideo` when the shorts are made, so lowering the limit later is safe.
 
 **Persistence**: `deliverables` gains `clip_start_ms`, `clip_end_ms`; a new
@@ -73,9 +73,9 @@ origin, status, short id, created at), saved with the story like its deliverable
 
 ## 4. Flow
 
-1. **Live.** When a long video becomes live and its pipeline asks for shorts,
-   `production.moments` is enqueued (agent queue, unique per deliverable) in the same
-   transaction.
+1. **Live.** When a long video becomes live and its video spec asks for shorts,
+   `story.moments` is enqueued (control queue, unique per deliverable) in the same
+   transaction. A video outside the source limits is left alone (logged).
 2. **Scan.** The agent reads the long video's `script.md`, `scenes.json` and
    `narration/timings.json` and returns candidates as typed JSON (start, end, hook,
    reason, score), asked for twice the wanted count. Go runs `SuggestMoments`, then
@@ -118,17 +118,23 @@ origin, status, short id, created at), saved with the story like its deliverable
 | `PATCH · DELETE /workspaces/{ws}/stories/{id}/moments/{mid}` | edit |
 | `POST /workspaces/{ws}/stories/{id}/deliverables/{did}/shorts` `{momentIds}` | edit |
 
-Deliverables gain `clip {start, end}`; pipelines and their outputs gain `shorts`.
+Deliverables gain `clip {startSeconds, endSeconds}`; a video spec gains `shortsPerVideo`.
 The moments listing carries the shorts limits, so the UI can bound its inputs.
 
 ## 6. Web UI
 
-- **Pipeline form** → with a long video: "Shorts per video" (0 to the limit).
-- **Story page** → shorts grouped under their long video, each with a "05:12–05:58"
-  badge that seeks the long video there.
-- **Moments panel** on a long video that can be cut: the transcript beside the player
-  (from the timings, click to seek), suggested moments with score, hook and reason,
-  in/out handles that move by sentence, select text to add one, *Make shorts*.
+- **Pipeline and request forms** → with a long video: "Shorts per video" (0–20, sent as
+  `outputs.video.shortsPerVideo`); the pipeline summary says "· 3 shorts cut from each".
+- **Story page** → a short is a deliverable of the long video's story, labelled
+  "Short · 0:51–1:11" in the deliverable switcher.
+- **Shorts section** of the review panel, on a long video that is ready or published:
+  how many shorts are made of the limit; *Find moments* (follows the scan job); the
+  moments with their range (click to play the long video there), length, score or
+  "Yours", hook and reason; for a suggested one, a checkbox, start / end one sentence
+  earlier or later, and *Set aside*; a made one links to its short; *Make N shorts*
+  for the checked ones within the room left; *Choose sentences* lists the narration to
+  pick a moment's first and last sentence (checked against the short limits) and add
+  it. When the video cannot be cut, the section says why (`blocked`).
 
 ## 7. Phases
 
@@ -142,8 +148,14 @@ service with inmemory repos and a fixed clock, `httptest` through the router).
 2. ✅ **Clip-mode drafting** — slicing in `prepare`, `prompts/clip.md`, `kurgu tool clip`,
    enforcement, and the moments and shorts endpoints with manual ranges. Usable end to
    end from here through the API (not yet run against a real long video).
-3. **Scan and moments panel** — `production.moments`, the typed agent call, the UI.
-4. **Pipeline automation** — `outputs.shorts`, scan on live, the form field.
+3. ✅ **Scan and moments panel** — the `story.moments` job (control queue: one typed
+   agent call, like idea planning, so remote workers need nothing new; the agent
+   answers by sentence number, so moments always fall on sentences), the scan
+   endpoint, and the Shorts section of the review panel.
+4. ✅ **Pipeline automation** — `VideoSpec.shortsPerVideo` (stored inside the video
+   spec, so the long deliverable carries it and ad-hoc requests get it too); when the
+   long video goes live, `release` queues one scan (unique per video) that makes the
+   best N into shorts; the form field.
 
 When phase 2 lands, add shorts from long videos to PLAN.md §1 and §6.
 
