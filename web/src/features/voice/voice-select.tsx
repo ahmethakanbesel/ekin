@@ -8,6 +8,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { SourceChip } from "@/features/settings/layered"
+import { m } from "@/i18n"
+import { cn } from "@/lib/utils"
 import { groupVoices, shortLabel } from "./model"
 
 /** The select's value for "workspace default". */
@@ -25,6 +28,7 @@ export function VoiceSelect({
   onChange,
   disabled,
   defaultLabel,
+  inherited,
   className,
 }: {
   id: string
@@ -33,8 +37,11 @@ export function VoiceSelect({
   onChange: (voice: string) => void
   disabled?: boolean
   defaultLabel?: string
+  /** The voice the layer below gives: chosen, the trigger reads as inherited. */
+  inherited?: string
   className?: string
 }) {
+  const inheriting = inherited !== undefined && value === inherited
   const groups = groupVoices(engine.voices)
   const grouped = groups.length > 1
   const items = [
@@ -48,8 +55,14 @@ export function VoiceSelect({
       value={value || (defaultLabel ? DEFAULT : null)}
       onValueChange={(v) => onChange(!v || v === DEFAULT ? "" : String(v))}
     >
-      <SelectTrigger id={id} className={className ?? "w-full"}>
-        <SelectValue />
+      <SelectTrigger id={id} className={cn(className ?? "w-full", inheriting && "font-normal text-muted-foreground")}>
+        <SelectValue>
+          {(v: string) => {
+            const label = items.find((it) => it.value === v)?.label ?? v
+            return inheriting ? m.settings.inheritOption(label) : label
+          }}
+        </SelectValue>
+        {inherited !== undefined && !inheriting ? <SourceChip here>{m.settings.setHere}</SourceChip> : null}
       </SelectTrigger>
       <SelectContent>
         {defaultLabel ? <SelectItem value={DEFAULT}>{defaultLabel}</SelectItem> : null}

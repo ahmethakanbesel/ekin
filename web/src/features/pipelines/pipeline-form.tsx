@@ -24,7 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { TemplateSelect } from "@/features/templates/template-select"
+import { LayeredCard } from "@/features/settings/layered"
+import { InheritedTemplateRow } from "@/features/templates/template-select"
 import { ProductionCard } from "@/features/settings/production-card"
 import { emptyOverride } from "@/features/voice/model"
 import { m } from "@/i18n"
@@ -209,24 +210,26 @@ export function PipelineForm({
       </Section>
 
       {/* House style */}
-      <Section
+      <LayeredCard
         title={m.pipelineForm.sections.style}
         description={m.pipelineForm.styleHint}
-        disabled={readOnly}
+        fromLabel={m.settings.columns.inherited}
+        hereLabel={m.settings.production.thisPipeline}
       >
-        <form.Field name="templateId">
-          {(field) => (
-            <TemplateSelect
-              id="pl-template"
-              value={field.state.value}
-              onChange={field.handleChange}
-              kinds={chosenKinds({ videoEnabled, articleEnabled })}
-              inherits
-              disabled={readOnly}
-            />
-          )}
-        </form.Field>
-      </Section>
+        <div className="pb-4">
+          <form.Field name="templateId">
+            {(field) => (
+              <InheritedTemplateRow
+                id="pl-template"
+                value={field.state.value}
+                onChange={field.handleChange}
+                kinds={chosenKinds({ videoEnabled, articleEnabled })}
+                readOnly={readOnly}
+              />
+            )}
+          </form.Field>
+        </div>
+      </LayeredCard>
 
       {/* Source */}
       <Section title={m.pipelineForm.sections.source} disabled={readOnly}>

@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Row } from "@/features/pipelines/form-parts"
-import { SourceChip } from "@/features/settings/layered"
+import { LayeredRow, SourceChip } from "@/features/settings/layered"
 import { useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { cn } from "@/lib/utils"
@@ -77,10 +77,12 @@ export function TemplateSelect({
   const defaultId = defaults.data?.templateId
   const inheritedName = defaultId ? (all.find((t) => t.id === defaultId)?.name ?? p.unknown) : p.none
   const inheritLabel = m.settings.inheritOption(inheritedName)
+  // The workspace default itself: unset inherits the built-in none.
+  const noneLabel = bare && !inherits ? m.settings.inheritOption(p.none) : p.none
 
   const items = [
     ...(inherits ? [{ value: INHERIT, label: inheritLabel }] : []),
-    { value: NONE, label: p.none },
+    { value: NONE, label: noneLabel },
     ...options.map((t) => ({ value: t.id, label: t.name })),
     ...(unknown ? [{ value: chosenId, label: p.unknown }] : []),
   ]
@@ -104,7 +106,11 @@ export function TemplateSelect({
       <SelectTrigger
         id={id}
         aria-describedby={describedBy}
-        className={cn("w-full", !bare && "sm:max-w-md", selectValue === INHERIT && "text-muted-foreground")}
+        className={cn(
+          "w-full",
+          !bare && "sm:max-w-md",
+          (selectValue === INHERIT || (bare && !inherits && selectValue === NONE)) && "text-muted-foreground"
+        )}
         aria-invalid={unfit || undefined}
       >
         <SelectValue>
@@ -112,14 +118,16 @@ export function TemplateSelect({
             const t = byId.get(v)
             if (t) return <Option template={t} />
             if (v === INHERIT) return inheritLabel
-            return v === NONE ? p.none : p.unknown
+            return v === NONE ? noneLabel : p.unknown
           }}
         </SelectValue>
-        {inherits && selectValue !== INHERIT ? <SourceChip here>{m.settings.setHere}</SourceChip> : null}
+        {(inherits && selectValue !== INHERIT) || (bare && !inherits && selectValue !== NONE) ? (
+          <SourceChip here>{m.settings.setHere}</SourceChip>
+        ) : null}
       </SelectTrigger>
       <SelectContent>
         {inherits ? <SelectItem value={INHERIT}>{inheritLabel}</SelectItem> : null}
-        <SelectItem value={NONE}>{p.none}</SelectItem>
+        <SelectItem value={NONE}>{noneLabel}</SelectItem>
         {options.map((t) => (
           <SelectItem key={t.id} value={t.id}>
             <Option template={t} unfit={!fitsKinds(t, kinds)} />
@@ -129,7 +137,15 @@ export function TemplateSelect({
       </SelectContent>
     </Select>
   )
-  if (bare) return select
+  if (bare)
+    return unfit ? (
+      <>
+        {select}
+        <p className="mt-1.5 text-xs text-destructive">{p.unfit}</p>
+      </>
+    ) : (
+      select
+    )
 
   return (
     <Row label={p.label} htmlFor={id} error={unfit ? p.unfit : undefined}>
@@ -145,6 +161,68 @@ export function TemplateSelect({
         </Link>
       </p>
     </Row>
+  )
+}
+
+/**
+ * A pipeline's template as a layered row: the workspace default (or none)
+ * beside this pipeline's choice, with Reset back to inheriting.
+ */
+export function InheritedTemplateRow({
+  id,
+  value,
+  onChange,
+  kinds,
+  readOnly = false,
+}: {
+  id: string
+  value: string
+  onChange: (templateId: string) => void
+  kinds: DeliverableKind[]
+  readOnly?: boolean
+}) {
+  const workspace = useWorkspace()
+  const list = useQuery(templatesQuery(workspace.id))
+  const defaults = useQuery(workspaceProductionQuery(workspace.id))
+  const p = m.templates.picker
+  const defaultId = defaults.data?.templateId
+  const inherited = defaultId
+    ? { value: list.data?.find((t) => t.id === defaultId)?.name ?? p.unknown, source: workspace.name }
+    : { value: p.none, source: m.settings.layers.builtIn }
+  return (
+    <LayeredRow
+      label={p.label}
+      htmlFor={id}
+      hint={
+        <>
+          {p.hint}{" "}
+          <Link
+            to="/w/$workspaceId/templates"
+            params={{ workspaceId: workspace.id }}
+            className="font-medium text-foreground underline decoration-input underline-offset-4 hover:decoration-foreground"
+          >
+            {p.browse}
+          </Link>
+        </>
+      }
+      inherited={inherited}
+      set={value !== ""}
+      readOnly={readOnly}
+      onReset={() => onChange("")}
+    >
+      {(describedBy) => (
+        <TemplateSelect
+          id={id}
+          value={value}
+          onChange={onChange}
+          kinds={kinds}
+          inherits
+          bare
+          describedBy={describedBy}
+          disabled={readOnly}
+        />
+      )}
+    </LayeredRow>
   )
 }
 

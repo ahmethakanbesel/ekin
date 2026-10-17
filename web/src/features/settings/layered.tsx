@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
 import { m } from "@/i18n"
 import { cn } from "@/lib/utils"
 
@@ -24,6 +25,22 @@ export const INHERIT = "__inherit"
 
 /** Desktop grid of a row: setting · inherited · this layer · reset. */
 const GRID = "md:grid md:grid-cols-[minmax(8rem,11rem)_minmax(0,1fr)_minmax(13rem,20rem)_4.5rem] md:items-center md:gap-x-5"
+
+/** Placeholder rows in the layered grid's own columns, so nothing jumps on load. */
+export function LayeredSkeleton({ rows = 8 }: { rows?: number }) {
+  return (
+    <div aria-busy="true" aria-label={m.common.loading} className="pb-4">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className={cn("grid gap-2 px-6 py-3", GRID)}>
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-9 w-full" />
+          <span />
+        </div>
+      ))}
+    </div>
+  )
+}
 
 /** A small outline pill naming a layer. */
 export function SourceChip({ children, here = false }: { children: ReactNode; here?: boolean }) {

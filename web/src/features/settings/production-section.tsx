@@ -6,7 +6,6 @@ import { toast } from "sonner"
 import type { WorkspaceProduction } from "@/api/client"
 import { Banner, ErrorState } from "@/components/page"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import {
   fromProduction,
   toProduction,
@@ -19,7 +18,7 @@ import { cn } from "@/lib/utils"
 import { pipelinesQuery } from "@/queries/pipelines"
 import { useSaveWorkspaceProduction, workspaceProductionQuery } from "@/queries/production"
 import { TemplateSelect } from "@/features/templates/template-select"
-import { LayeredCard, LayeredGroup, LayeredRow } from "./layered"
+import { LayeredCard, LayeredGroup, LayeredRow, LayeredSkeleton } from "./layered"
 import { ProductionFields, changedLabels, countSet, serverResolved } from "./production-fields"
 import { SettingsSectionHeader } from "./settings-page"
 
@@ -36,16 +35,13 @@ export function ProductionSection() {
   let body
   if (query.isPending)
     body = (
-      <div className="grid gap-3 rounded-xl p-6 ring-1 ring-foreground/10" aria-busy="true" aria-label={m.common.loading}>
-        <Skeleton className="h-5 w-2/3" />
-        {Array.from({ length: 8 }, (_, i) => (
-          <div key={i} className="grid grid-cols-[10rem_1fr_16rem] items-center gap-5 py-2">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-4 w-36" />
-            <Skeleton className="h-9 w-full" />
-          </div>
-        ))}
-      </div>
+      <LayeredCard
+        description={m.common.loading}
+        fromLabel={m.settings.columns.inherited}
+        hereLabel={workspace.name}
+      >
+        <LayeredSkeleton />
+      </LayeredCard>
     )
   else if (query.isError)
     body = <ErrorState error={query.error} onRetry={() => void query.refetch()} />

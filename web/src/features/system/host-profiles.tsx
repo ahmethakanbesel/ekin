@@ -519,9 +519,7 @@ function ProfileCard({
               {(field) => (
                 <Field orientation="horizontal" className="rounded-xl border px-4 py-3">
                   <FieldContent>
-                    <FieldLabel htmlFor={id("paused")}>
-                      {field.state.value ? m.system.paused : m.system.running}
-                    </FieldLabel>
+                    <FieldLabel htmlFor={id("paused")}>{m.system.running}</FieldLabel>
                     <FieldDescription>
                       {field.state.value ? m.system.pausedHint : m.system.runningHint}
                     </FieldDescription>

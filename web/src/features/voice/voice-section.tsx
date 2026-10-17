@@ -289,8 +289,18 @@ function LanguageCard({
                   if (next && next.id !== engine.id) setConfig((c) => switchEngine(c, next))
                 }}
               >
-                <SelectTrigger id={id("engine")} aria-describedby={describedBy} className="w-full font-medium">
-                  <SelectValue />
+                <SelectTrigger
+                  id={id("engine")}
+                  aria-describedby={describedBy}
+                  className={cn("w-full", engine.id !== engines[0].id ? "font-medium" : "text-muted-foreground")}
+                >
+                  <SelectValue>
+                    {(v: string) => {
+                      const e = engines.find((x) => x.id === v)
+                      const label = e ? engineLabel(e) : v
+                      return e?.id === engines[0].id ? m.settings.inheritOption(label) : label
+                    }}
+                  </SelectValue>
                   {engine.id !== engines[0].id ? <SourceChip here>{m.settings.setHere}</SourceChip> : null}
                 </SelectTrigger>
                 <SelectContent>
@@ -321,6 +331,7 @@ function LanguageCard({
                   id={id("voice")}
                   className="w-full font-medium"
                   engine={engine}
+                  inherited={engineDefault.voice}
                   value={config.voice}
                   onChange={(v) => v && set("voice", v)}
                   disabled={disabled}
@@ -354,8 +365,16 @@ function LanguageCard({
                   value={config.quality ?? "fp32"}
                   onValueChange={(v) => v && set("quality", v as VoiceConfig["quality"])}
                 >
-                  <SelectTrigger id={id("quality")} aria-describedby={describedBy} className="w-full font-medium">
-                    <SelectValue />
+                  <SelectTrigger
+                    id={id("quality")}
+                    aria-describedby={describedBy}
+                    className={cn("w-full", (config.quality ?? "fp32") !== "fp32" ? "font-medium" : "text-muted-foreground")}
+                  >
+                    <SelectValue>
+                      {(v: string) =>
+                        v === "fp32" ? m.settings.inheritOption(m.voice.qualities.fp32) : (m.voice.qualities[v] ?? v)
+                      }
+                    </SelectValue>
                     {(config.quality ?? "fp32") !== "fp32" ? <SourceChip here>{m.settings.setHere}</SourceChip> : null}
                   </SelectTrigger>
                   <SelectContent>
