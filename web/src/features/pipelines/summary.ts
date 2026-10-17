@@ -12,11 +12,12 @@ export function outputLines(def: PipelineDefinition): OutputLine[] {
   if (video) {
     lines.push({
       kind: "video",
-      text: m.pipelines.videoSummary(
-        m.values.format[video.format] ?? video.format,
-        m.values.orientation[video.orientation] ?? video.orientation,
-        formatDuration(video.durationSeconds),
-      ),
+      text:
+        m.pipelines.videoSummary(
+          m.values.format[video.format] ?? video.format,
+          m.values.orientation[video.orientation] ?? video.orientation,
+          formatDuration(video.durationSeconds),
+        ) + (video.shortsPerVideo ? m.pipelines.shortsSummary(video.shortsPerVideo) : ""),
       lead: both && lead === "video",
     })
   }

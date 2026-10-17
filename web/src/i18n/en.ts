@@ -339,6 +339,7 @@ export const en = {
     lead: "lead",
     videoSummary: (format: string, orientation: string, duration: string) =>
       `${format} video · ${orientation} · ${duration}`,
+    shortsSummary: (n: number) => ` · ${n} ${n === 1 ? "short" : "shorts"} cut from each`,
     articleSummary: (words: number, translations: string) =>
       `Article · ${words.toLocaleString("en-GB")} words${translations ? ` · → ${translations}` : ""}`,
     batch: (n: number) => (n === 1 ? "1 item per run" : `${n} items per run`),
@@ -458,6 +459,9 @@ export const en = {
     durationSeconds: "Duration (seconds)",
     durationHintShort: "Shorts run 10–180 seconds.",
     durationHintLong: "Long videos run 60–3600 seconds.",
+    shortsPerVideo: "Shorts per video",
+    shortsPerVideoHint:
+      "Vertical shorts cut from each video once it is live, from the moments the agent finds. 0 for none.",
     words: "Length (words)",
     wordsHint: "300–6000 words.",
     translations: "Translations",
@@ -553,6 +557,7 @@ export const en = {
     shortOrientation: "A short must be vertical or square.",
     durationShort: "A short must last 10–180 seconds.",
     durationLong: "A long video must last 60–3600 seconds.",
+    shortsPerVideo: "Shorts per video must be 0–20.",
     words: "Length must be 300–6000 words.",
     leadRequired: "Choose which output leads.",
     instructionsRequired: "A prompt pipeline needs a system prompt.",

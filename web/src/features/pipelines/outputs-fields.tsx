@@ -181,6 +181,28 @@ export const OutputsFields = withFieldGroup({
                   </Row>
                 )}
               </group.Field>
+              {format === "long" ? (
+                <group.Field name="video.shortsPerVideo">
+                  {(field) => (
+                    <Row
+                      label={m.pipelineForm.shortsPerVideo}
+                      htmlFor={id("shorts")}
+                      hint={m.pipelineForm.shortsPerVideoHint}
+                      error={shown(field.state.meta)}
+                    >
+                      <NumberInput
+                        id={id("shorts")}
+                        value={field.state.value}
+                        onChange={field.handleChange}
+                        onBlur={field.handleBlur}
+                        min={LIMITS.shortsPerVideo[0]}
+                        max={LIMITS.shortsPerVideo[1]}
+                        invalid={!!shown(field.state.meta)}
+                      />
+                    </Row>
+                  )}
+                </group.Field>
+              ) : null}
             </FieldGroup>
           </OutputPanel>
 

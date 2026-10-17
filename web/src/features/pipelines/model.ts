@@ -31,6 +31,7 @@ export const LIMITS = {
   shortSeconds: [10, 180],
   longSeconds: [60, 3600],
   words: [300, 6000],
+  shortsPerVideo: [0, 20],
   instructions: 20000,
   refs: 50,
   batch: [1, 20],
@@ -45,7 +46,8 @@ export type RefValues = { documentId: string; fromPage: string; toPage: string }
  */
 export type OutputsValues = {
   videoEnabled: boolean
-  video: { format: VideoFormat; orientation: Orientation; durationSeconds: string }
+  /** shortsPerVideo: shorts cut from a long video once live; "0" for none. */
+  video: { format: VideoFormat; orientation: Orientation; durationSeconds: string; shortsPerVideo: string }
   articleEnabled: boolean
   article: { words: string; translations: Language[] }
   lead: Lead
@@ -108,7 +110,7 @@ export function emptyRef(): RefValues {
 export function defaultOutputs(): OutputsValues {
   return {
     videoEnabled: true,
-    video: { format: "short", orientation: "vertical", durationSeconds: "60" },
+    video: { format: "short", orientation: "vertical", durationSeconds: "60", shortsPerVideo: "0" },
     articleEnabled: false,
     article: { words: "1200", translations: [] },
     lead: "video",
@@ -145,6 +147,7 @@ export function fromDefinition(
           format: video.format,
           orientation: video.orientation,
           durationSeconds: String(video.durationSeconds),
+          shortsPerVideo: String(video.shortsPerVideo ?? 0),
         }
       : base.video,
     articleEnabled: !!article,
@@ -185,6 +188,10 @@ export function toOutputs(v: OutputsValues, language: Language): Outputs {
           format: v.video.format,
           orientation: v.video.orientation,
           durationSeconds: toInt(v.video.durationSeconds) ?? 0,
+          shortsPerVideo:
+            v.video.format === "long" && (toInt(v.video.shortsPerVideo) ?? 0) > 0
+              ? toInt(v.video.shortsPerVideo)
+              : undefined,
         }
       : undefined,
     article: v.articleEnabled
@@ -326,6 +333,9 @@ export function validateOutputs(v: OutputsValues, fields: PipelineFieldErrors): 
     const short = v.video.format === "short"
     if (!inRange(v.video.durationSeconds, short ? LIMITS.shortSeconds : LIMITS.longSeconds)) {
       fields["video.durationSeconds"] = short ? t.durationShort : t.durationLong
+    }
+    if (!short && !inRange(v.video.shortsPerVideo, LIMITS.shortsPerVideo)) {
+      fields["video.shortsPerVideo"] = t.shortsPerVideo
     }
   }
   if (v.articleEnabled && !inRange(v.article.words, LIMITS.words)) {
