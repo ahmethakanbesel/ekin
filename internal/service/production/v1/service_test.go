@@ -197,9 +197,9 @@ type fixture struct {
 	// host returns another production service on the same database and
 	// blobs with its own work root, like a second worker host.
 	host func() *production.Service
-	// hostOn is host over another blob store.
-	hostOn func(blob.Store) *production.Service
-	blobs  blob.Store
+	// hostWith is host with some of its dependencies swapped.
+	hostWith func(adjust func(*production.Deps)) *production.Service
+	blobs    blob.Store
 }
 
 func newFixture(t *testing.T) fixture {
@@ -219,15 +219,19 @@ func newFixture(t *testing.T) fixture {
 	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, agent, t.TempDir())
 	voices := voicesvc.NewService(settingsrepo.NewSQLite(tx), jobs, nil, blobs)
 	pipelines.WithTemplates(templates).WithVoices(voices)
-	hostOn := func(blobs blob.Store) *production.Service {
-		svc := production.NewService(production.Config{WorkRoot: t.TempDir(), KurguBin: "/usr/local/bin/kurgu"}, production.Deps{
+	hostWith := func(adjust func(*production.Deps)) *production.Service {
+		deps := production.Deps{
 			Stories: storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx,
 			Blobs: blobs, Agent: agent, Renderer: fakeRenderer{}, SEO: seo, Templates: templates, Voices: voices,
-		})
+		}
+		if adjust != nil {
+			adjust(&deps)
+		}
+		svc := production.NewService(production.Config{WorkRoot: t.TempDir(), KurguBin: "/usr/local/bin/kurgu"}, deps)
 		svc.AddPublisher(fakePublisher{pipelinedomain.KindVideo}).AddPublisher(fakePublisher{pipelinedomain.KindArticle})
 		return svc
 	}
-	host := func() *production.Service { return hostOn(blobs) }
+	host := func() *production.Service { return hostWith(nil) }
 	svc := host()
 	// As transport/job/production.Watch does in the app.
 	for _, kind := range []string{production.KindDraft, production.KindRender, production.KindPublish} {
@@ -238,7 +242,7 @@ func newFixture(t *testing.T) fixture {
 		})
 	}
 	return fixture{voices: voices, seo: seo, svc: svc, jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID(), host: host,
-		blobs: blobs, hostOn: hostOn}
+		blobs: blobs, hostWith: hostWith}
 }
 
 // drain runs queued jobs until none are left, like a worker would.
@@ -1057,12 +1061,14 @@ func TestConcurrentEditsKeepTheSavedOnesFiles(t *testing.T) {
 	}
 	mine := strings.Replace(*c.Article, "Kaygı nedir", "Kaygı nedir (benim)", 1)
 	theirs := strings.Replace(*c.Article, "Kaygı nedir", "Kaygı nedir (onların)", 1)
-	slow := f.hostOn(&interleavedBlobs{Store: f.blobs, match: "/r2/", before: func() {
-		// The other reviewer saves while this edit is still uploading.
-		if _, err := f.svc.EditContent(ctx, f.ws, st.ID(), d.ID(), id.New(), production.Edit{Revision: 1, Article: &theirs}); err != nil {
-			t.Errorf("their edit: %v", err)
-		}
-	}})
+	slow := f.hostWith(func(deps *production.Deps) {
+		deps.Blobs = &interleavedBlobs{Store: f.blobs, match: "/r2/", before: func() {
+			// The other reviewer saves while this edit is still uploading.
+			if _, err := f.svc.EditContent(ctx, f.ws, st.ID(), d.ID(), id.New(), production.Edit{Revision: 1, Article: &theirs}); err != nil {
+				t.Errorf("their edit: %v", err)
+			}
+		}}
+	})
 	if _, err := slow.EditContent(ctx, f.ws, st.ID(), d.ID(), id.New(), production.Edit{Revision: 1, Article: &mine}); !apperror.Is(err, apperror.Conflict) {
 		t.Fatalf("the later save = %v, want a conflict", err)
 	}
@@ -1110,5 +1116,77 @@ func TestKeywordTakenMeanwhileGetsNoSecondStory(t *testing.T) {
 	used, _ := f.seo.List(ctx, f.ws, seodomain.StatusUsed)
 	if len(used) != 1 || used[0].StoryID != other {
 		t.Fatalf("used = %+v", used)
+	}
+}
+
+// failingEnqueuer refuses jobs of one kind, like a queue write failing.
+type failingEnqueuer struct {
+	production.Enqueuer
+	kind string
+}
+
+func (e failingEnqueuer) Enqueue(ctx context.Context, spec jobdomain.Spec) (*jobdomain.Job, bool, error) {
+	if spec.Kind == e.kind {
+		return nil, false, errors.New("queue unavailable")
+	}
+	return e.Enqueuer.Enqueue(ctx, spec)
+}
+
+type brokenPublisher struct{ fakePublisher }
+
+func (brokenPublisher) Publish(context.Context, production.PublishRequest) (storydomain.Publication, error) {
+	return storydomain.Publication{}, errors.New("blog unreachable")
+}
+
+// A decision whose follow-up job cannot be queued is not saved either:
+// the deliverable never sits ready with no publication queued.
+func TestDecisionAndItsFollowUpAreOneTransaction(t *testing.T) {
+	tests := []struct {
+		name   string
+		setup  func(t *testing.T, f fixture, st *storydomain.Story) // from an article in review
+		decide func(svc *production.Service, f fixture, st *storydomain.Story) error
+		want   storydomain.Status
+	}{
+		{
+			name: "approve",
+			decide: func(svc *production.Service, f fixture, st *storydomain.Story) error {
+				_, err := svc.Approve(context.Background(), f.ws, st.ID(), st.Lead().ID(), id.New())
+				return err
+			},
+			want: storydomain.StatusReview,
+		},
+		{
+			name: "retry a failed publication",
+			setup: func(t *testing.T, f fixture, st *storydomain.Story) {
+				broken := f.host()
+				broken.AddPublisher(brokenPublisher{fakePublisher{pipelinedomain.KindArticle}})
+				if _, err := broken.Approve(context.Background(), f.ws, st.ID(), st.Lead().ID(), id.New()); err != nil {
+					t.Fatal(err)
+				}
+				f.drainOn(t, broken)
+			},
+			decide: func(svc *production.Service, f fixture, st *storydomain.Story) error {
+				_, err := svc.Retry(context.Background(), f.ws, st.ID(), st.Lead().ID())
+				return err
+			},
+			want: storydomain.StatusFailed,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, st := articleFixture(t)
+			if tt.setup != nil {
+				tt.setup(t, f, st)
+			}
+			flaky := f.hostWith(func(deps *production.Deps) {
+				deps.Jobs = failingEnqueuer{Enqueuer: deps.Jobs, kind: production.KindPublish}
+			})
+			if err := tt.decide(flaky, f, st); err == nil {
+				t.Fatal("the decision succeeded though its publication could not be queued")
+			}
+			if got := f.story(t).Lead(); got.Status() != tt.want {
+				t.Fatalf("the article is %s, want it left %s", got.Status(), tt.want)
+			}
+		})
 	}
 }

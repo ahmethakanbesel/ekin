@@ -155,54 +155,56 @@ func (s *Service) FinishRender(ctx context.Context, task RenderTask, files map[s
 		if err := s.stories.PutRevision(ctx, rev); err != nil {
 			return err
 		}
-		return st.Rendered(d.ID(), length, s.now())
+		if err := st.Rendered(d.ID(), length, s.now()); err != nil {
+			return err
+		}
+		if d, _ := st.Deliverable(d.ID()); d.Status() == storydomain.StatusReady {
+			return s.ready(ctx, st, d)
+		}
+		return nil
 	})
 	if err != nil {
 		return err
 	}
-	d, _ = st.Deliverable(d.ID())
-	switch d.Status() {
-	case storydomain.StatusReview:
+	if d, _ = st.Deliverable(d.ID()); d.Status() == storydomain.StatusReview {
 		s.notify(ctx, Event{WorkspaceID: st.WorkspaceID(), StoryID: st.ID(), Kind: "review", Title: st.Idea().Title,
 			Detail: fmt.Sprintf("video revision %d is ready for review", d.Revision())})
-	case storydomain.StatusReady:
-		return s.afterReady(ctx, st, d)
 	}
 	return nil
 }
 
-// afterReady publishes a ready deliverable when the workspace has a
-// target; otherwise it releases what was waiting on it right away.
-func (s *Service) afterReady(ctx context.Context, st *storydomain.Story, d *storydomain.Deliverable) error {
+// ready moves on from a deliverable that just became ready: it queues
+// its publication when the workspace has a target, otherwise it releases
+// what was waiting on it right away. Call it inside the transaction that
+// made d ready, so the deliverable never sits ready with nothing queued.
+func (s *Service) ready(ctx context.Context, st *storydomain.Story, d *storydomain.Deliverable) error {
 	queued, err := s.autoPublish(ctx, st, d)
 	if err != nil || queued {
 		return err
 	}
-	return s.releaseDerived(ctx, st.ID(), d.ID())
+	return s.release(ctx, st, d.ID())
 }
 
-func (s *Service) releaseDerived(ctx context.Context, storyID, source uuid.UUID) error {
-	_, err := s.mutate(ctx, storyID, func(ctx context.Context, st *storydomain.Story) error {
-		queued, err := st.ReleaseDerived(source, s.now())
-		if err != nil {
+// release queues the deliverables that were waiting on source. Call it
+// inside the transaction that saves st.
+func (s *Service) release(ctx context.Context, st *storydomain.Story, source uuid.UUID) error {
+	queued, err := st.ReleaseDerived(source, s.now())
+	if err != nil {
+		return err
+	}
+	for _, q := range queued {
+		if err := s.enqueueStep(ctx, st, q); err != nil {
 			return err
 		}
-		for _, q := range queued {
-			if err := s.enqueueStep(ctx, st, q); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	return err
+	}
+	return nil
 }
 
-// Approve accepts a deliverable in review and queues what follows.
+// Approve accepts a deliverable in review and queues what follows, all
+// in one transaction.
 func (s *Service) Approve(ctx context.Context, workspaceID, storyID, deliverableID, actorID uuid.UUID) (*storydomain.Story, error) {
-	var queued []*storydomain.Deliverable
-	st, err := s.change(ctx, workspaceID, storyID, func(ctx context.Context, st *storydomain.Story) error {
-		var err error
-		queued, err = st.Approve(deliverableID, actorID, id.New, s.now())
+	return s.change(ctx, workspaceID, storyID, func(ctx context.Context, st *storydomain.Story) error {
+		queued, err := st.Approve(deliverableID, actorID, id.New, s.now())
 		if err != nil {
 			return err
 		}
@@ -215,18 +217,11 @@ func (s *Service) Approve(ctx context.Context, workspaceID, storyID, deliverable
 				return err
 			}
 		}
+		if d.Status() == storydomain.StatusReady {
+			return s.ready(ctx, st, d)
+		}
 		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
-	if d, _ := st.Deliverable(deliverableID); d.Status() == storydomain.StatusReady {
-		if err := s.afterReady(ctx, st, d); err != nil {
-			return st, err
-		}
-		return s.stories.Get(ctx, workspaceID, storyID)
-	}
-	return st, nil
 }
 
 // RequestChanges sends a deliverable back to the agent with feedback.
@@ -247,22 +242,19 @@ func (s *Service) Reject(ctx context.Context, workspaceID, storyID, deliverableI
 	})
 }
 
-// Retry resumes a failed deliverable.
+// Retry resumes a failed deliverable and queues the step it resumes at.
 func (s *Service) Retry(ctx context.Context, workspaceID, storyID, deliverableID uuid.UUID) (*storydomain.Story, error) {
-	var resumed storydomain.Status
-	st, err := s.change(ctx, workspaceID, storyID, func(ctx context.Context, st *storydomain.Story) error {
-		var err error
-		if resumed, err = st.Retry(deliverableID, s.now()); err != nil {
+	return s.change(ctx, workspaceID, storyID, func(ctx context.Context, st *storydomain.Story) error {
+		resumed, err := st.Retry(deliverableID, s.now())
+		if err != nil {
 			return err
 		}
 		d, _ := st.Deliverable(deliverableID)
+		if resumed == storydomain.StatusReady {
+			return s.enqueuePublish(ctx, st, d) // a failed publication
+		}
 		return s.enqueueStep(ctx, st, d)
 	})
-	if err == nil && resumed == storydomain.StatusReady {
-		d, _ := st.Deliverable(deliverableID)
-		err = s.PublishNow(ctx, st, d)
-	}
-	return st, err
 }
 
 // Publish queues publication of a ready deliverable.
@@ -377,16 +369,19 @@ func (s *Service) PublishJob(ctx context.Context, jobID uuid.UUID, p Deliverable
 		s.fail(ctx, st, d, err)
 		return nil
 	}
-	st, err = s.mutate(ctx, p.StoryID, func(_ context.Context, st *storydomain.Story) error {
-		return st.Published(p.DeliverableID, publication, s.now())
+	st, err = s.mutate(ctx, p.StoryID, func(ctx context.Context, st *storydomain.Story) error {
+		if err := st.Published(p.DeliverableID, publication, s.now()); err != nil {
+			return err
+		}
+		// Derived deliverables can now be drafted around the live lead.
+		return s.release(ctx, st, p.DeliverableID)
 	})
 	if err != nil {
 		return err
 	}
 	s.notify(ctx, Event{WorkspaceID: st.WorkspaceID(), StoryID: st.ID(), Kind: "published", Title: st.Idea().Title,
 		Detail: fmt.Sprintf("%s published: %s", d.Kind(), publication.URL)})
-	// Derived deliverables can now be drafted around the live lead.
-	return s.releaseDerived(ctx, st.ID(), d.ID())
+	return nil
 }
 
 // change loads a story within the workspace, applies fn and saves.
