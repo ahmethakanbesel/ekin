@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"math"
 	"kurgu/internal/apperror"
 	"os"
 	"path/filepath"
@@ -22,6 +23,7 @@ import (
 	"kurgu/internal/adapter/claude"
 	"kurgu/internal/adapter/extract"
 	"kurgu/internal/adapter/render"
+	"kurgu/internal/agenttool"
 	"kurgu/internal/blob"
 	"kurgu/internal/db/dbtest"
 	jobdomain "kurgu/internal/domain/job/v1"
@@ -72,6 +74,9 @@ type fakeAgent struct {
 	// clipDirs holds, per short cut from a long video, the files its
 	// draft found in place (path → content).
 	clipDirs []map[string]string
+	// moveClip, when set, has the next short's draft move its cut to
+	// these window sentences with kurgu tool clip.
+	moveClip []string
 }
 
 func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result, error) {
@@ -141,6 +146,16 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 		a.mu.Lock()
 		a.clipDirs = append(a.clipDirs, found)
 		a.mu.Unlock()
+		a.mu.Lock()
+		move := a.moveClip
+		a.moveClip = nil
+		a.mu.Unlock()
+		if move != nil {
+			env := agenttool.Env{Dir: req.Dir, Stdout: io.Discard, Stderr: io.Discard, Spec: agenttool.Spec{Clip: true}}
+			if err := agenttool.Run(ctx, env, append([]string{"clip"}, move...)); err != nil {
+				return claude.Result{}, err
+			}
+		}
 		write("script.md", "Sahne 1: Öfkeyi adlandır.")
 		write("composition.html", `<script src="/kit/kurgu.js"></script>`)
 		write("metadata.json", `{"title":"Öfkeyi adlandır #shorts","description":"Kısa açıklama.","tags":["öfke"]}`)
@@ -182,8 +197,15 @@ func (l *scaleLog) all() []float64 {
 	return append([]float64(nil), l.scales...)
 }
 
-func (fakeRenderer) Probe(context.Context, string, string) (render.Meta, []string, error) {
-	return render.Meta{Width: 1080, Height: 1920, FPS: 30, Duration: 21}, nil, nil
+// Probe reports 21 s, or a little more than a longer narration, as a
+// composition timed to it would last.
+func (fakeRenderer) Probe(_ context.Context, dir, _ string) (render.Meta, []string, error) {
+	var t struct {
+		Duration float64 `json:"duration"`
+	}
+	raw, _ := os.ReadFile(filepath.Join(dir, "narration", "timings.json")) //nolint:gosec // the test's work dir
+	_ = json.Unmarshal(raw, &t)
+	return render.Meta{Width: 1080, Height: 1920, FPS: 30, Duration: math.Max(21, t.Duration+0.5)}, nil, nil
 }
 func (r fakeRenderer) Video(_ context.Context, _, _ string, opts render.VideoOptions, out string) (render.Meta, error) {
 	if r.scales != nil {

@@ -274,8 +274,17 @@ func (s *Service) FinishDraft(ctx context.Context, task DraftTask, dir string, r
 		return s.stepFailed(ctx, p, err)
 	}
 	measured := storydomain.Measures{Words: wordsIn(d, dir), Narrator: narratorIn(d, dir)}
+	recut, err := movedClip(d, dir)
+	if err != nil {
+		return s.stepFailed(ctx, p, err)
+	}
 	var rev storydomain.Revision
 	st, err = s.mutate(ctx, p.StoryID, func(ctx context.Context, st *storydomain.Story) error {
+		if recut != nil {
+			if err := st.Recut(p.DeliverableID, *recut, s.cfg.Shorts, s.now()); err != nil {
+				return err
+			}
+		}
 		var err error
 		rev, err = st.Drafted(p.DeliverableID, artifacts, res.Session, res.Notes, measured, s.now())
 		if err != nil {
@@ -287,6 +296,9 @@ func (s *Service) FinishDraft(ctx context.Context, task DraftTask, dir string, r
 		d, _ := st.Deliverable(p.DeliverableID)
 		return s.enqueueStep(ctx, st, d)
 	})
+	if apperror.Is(err, apperror.ValidationFailed) && recut != nil {
+		return s.stepFailed(ctx, p, fmt.Errorf("the agent moved the short's cut: %w", err))
+	}
 	if err != nil {
 		return err
 	}
@@ -558,11 +570,11 @@ func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydo
 			// The narration is the long video's slice: the composition
 			// covers it, plus an end card at most.
 			length := t.clip.clip.Length().Seconds()
-			t.spec.Clip, t.spec.MinDuration, t.spec.MaxDuration = true, length, length+clipTail
+			t.spec.Clip, t.spec.MinDuration, t.spec.MaxDuration = true, length, length+agenttool.ClipTail
 			t.targetWords = 0
 			data["ClipStart"], data["ClipEnd"] = clock(t.clip.clip.Start()), clock(t.clip.clip.End())
 			data["ClipSeconds"] = strconv.FormatFloat(length, 'f', 1, 64)
-			data["TailSeconds"] = int(clipTail)
+			data["TailSeconds"] = int(agenttool.ClipTail)
 			data["VideoURL"] = source.videoURL
 			page = "clip.md"
 		}

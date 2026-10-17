@@ -6,7 +6,8 @@ video ({{.ClipSeconds}} s). Its narration is already recorded: you design the
 picture around it. Everything you need is in this directory:
 
 - `BRIEF.md`: the idea, the audience rules and the spec. Follow it.
-- `sources/clip.md`: what this short says, sentence by sentence, with times.
+- `sources/clip.md`: the long video's sentences around this moment, numbered, with
+  those this short speaks marked ▶.
 - `sources/lead.md`: the long video's whole script and metadata, for context.
   The short must stand on its own for someone who never saw the long video.
 - `sources/long/composition.html` (and `scenes.json` when present): how the long
@@ -16,7 +17,10 @@ picture around it. Everything you need is in this directory:
 - `narration/speech.wav`, `narration/timings.json`, `narration/narration.txt`: the
   narration of this short and its word timings. **Do not change them and do not
   run `{{.Tool}} tts`**: the short speaks the long video's approved narration,
-  word for word.
+  word for word. To start or end at another sentence (a reviewer may ask for
+  it), run `{{.Tool}} clip --first N --last M` with sentence numbers from
+  `sources/clip.md`: it rewrites `narration/` for you; then re-time the
+  composition to the new timings.
 - `assets/` (with `assets/credits.json`): the stock media the long video used.
   Use what fits; you may add more.
 - `KIT.md`: how compositions work. Read it before writing any code.

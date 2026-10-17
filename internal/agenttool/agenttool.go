@@ -118,6 +118,8 @@ const usage = `usage: kurgu tool <command> [flags]
   library [--type music|video|photo] [--query "calm piano"]
                                                    search this video's media library
   library use <id>                                 put a library item in place and credit it
+  clip   --first N --last M                        a short cut from a long video: speak sentences N–M
+                                                   of the window in sources/clip.md instead
 `
 
 // Run executes one tool command.
@@ -168,6 +170,13 @@ func Run(ctx context.Context, e Env, args []string) error {
 			return err
 		}
 		return e.music(ctx, *duration)
+	case "clip":
+		first := fs.Int("first", 0, "first sentence of the window to speak (1-based)")
+		last := fs.Int("last", 0, "last sentence of the window to speak")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		return e.clip(*first, *last)
 	case "library":
 		kind := fs.String("type", "", "music, video or photo; default all")
 		query := fs.String("query", "", "words to look for in titles, tags and descriptions")
@@ -267,6 +276,10 @@ type Prober interface {
 func Check(ctx context.Context, r Prober, dir, pagePath string, spec Spec) Report {
 	rep := Report{}
 	fail := func(format string, a ...any) { rep.Errors = append(rep.Errors, fmt.Sprintf(format, a...)) }
+	spec, err := clipSpec(dir, spec)
+	if err != nil {
+		fail("%v", err)
+	}
 	src, err := os.ReadFile(filepath.Join(dir, pagePath)) //nolint:gosec // the agent's own file
 	if err != nil {
 		fail("cannot read %s: %v", pagePath, err)

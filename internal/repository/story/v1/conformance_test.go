@@ -513,6 +513,23 @@ func TestShortsRoundTrip(t *testing.T) {
 			if want := []float64{10, 400}; !slices.Equal(starts, want) {
 				t.Fatalf("moments start at %v, want %v", starts, want)
 			}
+
+			// A draft that moves the short's cut saves the new clip and
+			// length over the stored ones.
+			if _, err := again.StartDrafting(short.ID(), now); err != nil {
+				t.Fatal(err)
+			}
+			if err := again.Recut(short.ID(), clip(5, 39.6), limits, now); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.Save(ctx, again); err != nil {
+				t.Fatal(err)
+			}
+			recut, _ := repo.Get(ctx, ws, s.ID())
+			moved, _ := recut.Deliverable(short.ID())
+			if *moved.Clip() != clip(5, 39.6) || moved.Video().Duration() != 35*time.Second || recut.Moments(long.ID())[0].Clip() != clip(5, 39.6) {
+				t.Fatalf("after recut: clip %v, length %s", moved.Clip(), moved.Video().Duration())
+			}
 		})
 	}
 }

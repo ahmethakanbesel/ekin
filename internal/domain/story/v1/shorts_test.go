@@ -443,3 +443,57 @@ func TestRehydrateRejectsBadMoments(t *testing.T) {
 		})
 	}
 }
+
+func TestRecut(t *testing.T) {
+	limits := story.DefaultShortsLimits() // 20–60 s, 30 s apart
+	segs := sentences(600)
+	tests := []struct {
+		name     string
+		clip     [2]float64
+		drafting bool
+		wantErr  apperror.Code
+	}{
+		{"a sentence earlier", [2]float64{95, 129.6}, true, ""},
+		{"too short", [2]float64{100, 114.6}, true, apperror.ValidationFailed},
+		{"too long", [2]float64{100, 200}, true, apperror.ValidationFailed},
+		{"too close to the other short", [2]float64{180, 219.6}, true, apperror.ValidationFailed},
+		{"not drafting", [2]float64{95, 129.6}, false, apperror.InvalidTransition},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, lead := longStory(t, 10*time.Minute, story.Brief{})
+			kept, err := s.SuggestMoments(lead.ID(), []story.MomentDraft{
+				{Clip: clip(t, 100, 130), Score: 90},
+				{Clip: clip(t, 240, 270), Score: 80},
+			}, segs, limits, id.New, now)
+			if err != nil || len(kept) != 2 {
+				t.Fatalf("suggest = %d %v", len(kept), err)
+			}
+			made, err := s.AddShorts(lead.ID(), []uuid.UUID{kept[0].ID(), kept[1].ID()}, limits, id.New, now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			short := made[0]
+			if tt.drafting {
+				if _, err := s.StartDrafting(short.ID(), now); err != nil {
+					t.Fatal(err)
+				}
+			}
+			c := clip(t, tt.clip[0], tt.clip[1])
+			err = s.Recut(short.ID(), c, limits, now)
+			if got := codeOf(err); got != tt.wantErr {
+				t.Fatalf("err = %v, want code %q", err, tt.wantErr)
+			}
+			m, _ := s.Moment(kept[0].ID())
+			if err != nil {
+				if *short.Clip() != kept[0].Clip() || m.Clip() != kept[0].Clip() {
+					t.Fatal("a refused recut moved the clip")
+				}
+				return
+			}
+			if *short.Clip() != c || m.Clip() != c || short.Video().Duration() != 35*time.Second {
+				t.Fatalf("after recut: short %v (%s), moment %v", short.Clip(), short.Video().Duration(), m.Clip())
+			}
+		})
+	}
+}

@@ -492,3 +492,41 @@ func (s *Story) AddShorts(source uuid.UUID, momentIDs []uuid.UUID, l ShortsLimit
 	s.touch(now)
 	return made, nil
 }
+
+// Recut moves the clip of a short being drafted (the agent moved its
+// cut by whole sentences): the new clip must keep within the short
+// limits and the gap to the other shorts of its long video. The
+// short's length and the moment it was made from follow.
+func (s *Story) Recut(id uuid.UUID, clip Clip, l ShortsLimits, now time.Time) error {
+	d, err := s.find(id, StatusDrafting)
+	if err != nil {
+		return err
+	}
+	if d.clip == nil {
+		return apperror.New(apperror.ValidationFailed, "only a short cut from a long video has a clip")
+	}
+	if clip.Length() < l.clipMin || clip.Length() > l.clipMax {
+		return apperror.New(apperror.ValidationFailed, fmt.Sprintf("shorts must last between %s and %s", l.clipMin, l.clipMax))
+	}
+	for _, m := range s.moments {
+		if m.of(d.sourceID) && m.made() && m.shortID != d.id && !clip.apart(m.clip, l.minGap) {
+			return apperror.New(apperror.ValidationFailed,
+				fmt.Sprintf("the new cut comes closer than %s to another short of the long video", l.minGap))
+		}
+	}
+	spec, err := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, d.video.Orientation(), clip.Length().Round(time.Second))
+	if err != nil {
+		return err
+	}
+	now = timeutil.Normalize(now)
+	d.clip, d.video = &clip, &spec
+	d.updatedAt = now
+	for _, m := range s.moments {
+		if m.shortID == d.id {
+			m.clip = clip
+			m.touch(now)
+		}
+	}
+	s.touch(now)
+	return nil
+}

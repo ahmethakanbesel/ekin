@@ -284,7 +284,8 @@ func TestShortCutFromALongVideoDraftsFromItsSlice(t *testing.T) {
 	for name, want := range map[string]string{
 		"INSTRUCTIONS.md": "0:51–1:11 of the long",
 		"BRIEF.md":        "**Cut from:**",
-		"sources/clip.md": "- 0.00–5.10 s: Söz10 bitti.",
+		"sources/clip.md": "▶ 3. 15.00–20.10 s: Söz10 bitti.",
+		"clip/clip.json":  `"windowStart": 36`,
 		"sources/lead.md": "# Video script",
 		"KIT.md":          "Kurgu.captions",
 	} {
@@ -300,5 +301,56 @@ func TestShortCutFromALongVideoDraftsFromItsSlice(t *testing.T) {
 	n := "Başka bir metin."
 	if _, err := f.svc.EditContent(ctx, f.ws, st.ID(), short.ID(), id.New(), production.Edit{Revision: short.Revision(), Narration: &n}); !apperror.Is(err, apperror.ValidationFailed) {
 		t.Fatalf("editing a short's narration: %v", err)
+	}
+}
+
+func TestShortsDraftMayMoveItsCut(t *testing.T) {
+	ctx := context.Background()
+	tests := []struct {
+		name     string
+		move     []string
+		wantClip [2]float64
+	}{
+		// Window sentences 1–3 start at 40.8, 45.9 and 51 s of the long video.
+		{"a sentence earlier", []string{"--first", "2", "--last", "6"}, [2]float64{45.9, 71.4}},
+		{"kept", nil, [2]float64{51, 71.4}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			var segs []map[string]any
+			for i := range 120 {
+				s := float64(i) * 5.1
+				segs = append(segs, map[string]any{"text": fmt.Sprintf("Söz%d bitti.", i), "start": s, "end": s + 5.1})
+			}
+			timings, _ := json.Marshal(map[string]any{"engine": "okur", "duration": 612, "words": []any{}, "segments": segs})
+			st, long := longVideo(t, f, 10*time.Minute, true, map[string][]byte{
+				"narration/speech.wav": wavFile(612), "narration/timings.json": timings,
+			})
+			c, _ := storydomain.NewClip(sec(51), sec(71.4))
+			_, m, err := f.svc.AddMoment(ctx, f.ws, st.ID(), long, storydomain.MomentDraft{Clip: c})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := f.svc.MakeShorts(ctx, f.ws, st.ID(), long, []uuid.UUID{m.ID()}); err != nil {
+				t.Fatal(err)
+			}
+			f.agent.moveClip = tt.move
+			f.drain(t)
+
+			got, _ := f.svc.Get(ctx, f.ws, st.ID())
+			short := got.Shorts(long)[0]
+			if short.Status() != storydomain.StatusReview {
+				t.Fatalf("short = %s (%s)", short.Status(), short.Failure())
+			}
+			want, _ := storydomain.NewClip(sec(tt.wantClip[0]), sec(tt.wantClip[1]))
+			moment, _ := got.Moment(m.ID())
+			if *short.Clip() != want || moment.Clip() != want {
+				t.Fatalf("short clip %v, moment %v, want %v", short.Clip(), moment.Clip(), want)
+			}
+			if short.Video().Duration() != want.Length().Round(time.Second) {
+				t.Fatalf("short length = %s", short.Video().Duration())
+			}
+		})
 	}
 }
