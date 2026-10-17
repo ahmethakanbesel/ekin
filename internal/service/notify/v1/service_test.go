@@ -71,7 +71,7 @@ func TestDigest(t *testing.T) {
 	if n, _ := svc.Flush(ctx); n != 0 {
 		t.Fatalf("sent twice: %d", n)
 	}
-	feed, _ := svc.Feed(ctx, ws, 10)
+	feed, _, _ := svc.Feed(ctx, ws, notifysvc.FeedFilter{Limit: 10})
 	if len(feed) != 3 || feed[0].Kind != "run" {
 		t.Fatalf("feed = %+v", feed)
 	}

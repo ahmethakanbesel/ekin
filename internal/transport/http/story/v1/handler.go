@@ -23,7 +23,7 @@ import (
 
 // Feed lists a workspace's notifications (the notify service).
 type Feed interface {
-	Feed(ctx context.Context, workspaceID uuid.UUID, limit int) ([]notifysvc.Notification, error)
+	Feed(ctx context.Context, workspaceID uuid.UUID, f notifysvc.FeedFilter) ([]notifysvc.Notification, string, error)
 }
 
 // Handler serves stories.
@@ -36,17 +36,34 @@ type Handler struct {
 func New(svc *productionsvc.Service, feed Feed) *Handler { return &Handler{svc: svc, feed: feed} }
 
 func (h *Handler) ListNotifications(ctx context.Context, req gen.ListNotificationsRequestObject) (gen.ListNotificationsResponseObject, error) {
-	limit := 50
+	var f notifysvc.FeedFilter
+	if req.Params.Kind != nil {
+		for _, k := range *req.Params.Kind {
+			switch k {
+			case gen.ListNotificationsParamsKindReview, gen.ListNotificationsParamsKindFailed,
+				gen.ListNotificationsParamsKindPublished, gen.ListNotificationsParamsKindRun:
+				f.Kinds = append(f.Kinds, string(k))
+			default:
+				return nil, apperror.New(apperror.ValidationFailed, "unknown notification kind "+string(k))
+			}
+		}
+	}
 	if req.Params.Limit != nil {
-		limit = *req.Params.Limit
+		f.Limit = *req.Params.Limit
+	}
+	if req.Params.Cursor != nil {
+		f.After = *req.Params.Cursor
 	}
 	out := gen.ListNotifications200JSONResponse{Notifications: []gen.Notification{}}
 	if h.feed == nil {
 		return out, nil
 	}
-	items, err := h.feed.Feed(ctx, req.WorkspaceId, limit)
+	items, next, err := h.feed.Feed(ctx, req.WorkspaceId, f)
 	if err != nil {
 		return nil, err
+	}
+	if next != "" {
+		out.NextCursor = &next
 	}
 	for _, n := range items {
 		w := gen.Notification{Id: n.ID, Kind: gen.NotificationKind(n.Kind), Title: n.Title, Detail: n.Detail, CreatedAt: n.CreatedAt}

@@ -69,12 +69,13 @@ func (s *Service) Notify(ctx context.Context, e productionsvc.Event) error {
 	})
 }
 
-// Feed returns a workspace's latest notifications.
-func (s *Service) Feed(ctx context.Context, workspaceID uuid.UUID, limit int) ([]Notification, error) {
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
-	return s.repo.Feed(ctx, workspaceID, limit)
+// FeedFilter narrows Feed and picks its page.
+type FeedFilter = notifyrepo.FeedFilter
+
+// Feed returns a page of a workspace's notifications, newest first, and
+// the cursor of the next page ("" after the last).
+func (s *Service) Feed(ctx context.Context, workspaceID uuid.UUID, f FeedFilter) ([]Notification, string, error) {
+	return s.repo.Feed(ctx, workspaceID, f)
 }
 
 // Flush emails one digest per workspace member for everything recorded

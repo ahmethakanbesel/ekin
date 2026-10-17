@@ -650,12 +650,23 @@ paths:
       operationId: listNotifications
       tags: [stories]
       parameters:
+        - name: kind
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [review, failed, published, run]
         - name: limit
           in: query
+          description: Notifications per page; 50 when omitted.
           schema: { type: integer, minimum: 1, maximum: 200 }
+        - $ref: "#/components/parameters/Cursor"
       responses:
         "200":
-          description: Latest notifications, newest first.
+          description: A page of notifications, newest first.
           content:
             application/json:
               schema:
@@ -665,6 +676,9 @@ paths:
                   notifications:
                     type: array
                     items: { $ref: "#/components/schemas/Notification" }
+                  nextCursor:
+                    type: string
+                    description: Pass as `cursor` for the next page; absent after the last.
         default: { $ref: "#/components/responses/Error" }
 
   /workspaces/{workspaceId}/integrations:

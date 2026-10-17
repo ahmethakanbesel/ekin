@@ -2684,7 +2684,11 @@ export interface operations {
     listNotifications: {
         parameters: {
             query?: {
+                kind?: ("review" | "failed" | "published" | "run")[];
+                /** @description Notifications per page; 50 when omitted. */
                 limit?: number;
+                /** @description Continue a listing after the page that returned this `nextCursor`. Keyset paging: rows added meanwhile are neither skipped nor repeated. */
+                cursor?: components["parameters"]["Cursor"];
             };
             header?: never;
             path: {
@@ -2694,7 +2698,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Latest notifications, newest first. */
+            /** @description A page of notifications, newest first. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2702,6 +2706,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         notifications: components["schemas"]["Notification"][];
+                        /** @description Pass as `cursor` for the next page; absent after the last. */
+                        nextCursor?: string;
                     };
                 };
             };

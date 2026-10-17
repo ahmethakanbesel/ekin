@@ -2,6 +2,7 @@
 package notify
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"fmt"
@@ -12,7 +13,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"kurgu/internal/apperror"
 	"kurgu/internal/db"
+	"kurgu/pkg/page"
 	"kurgu/pkg/timeutil"
 )
 
@@ -28,11 +31,35 @@ type Notification struct {
 	EmailedAt   time.Time
 }
 
+// FeedFilter narrows Feed and picks its page.
+type FeedFilter struct {
+	Kinds []string // empty means any
+	Limit int      // 0 means DefaultFeedLimit; at most MaxFeedLimit
+	After string   // the cursor a previous page ended with
+}
+
+// Feed limits.
+const (
+	DefaultFeedLimit = 50
+	MaxFeedLimit     = 200
+)
+
+// cursor is the sort key of a page's last notification.
+type cursor struct {
+	At int64  `json:"a"`
+	ID string `json:"i"`
+}
+
+func nextCursor(last Notification) string {
+	return page.Encode(cursor{At: timeutil.ToMillis(last.CreatedAt), ID: last.ID.String()})
+}
+
 // Repository stores notifications.
 type Repository interface {
 	Add(ctx context.Context, n Notification) error
-	// Feed returns the workspace's latest notifications, newest first.
-	Feed(ctx context.Context, workspaceID uuid.UUID, limit int) ([]Notification, error)
+	// Feed returns a page of the workspace's notifications, newest first,
+	// and the cursor of the next page ("" after the last).
+	Feed(ctx context.Context, workspaceID uuid.UUID, f FeedFilter) ([]Notification, string, error)
 	// Unsent returns notifications not yet emailed, oldest first.
 	Unsent(ctx context.Context, limit int) ([]Notification, error)
 	MarkEmailed(ctx context.Context, ids []uuid.UUID, at time.Time) error
@@ -59,8 +86,28 @@ func (r *SQLite) Add(ctx context.Context, n Notification) error {
 	return nil
 }
 
-func (r *SQLite) Feed(ctx context.Context, workspaceID uuid.UUID, limit int) ([]Notification, error) {
-	return r.query(ctx, `WHERE workspace_id = ? ORDER BY created_at DESC, id DESC LIMIT ?`, workspaceID.String(), limit)
+func (r *SQLite) Feed(ctx context.Context, workspaceID uuid.UUID, f FeedFilter) ([]Notification, string, error) {
+	where := `WHERE workspace_id = ?`
+	args := []any{workspaceID.String()}
+	if len(f.Kinds) > 0 {
+		where += ` AND kind IN (` + strings.TrimSuffix(strings.Repeat("?,", len(f.Kinds)), ",") + `)`
+		for _, k := range f.Kinds {
+			args = append(args, k)
+		}
+	}
+	var after cursor
+	if ok, err := page.Decode(f.After, &after); err != nil {
+		return nil, "", apperror.Wrap(apperror.ValidationFailed, err, "invalid cursor")
+	} else if ok {
+		where += ` AND (created_at < ? OR (created_at = ? AND id < ?))`
+		args = append(args, after.At, after.At, after.ID)
+	}
+	limit := page.Limit(f.Limit, DefaultFeedLimit, MaxFeedLimit)
+	out, err := r.query(ctx, where+` ORDER BY created_at DESC, id DESC LIMIT ?`, append(args, limit+1)...)
+	if err != nil || len(out) <= limit {
+		return out, "", err
+	}
+	return out[:limit], nextCursor(out[limit-1]), nil
 }
 
 func (r *SQLite) Unsent(ctx context.Context, limit int) ([]Notification, error) {
@@ -128,16 +175,31 @@ func (r *InMemory) Add(_ context.Context, n Notification) error {
 	return nil
 }
 
-func (r *InMemory) Feed(_ context.Context, workspaceID uuid.UUID, limit int) ([]Notification, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	var out []Notification
-	for i := len(r.rows) - 1; i >= 0 && len(out) < limit; i-- {
-		if r.rows[i].WorkspaceID == workspaceID {
-			out = append(out, r.rows[i])
-		}
+func (r *InMemory) Feed(_ context.Context, workspaceID uuid.UUID, f FeedFilter) ([]Notification, string, error) {
+	var after cursor
+	hasAfter, err := page.Decode(f.After, &after)
+	if err != nil {
+		return nil, "", apperror.Wrap(apperror.ValidationFailed, err, "invalid cursor")
 	}
-	return out, nil
+	r.mu.Lock()
+	var out []Notification
+	for _, n := range r.rows {
+		at := timeutil.ToMillis(n.CreatedAt)
+		if n.WorkspaceID != workspaceID || len(f.Kinds) > 0 && !slices.Contains(f.Kinds, n.Kind) ||
+			hasAfter && (at > after.At || at == after.At && n.ID.String() >= after.ID) {
+			continue
+		}
+		out = append(out, n)
+	}
+	r.mu.Unlock()
+	slices.SortFunc(out, func(a, b Notification) int {
+		return cmp.Or(b.CreatedAt.Compare(a.CreatedAt), strings.Compare(b.ID.String(), a.ID.String()))
+	})
+	limit := page.Limit(f.Limit, DefaultFeedLimit, MaxFeedLimit)
+	if len(out) <= limit {
+		return out, "", nil
+	}
+	return out[:limit], nextCursor(out[limit-1]), nil
 }
 
 func (r *InMemory) Unsent(_ context.Context, limit int) ([]Notification, error) {
