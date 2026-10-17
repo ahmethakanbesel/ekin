@@ -400,7 +400,7 @@ export const en = {
     },
     production: {
       title: "Production",
-      description: "How the stories are made. Each setting left on the workspace default follows System and the voice settings.",
+      description: "How the stories are made. A setting left on Workspace default uses what System sets (credentials and the host profile).",
       workspaceDefault: "Workspace default",
       model: "Drafting model",
       modelHint: "The Claude model that writes and revises drafts, and runs self-review.",
