@@ -155,6 +155,19 @@ func (s *Service) Extract(ctx context.Context, documentID uuid.UUID) error {
 		return ctx.Err()
 	}
 	return s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		// Extraction took a while: apply its outcome to the document as
+		// it is now, so a rename meanwhile is kept, and a deletion or
+		// another extraction's outcome is not overwritten.
+		d, err := s.repo.GetByID(ctx, documentID)
+		if apperror.Is(err, apperror.DocumentNotFound) {
+			return jobdomain.Permanent(err)
+		}
+		if err != nil {
+			return err
+		}
+		if d.Status() != knowledgedomain.StatusPending {
+			return nil
+		}
 		if extractErr != nil {
 			_ = d.Failed(extractErr.Error(), s.now())
 			return s.repo.Update(ctx, d)

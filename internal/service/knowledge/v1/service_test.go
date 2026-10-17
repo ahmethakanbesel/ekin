@@ -198,3 +198,52 @@ func TestUploadRejectsUnsupported(t *testing.T) {
 		t.Fatalf("empty = %v", err)
 	}
 }
+
+// renaming extracts with inner, but a person renames the document while
+// it runs.
+type renaming struct {
+	inner  knowledgesvc.Extractor
+	rename func()
+}
+
+func (r renaming) Extract(ctx context.Context, f knowledgedomain.Format, path string) (knowledgedomain.Extraction, error) {
+	r.rename()
+	return r.inner.Extract(ctx, f, path)
+}
+
+// A rename made while the document is being extracted survives the
+// extraction, whatever its outcome.
+func TestRenameDuringExtractionIsKept(t *testing.T) {
+	tests := []struct {
+		name  string
+		inner knowledgesvc.Extractor
+		want  knowledgedomain.Status
+	}{
+		{name: "extracted", inner: extract.New(), want: knowledgedomain.StatusReady},
+		{name: "failed", inner: failing{}, want: knowledgedomain.StatusFailed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			var f fixture
+			var docID uuid.UUID
+			f = newFixture(t, renaming{inner: tt.inner, rename: func() {
+				if _, err := f.svc.Rename(ctx, f.ws, docID, "Yeni ad"); err != nil {
+					t.Errorf("rename: %v", err)
+				}
+			}}, usage{})
+			d, err := f.svc.Upload(ctx, f.ws, id.New(), "Eski ad", "notlar.md", strings.NewReader("Kaygı üzerine."))
+			if err != nil {
+				t.Fatal(err)
+			}
+			docID = d.ID()
+			if err := f.runExtract(t); err != nil {
+				t.Fatal(err)
+			}
+			got, _ := f.svc.Get(ctx, f.ws, d.ID())
+			if got.Title() != "Yeni ad" || got.Status() != tt.want {
+				t.Fatalf("after extraction: %q %s", got.Title(), got.Status())
+			}
+		})
+	}
+}
