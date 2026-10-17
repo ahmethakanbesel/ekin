@@ -40,18 +40,25 @@ internal/transport/job/library/v1/   library.ingest, library.harvest
 | duration | video / uploaded music; nil for a generated score (it fits any length) |
 | files | blob keys: `main` (WebM / JPEG / audio / `music.js`), `poster`, `preview` (30 s Opus for music) |
 | sha256 | of `main`; with the workspace it is unique, so the same file is stored once |
-| source ref | `pexels:video:123` and page URL; unique per workspace with the origin, so a clip is harvested once |
+| source ref | `pexels:video:123`, page URL and **original URL** (the Pexels file the clip was cut from, with its width, height and duration); unique per workspace with the origin, so a clip is harvested once |
+| harvested from | story, deliverable and revision an automatic harvest took it from; nil for uploads and manual saves |
+| provisional | true from the harvest until its deliverable is decided (§3) |
+| kept | set when a person saves, edits or uploads it; a kept item is never pruned |
 | credit | author, URL, licence line; copied into `assets/credits.json` whenever the item is used |
 | derived from | an earlier asset when the agent edited a reused score |
 | created by, created at, archived at | archived items leave the catalog but keep their history |
 
 Domain rules on it: `New…` per origin guards the fields that origin needs (a Pexels item
 needs its source ref and author, an upload needs a credit or the "own work" flag);
-`a.Ingested(files, meta, now)`, `a.Failed(reason)`, `a.Retag(...)`, `a.Archive(now)`,
-`a.Fits(orientation)` (a portrait short only gets portrait or square media).
+`a.Ingested(files, meta, now)`, `a.Failed(reason)`, `a.Retag(...)` (also marks it kept),
+`a.Keep()`, `a.Archive(now)`, `a.Fits(orientation)` (a portrait short only gets portrait
+or square media), and `a.Settle(decided, usages)` — whether a provisional item stays or
+is pruned when its deliverable is decided (§3).
 
 **Usage**: (asset, story, deliverable, revision, at). Written when a revision is
-finished, so the library shows "used in" and the catalog can put rarely used items first.
+finished. Repeats are unlimited; usages are only counted. The library shows "used in N
+videos" (distinct deliverables) with the list, and the catalog lists less used items
+first as a gentle nudge, never as a limit.
 
 **Collect** (per workspace): `music`, `video`, `photo` — booleans, **all false** by
 default. Stored in a `library_settings` row; a missing row means all off.
@@ -74,32 +81,54 @@ Pexels key.
 
 ### Harvest (automatic, opt-in per kind)
 
-1. When a video deliverable is **approved** and the workspace collects at least one kind,
-   the approval enqueues `library.harvest` (io queue, unique key per revision) in the
-   transaction that saves the decision. Approved is the useful signal: rejected drafts
-   do not fill the library with rejected footage.
+Items are saved as soon as a draft finishes, so the next story can already use them; when
+the deliverable is decided, only what its latest revision uses is kept.
+
+1. **On every finished draft.** When a video revision is finished and the workspace
+   collects at least one kind, `FinishDraft` enqueues `library.harvest` (io queue, unique
+   key per revision) in the transaction that saves the revision.
 2. The job restores the revision's work dir (`ensureWorkDir`) and reads
    `assets/credits.json`. Only files that `composition.html` actually references are
    taken; downloaded-but-unused clips are skipped.
-3. Per kind that is switched on:
+3. Per kind that is switched on, new items are saved **provisional**, with `harvested
+   from` set to the revision:
    - **Pexels video / photo** — the transcoded WebM or JPEG as it is in `assets/`, plus a
-     poster frame, with author, page URL, query (as a first tag) and Pexels' alt text
-     (as the description). Skipped when its source ref already exists.
+     poster frame, with author, page URL, the original file's URL and size, query (as a
+     first tag) and Pexels' alt text (as the description). Skipped when its source ref
+     already exists.
    - **Generated music** — `music.js` plus a 30 s preview rendered with `Renderer.Music`.
      Title and tags come from a `music.meta.json` the agent writes beside the score
      (mood, tempo, one-line description; asked for in the prompt). Skipped when the
      score's sha256 already exists. A score that started from a library item and was
      edited becomes a new asset with `derived from`.
 4. Items from the library itself are not harvested again; their use is a Usage row.
+5. **On the decision.** Approving or rejecting the deliverable enqueues
+   `library.settle` (unique key per deliverable) in the transaction that saves the
+   decision. It first harvests the decided revision (idempotent, so it does not matter
+   whether that revision's harvest already ran), then settles every provisional item
+   harvested from the deliverable's revisions:
+   - used by the decided revision → stays, no longer provisional;
+   - kept by a person, or used by another deliverable meanwhile → stays;
+   - otherwise → deleted with its blobs. Revision 1's score that revision 3 replaced,
+     or a clip that feedback swapped out, goes; only the latest version remains.
 
-`credits.json` entries gain `kind`, `externalId`, `width`, `height` and `alt` so the
-harvest does not parse file names. Old entries without them are parsed from the
-`pexels-<kind>-<id>` file name.
+   A deliverable left in review keeps its items provisional (shown with a *Draft* badge,
+   already usable). Deleting an item never breaks a revision: work dirs hold copies.
+
+`credits.json` entries gain `kind`, `externalId`, `width`, `height`, `alt` and
+`originalUrl` (the rendition `Pexels.Download` fetched, today dropped as
+`DownloadURL json:"-"`) so the harvest does not parse file names. Old entries without
+them are parsed from the `pexels-<kind>-<id>` file name and have no original URL.
+
+The original URL is stored for later: a future step can fetch a longer or larger
+rendition from it when a clip is reused in another orientation or needs more than 15 s.
+The page URL stays the fallback if a file link stops working.
 
 ### Save from a revision (manual)
 
 The review panel lists a revision's stock and music with **Save to library**, whatever
-the collect switches say. Same code path as the harvest, for one item.
+the collect switches say. Same code path as the harvest, for one item, saved kept (so
+settling never prunes it).
 
 ### Upload
 
@@ -196,8 +225,9 @@ shown as "deleted". Revisions are unaffected because they hold their own copies.
   row with title, tags and credit (or "own work"), progress, then the processing state.
 - **Item sheet** — preview, edit title / tags / description / mood, credit, "Used in"
   with links to stories, archive, delete.
-- **Workspace settings** → *Library*: "Save to the library when a video is approved"
-  with three switches (generated music, Pexels videos, Pexels photos), all off.
+- **Workspace settings** → *Library*: "Save what drafts use to the library" with three
+  switches (generated music, Pexels videos, Pexels photos), all off, and the note "when
+  a video is approved or rejected, only what its last revision used is kept".
 - **Pipeline form and ad-hoc form** → *Media*: one select per kind (Generate / search ·
   Library only · Library first) with the number of fitting library items beside it.
 - **Review panel** → the revision's media list with **Save to library** and a
@@ -216,8 +246,9 @@ agent tool against a fake blob store and a fake worker API).
    `prepare`; `kurgu tool library` (local blob store); `music.json` + `MusicTrack`;
    Usage rows; prompts; enforcement in tools and `validate`; Media section in the
    pipeline and ad-hoc forms.
-3. **Harvest** — collect settings and UI, richer `credits.json`, `music.meta.json`,
-   `library.harvest` on approval, Save to library in the review panel.
+3. **Harvest** — collect settings and UI, richer `credits.json` (with `originalUrl`),
+   `music.meta.json`, `library.harvest` on finished drafts, `library.settle` on the
+   decision, Save to library in the review panel.
 4. **Remote workers** — worker API route for library files and the tool's remote fetch
    with the sha256 cache. Folds into phase 6 (server-side tool proxy) of
    `docs/remote-workers.md` if that lands first.
@@ -225,15 +256,11 @@ agent tool against a fake blob store and a fake worker API).
 When a phase lands, add the library to PLAN.md §1 (Scope), §5 (Bounded contexts: a
 `library` row with Asset, Usage) and the *Stock media* / *Music* rows of §2.
 
-## 8. Open questions
+## 8. Decisions
 
-- Harvest on approval (assumed) or already when a draft finishes? Approval keeps the
-  library clean; on draft fills it faster.
-- Stored Pexels clips are the deliverable's 15 s rendition in its orientation. Should a
-  harvest download a longer, larger rendition once (one more Pexels request) so clips
-  also serve other orientations and lengths?
-- Should a pipeline avoid repeating the same item within N days or N stories, as a hard
-  rule in the catalog, or is "least used first" enough?
-- Pexels' licence allows reuse in our own videos but not redistributing the files as a
-  stock collection; the library stays private to the workspace and is never exported in
-  bulk. Is that acceptable as the only safeguard?
+- **When to save:** when each draft finishes; when the deliverable is approved or
+  rejected, only items its latest revision uses are kept (§3).
+- **Pexels clips:** the transcoded clip as used, plus the URL of the original file.
+- **Repeats:** unlimited for now; usages are counted and shown.
+- **Licence:** Pexels allows reuse in our own videos. The library is private to its
+  workspace and has no bulk export, which is enough.
