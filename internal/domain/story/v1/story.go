@@ -7,15 +7,14 @@ package story
 import (
 	"strings"
 	"time"
-	"unicode"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-	"golang.org/x/text/unicode/norm"
 
 	"kurgu/internal/apperror"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	voicedomain "kurgu/internal/domain/voice/v1"
+	"kurgu/pkg/fold"
 	"kurgu/pkg/timeutil"
 )
 
@@ -87,32 +86,8 @@ func (i Idea) Fingerprint() string {
 	return Fingerprint(i.Title)
 }
 
-// Fingerprint normalises text for similarity comparisons.
-func Fingerprint(s string) string {
-	s = strings.NewReplacer("İ", "i", "I", "ı").Replace(s)
-	s = strings.ToLower(s)
-	s = norm.NFD.String(s)
-	var b strings.Builder
-	space := false
-	for _, r := range s {
-		switch {
-		case unicode.Is(unicode.Mn, r):
-			// drop combining marks: â → a, ç → c, ş → s
-		case r == 'ı':
-			b.WriteRune('i')
-			space = false
-		case unicode.IsLetter(r) || unicode.IsDigit(r):
-			b.WriteRune(r)
-			space = false
-		default:
-			if !space && b.Len() > 0 {
-				b.WriteByte(' ')
-				space = true
-			}
-		}
-	}
-	return strings.TrimSpace(b.String())
-}
+// Fingerprint normalises text for similarity comparisons (fold.String).
+func Fingerprint(s string) string { return fold.String(s) }
 
 // Ref is a page window of a knowledge document a story draws on.
 type Ref struct {
