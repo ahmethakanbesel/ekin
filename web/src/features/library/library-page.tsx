@@ -35,7 +35,7 @@ import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { formatDuration } from "@/lib/time"
 import { cn } from "@/lib/utils"
-import { libraryFileUrl, libraryQuery } from "@/queries/library"
+import { libraryFileUrl, libraryQuery, listenUrl } from "@/queries/library"
 import { AssetSheet } from "./asset-sheet"
 import { LIBRARY_TABS, type LibrarySearch, type LibraryTab } from "./search"
 import { ACCEPTED_EXTENSIONS, useUploads } from "./use-uploads"
@@ -128,7 +128,7 @@ export function LibraryPage() {
                 asset={a}
                 playing={player.playing === a.id}
                 onTogglePlay={() =>
-                  player.toggle(a.id, libraryFileUrl(workspace.id, a, "main"))
+                  player.toggle(a.id, listenUrl(workspace.id, a))
                 }
                 onOpen={() => setSearch({ asset: a.id })}
               />
@@ -332,7 +332,7 @@ function AssetCard({
           <p className="truncate text-xs text-muted-foreground">
             {meta.join(" · ")}
           </p>
-          {a.status !== "ready" || a.archivedAt ? (
+          {a.status !== "ready" || a.archivedAt || a.provisional ? (
             <div className="flex flex-wrap gap-1.5 pt-1">
               {a.status !== "ready" ? (
                 <Badge
@@ -345,6 +345,9 @@ function AssetCard({
                 >
                   {m.library.status[a.status]}
                 </Badge>
+              ) : null}
+              {a.provisional ? (
+                <Badge variant="outline">{m.library.draftBadge}</Badge>
               ) : null}
               {a.archivedAt ? (
                 <Badge variant="outline">{m.library.archivedBadge}</Badge>

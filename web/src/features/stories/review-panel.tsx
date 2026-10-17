@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useNarratorNames } from "@/features/voice/narrator"
+import { RevisionMediaList, useRevisionMedia } from "@/features/library/revision-media"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { formatDateTime, formatRelative, useNow } from "@/lib/time"
@@ -89,6 +90,10 @@ export function ReviewPanel({
     review.list.map((r) => r.measured?.narrator)
   )
   const narrator = nameNarrator(current?.measured?.narrator, d.language)
+  const media = useRevisionMedia(
+    workspaceId,
+    d.kind === "video" && current ? { storyId: story.id, deliverableId: d.id, number: current.number } : undefined
+  )
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)]">
@@ -241,6 +246,19 @@ export function ReviewPanel({
                   : undefined
               }
               onPick={onPick}
+            />
+          </Section>
+        </>
+      ) : null}
+      {current && media.data?.length ? (
+        <>
+          <Separator />
+          <Section name="library" title={m.library.revision.title}>
+            <RevisionMediaList
+              workspaceId={workspaceId}
+              revision={{ storyId: story.id, deliverableId: d.id, number: current.number }}
+              media={media.data}
+              canEdit={canEdit}
             />
           </Section>
         </>

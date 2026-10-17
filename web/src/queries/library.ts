@@ -13,6 +13,7 @@ import {
   type LibraryAsset,
   type LibraryAssetDetails,
   type LibraryAssetKind,
+  type LibrarySettings,
 } from "@/api/client"
 import { uploadLibraryAsset, type UploadOptions } from "@/api/upload"
 import { keys } from "./keys"
@@ -139,9 +140,85 @@ export const libraryUsagesQuery = (workspaceId: string, assetId: string) =>
 export function libraryFileUrl(
   workspaceId: string,
   asset: Pick<LibraryAsset, "id" | "updatedAt">,
-  file: "main" | "poster"
+  file: "main" | "poster" | "preview"
 ): string {
   return `${API_BASE}/workspaces/${encodeURIComponent(workspaceId)}/library/assets/${encodeURIComponent(asset.id)}/files/${file}?v=${encodeURIComponent(asset.updatedAt)}`
+}
+
+/**
+ * What to play for a music asset: a track itself, or the rendered start
+ * of a composed score (whose main file is its code).
+ */
+export function listenUrl(
+  workspaceId: string,
+  asset: Pick<LibraryAsset, "id" | "updatedAt" | "origin">
+): string {
+  return libraryFileUrl(workspaceId, asset, asset.origin === "generated" ? "preview" : "main")
+}
+
+/** Which kinds the workspace saves to its library from its drafts. */
+export const librarySettingsQuery = (workspaceId: string) =>
+  queryOptions({
+    queryKey: [...keys.library(workspaceId), "settings"] as const,
+    queryFn: ({ signal }) =>
+      call(
+        api.GET("/workspaces/{workspaceId}/library/settings", {
+          params: { path: { workspaceId } },
+          signal,
+        })
+      ),
+  })
+
+export function useSaveLibrarySettings(workspaceId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: LibrarySettings) =>
+      call(
+        api.PUT("/workspaces/{workspaceId}/library/settings", {
+          params: { path: { workspaceId } },
+          body,
+        })
+      ),
+    onSuccess: (saved) => qc.setQueryData([...keys.library(workspaceId), "settings"], saved),
+  })
+}
+
+type RevisionRef = { storyId: string; deliverableId: string; number: number }
+
+const revisionMediaKey = (workspaceId: string, r: RevisionRef) =>
+  [...keys.revisions(workspaceId, r.storyId, r.deliverableId), r.number, "library"] as const
+
+/** The stock and music a video revision uses, and what of it the library holds. */
+export const revisionMediaQuery = (workspaceId: string, r: RevisionRef) =>
+  queryOptions({
+    queryKey: revisionMediaKey(workspaceId, r),
+    queryFn: async ({ signal }) => {
+      const res = await call(
+        api.GET(
+          "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions/{number}/library",
+          { params: { path: { workspaceId, ...r } }, signal }
+        )
+      )
+      return res.media
+    },
+  })
+
+/** Saves one of a revision's stock items or its score to the library. */
+export function useSaveRevisionMedia(workspaceId: string, r: RevisionRef) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (key: string) =>
+      call(
+        api.POST(
+          "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions/{number}/library",
+          { params: { path: { workspaceId, ...r } }, body: { key } }
+        )
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: revisionMediaKey(workspaceId, r) })
+      void qc.invalidateQueries({ queryKey: keys.libraryLists(workspaceId) })
+    },
+  })
 }
 
 /**

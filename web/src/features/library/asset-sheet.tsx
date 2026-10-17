@@ -50,6 +50,7 @@ import {
   libraryAssetQuery,
   libraryFileUrl,
   libraryUsagesQuery,
+  listenUrl,
   useDeleteLibraryAsset,
   useRetryLibraryAsset,
   useUpdateLibraryAsset,
@@ -161,6 +162,42 @@ function SheetBody({
   return (
     <div className="grid gap-5 px-4 pb-6">
       <Preview workspaceId={workspaceId} asset={a} />
+      {a.provisional ? (
+        <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm">
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <p className="font-medium">{m.library.sheet.provisionalTitle}</p>
+            <p className="text-muted-foreground">{m.library.sheet.provisionalBody}</p>
+          </div>
+          {canEdit ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={update.isPending}
+              onClick={() =>
+                update.mutate(
+                  {
+                    assetId: a.id,
+                    details: {
+                      title: a.title,
+                      description: a.description,
+                      tags: a.tags,
+                      mood: a.kind === "music" ? (a.mood ?? "") : undefined,
+                      tempo: a.kind === "music" ? (a.tempo ?? 0) : undefined,
+                      credit: a.credit,
+                    },
+                  },
+                  {
+                    onSuccess: () => toast.success(m.library.sheet.kept(a.title)),
+                    onError: (err) => toast.error(errorMessage(err)),
+                  }
+                )
+              }
+            >
+              {m.library.sheet.keep}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       {a.status === "processing" ? (
         <div className="flex gap-2.5 rounded-lg border border-info/30 bg-info/5 px-4 py-3 text-sm">
           <Loader2Icon className="mt-0.5 size-4 shrink-0 animate-spin text-info" />
@@ -207,6 +244,21 @@ function SheetBody({
         </Banner>
       ) : null}
       <Facts asset={a} timezone={timezone} />
+      {a.sourceUrl || a.originalUrl ? (
+        <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          <span className="text-muted-foreground">{m.library.sheet.source}</span>
+          {a.sourceUrl ? (
+            <a href={a.sourceUrl} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+              {m.library.sheet.sourcePage}
+            </a>
+          ) : null}
+          {a.originalUrl ? (
+            <a href={a.originalUrl} target="_blank" rel="noreferrer" className="underline underline-offset-4">
+              {m.library.sheet.originalFile}
+            </a>
+          ) : null}
+        </p>
+      ) : null}
       <UsedIn workspaceId={workspaceId} asset={a} timezone={timezone} />
       <Separator />
       <DetailsForm workspaceId={workspaceId} asset={a} canEdit={canEdit} />
@@ -290,7 +342,7 @@ function Preview({
   if (a.kind === "music")
     return (
       // oxlint-disable-next-line jsx-a11y/media-has-caption -- instrumental music has no words to caption
-      <audio controls preload="metadata" src={main} className="w-full" />
+      <audio controls preload="metadata" src={listenUrl(workspaceId, a)} className="w-full" />
     )
   return (
     <div className="overflow-hidden rounded-lg bg-muted">
