@@ -337,6 +337,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspaceId}/library/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listLibraryAssets"];
+        put?: never;
+        /** @description Uploads a video (MP4, MOV, M4V or WebM, at most 300 MB and 2 minutes), a photo (JPEG, PNG or WebP, at most 25 MB) or a music track (MP3, WAV, FLAC, M4A, AAC or Ogg, at most 50 MB and 15 minutes). It is processed in the background; poll the asset until its status is ready or failed. The `kind` and `details` parts must come before `file`. A file the library already holds is refused with 409. */
+        post: operations["uploadLibraryAsset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/library/assets/{assetId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                assetId: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getLibraryAsset"];
+        put?: never;
+        post?: never;
+        /** @description Videos that used the asset keep their own copies. */
+        delete: operations["deleteLibraryAsset"];
+        options?: never;
+        head?: never;
+        patch: operations["updateLibraryAsset"];
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/library/assets/{assetId}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                assetId: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Queues a failed upload for processing again. */
+        post: operations["retryLibraryAsset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/system": {
         parameters: {
             query?: never;
@@ -1211,6 +1270,74 @@ export interface components {
             toPage: number;
         };
         /** @enum {string} */
+        LibraryAssetKind: "music" | "video" | "photo";
+        /**
+         * @description generated is a score the agent composed, pexels stock it fetched, upload a person's file.
+         * @enum {string}
+         */
+        LibraryAssetOrigin: "generated" | "pexels" | "upload";
+        /** @enum {string} */
+        LibraryAssetStatus: "processing" | "ready" | "failed";
+        /** @enum {string} */
+        Orientation: "portrait" | "landscape" | "square";
+        /** @description The attribution a video using the asset gives; all empty for none. */
+        LibraryCredit: {
+            author: string;
+            url: string;
+            licence: string;
+        };
+        LibraryAssetDetails: {
+            /** @description On upload, empty takes the file name. */
+            title: string;
+            description?: string;
+            tags?: string[];
+            /** @description Music only. */
+            mood?: string;
+            /** @description Beats per minute, music only; 0 for unknown. */
+            tempo?: number;
+            credit?: components["schemas"]["LibraryCredit"];
+        };
+        LibraryAssetPatch: {
+            /** @description Replaces every editable detail. */
+            details?: components["schemas"]["LibraryAssetDetails"];
+            /** @description Archived assets are kept but no longer offered to new drafts. */
+            archived?: boolean;
+        };
+        LibraryAsset: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["LibraryAssetKind"];
+            origin: components["schemas"]["LibraryAssetOrigin"];
+            status: components["schemas"]["LibraryAssetStatus"];
+            title: string;
+            description: string;
+            tags: string[];
+            mood?: string;
+            tempo?: number;
+            credit: components["schemas"]["LibraryCredit"];
+            /** @description The uploaded file's name; empty for assets the agent made. */
+            filename: string;
+            /**
+             * Format: int64
+             * @description Bytes of the file received.
+             */
+            size: number;
+            width?: number;
+            height?: number;
+            orientation?: components["schemas"]["Orientation"];
+            /** @description Videos and uploaded music. */
+            durationSeconds?: number;
+            hasPoster: boolean;
+            /** @description Why processing failed. */
+            failure?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            archivedAt?: string;
+        };
+        /** @enum {string} */
         DeliverableStatus: "waiting" | "queued" | "drafting" | "rendering" | "review" | "finalizing" | "ready" | "publishing" | "published" | "rejected" | "failed";
         /** @enum {string} */
         FeedbackScope: "all" | "script" | "voice" | "visuals" | "music" | "metadata";
@@ -1885,6 +2012,7 @@ export interface components {
         StoryId: string;
         DeliverableId: string;
         DocumentId: string;
+        AssetId: string;
         InvitationToken: string;
         WorkspaceId: string;
         PipelineId: string;
@@ -2581,6 +2709,176 @@ export interface operations {
                     "application/epub+zip": string;
                     /** @description TXT and MD originals; the pages endpoint has their text. */
                     "application/octet-stream": string;
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listLibraryAssets: {
+        parameters: {
+            query?: {
+                kind?: components["schemas"]["LibraryAssetKind"][];
+                origin?: components["schemas"]["LibraryAssetOrigin"][];
+                status?: components["schemas"]["LibraryAssetStatus"][];
+                orientation?: components["schemas"]["Orientation"][];
+                /** @description Keep assets whose title, tags or description contain this text, compared ignoring case, accents and the Turkish dotted and dotless i. */
+                q?: string;
+                /** @description Include archived assets; they are left out when omitted. */
+                archived?: boolean;
+                /** @description Assets per page; 100 when omitted. */
+                limit?: number;
+                /** @description Continue a listing after the page that returned this `nextCursor`. Keyset paging: rows added meanwhile are neither skipped nor repeated. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the media library, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        assets: components["schemas"]["LibraryAsset"][];
+                        /** @description Pass as `cursor` for the next page; absent after the last. */
+                        nextCursor?: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    uploadLibraryAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    kind?: components["schemas"]["LibraryAssetKind"];
+                    details?: components["schemas"]["LibraryAssetDetails"];
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Stored; processing queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryAsset"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getLibraryAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                assetId: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The asset. Its files are served at `files/main` and `files/poster` below it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryAsset"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteLibraryAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                assetId: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted with its files. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateLibraryAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                assetId: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LibraryAssetPatch"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryAsset"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    retryLibraryAsset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                assetId: components["parameters"]["AssetId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryAsset"];
                 };
             };
             default: components["responses"]["Error"];

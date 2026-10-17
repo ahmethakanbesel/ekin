@@ -18,6 +18,7 @@ tags:
   - name: workspaces
   - name: members
   - name: knowledge
+  - name: library
   - name: stories
   - name: system
   - name: integrations
@@ -556,6 +557,157 @@ paths:
             application/octet-stream:
               description: TXT and MD originals; the pages endpoint has their text.
               schema: { type: string, format: binary }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/library/assets:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listLibraryAssets
+      tags: [library]
+      parameters:
+        - name: kind
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: "#/components/schemas/LibraryAssetKind" }
+        - name: origin
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: "#/components/schemas/LibraryAssetOrigin" }
+        - name: status
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: "#/components/schemas/LibraryAssetStatus" }
+        - name: orientation
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: "#/components/schemas/Orientation" }
+        - name: q
+          in: query
+          description: >-
+            Keep assets whose title, tags or description contain this text, compared
+            ignoring case, accents and the Turkish dotted and dotless i.
+          schema: { type: string, maxLength: 200 }
+        - name: archived
+          in: query
+          description: Include archived assets; they are left out when omitted.
+          schema: { type: boolean }
+        - name: limit
+          in: query
+          description: Assets per page; 100 when omitted.
+          schema: { type: integer, minimum: 1, maximum: 500 }
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of the media library, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [assets]
+                properties:
+                  assets:
+                    type: array
+                    items: { $ref: "#/components/schemas/LibraryAsset" }
+                  nextCursor:
+                    type: string
+                    description: Pass as `cursor` for the next page; absent after the last.
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: uploadLibraryAsset
+      tags: [library]
+      description: >
+        Uploads a video (MP4, MOV, M4V or WebM, at most 300 MB and 2 minutes), a photo
+        (JPEG, PNG or WebP, at most 25 MB) or a music track (MP3, WAV, FLAC, M4A, AAC or
+        Ogg, at most 50 MB and 15 minutes). It is processed in the background; poll the
+        asset until its status is ready or failed. The `kind` and `details` parts must come
+        before `file`. A file the library already holds is refused with 409.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                kind: { $ref: "#/components/schemas/LibraryAssetKind" }
+                details: { $ref: "#/components/schemas/LibraryAssetDetails" }
+                file: { type: string, format: binary }
+            encoding:
+              details:
+                contentType: application/json
+      responses:
+        "202":
+          description: Stored; processing queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LibraryAsset" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/library/assets/{assetId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/AssetId"
+    get:
+      operationId: getLibraryAsset
+      tags: [library]
+      responses:
+        "200":
+          description: The asset. Its files are served at `files/main` and `files/poster` below it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LibraryAsset" }
+        default: { $ref: "#/components/responses/Error" }
+    patch:
+      operationId: updateLibraryAsset
+      tags: [library]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LibraryAssetPatch" }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LibraryAsset" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteLibraryAsset
+      tags: [library]
+      description: Videos that used the asset keep their own copies.
+      responses:
+        "204":
+          description: Deleted with its files.
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/library/assets/{assetId}/retry:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/AssetId"
+    post:
+      operationId: retryLibraryAsset
+      tags: [library]
+      description: Queues a failed upload for processing again.
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LibraryAsset" }
         default: { $ref: "#/components/responses/Error" }
 
   /system:
@@ -1769,6 +1921,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    AssetId:
+      name: assetId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     InvitationToken:
       name: token
       in: path
@@ -1904,6 +2061,103 @@ components:
         toPage:
           type: integer
           description: The page before the next entry at this level or above, or the last page.
+
+    LibraryAssetKind:
+      type: string
+      enum: [music, video, photo]
+
+    LibraryAssetOrigin:
+      type: string
+      description: generated is a score the agent composed, pexels stock it fetched, upload a person's file.
+      enum: [generated, pexels, upload]
+
+    LibraryAssetStatus:
+      type: string
+      enum: [processing, ready, failed]
+
+    Orientation:
+      type: string
+      enum: [portrait, landscape, square]
+
+    LibraryCredit:
+      type: object
+      description: The attribution a video using the asset gives; all empty for none.
+      required: [author, url, licence]
+      properties:
+        author: { type: string, maxLength: 300 }
+        url: { type: string, maxLength: 300 }
+        licence: { type: string, maxLength: 300 }
+
+    LibraryAssetDetails:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          maxLength: 200
+          description: On upload, empty takes the file name.
+        description: { type: string, maxLength: 2000 }
+        tags:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 40 }
+        mood:
+          type: string
+          maxLength: 100
+          description: Music only.
+        tempo:
+          type: integer
+          minimum: 0
+          maximum: 300
+          description: Beats per minute, music only; 0 for unknown.
+        credit: { $ref: "#/components/schemas/LibraryCredit" }
+
+    LibraryAssetPatch:
+      type: object
+      properties:
+        details:
+          $ref: "#/components/schemas/LibraryAssetDetails"
+          description: Replaces every editable detail.
+        archived:
+          type: boolean
+          description: Archived assets are kept but no longer offered to new drafts.
+
+    LibraryAsset:
+      type: object
+      required: [id, kind, origin, status, title, description, tags, credit, filename, size, hasPoster, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/LibraryAssetKind" }
+        origin: { $ref: "#/components/schemas/LibraryAssetOrigin" }
+        status: { $ref: "#/components/schemas/LibraryAssetStatus" }
+        title: { type: string }
+        description: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        mood: { type: string }
+        tempo: { type: integer }
+        credit: { $ref: "#/components/schemas/LibraryCredit" }
+        filename:
+          type: string
+          description: The uploaded file's name; empty for assets the agent made.
+        size:
+          type: integer
+          format: int64
+          description: Bytes of the file received.
+        width: { type: integer }
+        height: { type: integer }
+        orientation: { $ref: "#/components/schemas/Orientation" }
+        durationSeconds:
+          type: number
+          description: Videos and uploaded music.
+        hasPoster: { type: boolean }
+        failure:
+          type: string
+          description: Why processing failed.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        archivedAt: { type: string, format: date-time }
 
     DeliverableStatus:
       type: string

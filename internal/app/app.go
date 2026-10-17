@@ -15,6 +15,7 @@ import (
 	"kurgu/internal/adapter/elevenlabs"
 	"kurgu/internal/adapter/extract"
 	"kurgu/internal/adapter/github"
+	"kurgu/internal/adapter/media"
 	"kurgu/internal/adapter/render"
 	"kurgu/internal/adapter/speech"
 	"kurgu/internal/adapter/youtube"
@@ -25,6 +26,7 @@ import (
 	identityrepo "kurgu/internal/repository/identity/v1"
 	jobrepo "kurgu/internal/repository/job/v1"
 	knowledgerepo "kurgu/internal/repository/knowledge/v1"
+	libraryrepo "kurgu/internal/repository/library/v1"
 	notifyrepo "kurgu/internal/repository/notify/v1"
 	pipelinerepo "kurgu/internal/repository/pipeline/v1"
 	publishingrepo "kurgu/internal/repository/publishing/v1"
@@ -36,6 +38,7 @@ import (
 	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
+	librarysvc "kurgu/internal/service/library/v1"
 	notifysvc "kurgu/internal/service/notify/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	productionsvc "kurgu/internal/service/production/v1"
@@ -48,6 +51,7 @@ import (
 	httptransport "kurgu/internal/transport/http"
 	systemhandler "kurgu/internal/transport/http/system/v1"
 	knowledgeworker "kurgu/internal/transport/job/knowledge/v1"
+	libraryworker "kurgu/internal/transport/job/library/v1"
 	productionworker "kurgu/internal/transport/job/production/v1"
 	seoworker "kurgu/internal/transport/job/seo/v1"
 	templateworker "kurgu/internal/transport/job/template/v1"
@@ -71,6 +75,7 @@ type App struct {
 	pipelines  *pipelinesvc.Service
 	jobs       *jobsvc.Service
 	knowledge  *knowledgesvc.Service
+	library    *librarysvc.Service
 	production *productionsvc.Service
 	settings   *settingssvc.Service
 	notify     *notifysvc.Service
@@ -106,6 +111,8 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	knowledge := knowledgesvc.NewService(knowledgerepo.NewSQLite(tx), blobs, jobs, &extract.Extractor{PDFToText: cfg.Tools.PDFToText, PDFToHTML: cfg.Tools.PDFToHTML}, tx)
 	pipelines := pipelinesvc.NewService(pipelinerepo.NewSQLite(tx), workspaces, jobs, tx).WithDocuments(knowledge)
 	knowledge.WithUsage(pipelines)
+	library := librarysvc.NewService(libraryrepo.NewSQLite(tx), blobs, jobs,
+		&media.Processor{FFmpeg: cfg.Production.FFmpeg, Threads: cfg.Production.Threads}, tx)
 	identity := identitysvc.NewService(identities, workspaces, tx, password.New(password.Default))
 	workspaceSvc := workspacesvc.NewService(workspaces, identities, tx)
 	box, err := openSecretBox(cfg.Publishing)
@@ -160,6 +167,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		pipelines:  pipelines,
 		jobs:       jobs,
 		knowledge:  knowledge,
+		library:    library,
 		production: production,
 		settings:   settings,
 		notify:     notify,
@@ -273,6 +281,7 @@ func (a *App) Router() (http.Handler, error) {
 		Pipelines:   a.pipelines,
 		Jobs:        a.jobs,
 		Knowledge:   a.knowledge,
+		Library:     a.library,
 		Production:  a.production,
 		Feed:        a.notify,
 		Inviter:     inviter{a.notify, a.workspaces},
@@ -354,6 +363,7 @@ func (a *App) Work(ctx context.Context) error {
 		Lease:           w.Lease,
 	}, a.log.With(slog.String("component", "worker")))
 	knowledgeworker.Register(runner, a.knowledge)
+	libraryworker.Register(runner, a.library)
 	productionworker.Register(runner, a.production)
 	seoworker.Register(runner, a.seo)
 	templateworker.Register(runner, a.templates)

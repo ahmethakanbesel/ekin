@@ -12,7 +12,9 @@ import (
 
 	"kurgu/internal/apperror"
 	identitydomain "kurgu/internal/domain/identity/v1"
+	librarydomain "kurgu/internal/domain/library/v1"
 	identitysvc "kurgu/internal/service/identity/v1"
+	librarysvc "kurgu/internal/service/library/v1"
 	productionsvc "kurgu/internal/service/production/v1"
 	"kurgu/internal/transport/http/principal"
 )
@@ -33,24 +35,8 @@ var artifactTypes = map[string]string{
 // view operations.
 func media(identity *identitysvc.Service, stories *productionsvc.Service, writeErr func(http.ResponseWriter, *http.Request, error)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(principal.CookieName)
+		ids, err := viewer(identity, r, "workspaceId", "storyId", "deliverableId")
 		if err != nil {
-			writeErr(w, r, apperror.New(apperror.Unauthenticated, "not signed in"))
-			return
-		}
-		user, _, err := identity.Authenticate(r.Context(), cookie.Value)
-		if err != nil {
-			writeErr(w, r, err)
-			return
-		}
-		ids := make([]uuid.UUID, 3)
-		for i, name := range []string{"workspaceId", "storyId", "deliverableId"} {
-			if ids[i], err = uuid.Parse(r.PathValue(name)); err != nil {
-				writeErr(w, r, apperror.New(apperror.BadRequest, "invalid "+name))
-				return
-			}
-		}
-		if _, err := identity.Authorize(r.Context(), user.ID(), ids[0], identitydomain.ActionView); err != nil {
 			writeErr(w, r, err)
 			return
 		}
@@ -70,17 +56,71 @@ func media(identity *identitysvc.Service, stories *productionsvc.Service, writeE
 			writeErr(w, r, err)
 			return
 		}
-		defer func() { _ = rc.Close() }()
 		w.Header().Set("Content-Type", contentType)
-		w.Header().Set("Cache-Control", "private, max-age=3600")
 		if r.URL.Query().Get("download") != "" {
 			w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
 		}
-		if rs, ok := rc.(io.ReadSeeker); ok {
-			http.ServeContent(w, r, name, time.Time{}, rs)
+		serve(w, r, name, rc, size)
+	})
+}
+
+// libraryFile streams a library asset's main file or poster, outside the
+// strict server for the same Range reason as media.
+func libraryFile(identity *identitysvc.Service, library *librarysvc.Service, writeErr func(http.ResponseWriter, *http.Request, error)) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ids, err := viewer(identity, r, "workspaceId", "assetId")
+		if err != nil {
+			writeErr(w, r, err)
 			return
 		}
-		w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
-		_, _ = io.Copy(w, rc)
+		f, err := librarydomain.ParseFile(r.PathValue("file"))
+		if err != nil {
+			writeErr(w, r, err)
+			return
+		}
+		a, rc, size, err := library.Open(r.Context(), ids[0], ids[1], f)
+		if err != nil {
+			writeErr(w, r, err)
+			return
+		}
+		w.Header().Set("Content-Type", a.ContentType(f))
+		serve(w, r, string(f), rc, size)
 	})
+}
+
+// viewer authenticates the session cookie and checks that its user may
+// view the workspace named by the first of the uuid path values, which
+// it returns parsed.
+func viewer(identity *identitysvc.Service, r *http.Request, names ...string) ([]uuid.UUID, error) {
+	cookie, err := r.Cookie(principal.CookieName)
+	if err != nil {
+		return nil, apperror.New(apperror.Unauthenticated, "not signed in")
+	}
+	user, _, err := identity.Authenticate(r.Context(), cookie.Value)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]uuid.UUID, len(names))
+	for i, name := range names {
+		if ids[i], err = uuid.Parse(r.PathValue(name)); err != nil {
+			return nil, apperror.New(apperror.BadRequest, "invalid "+name)
+		}
+	}
+	if _, err := identity.Authorize(r.Context(), user.ID(), ids[0], identitydomain.ActionView); err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
+// serve copies a blob to the response, with Range support when the blob
+// can seek, and closes it.
+func serve(w http.ResponseWriter, r *http.Request, name string, rc io.ReadCloser, size int64) {
+	defer func() { _ = rc.Close() }()
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+	if rs, ok := rc.(io.ReadSeeker); ok {
+		http.ServeContent(w, r, name, time.Time{}, rs)
+		return
+	}
+	w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+	_, _ = io.Copy(w, rc)
 }

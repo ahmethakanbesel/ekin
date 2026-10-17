@@ -453,14 +453,15 @@ func ParseFile(s string) (File, error) {
 	return "", apperror.New(apperror.AssetNotFound, "no such file")
 }
 
-// Prefix is where every file of the asset lives in the blob store.
+// Prefix is the blob store "directory" every file of the asset lives
+// under.
 func (a *Asset) Prefix() string {
-	return "ws/" + a.workspaceID.String() + "/library/" + a.id.String() + "/"
+	return "ws/" + a.workspaceID.String() + "/library/" + a.id.String()
 }
 
 // OriginalKey is where an upload waits for ingestion.
 func (a *Asset) OriginalKey() string {
-	return a.Prefix() + "original" + strings.ToLower(filepath.Ext(a.filename))
+	return a.Prefix() + "/original" + strings.ToLower(filepath.Ext(a.filename))
 }
 
 // Key is where file f lives, and false when the asset has none.
@@ -469,9 +470,9 @@ func (a *Asset) Key(f File) (string, bool) {
 	case a.status != StatusReady:
 		return "", false
 	case f == FileMain:
-		return a.Prefix() + "main." + a.format, true
+		return a.Prefix() + "/main." + a.format, true
 	case f == FilePoster && a.poster:
-		return a.Prefix() + "poster.jpg", true
+		return a.Prefix() + "/poster.jpg", true
 	}
 	return "", false
 }

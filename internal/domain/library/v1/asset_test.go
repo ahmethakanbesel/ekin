@@ -210,7 +210,7 @@ func TestKeys(t *testing.T) {
 	_ = a.Ingested(library.Media{Format: "webm", Width: 1920, Height: 1080, Duration: time.Second, Poster: true}, now)
 	main, _ := a.Key(library.FileMain)
 	poster, ok := a.Key(library.FilePoster)
-	if main != a.Prefix()+"main.webm" || !ok || poster != a.Prefix()+"poster.jpg" || a.ContentType(library.FileMain) != "video/webm" {
+	if main != a.Prefix()+"/main.webm" || !ok || poster != a.Prefix()+"/poster.jpg" || a.ContentType(library.FileMain) != "video/webm" {
 		t.Fatalf("keys = %s %s %s", main, poster, a.ContentType(library.FileMain))
 	}
 	if _, err := library.ParseFile("original"); !apperror.Is(err, apperror.AssetNotFound) {

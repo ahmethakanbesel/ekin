@@ -1,0 +1,268 @@
+package library_test
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"kurgu/internal/apperror"
+	"kurgu/internal/blob"
+	"kurgu/internal/db/dbtest"
+	jobdomain "kurgu/internal/domain/job/v1"
+	librarydomain "kurgu/internal/domain/library/v1"
+	workspacedomain "kurgu/internal/domain/workspace/v1"
+	jobrepo "kurgu/internal/repository/job/v1"
+	libraryrepo "kurgu/internal/repository/library/v1"
+	workspacerepo "kurgu/internal/repository/workspace/v1"
+	jobsvc "kurgu/internal/service/job/v1"
+	librarysvc "kurgu/internal/service/library/v1"
+	"kurgu/pkg/id"
+)
+
+var now = time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
+
+// processor writes fixed files, or fails, and may run during to act
+// while it works.
+type processor struct {
+	media  librarydomain.Media
+	err    error
+	during func()
+	calls  int
+}
+
+func (p *processor) Ingest(_ context.Context, _ librarydomain.Kind, in, outDir string) (librarydomain.Media, error) {
+	p.calls++
+	if p.during != nil {
+		p.during()
+	}
+	if _, err := os.Stat(in); err != nil {
+		return librarydomain.Media{}, err
+	}
+	if p.err != nil {
+		return librarydomain.Media{}, p.err
+	}
+	_ = os.WriteFile(filepath.Join(outDir, "main."+p.media.Format), []byte("main"), 0o600)
+	if p.media.Poster {
+		_ = os.WriteFile(filepath.Join(outDir, "poster.jpg"), []byte("poster"), 0o600)
+	}
+	return p.media, nil
+}
+
+type fixture struct {
+	svc   *librarysvc.Service
+	jobs  *jobsvc.Service
+	blobs blob.Store
+	proc  *processor
+	ws    uuid.UUID
+}
+
+func newFixture(t *testing.T) fixture {
+	t.Helper()
+	_, tx := dbtest.Open(t)
+	w, _ := workspacedomain.New(id.New(), "ws", time.UTC, now)
+	if err := workspacerepo.NewSQLite(tx).Create(context.Background(), w); err != nil {
+		t.Fatal(err)
+	}
+	blobs, _ := blob.NewFS(t.TempDir())
+	jobs := jobsvc.NewService(jobrepo.NewSQLite(tx), tx)
+	proc := &processor{media: librarydomain.Media{Format: "webm", Width: 1080, Height: 1920, Duration: 8 * time.Second, Poster: true}}
+	svc := librarysvc.NewService(libraryrepo.NewSQLite(tx), blobs, jobs, proc, tx).WithClock(func() time.Time { return now })
+	return fixture{svc: svc, jobs: jobs, blobs: blobs, proc: proc, ws: w.ID()}
+}
+
+// runIngest runs the queued ingest job the way the worker would.
+func (f fixture) runIngest(t *testing.T) error {
+	t.Helper()
+	j, err := f.jobs.Claim(context.Background(), []jobdomain.Queue{jobdomain.QueueExtract}, []string{librarysvc.KindIngest}, "test", time.Minute)
+	if err != nil || j == nil {
+		t.Fatalf("claim = %v, %v", j, err)
+	}
+	var p librarysvc.IngestPayload
+	_ = json.Unmarshal(j.Payload(), &p)
+	return f.svc.Ingest(context.Background(), p.AssetID)
+}
+
+func (f fixture) upload(t *testing.T, filename, content string) *librarydomain.Asset {
+	t.Helper()
+	a, err := f.svc.Upload(context.Background(), f.ws, id.New(), "", librarydomain.Details{}, filename, strings.NewReader(content))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a
+}
+
+func (f fixture) exists(key string) bool {
+	rc, _, err := f.blobs.Open(context.Background(), key)
+	if err == nil {
+		_ = rc.Close()
+	}
+	return err == nil
+}
+
+func TestUploadAndIngest(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	a := f.upload(t, "Deniz Kıyısı.mp4", "video bytes")
+	if a.Kind() != librarydomain.KindVideo || a.Status() != librarydomain.StatusProcessing || a.Title() != "Deniz Kıyısı" ||
+		a.Size() != 11 || len(a.SHA256()) != 64 || !f.exists(a.OriginalKey()) {
+		t.Fatalf("uploaded = %+v", a.Snapshot())
+	}
+	if err := f.runIngest(t); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := f.svc.Get(ctx, f.ws, a.ID())
+	if got.Status() != librarydomain.StatusReady || got.Orientation() != librarydomain.OrientationPortrait || got.Duration() != 8*time.Second {
+		t.Fatalf("ingested = %+v", got.Snapshot())
+	}
+	if f.exists(a.OriginalKey()) {
+		t.Fatal("original kept after a successful ingest")
+	}
+	_, rc, size, err := f.svc.Open(ctx, f.ws, a.ID(), librarydomain.FilePoster)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(rc)
+	_ = rc.Close()
+	if string(body) != "poster" || size != 6 {
+		t.Fatalf("poster = %q (%d)", body, size)
+	}
+	if _, err := f.svc.Upload(ctx, f.ws, id.New(), "", librarydomain.Details{}, "copy.mp4", strings.NewReader("video bytes")); !apperror.Is(err, apperror.Conflict) ||
+		!strings.Contains(apperror.Message(err), "Deniz Kıyısı") {
+		t.Fatalf("duplicate upload err = %v", err)
+	}
+}
+
+func TestUploadRefusals(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	tests := []struct {
+		name     string
+		kind     librarydomain.Kind
+		filename string
+		content  string
+	}{
+		{"unsupported type", "", "a.gif", "x"},
+		{"empty", "", "a.mp3", ""},
+		{"kind disagrees", librarydomain.KindPhoto, "a.mp3", "x"},
+		{"photo too large", "", "a.jpg", strings.Repeat("x", librarydomain.MaxPhotoBytes+1)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := f.svc.Upload(ctx, f.ws, id.New(), tt.kind, librarydomain.Details{}, tt.filename, strings.NewReader(tt.content))
+			if !apperror.Is(err, apperror.ValidationFailed) {
+				t.Fatalf("err = %v", err)
+			}
+		})
+	}
+	if list, _, _ := f.svc.List(ctx, f.ws, librarysvc.Filter{}); len(list) != 0 {
+		t.Fatalf("refused uploads stored: %d", len(list))
+	}
+}
+
+func TestIngestFailureAndRetry(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	f.proc.err = errors.New("the file could not be read as media: moov atom not found")
+	a := f.upload(t, "broken.mp4", "junk")
+	if err := f.runIngest(t); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := f.svc.Get(ctx, f.ws, a.ID())
+	if got.Status() != librarydomain.StatusFailed || !strings.Contains(got.Failure(), "moov atom") || !f.exists(a.OriginalKey()) {
+		t.Fatalf("failed = %+v, original kept %v", got.Snapshot(), f.exists(a.OriginalKey()))
+	}
+	if _, _, _, err := f.svc.Open(ctx, f.ws, a.ID(), librarydomain.FileMain); !apperror.Is(err, apperror.AssetNotFound) {
+		t.Fatalf("open failed asset err = %v", err)
+	}
+	f.proc.err = nil
+	if _, err := f.svc.Retry(ctx, f.ws, a.ID()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.Retry(ctx, f.ws, a.ID()); !apperror.Is(err, apperror.InvalidTransition) {
+		t.Fatalf("retry while processing err = %v", err)
+	}
+	if err := f.runIngest(t); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := f.svc.Get(ctx, f.ws, a.ID()); got.Status() != librarydomain.StatusReady {
+		t.Fatalf("after retry = %s", got.Status())
+	}
+}
+
+func TestIngestTooLongFailsWithoutStoring(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	f.proc.media.Duration = 5 * time.Minute
+	a := f.upload(t, "long.mp4", "long")
+	if err := f.runIngest(t); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := f.svc.Get(ctx, f.ws, a.ID())
+	if got.Status() != librarydomain.StatusFailed || f.exists(a.Prefix()+"/main.webm") {
+		t.Fatalf("too long = %s, main stored %v", got.Status(), f.exists(a.Prefix()+"/main.webm"))
+	}
+}
+
+func TestIngestKeepsEditsAndDeletions(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	a := f.upload(t, "clip.mp4", "one")
+	f.proc.during = func() {
+		title := "Renamed meanwhile"
+		_, _ = f.svc.Update(ctx, f.ws, a.ID(), librarysvc.Patch{Details: &librarydomain.Details{Title: title, Tags: []string{"sea"}}})
+	}
+	if err := f.runIngest(t); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := f.svc.Get(ctx, f.ws, a.ID())
+	if got.Title() != "Renamed meanwhile" || got.Status() != librarydomain.StatusReady {
+		t.Fatalf("after edit during ingest = %+v", got.Snapshot())
+	}
+
+	b := f.upload(t, "other.mp4", "two")
+	f.proc.during = func() { _ = f.svc.Delete(ctx, f.ws, b.ID()) }
+	if err := f.runIngest(t); !errors.Is(err, jobdomain.ErrPermanent) {
+		t.Fatalf("ingest of a deleted asset err = %v", err)
+	}
+}
+
+func TestUpdateAndDelete(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	a := f.upload(t, "clip.mp4", "one")
+	if err := f.runIngest(t); err != nil {
+		t.Fatal(err)
+	}
+	archived := true
+	got, err := f.svc.Update(ctx, f.ws, a.ID(), librarysvc.Patch{Archived: &archived})
+	if err != nil || got.Usable() || got.Title() != "clip" {
+		t.Fatalf("archive = %+v, %v", got, err)
+	}
+	if list, _, _ := f.svc.List(ctx, f.ws, librarysvc.Filter{}); len(list) != 0 {
+		t.Fatalf("archived listed by default: %d", len(list))
+	}
+	if _, err := f.svc.Update(ctx, f.ws, a.ID(), librarysvc.Patch{Details: &librarydomain.Details{Title: "x", Mood: "calm"}}); !apperror.Is(err, apperror.ValidationFailed) {
+		t.Fatalf("mood on a video err = %v", err)
+	}
+	if _, err := f.svc.Update(ctx, id.New(), a.ID(), librarysvc.Patch{Archived: &archived}); !apperror.Is(err, apperror.AssetNotFound) {
+		t.Fatalf("other workspace err = %v", err)
+	}
+	main, _ := got.Key(librarydomain.FileMain)
+	if err := f.svc.Delete(ctx, f.ws, a.ID()); err != nil {
+		t.Fatal(err)
+	}
+	if f.exists(main) {
+		t.Fatal("files kept after delete")
+	}
+	if _, err := f.svc.Get(ctx, f.ws, a.ID()); !apperror.Is(err, apperror.AssetNotFound) {
+		t.Fatalf("get deleted err = %v", err)
+	}
+}

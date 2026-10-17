@@ -208,7 +208,7 @@ Pipelines and ad-hoc requests gain `media: {music, video, photo}` with `fresh` a
 default, so existing clients keep today's behaviour.
 
 Outside the spec (CONVENTIONS §11 gains a third route group):
-`GET /api/v1/workspaces/{ws}/library/assets/{id}/{file}` — `main`, `poster`, `preview`
+`GET /api/v1/workspaces/{ws}/library/assets/{id}/files/{file}` — `main`, `poster`, `preview`
 with Range support, same session and `view` check as revision media. And the worker
 route in §4.
 

@@ -39,6 +39,13 @@ var workspaceActions = map[string]identitydomain.Action{
 	"DeleteDocument":      identitydomain.ActionEdit,
 	"RetryDocument":       identitydomain.ActionEdit,
 
+	"ListLibraryAssets":  identitydomain.ActionView,
+	"GetLibraryAsset":    identitydomain.ActionView,
+	"UploadLibraryAsset": identitydomain.ActionEdit,
+	"UpdateLibraryAsset": identitydomain.ActionEdit,
+	"DeleteLibraryAsset": identitydomain.ActionEdit,
+	"RetryLibraryAsset":  identitydomain.ActionEdit,
+
 	"ListTemplates":     identitydomain.ActionView,
 	"GetTemplate":       identitydomain.ActionView,
 	"CreateTemplate":    identitydomain.ActionEdit,

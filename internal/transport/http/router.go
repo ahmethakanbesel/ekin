@@ -17,10 +17,12 @@ import (
 
 	"kurgu/internal/apperror"
 	knowledgedomain "kurgu/internal/domain/knowledge/v1"
+	librarydomain "kurgu/internal/domain/library/v1"
 	"kurgu/internal/gen"
 	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
+	librarysvc "kurgu/internal/service/library/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	productionsvc "kurgu/internal/service/production/v1"
 	publishingsvc "kurgu/internal/service/publishing/v1"
@@ -31,6 +33,7 @@ import (
 	identityhandler "kurgu/internal/transport/http/identity/v1"
 	jobhandler "kurgu/internal/transport/http/job/v1"
 	knowledgehandler "kurgu/internal/transport/http/knowledge/v1"
+	libraryhandler "kurgu/internal/transport/http/library/v1"
 	pipelinehandler "kurgu/internal/transport/http/pipeline/v1"
 	"kurgu/internal/transport/http/principal"
 	publishinghandler "kurgu/internal/transport/http/publishing/v1"
@@ -43,11 +46,15 @@ import (
 	workspacehandler "kurgu/internal/transport/http/workspace/v1"
 )
 
-// maxBodyBytes caps a request body; maxUploadBytes caps document uploads
-// (the file limit plus multipart overhead).
+// maxBodyBytes caps a request body; maxUploadBytes and
+// maxLibraryUploadBytes cap document and library uploads (the file limit
+// plus multipart overhead). libraryUploadTime is how long a library
+// upload may take to arrive, past the server's read timeout.
 const (
-	maxBodyBytes   = 1 << 20
-	maxUploadBytes = knowledgedomain.MaxFileBytes + 1<<20
+	maxBodyBytes          = 1 << 20
+	maxUploadBytes        = knowledgedomain.MaxFileBytes + 1<<20
+	maxLibraryUploadBytes = librarydomain.MaxUploadBytes + 1<<20
+	libraryUploadTime     = 15 * time.Minute
 )
 
 // Deps is what the router needs.
@@ -57,6 +64,7 @@ type Deps struct {
 	Pipelines  *pipelinesvc.Service
 	Jobs       *jobsvc.Service
 	Knowledge  *knowledgesvc.Service
+	Library    *librarysvc.Service
 	Production *productionsvc.Service
 	Feed       storyhandler.Feed
 	Inviter    identityhandler.Inviter
@@ -85,6 +93,7 @@ type (
 	pipelines  = pipelinehandler.Handler
 	jobs       = jobhandler.Handler
 	documents  = knowledgehandler.Handler
+	library    = libraryhandler.Handler
 	stories    = storyhandler.Handler
 	system     = systemhandler.Handler
 	publishing = publishinghandler.Handler
@@ -100,6 +109,7 @@ type server struct {
 	*pipelines
 	*jobs
 	*documents
+	*library
 	*stories
 	*system
 	*publishing
@@ -136,6 +146,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		pipelines:  pipelinehandler.New(d.Pipelines),
 		jobs:       jobhandler.New(d.Jobs),
 		documents:  knowledgehandler.New(d.Knowledge),
+		library:    libraryhandler.New(d.Library),
 		stories:    storyhandler.New(d.Production, d.Feed),
 		system:     d.System,
 		publishing: publishinghandler.New(d.Publishing),
@@ -157,6 +168,8 @@ func NewRouter(d Deps) (http.Handler, error) {
 	})
 	mux.Handle("GET /api/v1/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/revisions/{number}/{artifact}",
 		media(d.Identity, d.Production, writeErr))
+	mux.Handle("GET /api/v1/workspaces/{workspaceId}/library/assets/{assetId}/files/{file}",
+		libraryFile(d.Identity, d.Library, writeErr))
 	workerapi.Register(mux, d.WorkerToken, d.Jobs, d.Production, d.Profiles, d.Log, writeErr)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -249,8 +262,15 @@ func readOnly(next http.Handler) http.Handler {
 func limitBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		limit := int64(maxBodyBytes)
-		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/api/v1/workspaces/") && strings.HasSuffix(r.URL.Path, "/documents") {
+		upload := r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/api/v1/workspaces/")
+		if upload && strings.HasSuffix(r.URL.Path, "/documents") {
 			limit = maxUploadBytes
+		}
+		if upload && strings.HasSuffix(r.URL.Path, "/library/assets") {
+			limit = maxLibraryUploadBytes
+			// A 300 MB video takes longer than the server's read timeout
+			// on most uplinks.
+			_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(libraryUploadTime))
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/v1/worker/") {
 			limit = workerapi.MaxUpload

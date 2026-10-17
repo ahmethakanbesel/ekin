@@ -117,12 +117,14 @@ pinned `go run module@version`.
 
 ## 11. Routes outside the spec
 
-Two route groups stream binary data in ways the strict server cannot, and are registered
+Three route groups stream binary data in ways the strict server cannot, and are registered
 directly on the mux:
 
 - `GET /api/v1/workspaces/{ws}/stories/{id}/deliverables/{did}/revisions/{n}/{artifact}` —
   revision media with Range support (`internal/transport/http/media.go`); same session and
   `view` check as the spec's operations.
+- `GET /api/v1/workspaces/{ws}/library/assets/{id}/files/{main|poster}` — library files,
+  same file, same checks.
 - `/api/v1/worker/...` — the hybrid-worker API (`internal/transport/http/worker`),
   bearer-token auth (`KURGU_WORKER_TOKEN`), off when the token is empty.
 

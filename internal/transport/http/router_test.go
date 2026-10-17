@@ -29,6 +29,7 @@ import (
 	identityrepo "kurgu/internal/repository/identity/v1"
 	jobrepo "kurgu/internal/repository/job/v1"
 	knowledgerepo "kurgu/internal/repository/knowledge/v1"
+	libraryrepo "kurgu/internal/repository/library/v1"
 	pipelinerepo "kurgu/internal/repository/pipeline/v1"
 	settingsrepo "kurgu/internal/repository/settings/v1"
 	templaterepo "kurgu/internal/repository/template/v1"
@@ -36,6 +37,7 @@ import (
 	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
+	librarysvc "kurgu/internal/service/library/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	settingssvc "kurgu/internal/service/settings/v1"
 	templatesvc "kurgu/internal/service/template/v1"
@@ -52,6 +54,7 @@ type server struct {
 	*httptest.Server
 	identity  *identitysvc.Service
 	knowledge *knowledgesvc.Service
+	library   *librarysvc.Service
 	jobs      *jobsvc.Service
 	logs      *syncBuffer
 }
@@ -85,6 +88,7 @@ func newServer(t *testing.T) *server {
 	knowledge := knowledgesvc.NewService(knowledgerepo.NewSQLite(tx), blobs, jobs, extract.New(), tx)
 	pipelines := pipelinesvc.NewService(pipelinerepo.NewSQLite(tx), workspaces, jobs, tx).WithDocuments(knowledge)
 	knowledge.WithUsage(pipelines)
+	library := librarysvc.NewService(libraryrepo.NewSQLite(tx), blobs, jobs, fakeProcessor{}, tx)
 	box, _ := secretbox.New([]byte("router-test-secret-0123"))
 	settings := settingssvc.NewService(settingsrepo.NewSQLite(tx), tx, settingsdomain.Profile{Name: "default"}, slog.New(slog.DiscardHandler)).
 		WithCredentials(settingsdomain.Credentials{DecisionModel: "typesafe/jev-1.13"}, box)
@@ -98,6 +102,7 @@ func newServer(t *testing.T) *server {
 		Pipelines:  pipelines,
 		Jobs:       jobs,
 		Knowledge:  knowledge,
+		Library:    library,
 		PublicURL:  publicURL,
 		UI:         fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Kurgu</title>")}},
 		Log:        slog.New(slog.NewJSONHandler(logs, nil)),
@@ -107,7 +112,7 @@ func newServer(t *testing.T) *server {
 	}
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)
-	return &server{Server: srv, identity: identity, knowledge: knowledge, jobs: jobs, logs: logs}
+	return &server{Server: srv, identity: identity, knowledge: knowledge, library: library, jobs: jobs, logs: logs}
 }
 
 // client is a browser: it keeps cookies.
