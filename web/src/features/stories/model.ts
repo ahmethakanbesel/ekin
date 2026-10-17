@@ -102,10 +102,12 @@ export const SCOPES: Record<Deliverable["kind"], FeedbackScope[]> = {
 
 /**
  * The scopes a note on d may take: a video's script waiting for approval
- * has no voice, visuals or music yet.
+ * has no voice, visuals or music yet, and only a video with thumbnail
+ * variants takes notes on them.
  */
-export function scopesFor(d: Pick<Deliverable, "kind" | "stage">): FeedbackScope[] {
-  return d.stage === "script" ? ["all", "script", "metadata"] : SCOPES[d.kind]
+export function scopesFor(d: Pick<Deliverable, "kind" | "stage">, thumbnails = false): FeedbackScope[] {
+  if (d.stage === "script") return ["all", "script", "metadata"]
+  return thumbnails && d.kind === "video" ? [...SCOPES.video, "thumbnail"] : SCOPES[d.kind]
 }
 
 /** Whether notes on d can be pinned to a moment: a rendered video only. */

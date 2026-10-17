@@ -67,6 +67,8 @@ const MEDIA_KINDS: MediaKind[] = ["music", "video", "photo"]
 
 const MEDIA_SOURCES: MediaSource[] = ["fresh", "library", "mixed"]
 
+const THUMBNAIL_COUNTS = [0, 1, 2, 3, 4]
+
 /**
  * "Production" in the pipeline and request forms: how the stories are
  * made, each setting overriding the workspace default. The video-only
@@ -77,12 +79,15 @@ export function ProductionSection({
   value,
   onChange,
   video,
+  longVideo = false,
   readOnly = false,
 }: {
   idPrefix: string
   value: ProductionValues
   onChange: (next: ProductionValues) => void
   video: boolean
+  /** A long video output is on: it gets designed thumbnails. */
+  longVideo?: boolean
   readOnly?: boolean
 }) {
   const t = m.pipelineForm.production
@@ -109,6 +114,10 @@ export function ProductionSection({
   const finalRates = [
     { value: DEFAULT, label: t.workspaceDefault },
     ...FINAL_RATES.map((n) => ({ value: String(n), label: t.finalRates[n] })),
+  ]
+  const thumbnailCounts = [
+    { value: DEFAULT, label: t.thumbnailsDefault },
+    ...THUMBNAIL_COUNTS.map((n) => ({ value: String(n), label: t.thumbnailCounts(n) })),
   ]
   const set = (patch: Partial<ProductionValues>) => onChange({ ...value, ...patch })
 
@@ -247,6 +256,27 @@ export function ProductionSection({
               </SelectTrigger>
               <SelectContent>
                 {finalRates.map((it) => (
+                  <SelectItem key={it.value} value={it.value}>
+                    {it.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Row>
+        ) : null}
+        {video && longVideo ? (
+          <Row label={t.thumbnails} htmlFor={`${idPrefix}-thumbnails`} hint={t.thumbnailsHint}>
+            <Select
+              items={thumbnailCounts}
+              disabled={readOnly}
+              value={value.thumbnails === null ? DEFAULT : String(value.thumbnails)}
+              onValueChange={(v) => v && set({ thumbnails: v === DEFAULT ? null : Number(v) })}
+            >
+              <SelectTrigger id={`${idPrefix}-thumbnails`} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {thumbnailCounts.map((it) => (
                   <SelectItem key={it.value} value={it.value}>
                     {it.label}
                   </SelectItem>

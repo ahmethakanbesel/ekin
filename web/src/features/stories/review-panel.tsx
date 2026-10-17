@@ -41,6 +41,7 @@ import {
 } from "./previews"
 import { RevisionHistory, historyCount } from "./revision-history"
 import { ShortsPanel } from "./shorts-panel"
+import { ThumbnailsPanel } from "./thumbnails-panel"
 import { StatusBanner } from "./status-alert"
 import type {
   DeliverableReview,
@@ -63,6 +64,7 @@ export function ReviewPanel({
   pipelinesLoaded,
   onDelete,
   onPick,
+  onThumbnailNote,
 }: {
   workspaceId: string
   timezone: string
@@ -76,6 +78,8 @@ export function ReviewPanel({
   onDelete: () => void
   /** Shows another deliverable of the story. */
   onPick: (deliverableId: string) => void
+  /** Opens the feedback form on a note about the thumbnails, while notes can be sent. */
+  onThumbnailNote?: () => void
 }) {
   const { current, latest, artifacts } = review
   const language = m.values.language[story.language] ?? story.language
@@ -200,6 +204,24 @@ export function ReviewPanel({
                   ? (t) => seekVideo(review.videoRef, t)
                   : undefined
               }
+            />
+          </Section>
+        </>
+      ) : null}
+      {d.kind === "video" && current?.thumbnails && artifacts ? (
+        <>
+          <Separator />
+          <Section
+            name="thumbnails"
+            title={m.thumbnails.title}
+            aside={m.thumbnails.count(current.thumbnails.variants.length)}
+          >
+            <ThumbnailsPanel
+              deliverable={d}
+              revision={current}
+              artifacts={artifacts}
+              canEdit={canEdit}
+              onNote={onThumbnailNote}
             />
           </Section>
         </>

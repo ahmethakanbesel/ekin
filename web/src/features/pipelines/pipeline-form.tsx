@@ -117,6 +117,7 @@ export function PipelineForm({
   const sourceKind = useStore(form.store, (s) => s.values.source.kind)
   const scheduled = useStore(form.store, (s) => s.values.scheduled)
   const videoEnabled = useStore(form.store, (s) => s.values.videoEnabled)
+  const longVideo = useStore(form.store, (s) => s.values.videoEnabled && s.values.video.format === "long")
   const articleEnabled = useStore(form.store, (s) => s.values.articleEnabled)
 
   // Re-check the references once the documents arrive (or change status).
@@ -258,6 +259,7 @@ export function PipelineForm({
             value={field.state.value}
             onChange={field.handleChange}
             video={videoEnabled}
+            longVideo={longVideo}
             readOnly={readOnly}
           />
         )}

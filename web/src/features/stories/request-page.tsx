@@ -117,6 +117,7 @@ function RequestForm({ workspaceId }: { workspaceId: string }) {
   const language = useStore(form.store, (s) => s.values.language)
   const refCount = useStore(form.store, (s) => s.values.refs.length)
   const videoEnabled = useStore(form.store, (s) => s.values.videoEnabled)
+  const longVideo = useStore(form.store, (s) => s.values.videoEnabled && s.values.video.format === "long")
   const articleEnabled = useStore(form.store, (s) => s.values.articleEnabled)
 
   // Re-check the references once the documents arrive (or change status).
@@ -263,6 +264,7 @@ function RequestForm({ workspaceId }: { workspaceId: string }) {
             value={field.state.value}
             onChange={field.handleChange}
             video={videoEnabled}
+            longVideo={longVideo}
           />
         )}
       </form.Field>

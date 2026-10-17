@@ -89,12 +89,14 @@ export type ProductionValues = {
   reviewAt: ReviewAt
   /** Where each kind of media comes from; fresh is the default. */
   media: Record<MediaKind, MediaSource>
+  /** Thumbnail variants a long video gets, 0 for none; null is the default (3). */
+  thumbnails: number | null
 }
 
 const freshMedia = (): Record<MediaKind, MediaSource> => ({ music: "fresh", video: "fresh", photo: "fresh" })
 
 export function emptyProduction(): ProductionValues {
-  return { draftModel: "", draftEffort: "", previewQuality: "", finalQuality: "", previewFps: 0, finalFps: 0, reviewAt: "video", media: freshMedia() }
+  return { draftModel: "", draftEffort: "", previewQuality: "", finalQuality: "", previewFps: 0, finalFps: 0, reviewAt: "video", media: freshMedia(), thumbnails: null }
 }
 
 export function fromProduction(p: Production | undefined): ProductionValues {
@@ -107,6 +109,7 @@ export function fromProduction(p: Production | undefined): ProductionValues {
     finalFps: p?.finalFps ?? 0,
     reviewAt: p?.reviewAt ?? "video",
     media: { ...freshMedia(), ...p?.media },
+    thumbnails: p?.thumbnails ?? null,
   }
 }
 
@@ -121,6 +124,7 @@ export function toProduction(v: ProductionValues): Production | undefined {
   if (v.finalFps) out.finalFps = v.finalFps
   if (v.reviewAt === "script") out.reviewAt = v.reviewAt
   if (Object.values(v.media).some((source) => source !== "fresh")) out.media = { ...v.media }
+  if (v.thumbnails !== null) out.thumbnails = v.thumbnails
   return Object.keys(out).length > 0 ? out : undefined
 }
 

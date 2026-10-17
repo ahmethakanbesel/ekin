@@ -356,6 +356,51 @@ export function useEditDeliverableContent(workspaceId: string, storyId: string, 
 }
 
 /**
+ * Picks the thumbnail variant a long video goes out with; 0 goes back to
+ * the recommended one.
+ */
+export function usePickThumbnail(workspaceId: string, storyId: string, deliverableId: string) {
+  const store = useStoreStory(workspaceId)
+  return useMutation({
+    mutationFn: (variant: number) =>
+      call(
+        api.PUT("/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/thumbnail", {
+          params: { path: { workspaceId, storyId, deliverableId } },
+          body: { variant },
+        })
+      ),
+    onSuccess: store,
+  })
+}
+
+/**
+ * Changes one variant's words as a new revision whose thumbnails alone
+ * are drawn again. 409 when `revision` is no longer the latest.
+ */
+export function useEditThumbnail(workspaceId: string, storyId: string, deliverableId: string) {
+  const qc = useQueryClient()
+  const store = useStoreStory(workspaceId)
+  return useMutation({
+    mutationFn: ({ n, revision, text }: { n: number; revision: number; text: string }) =>
+      call(
+        api.PATCH("/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/thumbnails/{n}", {
+          params: { path: { workspaceId, storyId, deliverableId, n } },
+          body: { revision, text },
+        })
+      ),
+    onSuccess: (story) => {
+      store(story)
+      void qc.invalidateQueries({ queryKey: keys.revisions(workspaceId, storyId, deliverableId) })
+    },
+    onError: (err) => {
+      if (isApiError(err) && err.status === 409) {
+        void qc.invalidateQueries({ queryKey: keys.story(workspaceId, storyId), exact: true })
+      }
+    },
+  })
+}
+
+/**
  * Saves a person's note on one revision, replacing the one it had; blank
  * text removes it. The revisions on screen take the answer at once.
  */

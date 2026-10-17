@@ -58,7 +58,11 @@ const timeError = (raw: string) =>
 const tenths = (t: number) => Math.round(t * 10) / 10
 
 /** Asks the open form to pin the note to a time and put the cursor in it. */
-export type FeedbackFocus = { at?: number; n: number }
+/**
+ * A request to focus the form for a new note: at a moment of the video,
+ * or about one part of it (scope).
+ */
+export type FeedbackFocus = { at?: number; scope?: FeedbackScope; n: number }
 
 /** Where the unsent notes live between openings of the form. */
 export type DraftStore = {
@@ -257,10 +261,21 @@ export function FeedbackForm({
   })
   const focusN = focus?.n
   const focusAt = focus?.at
+  const focusScope = focus?.scope
   useEffect(() => {
     if (focusN === undefined) return
     const now = latest.current
-    if (now.video && focusAt) {
+    if (focusScope && now.form.state.values.scope !== focusScope) {
+      // A note about another part goes on the list first.
+      const cur = now.form.state.values
+      const written = cur.text.trim() !== "" && !textError(cur.text) && !(now.video && timeError(cur.at))
+      if (!written || now.addNote(cur)) {
+        const next = { ...now.form.state.values, scope: focusScope, at: "" }
+        now.form.setFieldValue("scope", focusScope)
+        now.form.setFieldValue("at", "")
+        now.draft.saveCurrent(next)
+      }
+    } else if (now.video && focusAt) {
       const at = formatTimestamp(focusAt)
       const cur = now.form.state.values
       const written =
@@ -277,7 +292,7 @@ export function FeedbackForm({
       noteRef.current?.focus({ preventScroll: true })
     )
     return () => cancelAnimationFrame(id)
-  }, [focusN, focusAt])
+  }, [focusN, focusAt, focusScope])
 
   const earlier = earlierNotes(d, revisions)
 
@@ -308,7 +323,7 @@ export function FeedbackForm({
                   next[0] && field.handleChange(next[0] as FeedbackScope)
                 }
               >
-                {scopesFor(d).map((s) => (
+                {scopesFor(d, !!revisions.at(-1)?.thumbnails).map((s) => (
                   <ToggleGroupItem key={s} value={s}>
                     {scopeLabel(s, d.kind)}
                   </ToggleGroupItem>

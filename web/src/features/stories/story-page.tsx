@@ -20,7 +20,7 @@ import {
   Trash2Icon,
 } from "lucide-react"
 
-import { isApiError, type Deliverable, type Story } from "@/api/client"
+import { isApiError, type Deliverable, type FeedbackScope, type Story } from "@/api/client"
 import { EmptyState, ErrorState } from "@/components/page"
 import { Button } from "@/components/ui/button"
 import {
@@ -317,9 +317,9 @@ function StoryView({
     if (unsent > 0) setDockedState(true)
   }
   const feedbackButton = useRef<HTMLButtonElement>(null)
-  const openFeedback = (at?: number) => {
+  const openFeedback = (at?: number, scope?: FeedbackScope) => {
     setFeedbackOpen(true)
-    setFocus((f) => ({ at, n: (f?.n ?? 0) + 1 }))
+    setFocus((f) => ({ at, scope, n: (f?.n ?? 0) + 1 }))
   }
   /** Request changes, and N: pause and write a note pinned where it stopped. */
   const pinNote = () => openFeedback(review.pause())
@@ -572,6 +572,7 @@ function StoryView({
           pipelinesLoaded={!!pipelines.data}
           onDelete={() => setDeleting(true)}
           onPick={pick}
+          onThumbnailNote={reviewing ? () => openFeedback(undefined, "thumbnail") : undefined}
         />
       </aside>
 
