@@ -152,6 +152,21 @@ func TestConformance(t *testing.T) {
 			if err != nil || len(matches) == 0 || matches[0].StoryID != s.ID() || matches[0].Score < 0.3 {
 				t.Fatalf("similar = %+v, %v", matches, err)
 			}
+			// The job publishing a deliverable is stored with it.
+			pub, _ := repo.Get(ctx, ws, s.ID())
+			_, _ = pub.Approve(video.ID(), id.New(), id.New, now)
+			_ = pub.Rendered(video.ID(), 0, now)
+			job := id.New()
+			if err := pub.StartPublishing(video.ID(), job, now); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.Save(ctx, pub); err != nil {
+				t.Fatal(err)
+			}
+			if back, _ := repo.Get(ctx, ws, s.ID()); back.Lead().PublishJob() != job || back.Lead().Status() != storydomain.StatusPublishing {
+				t.Fatalf("publishing job = %s (%s), want %s", back.Lead().PublishJob(), back.Lead().Status(), job)
+			}
+
 			if err := repo.Delete(ctx, ws, s.ID()); err != nil {
 				t.Fatal(err)
 			}

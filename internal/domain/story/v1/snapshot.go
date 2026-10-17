@@ -34,6 +34,7 @@ type DeliverableSnapshot struct {
 	Failure, Session         string
 	ApprovedAt               time.Time
 	Published                *Publication
+	PublishJob               uuid.UUID
 	Measures                 Measures
 	CreatedAt, UpdatedAt     time.Time
 }
@@ -51,7 +52,7 @@ func (s *Story) Snapshot() Snapshot {
 			Kind: string(d.kind), Role: string(d.role), Language: string(d.language),
 			Status: string(d.status), FailedStep: string(d.failedStep), Revision: d.revision,
 			Pending: d.pending, Failure: d.failure, Session: d.session, ApprovedAt: d.approvedAt,
-			Published: d.published, Measures: d.measures, CreatedAt: d.createdAt, UpdatedAt: d.updatedAt,
+			Published: d.published, PublishJob: d.publishJob, Measures: d.measures, CreatedAt: d.createdAt, UpdatedAt: d.updatedAt,
 		}
 		if d.video != nil {
 			v := pipelinedomain.SnapshotVideo(*d.video)
@@ -106,7 +107,7 @@ func Rehydrate(s Snapshot) (*Story, error) {
 			id: ds.ID, kind: kind, role: Role(ds.Role), sourceID: ds.SourceID, language: dl,
 			status: status, failedStep: Status(ds.FailedStep), revision: ds.Revision, pending: ds.Pending,
 			failure: ds.Failure, session: ds.Session, approvedBy: ds.ApprovedBy,
-			approvedAt: timeutil.Normalize(ds.ApprovedAt), published: ds.Published, measures: ds.Measures,
+			approvedAt: timeutil.Normalize(ds.ApprovedAt), published: ds.Published, publishJob: ds.PublishJob, measures: ds.Measures,
 			createdAt: timeutil.Normalize(ds.CreatedAt), updatedAt: timeutil.Normalize(ds.UpdatedAt),
 		}
 		if ds.Video != nil {

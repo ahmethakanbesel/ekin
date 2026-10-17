@@ -331,10 +331,11 @@ type PublishRequest struct {
 	TranslationKey string
 }
 
-// PublishJob runs a deliverable.publish job.
-func (s *Service) PublishJob(ctx context.Context, p DeliverablePayload) error {
+// PublishJob runs job, a deliverable.publish job. A retry of the same
+// job resumes a publication its earlier attempt left cut short.
+func (s *Service) PublishJob(ctx context.Context, jobID uuid.UUID, p DeliverablePayload) error {
 	st, err := s.mutate(ctx, p.StoryID, func(_ context.Context, st *storydomain.Story) error {
-		return st.StartPublishing(p.DeliverableID, s.now())
+		return st.StartPublishing(p.DeliverableID, jobID, s.now())
 	})
 	if apperror.Is(err, apperror.InvalidTransition) || apperror.Is(err, apperror.StoryNotFound) {
 		return jobdomain.Permanent(err)

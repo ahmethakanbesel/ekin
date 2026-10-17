@@ -218,6 +218,9 @@ type Deliverable struct {
 	approvedBy uuid.UUID
 	approvedAt time.Time
 	published  *Publication
+	// publishJob is the job publishing the deliverable: only its retry
+	// may resume a publication cut short.
+	publishJob uuid.UUID
 	measures   Measures
 	createdAt  time.Time
 	updatedAt  time.Time
@@ -239,6 +242,7 @@ func (d *Deliverable) Session() string                      { return d.session }
 func (d *Deliverable) ApprovedBy() uuid.UUID                { return d.approvedBy }
 func (d *Deliverable) ApprovedAt() time.Time                { return d.approvedAt }
 func (d *Deliverable) Publication() *Publication            { return d.published }
+func (d *Deliverable) PublishJob() uuid.UUID                { return d.publishJob }
 func (d *Deliverable) Measures() Measures                   { return d.measures }
 func (d *Deliverable) CreatedAt() time.Time                 { return d.createdAt }
 func (d *Deliverable) UpdatedAt() time.Time                 { return d.updatedAt }
@@ -512,12 +516,22 @@ func (s *Story) Retry(id uuid.UUID, now time.Time) (Status, error) {
 	return next, nil
 }
 
-// StartPublishing marks a ready deliverable as going out.
-func (s *Story) StartPublishing(id uuid.UUID, now time.Time) error {
-	d, err := s.find(id, StatusReady)
+// StartPublishing marks a ready deliverable as going out on behalf of
+// job. The same job may start again on a deliverable it left publishing
+// (its attempt was cut short); any other job is refused, so two jobs
+// never publish one deliverable at once.
+func (s *Story) StartPublishing(id, job uuid.UUID, now time.Time) error {
+	if job == uuid.Nil {
+		return apperror.New(apperror.ValidationFailed, "a publishing job is required")
+	}
+	d, err := s.find(id, StatusReady, StatusPublishing)
 	if err != nil {
 		return err
 	}
+	if d.status == StatusPublishing && d.publishJob != job {
+		return apperror.New(apperror.InvalidTransition, "the "+string(d.kind)+" is being published by another job")
+	}
+	d.publishJob = job
 	d.set(StatusPublishing, now)
 	s.touch(now)
 	return nil

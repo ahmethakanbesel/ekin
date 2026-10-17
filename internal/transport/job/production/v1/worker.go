@@ -19,7 +19,13 @@ func Register(r *jobsvc.Runner, svc *productionsvc.Service) {
 	r.Register(productionsvc.KindAdHoc, handle(svc.PlanAdHoc))
 	r.Register(productionsvc.KindDraft, handle(svc.Draft))
 	r.Register(productionsvc.KindRender, handle(svc.Render))
-	r.Register(productionsvc.KindPublish, handle(svc.PublishJob))
+	r.Register(productionsvc.KindPublish, func(ctx context.Context, j *jobdomain.Job) error {
+		var p productionsvc.DeliverablePayload
+		if err := json.Unmarshal(j.Payload(), &p); err != nil {
+			return jobdomain.Permanent(err)
+		}
+		return svc.PublishJob(ctx, j.ID(), p)
+	})
 }
 
 func handle[P any](fn func(context.Context, P) error) jobsvc.Handler {

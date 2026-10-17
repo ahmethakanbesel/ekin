@@ -118,7 +118,7 @@ func TestVideoLifecycle(t *testing.T) {
 	if video.Status() != story.StatusReady {
 		t.Fatalf("final render = %s", video.Status())
 	}
-	if err := s.StartPublishing(video.ID(), now); err != nil {
+	if err := s.StartPublishing(video.ID(), id.New(), now); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Published(video.ID(), story.Publication{URL: "https://youtu.be/x", ExternalID: "x"}, now); err != nil || video.Status() != story.StatusPublished {
@@ -181,6 +181,58 @@ func TestFailRetryAndReject(t *testing.T) {
 	}
 	if err := s.Fail(video.ID(), "x", now); !apperror.Is(err, apperror.InvalidTransition) {
 		t.Fatalf("fail rejected = %v", err)
+	}
+}
+
+// readyArticle returns a story whose article lead is approved and ready
+// to publish.
+func readyArticle(t *testing.T) (*story.Story, *story.Deliverable) {
+	t.Helper()
+	s := newStory(t, outputs(t, false, true, ""))
+	article := s.Lead()
+	_, _ = s.StartDrafting(article.ID(), now)
+	_, _ = s.Drafted(article.ID(), nil, "", "", story.Measures{}, now)
+	if _, err := s.Approve(article.ID(), id.New(), id.New, now); err != nil || article.Status() != story.StatusReady {
+		t.Fatalf("approve = %s %v", article.Status(), err)
+	}
+	return s, article
+}
+
+func TestStartPublishingBelongsToOneJob(t *testing.T) {
+	first, second := id.New(), id.New()
+	tests := []struct {
+		name    string
+		starts  []uuid.UUID // earlier StartPublishing calls, in order
+		job     uuid.UUID
+		wantErr apperror.Code
+	}{
+		{name: "ready", job: first},
+		{name: "the same job resumes its cut-short attempt", starts: []uuid.UUID{first}, job: first},
+		{name: "another job is refused", starts: []uuid.UUID{first}, job: second, wantErr: apperror.InvalidTransition},
+		{name: "no job", job: uuid.Nil, wantErr: apperror.ValidationFailed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s, article := readyArticle(t)
+			for _, j := range tt.starts {
+				if err := s.StartPublishing(article.ID(), j, now); err != nil {
+					t.Fatal(err)
+				}
+			}
+			err := s.StartPublishing(article.ID(), tt.job, now)
+			if tt.wantErr != "" {
+				if !apperror.Is(err, tt.wantErr) {
+					t.Fatalf("err = %v, want %s", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil || article.Status() != story.StatusPublishing || article.PublishJob() != tt.job {
+				t.Fatalf("start = %v, %s by %s", err, article.Status(), article.PublishJob())
+			}
+			if back, err := story.Rehydrate(s.Snapshot()); err != nil || back.Lead().PublishJob() != tt.job {
+				t.Fatalf("publishing job not kept: %v", err)
+			}
+		})
 	}
 }
 

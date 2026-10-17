@@ -80,17 +80,17 @@ func (r *SQLite) writeDeliverables(ctx context.Context, snap storydomain.Snapsho
 		}
 		_, err := q.ExecContext(ctx, `INSERT INTO deliverables
 			(id, story_id, position, kind, role, source_id, language, video, article, status, revision, pending,
-			 failure, failed_step, session, approved_by, approved_at, published, duration_ms, words, narrator, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			 failure, failed_step, session, approved_by, approved_at, published, publish_job, duration_ms, words, narrator, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (id) DO UPDATE SET
 			  status = excluded.status, revision = excluded.revision, pending = excluded.pending,
 			  failure = excluded.failure, failed_step = excluded.failed_step, session = excluded.session,
 			  approved_by = excluded.approved_by, approved_at = excluded.approved_at,
-			  published = excluded.published, duration_ms = excluded.duration_ms, words = excluded.words,
+			  published = excluded.published, publish_job = excluded.publish_job, duration_ms = excluded.duration_ms, words = excluded.words,
 			  narrator = excluded.narrator, updated_at = excluded.updated_at`,
 			d.ID.String(), snap.ID.String(), i, d.Kind, d.Role, nullID(d.SourceID), d.Language, video, article,
 			d.Status, d.Revision, pending, d.Failure, d.FailedStep, d.Session, nullID(d.ApprovedBy), approvedAt,
-			published, nullMillis(d.Measures.Duration), nullPositive(d.Measures.Words), nullNarrator(d.Measures.Narrator),
+			published, nullID(d.PublishJob), nullMillis(d.Measures.Duration), nullPositive(d.Measures.Words), nullNarrator(d.Measures.Narrator),
 			timeutil.ToMillis(d.CreatedAt), timeutil.ToMillis(d.UpdatedAt))
 		if err != nil {
 			return fmt.Errorf("write deliverable: %w", err)
@@ -193,7 +193,7 @@ func (r *SQLite) query(ctx context.Context, query string, args ...any) ([]*story
 
 func (r *SQLite) deliverables(ctx context.Context, storyID uuid.UUID) ([]storydomain.DeliverableSnapshot, error) {
 	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT id, kind, role, source_id, language, video, article, status,
-		revision, pending, failure, failed_step, session, approved_by, approved_at, published, duration_ms, words,
+		revision, pending, failure, failed_step, session, approved_by, approved_at, published, publish_job, duration_ms, words,
 		narrator, created_at, updated_at
 		FROM deliverables WHERE story_id = ? ORDER BY position`, storyID.String())
 	if err != nil {
@@ -207,17 +207,17 @@ func (r *SQLite) deliverables(ctx context.Context, storyID uuid.UUID) ([]storydo
 			rawID                              string
 			sourceID, approvedBy               sql.NullString
 			video, article, pending, published sql.NullString
-			narrator                           sql.NullString
+			narrator, publishJob               sql.NullString
 			approvedAt, durationMS, words      sql.NullInt64
 			created, updated                   int64
 		)
 		if err := rows.Scan(&rawID, &d.Kind, &d.Role, &sourceID, &d.Language, &video, &article, &d.Status,
-			&d.Revision, &pending, &d.Failure, &d.FailedStep, &d.Session, &approvedBy, &approvedAt, &published,
+			&d.Revision, &pending, &d.Failure, &d.FailedStep, &d.Session, &approvedBy, &approvedAt, &published, &publishJob,
 			&durationMS, &words, &narrator, &created, &updated); err != nil {
 			return nil, fmt.Errorf("scan deliverable: %w", err)
 		}
 		d.ID, _ = uuid.Parse(rawID)
-		d.SourceID, d.ApprovedBy = parseNullID(sourceID), parseNullID(approvedBy)
+		d.SourceID, d.ApprovedBy, d.PublishJob = parseNullID(sourceID), parseNullID(approvedBy), parseNullID(publishJob)
 		if video.Valid {
 			d.Video = &pipelinedomain.VideoSnapshot{}
 			_ = json.Unmarshal([]byte(video.String), d.Video)

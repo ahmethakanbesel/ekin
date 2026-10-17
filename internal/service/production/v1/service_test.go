@@ -255,7 +255,7 @@ func (f fixture) drainOn(t *testing.T, svc *production.Service) {
 			case production.KindRender:
 				runErr = svc.Render(ctx, p)
 			case production.KindPublish:
-				runErr = svc.PublishJob(ctx, p)
+				runErr = svc.PublishJob(ctx, j.ID(), p)
 			}
 		}
 		if runErr != nil {
@@ -878,3 +878,53 @@ func TestEditVideoInPlace(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// crashingPublisher dies mid-publication while crashes lasts, like a
+// worker killed during the upload; after that it publishes.
+type crashingPublisher struct {
+	fakePublisher
+	crashes *int
+}
+
+func (p crashingPublisher) Publish(ctx context.Context, req production.PublishRequest) (storydomain.Publication, error) {
+	if *p.crashes > 0 {
+		*p.crashes--
+		panic("worker killed")
+	}
+	return p.fakePublisher.Publish(ctx, req)
+}
+
+// A publication cut short leaves the deliverable publishing; the retry of
+// the same job resumes it, and no other job may publish it meanwhile.
+func TestCutShortPublicationResumesOnItsJob(t *testing.T) {
+	ctx := context.Background()
+	f, st := articleFixture(t)
+	d := st.Lead()
+	crashes := 1
+	f.svc.AddPublisher(crashingPublisher{fakePublisher{pipelinedomain.KindArticle}, &crashes})
+	if _, err := f.svc.Approve(ctx, f.ws, st.ID(), d.ID(), id.New()); err != nil {
+		t.Fatal(err)
+	}
+	j, err := f.jobs.Claim(ctx, jobdomain.Queues, []string{production.KindPublish}, "test", time.Minute)
+	if err != nil || j == nil {
+		t.Fatalf("claim publish = %v, %v", j, err)
+	}
+	p := production.DeliverablePayload{StoryID: st.ID(), DeliverableID: d.ID()}
+	func() {
+		defer func() { _ = recover() }()
+		_ = f.svc.PublishJob(ctx, j.ID(), p)
+	}()
+	if got := f.story(t).Lead(); got.Status() != storydomain.StatusPublishing {
+		t.Fatalf("after the crash the article is %s", got.Status())
+	}
+
+	if err := f.svc.PublishJob(ctx, id.New(), p); !errors.Is(err, jobdomain.ErrPermanent) {
+		t.Fatalf("another job publishing = %v, want a permanent refusal", err)
+	}
+	if err := f.svc.PublishJob(ctx, j.ID(), p); err != nil {
+		t.Fatalf("retry of the same job = %v", err)
+	}
+	if got := f.story(t).Lead(); got.Status() != storydomain.StatusPublished || got.Publication() == nil {
+		t.Fatalf("after the retry the article is %s", got.Status())
+	}
+}
