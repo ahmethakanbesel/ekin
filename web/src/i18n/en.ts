@@ -1078,6 +1078,14 @@ export const en = {
       styleTooLong: "Style must be at most 2000 characters.",
     },
   },
+  uploads: {
+    title: "Uploads",
+    uploading: (percent: number) => `Uploading · ${percent}%`,
+    processing: "Uploaded, saving…",
+    waiting: "Waiting",
+    cancel: "Cancel upload",
+    dismiss: "Dismiss",
+  },
   knowledge: {
     title: "Knowledge base",
     description:
@@ -1110,12 +1118,6 @@ export const en = {
     approxTokens: (n: string) => `≈ ${n} tokens`,
     pages: (n: number) => (n === 1 ? "1 page" : `${n.toLocaleString("en-GB")} pages`),
     words: (n: number) => (n === 1 ? "1 word" : `${n.toLocaleString("en-GB")} words`),
-    uploadsTitle: "Uploads",
-    uploading: (percent: number) => `Uploading · ${percent}%`,
-    processing: "Uploaded, saving…",
-    waiting: "Waiting",
-    cancelUpload: "Cancel upload",
-    dismiss: "Dismiss",
     tooLarge: "The file is larger than 100 MB.",
     unsupported: "Unsupported file type. Upload PDF, TXT, MD or EPUB.",
     uploadFailed: (name: string) => `Could not upload ${name}`,
