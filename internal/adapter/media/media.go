@@ -130,6 +130,39 @@ func (p *Processor) music(ctx context.Context, in, outDir string, info Info) (li
 	return librarydomain.Media{Format: "opus", Duration: out.Duration}, nil
 }
 
+// Inspect reports on a file already in its stored format (a draft's
+// transcoded clip or photo) and writes its poster to outDir/poster.jpg.
+func (p *Processor) Inspect(ctx context.Context, kind librarydomain.Kind, in, outDir string) (librarydomain.Media, error) {
+	info, err := p.Probe(ctx, in)
+	if err != nil {
+		return librarydomain.Media{}, err
+	}
+	if !info.Video || info.Width <= 0 {
+		return librarydomain.Media{}, fmt.Errorf("%w: no picture", ErrUnreadable)
+	}
+	m := librarydomain.Media{Format: strings.TrimPrefix(strings.ToLower(filepath.Ext(in)), "."), Width: info.Width,
+		Height: info.Height, Poster: true}
+	at := 0.0
+	if kind == librarydomain.KindVideo {
+		m.Duration = info.Duration
+		at = math.Min(1, info.Duration.Seconds()/3)
+	}
+	if err := p.run(ctx, "-ss", strconv.FormatFloat(at, 'f', 2, 64), "-i", in, "-frames:v", "1",
+		"-vf", fitLongSide(maxPosterSide), "-q:v", "4", filepath.Join(outDir, "poster.jpg")); err != nil {
+		return librarydomain.Media{}, err
+	}
+	return m, nil
+}
+
+// previewSeconds is how much of a composed score its preview holds.
+const previewSeconds = 30
+
+// Preview encodes the start of a rendered score (a WAV) as Opus, for
+// listening in the library.
+func (p *Processor) Preview(ctx context.Context, in, out string) error {
+	return p.run(ctx, "-i", in, "-t", strconv.Itoa(previewSeconds), "-vn", "-ar", "48000", "-c:a", "libopus", "-b:a", "96k", out)
+}
+
 // fitLongSide scales a picture down so its long side is at most n
 // pixels, keeping even dimensions; smaller pictures are left alone.
 func fitLongSide(n int) string {

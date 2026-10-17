@@ -58,6 +58,25 @@ func (p *processor) Ingest(_ context.Context, _ librarydomain.Kind, in, outDir s
 	return p.media, nil
 }
 
+func (p *processor) Inspect(_ context.Context, kind librarydomain.Kind, in, outDir string) (librarydomain.Media, error) {
+	if _, err := os.Stat(in); err != nil {
+		return librarydomain.Media{}, err
+	}
+	_ = os.WriteFile(filepath.Join(outDir, "poster.jpg"), []byte("poster"), 0o600)
+	m := librarydomain.Media{Format: strings.TrimPrefix(filepath.Ext(in), "."), Width: 1080, Height: 1920, Poster: true}
+	if kind == librarydomain.KindVideo {
+		m.Duration = 9 * time.Second
+	}
+	return m, nil
+}
+
+func (p *processor) Preview(_ context.Context, in, out string) error {
+	if _, err := os.Stat(in); err != nil {
+		return err
+	}
+	return os.WriteFile(out, []byte("preview"), 0o600)
+}
+
 type fixture struct {
 	svc   *librarysvc.Service
 	jobs  *jobsvc.Service
@@ -320,5 +339,144 @@ func TestCatalogAndUsage(t *testing.T) {
 	}
 	if _, err := f.svc.Usages(ctx, id.New(), used.ID()); !apperror.Is(err, apperror.AssetNotFound) {
 		t.Fatalf("usages in another workspace err = %v", err)
+	}
+}
+
+func writeTemp(t *testing.T, name, content string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func stock(t *testing.T, ref string, deliverable uuid.UUID, revision int) librarysvc.Harvestable {
+	return librarysvc.Harvestable{
+		Kind: librarydomain.KindVideo, Origin: librarydomain.OriginPexels,
+		Harvest: librarydomain.Harvest{StoryID: id.New(), DeliverableID: deliverable, Revision: revision, SourceRef: ref},
+		Details: librarydomain.Details{Title: "Sea", Credit: librarydomain.Credit{Author: "Ana"}},
+		Path:    writeTemp(t, "clip.webm", "clip "+ref),
+	}
+}
+
+func TestSaveOnce(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	deliverable := id.New()
+	h := stock(t, "pexels:video:1", deliverable, 1)
+	a, err := f.svc.Save(ctx, f.ws, uuid.Nil, h, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !a.Provisional() || a.Kept() || !a.Usable() || a.Duration() != 9*time.Second {
+		t.Fatalf("saved = %+v", a.Snapshot())
+	}
+	main, _ := a.Key(librarydomain.FileMain)
+	poster, _ := a.Key(librarydomain.FilePoster)
+	if !f.exists(main) || !f.exists(poster) {
+		t.Fatal("files not stored")
+	}
+	if uses, _ := f.svc.Usages(ctx, f.ws, a.ID()); len(uses) != 1 || uses[0].DeliverableID != deliverable {
+		t.Fatalf("the draft it came from is not a use: %+v", uses)
+	}
+
+	// The same Pexels clip again (a later revision) is the same asset; a
+	// person saving it keeps it.
+	again, err := f.svc.Save(ctx, f.ws, uuid.Nil, stock(t, "pexels:video:1", deliverable, 2), false)
+	if err != nil || again.ID() != a.ID() || !again.Provisional() {
+		t.Fatalf("saved again = %+v, %v", again, err)
+	}
+	kept, err := f.svc.Save(ctx, f.ws, id.New(), stock(t, "pexels:video:1", deliverable, 2), true)
+	if err != nil || kept.ID() != a.ID() || !kept.Kept() || kept.Provisional() {
+		t.Fatalf("saved by a person = %+v, %v", kept, err)
+	}
+
+	// A composed score is found again by its content, with its preview.
+	score := librarysvc.Harvestable{
+		Kind: librarydomain.KindMusic, Origin: librarydomain.OriginGenerated,
+		Harvest: librarydomain.Harvest{StoryID: id.New(), DeliverableID: deliverable, Revision: 1},
+		Details: librarydomain.Details{Title: "Calm", Mood: "calm"},
+		Path:    writeTemp(t, "music.js", "window.kurguMusic = () => {}"), Preview: writeTemp(t, "music.wav", "RIFF"),
+	}
+	s1, err := f.svc.Save(ctx, f.ws, uuid.Nil, score, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preview, ok := s1.Key(librarydomain.FilePreview)
+	if !ok || !f.exists(preview) {
+		t.Fatal("score preview not stored")
+	}
+	score.Path = writeTemp(t, "music.js", "window.kurguMusic = () => {}")
+	if s2, err := f.svc.Save(ctx, f.ws, uuid.Nil, score, false); err != nil || s2.ID() != s1.ID() {
+		t.Fatalf("same score twice = %v, %v", s2, err)
+	}
+}
+
+func TestSettle(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	deliverable := id.New()
+	save := func(ref string, revision int) *librarydomain.Asset {
+		t.Helper()
+		a, err := f.svc.Save(ctx, f.ws, uuid.Nil, stock(t, ref, deliverable, revision), false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return a
+	}
+	replaced := save("pexels:video:1", 1)    // revision 1 used it, revision 2 swapped it out
+	stays := save("pexels:video:2", 1)       // still in the decided revision
+	kept := save("pexels:video:3", 1)        // a person kept it
+	reused := save("pexels:video:4", 1)      // another video used it meanwhile
+	decidedOnly := save("pexels:video:5", 2) // only the decided revision
+	if _, err := f.svc.Update(ctx, f.ws, kept.ID(), librarysvc.Patch{Details: &librarydomain.Details{Title: "Mine", Credit: librarydomain.Credit{Author: "Ana"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.RecordUsage(ctx, f.ws, id.New(), id.New(), 1, []uuid.UUID{reused.ID()}); err != nil {
+		t.Fatal(err)
+	}
+	other := id.New()
+	foreign, err := f.svc.Save(ctx, f.ws, uuid.Nil, stock(t, "pexels:video:6", other, 1), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	deleted, err := f.svc.Settle(ctx, f.ws, deliverable, librarysvc.Decided{SourceRefs: []string{"pexels:video:2", "pexels:video:5"}})
+	if err != nil || deleted != 1 {
+		t.Fatalf("settle = %d, %v", deleted, err)
+	}
+	if _, err := f.svc.Get(ctx, f.ws, replaced.ID()); !apperror.Is(err, apperror.AssetNotFound) {
+		t.Fatalf("replaced asset err = %v", err)
+	}
+	if main, _ := replaced.Key(librarydomain.FileMain); f.exists(main) {
+		t.Fatal("replaced asset's files kept")
+	}
+	for _, a := range []*librarydomain.Asset{stays, kept, reused, decidedOnly} {
+		got, err := f.svc.Get(ctx, f.ws, a.ID())
+		if err != nil || got.Provisional() {
+			t.Fatalf("%s = %+v, %v", a.Harvest().SourceRef, got, err)
+		}
+	}
+	if got, _ := f.svc.Get(ctx, f.ws, foreign.ID()); !got.Provisional() {
+		t.Fatal("another deliverable's asset was settled")
+	}
+	if n, err := f.svc.Settle(ctx, f.ws, deliverable, librarysvc.Decided{}); err != nil || n != 0 {
+		t.Fatalf("settling again = %d, %v", n, err)
+	}
+}
+
+func TestCollectSettings(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	if c, err := f.svc.Collect(ctx, f.ws); err != nil || c.Any() {
+		t.Fatalf("default = %+v, %v", c, err)
+	}
+	want := librarydomain.Collect{Music: true, Video: true}
+	if _, err := f.svc.SaveCollect(ctx, f.ws, want); err != nil {
+		t.Fatal(err)
+	}
+	if c, _ := f.svc.Collect(ctx, f.ws); c != want {
+		t.Fatalf("collect = %+v", c)
 	}
 }

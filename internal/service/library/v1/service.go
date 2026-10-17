@@ -36,9 +36,13 @@ type IngestPayload struct {
 }
 
 // Processor turns an uploaded file into the stored main file (and a
-// poster for pictures) in outDir (internal/adapter/media).
+// poster for pictures) in outDir (internal/adapter/media). Inspect does
+// the same for a file already in its stored format, writing only the
+// poster; Preview encodes the start of a rendered score.
 type Processor interface {
 	Ingest(ctx context.Context, kind librarydomain.Kind, in, outDir string) (librarydomain.Media, error)
+	Inspect(ctx context.Context, kind librarydomain.Kind, in, outDir string) (librarydomain.Media, error)
+	Preview(ctx context.Context, in, out string) error
 }
 
 // Enqueuer is the part of the job service this package needs.
@@ -410,6 +414,192 @@ func (s *Service) Catalog(ctx context.Context, workspaceID uuid.UUID, kinds []li
 	// Stable: the listing is newest first, so equal counts stay that way.
 	slices.SortStableFunc(out, func(a, b Entry) int { return a.Uses - b.Uses })
 	return out, nil
+}
+
+// Collect returns which kinds the workspace saves from its drafts.
+func (s *Service) Collect(ctx context.Context, workspaceID uuid.UUID) (librarydomain.Collect, error) {
+	return s.repo.GetCollect(ctx, workspaceID)
+}
+
+// SaveCollect sets which kinds the workspace saves from its drafts.
+func (s *Service) SaveCollect(ctx context.Context, workspaceID uuid.UUID, c librarydomain.Collect) (librarydomain.Collect, error) {
+	return c, s.repo.SaveCollect(ctx, workspaceID, c, s.now())
+}
+
+// Harvestable is a file a draft used that may join the library: Pexels
+// stock in its stored format (webm, jpg) or a composed score (music.js)
+// with its rendered WAV for the preview.
+type Harvestable struct {
+	Kind    librarydomain.Kind
+	Origin  librarydomain.Origin
+	Harvest librarydomain.Harvest
+	Details librarydomain.Details
+	Path    string // the main file
+	Preview string // a score's rendered WAV; "" otherwise
+}
+
+// Find returns the library asset a harvestable file already is, if any:
+// the same outside item, or the same file.
+func (s *Service) Find(ctx context.Context, workspaceID uuid.UUID, h Harvestable) (*librarydomain.Asset, error) {
+	var (
+		a   *librarydomain.Asset
+		err error
+	)
+	if h.Harvest.SourceRef != "" {
+		a, err = s.repo.FindBySourceRef(ctx, workspaceID, h.Harvest.SourceRef)
+	} else {
+		var sum string
+		if sum, _, err = hashFile(h.Path); err != nil {
+			return nil, err
+		}
+		a, err = s.repo.FindBySHA256(ctx, workspaceID, sum)
+	}
+	if apperror.Is(err, apperror.AssetNotFound) {
+		return nil, nil
+	}
+	return a, err
+}
+
+// Save keeps a draft's file in the library, once: a file it already holds
+// is returned as it is (and, saved by a person, kept). An automatic
+// harvest saves it provisional, a person's save kept. The revision it
+// came from counts as a use.
+func (s *Service) Save(ctx context.Context, workspaceID, actorID uuid.UUID, h Harvestable, kept bool) (*librarydomain.Asset, error) {
+	existing, err := s.Find(ctx, workspaceID, h)
+	if err != nil {
+		return nil, err
+	}
+	if existing != nil {
+		if kept && (!existing.Kept() || existing.Provisional()) {
+			existing.Keep(s.now())
+			if err := s.repo.Update(ctx, existing); err != nil {
+				return nil, err
+			}
+		}
+		return existing, nil
+	}
+	dir, err := os.MkdirTemp("", "kurgu-harvest-*")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+	var m librarydomain.Media
+	if h.Kind == librarydomain.KindMusic {
+		m = librarydomain.Media{Format: "js"}
+		if h.Preview != "" {
+			if err := s.processor.Preview(ctx, h.Preview, filepath.Join(dir, "preview.opus")); err != nil {
+				return nil, err
+			}
+		}
+	} else if m, err = s.processor.Inspect(ctx, h.Kind, h.Path, dir); err != nil {
+		return nil, err
+	}
+	sum, size, err := hashFile(h.Path)
+	if err != nil {
+		return nil, err
+	}
+	a, err := librarydomain.NewHarvested(id.New(), workspaceID, actorID, h.Kind, h.Origin, h.Harvest,
+		librarydomain.Saved{SHA256: sum, Size: size, Media: m}, h.Details, kept, s.now())
+	if err != nil {
+		return nil, err
+	}
+	main, _ := a.Key(librarydomain.FileMain)
+	if err := s.putFile(ctx, main, h.Path); err != nil {
+		return nil, err
+	}
+	for _, f := range []librarydomain.File{librarydomain.FilePoster, librarydomain.FilePreview} {
+		key, ok := a.Key(f)
+		if !ok {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(dir, filepath.Base(key))); err != nil {
+			continue // a score saved without its preview
+		}
+		if err := s.putFile(ctx, key, filepath.Join(dir, filepath.Base(key))); err != nil {
+			return nil, err
+		}
+	}
+	u, err := librarydomain.NewUsage(a.ID(), workspaceID, h.Harvest.StoryID, h.Harvest.DeliverableID, h.Harvest.Revision, s.now())
+	if err != nil {
+		return nil, err
+	}
+	err = s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		if err := s.repo.Create(ctx, a); err != nil {
+			return err
+		}
+		return s.repo.RecordUsage(ctx, u)
+	})
+	if apperror.Is(err, apperror.Conflict) {
+		// Another harvest saved it meanwhile; that one stands.
+		_ = s.blobs.DeletePrefix(context.WithoutCancel(ctx), a.Prefix())
+		return s.Find(ctx, workspaceID, h)
+	}
+	if err != nil {
+		_ = s.blobs.DeletePrefix(context.WithoutCancel(ctx), a.Prefix())
+		return nil, err
+	}
+	return a, nil
+}
+
+// Decided names what a deliverable's decided revision uses, by outside
+// item and by file hash.
+type Decided struct {
+	SourceRefs []string
+	SHA256s    []string
+}
+
+func (d Decided) uses(a *librarydomain.Asset) bool {
+	if ref := a.Harvest().SourceRef; ref != "" {
+		return slices.Contains(d.SourceRefs, ref)
+	}
+	return slices.Contains(d.SHA256s, a.SHA256())
+}
+
+// Settle decides the provisional assets saved from a deliverable's
+// drafts once the deliverable is decided: those the decided revision
+// uses, a person kept, or another video used stay; the rest are deleted
+// with their files. It returns how many were deleted.
+func (s *Service) Settle(ctx context.Context, workspaceID, deliverableID uuid.UUID, decided Decided) (int, error) {
+	assets, err := s.repo.Provisional(ctx, workspaceID, deliverableID)
+	if err != nil {
+		return 0, err
+	}
+	deleted := 0
+	for _, a := range assets {
+		uses, err := s.repo.Usages(ctx, workspaceID, a.ID())
+		if err != nil {
+			return deleted, err
+		}
+		elsewhere := slices.ContainsFunc(uses, func(u librarydomain.Usage) bool { return u.DeliverableID != deliverableID })
+		if a.Settle(decided.uses(a), elsewhere, s.now()) {
+			if err := s.repo.Update(ctx, a); err != nil {
+				return deleted, err
+			}
+			continue
+		}
+		if err := s.repo.Delete(ctx, workspaceID, a.ID()); err != nil && !apperror.Is(err, apperror.AssetNotFound) {
+			return deleted, err
+		}
+		if err := s.blobs.DeletePrefix(ctx, a.Prefix()); err != nil {
+			return deleted, err
+		}
+		deleted++
+	}
+	return deleted, nil
+}
+
+func hashFile(path string) (string, int64, error) {
+	f, err := os.Open(path) //nolint:gosec // a draft's own file
+	if err != nil {
+		return "", 0, err
+	}
+	defer func() { _ = f.Close() }()
+	h := sha256.New()
+	n, err := io.Copy(h, f)
+	if err != nil {
+		return "", 0, err
+	}
+	return hex.EncodeToString(h.Sum(nil)), n, nil
 }
 
 // Open returns one of an asset's files.

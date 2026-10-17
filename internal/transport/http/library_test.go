@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -33,6 +34,12 @@ func (fakeProcessor) Ingest(_ context.Context, kind librarydomain.Kind, in, outD
 	_ = os.WriteFile(filepath.Join(outDir, "poster.jpg"), []byte("poster"), 0o600)
 	return librarydomain.Media{Format: format, Width: 1080, Height: 1920, Duration: 10 * time.Second, Poster: kind != librarydomain.KindMusic}, nil
 }
+
+func (fakeProcessor) Inspect(context.Context, librarydomain.Kind, string, string) (librarydomain.Media, error) {
+	return librarydomain.Media{}, errors.New("not used here")
+}
+
+func (fakeProcessor) Preview(context.Context, string, string) error { return errors.New("not used here") }
 
 // uploadAsset posts a library upload and decodes the reply into out.
 func (c *client) uploadAsset(path, filename, kind string, details any, content []byte, wantStatus int, out any) {

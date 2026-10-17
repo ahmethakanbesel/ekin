@@ -114,3 +114,34 @@ func TestIngestRejects(t *testing.T) {
 		t.Fatalf("music without sound err = %v", err)
 	}
 }
+
+func TestInspectAndPreview(t *testing.T) {
+	need(t)
+	ctx := context.Background()
+	p := &media.Processor{}
+	clip := generate(t, "clip.webm", "-f", "lavfi", "-i", "testsrc2=size=540x960:rate=30:duration=3", "-c:v", "libvpx")
+	dir := t.TempDir()
+	m, err := p.Inspect(ctx, librarydomain.KindVideo, clip, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Format != "webm" || m.Width != 540 || m.Height != 960 || !m.Poster || m.Duration < 2*time.Second {
+		t.Fatalf("inspected = %+v", m)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "poster.jpg")); err != nil {
+		t.Fatal(err)
+	}
+	photo := generate(t, "photo.jpg", "-f", "lavfi", "-i", "testsrc2=size=800x600", "-frames:v", "1")
+	if m, err := p.Inspect(ctx, librarydomain.KindPhoto, photo, t.TempDir()); err != nil || m.Format != "jpg" || m.Duration != 0 {
+		t.Fatalf("photo = %+v, %v", m, err)
+	}
+	wav := generate(t, "score.wav", "-f", "lavfi", "-i", "sine=frequency=440:duration=40")
+	out := filepath.Join(t.TempDir(), "preview.opus")
+	if err := p.Preview(ctx, wav, out); err != nil {
+		t.Fatal(err)
+	}
+	info, err := p.Probe(ctx, out)
+	if err != nil || !info.Audio || info.Duration > 31*time.Second {
+		t.Fatalf("preview = %+v, %v", info, err)
+	}
+}

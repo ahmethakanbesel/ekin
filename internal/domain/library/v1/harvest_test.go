@@ -126,3 +126,21 @@ func TestCollect(t *testing.T) {
 		t.Fatalf("collect = %+v", c)
 	}
 }
+
+func TestScorePreview(t *testing.T) {
+	a, err := library.NewHarvested(id.New(), id.New(), uuid.Nil, library.KindMusic, library.OriginGenerated, harvest(),
+		library.Saved{SHA256: "s", Size: 3, Media: library.Media{Format: "js"}}, library.Details{Title: "Calm"}, false, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	main, _ := a.Key(library.FileMain)
+	preview, ok := a.Key(library.FilePreview)
+	if main != a.Prefix()+"/main.js" || !ok || preview != a.Prefix()+"/preview.opus" || a.ContentType(library.FilePreview) != "audio/ogg" {
+		t.Fatalf("keys = %s %s", main, preview)
+	}
+	track := upload(t, "", "a.mp3", library.Details{})
+	_ = track.Ingested(library.Media{Format: "opus", Duration: time.Minute}, now)
+	if _, ok := track.Key(library.FilePreview); ok {
+		t.Fatal("a track has a preview of its own")
+	}
+}

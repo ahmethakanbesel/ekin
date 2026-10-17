@@ -29,6 +29,18 @@ func (opusProcessor) Ingest(_ context.Context, _ librarydomain.Kind, _, outDir s
 	return librarydomain.Media{Format: "opus", Duration: time.Minute}, os.WriteFile(filepath.Join(outDir, "main.opus"), []byte("opus"), 0o600)
 }
 
+func (opusProcessor) Inspect(_ context.Context, kind librarydomain.Kind, in, outDir string) (librarydomain.Media, error) {
+	m := librarydomain.Media{Format: strings.TrimPrefix(filepath.Ext(in), "."), Width: 1080, Height: 1920, Poster: true}
+	if kind == librarydomain.KindVideo {
+		m.Duration = 10 * time.Second
+	}
+	return m, os.WriteFile(filepath.Join(outDir, "poster.jpg"), []byte("poster"), 0o600)
+}
+
+func (opusProcessor) Preview(_ context.Context, _, out string) error {
+	return os.WriteFile(out, []byte("preview"), 0o600)
+}
+
 // blobFetcher fetches library files from the fixture's blob store, as the
 // tool does on the server's own host.
 type blobFetcher struct{ store blob.Store }

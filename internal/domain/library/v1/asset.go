@@ -538,12 +538,14 @@ type File string
 const (
 	FileMain   File = "main"
 	FilePoster File = "poster"
+	// FilePreview is the start of a composed score, rendered to listen to.
+	FilePreview File = "preview"
 )
 
 // ParseFile parses a file name.
 func ParseFile(s string) (File, error) {
 	switch f := File(s); f {
-	case FileMain, FilePoster:
+	case FileMain, FilePoster, FilePreview:
 		return f, nil
 	}
 	return "", apperror.New(apperror.AssetNotFound, "no such file")
@@ -569,14 +571,19 @@ func (a *Asset) Key(f File) (string, bool) {
 		return a.Prefix() + "/main." + a.format, true
 	case f == FilePoster && a.poster:
 		return a.Prefix() + "/poster.jpg", true
+	case f == FilePreview && a.format == "js":
+		return a.Prefix() + "/preview.opus", true
 	}
 	return "", false
 }
 
 // ContentType is the media type file f is served with.
 func (a *Asset) ContentType(f File) string {
-	if f == FilePoster {
+	switch f {
+	case FilePoster:
 		return "image/jpeg"
+	case FilePreview:
+		return "audio/ogg"
 	}
 	switch a.format {
 	case "webm":
