@@ -25,12 +25,12 @@ const KINDS = ["music", "video", "photo"] as const
  * Which kinds the workspace saves to its library as drafts finish (all
  * off by default). Owners change it; others see it.
  */
-export function LibrarySettingsCard() {
+export function LibrarySettingsCard({ className }: { className?: string }) {
   const workspace = useWorkspace()
   const settings = useQuery(librarySettingsQuery(workspace.id))
   const t = m.library.settings
   return (
-    <Card>
+    <Card id="library" className={className}>
       <CardHeader>
         <CardTitle>{t.title}</CardTitle>
         <CardDescription>{t.description}</CardDescription>

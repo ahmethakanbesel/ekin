@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import { LibrarySettingsCard } from "@/features/library/settings-card"
 import { PublishingSection } from "@/features/publishing/publishing-section"
 import { useYouTubeReturn } from "@/features/publishing/youtube-return"
 import { VoiceSection } from "@/features/voice/voice-section"
@@ -37,6 +38,7 @@ export function WorkspaceSettingsPage() {
       <SettingsForm key={`${workspace.id}:${workspace.updatedAt}`} />
       <VoiceSection />
       <PublishingSection />
+      <LibrarySettingsCard className="mt-10" />
     </div>
   )
 }
