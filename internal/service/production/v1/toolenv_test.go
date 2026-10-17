@@ -4,7 +4,9 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -48,5 +50,41 @@ func TestToolEnvPutsKurguOnAnAbsolutePath(t *testing.T) {
 				t.Fatalf("no kurgu link reachable from the work dir: %v", err)
 			}
 		})
+	}
+}
+
+// A shell that starts without the kurgu directory on PATH (a resumed
+// session's) still finds kurgu through the env file Claude Code sources,
+// and kurgu's absolute paths are pre-approved for an agent that falls
+// back to them.
+func TestKurguReachableWithoutPATH(t *testing.T) {
+	t.Chdir(t.TempDir())
+	s := &Service{cfg: Config{WorkRoot: filepath.Join("data", "work"), KurguBin: "/usr/bin/true"}, log: slog.New(slog.DiscardHandler)}
+	var envFile string
+	for _, kv := range s.toolEnv(context.Background(), agenttool.Spec{}) {
+		if v, ok := strings.CutPrefix(kv, "CLAUDE_ENV_FILE="); ok {
+			envFile = v
+		}
+	}
+	if !filepath.IsAbs(envFile) {
+		t.Fatalf("CLAUDE_ENV_FILE = %q", envFile)
+	}
+	if err := os.MkdirAll(filepath.Join("data", "work", "d1"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("/bin/sh", "-c", `. "$1" && command -v kurgu`, "sh", envFile)
+	cmd.Dir = filepath.Join("data", "work", "d1")
+	cmd.Env = []string{"PATH=/usr/bin:/bin"}
+	out, err := cmd.Output()
+	if err != nil || !strings.HasSuffix(strings.TrimSpace(string(out)), "/.bin/kurgu") {
+		t.Fatalf("command -v kurgu = %q, %v", out, err)
+	}
+
+	allowed := s.kurguAllowed(context.Background())
+	link := filepath.Join(filepath.Dir(envFile), "kurgu")
+	for _, want := range []string{"Bash(kurgu tool:*)", "Bash(" + link + " tool:*)", "Bash(/usr/bin/true tool:*)"} {
+		if !slices.Contains(allowed, want) {
+			t.Errorf("allowed %v lacks %q", allowed, want)
+		}
 	}
 }

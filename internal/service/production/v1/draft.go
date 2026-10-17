@@ -188,7 +188,7 @@ func (s *Service) RunDraft(ctx context.Context, task DraftTask, dir string) (Dra
 	allowed := append([]string(nil), tools...)
 	if task.Video {
 		tools = append(tools, "Bash")
-		allowed = append(allowed, "Bash(kurgu tool:*)")
+		allowed = append(allowed, s.kurguAllowed(ctx)...)
 	}
 	req := claude.Request{Dir: dir, Tools: tools, Allowed: allowed, Timeout: s.cfg.AgentTimeout, Env: s.toolEnv(ctx, task.Spec),
 		Model: task.Agent.Model, Effort: string(task.Agent.Effort)}
@@ -409,9 +409,30 @@ func (s *Service) toolEnv(ctx context.Context, spec agenttool.Spec) []string {
 		env = append(env, s.cfg.ExtraEnv(ctx)...)
 	}
 	if dir := s.binDir(ctx); dir != "" {
-		env = append(env, "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+		// Both: the PATH for the agent's process, and an env file Claude Code
+		// sources before every shell command, so a shell that starts from
+		// another PATH (a resumed session's) still finds kurgu.
+		env = append(env, "PATH="+dir+string(os.PathListSeparator)+os.Getenv("PATH"),
+			"CLAUDE_ENV_FILE="+filepath.Join(dir, envFile))
 	}
 	return env
+}
+
+// envFile, beside the kurgu link, puts the link's directory on PATH.
+const envFile = "env.sh"
+
+// kurguAllowed are the agent's pre-approved tool commands: `kurgu tool`
+// as the instructions spell it, and by its absolute paths, which an
+// agent falls back to when its shell cannot find kurgu.
+func (s *Service) kurguAllowed(ctx context.Context) []string {
+	allowed := []string{"Bash(kurgu tool:*)"}
+	if dir := s.binDir(ctx); dir != "" {
+		allowed = append(allowed, "Bash("+filepath.Join(dir, "kurgu")+" tool:*)")
+	}
+	if bin := s.cfg.KurguBin; bin != "" && !strings.ContainsAny(bin, " ()*") {
+		allowed = append(allowed, "Bash("+bin+" tool:*)")
+	}
+	return allowed
 }
 
 // binDir holds a `kurgu` symlink to this binary for the agent's PATH.
@@ -427,8 +448,12 @@ func (s *Service) binDir(ctx context.Context) string {
 		return ""
 	}
 	link := filepath.Join(dir, "kurgu")
+	env := filepath.Join(dir, envFile)
+	script := "export PATH=" + shellQuote(dir) + `":$PATH"` + "\n"
 	if target, err := os.Readlink(link); err == nil && target == s.cfg.KurguBin {
-		return dir
+		if b, err := os.ReadFile(env); err == nil && string(b) == script { //nolint:gosec // our own file
+			return dir
+		}
 	}
 	_ = os.MkdirAll(dir, 0o750)
 	_ = os.Remove(link)
@@ -436,7 +461,15 @@ func (s *Service) binDir(ctx context.Context) string {
 		s.log.WarnContext(ctx, "cannot link kurgu for the agent", slog.Any("error", err))
 		return ""
 	}
+	if err := os.WriteFile(env, []byte(script), 0o600); err != nil {
+		s.log.WarnContext(ctx, "cannot write the agent's env file", slog.Any("error", err))
+	}
 	return dir
+}
+
+// shellQuote quotes s for a POSIX shell.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // prepare writes INSTRUCTIONS.md, BRIEF.md, KIT.md and the sources.
