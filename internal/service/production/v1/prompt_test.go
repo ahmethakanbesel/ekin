@@ -59,6 +59,22 @@ func TestDraftPromptListsEveryNote(t *testing.T) {
 				"2. The visuals, at about 12.0 s:",
 			},
 		},
+		{
+			name: "revise a script in the session",
+			task: DraftTask{Revision: 1, Resume: "sess", Feedback: &one, Stage: StageScript},
+			want: []string{"read the script (revision 1)", "1. The voice:\n   > Slower voice\n", "still the script alone"},
+			not:  []string{"watched", "re-time"},
+		},
+		{
+			name: "build the video from an approved script",
+			task: DraftTask{Revision: 2, Resume: "sess", Stage: StageFromScript},
+			want: []string{"approved your script", "INSTRUCTIONS.md"},
+		},
+		{
+			name: "build from an approved script on another host",
+			task: DraftTask{Revision: 2, Stage: StageFromScript},
+			want: []string{"Read INSTRUCTIONS.md"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

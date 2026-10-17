@@ -663,6 +663,86 @@ export function ArticlePreview({
   )
 }
 
+// ---- Script (before the video is built) ----
+
+/**
+ * A video's script waiting for approval, read like a page: the metadata
+ * as its header, then script.md with each scene's visual note.
+ */
+export function ScriptPreview({
+  artifacts: a,
+  revision,
+  lang,
+}: {
+  artifacts: ArtifactRef
+  revision: Revision
+  /** The script's language. */
+  lang: string
+}) {
+  const has = (name: string) => revision.artifacts.includes(name)
+  const script = useArtifactText(a, "script.md", has("script.md"))
+  const narration = useArtifactText(a, "narration.txt", has("narration.txt"))
+  const metadata = useArtifactText(a, "metadata.json", has("metadata.json"))
+  const meta = useMemo(
+    () => (metadata.data !== undefined ? parseMetadata(metadata.data) : undefined),
+    [metadata.data]
+  )
+  return (
+    <article className="grid gap-6">
+      {meta ? (
+        <header className="grid gap-3 border-b pb-6">
+          {meta.title ? (
+            <h2
+              lang={lang}
+              className="font-heading text-2xl leading-tight font-semibold tracking-tight"
+            >
+              {meta.title}
+            </h2>
+          ) : null}
+          {meta.description ? (
+            <p lang={lang} className="whitespace-pre-wrap text-muted-foreground">
+              {meta.description}
+            </p>
+          ) : null}
+          {meta.tags.length > 0 ? (
+            <Tags tags={meta.tags} label={m.preview.tags} lang={lang} />
+          ) : null}
+        </header>
+      ) : has("metadata.json") ? (
+        <TextState query={metadata} />
+      ) : null}
+      {!has("script.md") ? (
+        <div className="rounded-xl border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
+          {m.preview.noScript}
+        </div>
+      ) : script.data !== undefined ? (
+        <Markdown source={script.data} lang={lang} className="max-w-[72ch] text-[15px]" />
+      ) : (
+        <TextState query={script} />
+      )}
+      {has("narration.txt") ? (
+        <Block title={m.preview.narrationText} className="border-t pt-6">
+          {narration.data !== undefined ? (
+            <div lang={lang} className="grid max-w-[72ch] gap-3 text-[15px] leading-relaxed">
+              {narration.data
+                .split(/\n\s*\n/)
+                .map((p) => p.trim())
+                .filter(Boolean)
+                .map((p, i) => (
+                  <p key={i} className="whitespace-pre-wrap">
+                    {p}
+                  </p>
+                ))}
+            </div>
+          ) : (
+            <TextState query={narration} />
+          )}
+        </Block>
+      ) : null}
+    </article>
+  )
+}
+
 // ---- Files ----
 
 /** Every downloadable artifact of the revision. */

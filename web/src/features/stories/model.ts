@@ -95,6 +95,19 @@ export const SCOPES: Record<Deliverable["kind"], FeedbackScope[]> = {
   article: ["all", "script", "metadata"],
 }
 
+/**
+ * The scopes a note on d may take: a video's script waiting for approval
+ * has no voice, visuals or music yet.
+ */
+export function scopesFor(d: Pick<Deliverable, "kind" | "stage">): FeedbackScope[] {
+  return d.stage === "script" ? ["all", "script", "metadata"] : SCOPES[d.kind]
+}
+
+/** Whether notes on d can be pinned to a moment: a rendered video only. */
+export function timedNotes(d: Pick<Deliverable, "kind" | "stage">): boolean {
+  return d.kind === "video" && d.stage !== "script"
+}
+
 export function scopeLabel(scope: FeedbackScope, kind: Deliverable["kind"]): string {
   if (kind === "article" && scope === "script") return m.review.scopeText
   return m.review.scopes[scope] ?? scope

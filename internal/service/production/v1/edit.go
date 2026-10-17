@@ -117,7 +117,9 @@ const retimeFeedback = "I edited the narration myself: narration/narration.txt n
 
 // EditContent applies a reviewer's edit to a deliverable in review as a
 // new revision. An article or metadata edit stays in review; an edited
-// narration goes back to the agent to re-narrate and re-time the video.
+// narration goes back to the agent to re-narrate and re-time the video,
+// unless the video is still a script waiting for approval (nothing is
+// narrated yet), which stays in review.
 func (s *Service) EditContent(ctx context.Context, workspaceID, storyID, deliverableID, by uuid.UUID, e Edit) (*storydomain.Story, error) {
 	st, err := s.stories.Get(ctx, workspaceID, storyID)
 	if err != nil {
@@ -161,14 +163,18 @@ func (s *Service) EditContent(ctx context.Context, workspaceID, storyID, deliver
 		return nil, err
 	}
 	var retime *storydomain.Feedback
-	if changedNarration {
+	switch {
+	case st.AtScript(d.ID()):
+		// A script in review is not narrated yet: an edited narration stays
+		// in review, with nothing to re-time.
+	case changedNarration:
 		fb, err := storydomain.NewFeedback([]storydomain.Note{{Text: retimeFeedback, Scope: storydomain.ScopeScript}}, by, s.now())
 		if err != nil {
 			return nil, err
 		}
 		retime = &fb
 		delete(artifacts, storydomain.ArtifactNarration) // the old audio no longer matches
-	} else if d.IsVideo() {
+	case d.IsVideo():
 		// The picture is unchanged: keep showing the rendered preview.
 		for _, name := range []string{storydomain.ArtifactPreview, storydomain.ArtifactPoster} {
 			if key, ok := prev.Artifacts[name]; ok {

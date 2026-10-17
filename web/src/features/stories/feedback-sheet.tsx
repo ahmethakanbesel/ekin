@@ -20,6 +20,7 @@ import {
   type FeedbackFocus,
   type FeedbackFooterState,
 } from "./feedback-form"
+import { timedNotes } from "./model"
 import { showHistory } from "./review-panel"
 
 type Props = {
@@ -97,12 +98,12 @@ function Form({
       lang={story.language}
       deliverable={d}
       revisions={revisions}
-      playhead={d.kind === "video" ? playhead : undefined}
+      playhead={timedNotes(d) ? playhead : undefined}
       focus={focus}
       draft={draft}
       bodyClassName="scroll-area min-h-0 flex-1 overflow-y-auto px-4 pt-2 pb-6"
       renderFooter={(state) => (
-        <Footer n={d.revision} video={d.kind === "video"} state={state} />
+        <Footer n={d.revision} video={timedNotes(d)} state={state} />
       )}
       onSent={onSent}
       onShowHistory={onShowHistory}

@@ -91,7 +91,7 @@ func (s *Service) QueueAdHoc(ctx context.Context, workspaceID, actorID uuid.UUID
 	if err := pipelinedomain.CheckSelfReview(req.SelfReview); err != nil {
 		return nil, err
 	}
-	if err := req.Production.Check(); err != nil {
+	if err := req.Production.CheckFor(req.Outputs); err != nil {
 		return nil, err
 	}
 	p := AdHocPayload{

@@ -5,6 +5,7 @@ type KnowledgeRef = Schemas["KnowledgeRef"]
 type Production = Schemas["Production"]
 export type DraftEffort = Schemas["DraftEffort"]
 export type PreviewQuality = NonNullable<Production["previewQuality"]>
+export type ReviewAt = NonNullable<Production["reviewAt"]>
 import { emptyOverride, fromOverride, toOverride, type VoiceOverrideValues } from "@/features/voice/model"
 import { DEFAULT_SELF_REVIEW } from "./self-review-section"
 import { m } from "@/i18n"
@@ -74,10 +75,11 @@ export type ProductionValues = {
   draftModel: string
   draftEffort: DraftEffort | ""
   previewQuality: PreviewQuality | ""
+  reviewAt: ReviewAt
 }
 
 export function emptyProduction(): ProductionValues {
-  return { draftModel: "", draftEffort: "", previewQuality: "" }
+  return { draftModel: "", draftEffort: "", previewQuality: "", reviewAt: "video" }
 }
 
 export function fromProduction(p: Production | undefined): ProductionValues {
@@ -85,6 +87,7 @@ export function fromProduction(p: Production | undefined): ProductionValues {
     draftModel: p?.draftModel ?? "",
     draftEffort: p?.draftEffort ?? "",
     previewQuality: p?.previewQuality ?? "",
+    reviewAt: p?.reviewAt ?? "video",
   }
 }
 
@@ -94,6 +97,7 @@ export function toProduction(v: ProductionValues): Production | undefined {
   if (v.draftModel) out.draftModel = v.draftModel
   if (v.draftEffort) out.draftEffort = v.draftEffort
   if (v.previewQuality) out.previewQuality = v.previewQuality
+  if (v.reviewAt === "script") out.reviewAt = v.reviewAt
   return Object.keys(out).length > 0 ? out : undefined
 }
 

@@ -16,6 +16,9 @@ type Production struct {
 	// PreviewQuality is the resolution of the review render; "" takes
 	// the host profile's preview scale.
 	PreviewQuality PreviewQuality `json:"previewQuality,omitempty"`
+	// ReviewAt is when a person first reviews a video: the finished video
+	// (the default) or, first, its script.
+	ReviewAt ReviewPoint `json:"reviewAt,omitempty"`
 }
 
 // Check reports whether every setting is valid.
@@ -23,8 +26,45 @@ func (p Production) Check() error {
 	if _, err := NewAgent(p.Agent.Model, string(p.Agent.Effort)); err != nil {
 		return err
 	}
-	_, err := ParsePreviewQuality(string(p.PreviewQuality))
+	if _, err := ParsePreviewQuality(string(p.PreviewQuality)); err != nil {
+		return err
+	}
+	_, err := ParseReviewPoint(string(p.ReviewAt))
 	return err
+}
+
+// CheckFor reports whether the settings fit outputs: reviewing scripts
+// needs a video.
+func (p Production) CheckFor(outputs Outputs) error {
+	if err := p.Check(); err != nil {
+		return err
+	}
+	if _, video := outputs.Video(); p.ReviewAt == ReviewScript && !video {
+		return apperror.New(apperror.ValidationFailed, "reviewing the script first needs a video output")
+	}
+	return nil
+}
+
+// ReviewPoint is when a person first reviews a video.
+type ReviewPoint string
+
+const (
+	// ReviewVideo reviews the rendered preview (the default).
+	ReviewVideo ReviewPoint = ""
+	// ReviewScript reviews the script first; once approved, the video is
+	// built from it and reviewed as usual.
+	ReviewScript ReviewPoint = "script"
+)
+
+// ParseReviewPoint parses a review point; "" and "video" are the default.
+func ParseReviewPoint(s string) (ReviewPoint, error) {
+	switch s {
+	case "", "video":
+		return ReviewVideo, nil
+	case string(ReviewScript):
+		return ReviewScript, nil
+	}
+	return "", apperror.New(apperror.ValidationFailed, "review point must be video or script")
 }
 
 // PreviewQuality is the resolution a video is rendered at for review,

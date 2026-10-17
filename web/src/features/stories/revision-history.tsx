@@ -108,6 +108,9 @@ export function RevisionHistory({
               <Badge variant="outline" className="tabular">
                 {m.stories.revisionShort(r.number)}
               </Badge>
+              {r.stage === "script" ? (
+                <Badge variant="secondary">{m.history.scriptOnly}</Badge>
+              ) : null}
               <span className="font-medium">
                 {r.editedBy
                   ? editor

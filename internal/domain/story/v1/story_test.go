@@ -460,3 +460,72 @@ func sameNote(a, b story.Note) bool {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// A story that reviews scripts first stops each video at its script:
+// changes revise the script, approval builds the video, which is then
+// reviewed and approved as usual.
+func TestScriptReviewLifecycle(t *testing.T) {
+	idea, _ := story.NewIdea("Kaygı", "açı", nil)
+	s, err := story.New(id.New(), story.Plan{
+		WorkspaceID: id.New(), Origin: story.OriginAdHoc, Language: pipelinedomain.Turkish, Idea: idea,
+		Outputs: outputs(t, true, true, pipelinedomain.KindVideo),
+		Brief:   story.Brief{Production: pipelinedomain.Production{ReviewAt: pipelinedomain.ReviewScript}},
+	}, id.New, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := s.Lead()
+	step := func(name string, err error, wantStatus story.Status, wantScript bool) {
+		t.Helper()
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if v.Status() != wantStatus || s.AtScript(v.ID()) != wantScript {
+			t.Fatalf("%s: status %s at script %v, want %s %v", name, v.Status(), s.AtScript(v.ID()), wantStatus, wantScript)
+		}
+	}
+	step("new", nil, story.StatusQueued, true)
+
+	_, err = s.StartDrafting(v.ID(), now)
+	rev, _ := s.Drafted(v.ID(), nil, "s1", "", story.Measures{Words: 80}, now)
+	step("script drafted", err, story.StatusReview, true)
+	if rev.Stage != story.StageScript {
+		t.Fatalf("script revision stage = %q", rev.Stage)
+	}
+
+	fb, _ := story.NewFeedback([]story.Note{{Text: "Girişi kısalt", Scope: story.ScopeScript}}, id.New(), now)
+	if _, err := s.Edited(v.ID(), nil, id.New(), &fb, 70, now); !apperror.Is(err, apperror.ValidationFailed) {
+		t.Fatalf("re-timing an unnarrated script: err = %v", err)
+	}
+	edit, err := s.Edited(v.ID(), nil, id.New(), nil, 70, now)
+	step("script edited", err, story.StatusReview, true)
+	if edit.Stage != story.StageScript {
+		t.Fatalf("edited script revision stage = %q", edit.Stage)
+	}
+
+	step("changes requested", s.RequestChanges(v.ID(), fb, now), story.StatusQueued, true)
+	_, _ = s.StartDrafting(v.ID(), now)
+	_, err = s.Drafted(v.ID(), nil, "s1", "", story.Measures{}, now)
+	step("script revised", err, story.StatusReview, true)
+
+	queued, err := s.Approve(v.ID(), id.New(), id.New, now)
+	step("script approved", err, story.StatusQueued, false)
+	if len(queued) != 0 || !v.ApprovedAt().IsZero() || v.ScriptApprovedAt().IsZero() {
+		t.Fatalf("script approval queued %d, approved at %v", len(queued), v.ApprovedAt())
+	}
+
+	_, _ = s.StartDrafting(v.ID(), now)
+	rev, err = s.Drafted(v.ID(), nil, "s1", "", story.Measures{}, now)
+	step("video drafted", err, story.StatusRendering, false)
+	if rev.Stage != story.StageFull {
+		t.Fatalf("video revision stage = %q", rev.Stage)
+	}
+	step("rendered", s.Rendered(v.ID(), 0, now), story.StatusReview, false)
+	_, err = s.Approve(v.ID(), id.New(), id.New, now)
+	step("video approved", err, story.StatusFinalizing, false)
+
+	// An article never stops at a script.
+	if a := s.Deliverables()[1]; s.AtScript(a.ID()) {
+		t.Fatal("the article is at a script stage")
+	}
+}

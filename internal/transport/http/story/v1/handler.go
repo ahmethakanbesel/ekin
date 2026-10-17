@@ -203,6 +203,10 @@ func (h *Handler) ListRevisions(ctx context.Context, req gen.ListRevisionsReques
 			by := r.EditedBy
 			rev.EditedBy = &by
 		}
+		if r.Stage == storydomain.StageScript {
+			stage := gen.RevisionStageScript
+			rev.Stage = &stage
+		}
 		out = append(out, rev)
 	}
 	return gen.ListRevisions200JSONResponse{Revisions: out}, nil
@@ -331,6 +335,16 @@ func ToWire(st *storydomain.Story) gen.Story {
 		}
 		if at := d.ApprovedAt(); !at.IsZero() {
 			wd.ApprovedAt = &at
+		}
+		if d.IsVideo() {
+			stage := gen.DeliverableStageVideo
+			if st.AtScript(d.ID()) {
+				stage = gen.DeliverableStageScript
+			}
+			wd.Stage = &stage
+		}
+		if at := d.ScriptApprovedAt(); !at.IsZero() {
+			wd.ScriptApprovedAt = &at
 		}
 		if pub := d.Publication(); pub != nil {
 			wd.Publication = &gen.Publication{Url: pub.URL, ExternalId: pub.ExternalID, At: pub.At}

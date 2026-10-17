@@ -1396,6 +1396,16 @@ export interface components {
             failedStep?: string;
             /** Format: date-time */
             approvedAt?: string;
+            /**
+             * @description Videos only. script while the video's script waits for a person's approval (being drafted, in review, or sent back with changes); video otherwise.
+             * @enum {string}
+             */
+            stage?: "script" | "video";
+            /**
+             * Format: date-time
+             * @description When a person approved the video's script, for stories that review scripts first.
+             */
+            scriptApprovedAt?: string;
             publication?: components["schemas"]["Publication"];
             /** @description What the latest revision came out as; absent until something was measured. */
             measured?: components["schemas"]["Measures"];
@@ -1461,6 +1471,11 @@ export interface components {
              * @description The person who edited this revision in place; absent when the agent made it.
              */
             editedBy?: string;
+            /**
+             * @description script when the revision holds only a video's script (no narration audio or render yet); absent otherwise.
+             * @enum {string}
+             */
+            stage?: "script";
             measured?: components["schemas"]["Measures"];
             /** Format: date-time */
             createdAt: string;
@@ -1500,6 +1515,11 @@ export interface components {
              * @enum {string}
              */
             previewQuality?: "360p" | "540p" | "720p" | "1080p";
+            /**
+             * @description When a person first reviews a video. video (the default): the rendered preview. script: the script, narration text and metadata first; approving them has the agent build the video, which is then reviewed as usual. script needs a video output.
+             * @enum {string}
+             */
+            reviewAt?: "video" | "script";
         };
         AdHocInput: {
             /** @description Free text — what you want made. */

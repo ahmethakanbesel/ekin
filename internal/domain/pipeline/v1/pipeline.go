@@ -258,7 +258,7 @@ func checkDefinition(def Definition) (Definition, error) {
 	if err := CheckSelfReview(def.SelfReview); err != nil {
 		return Definition{}, err
 	}
-	if err := def.Production.Check(); err != nil {
+	if err := def.Production.CheckFor(def.Outputs); err != nil {
 		return Definition{}, err
 	}
 	return def, nil

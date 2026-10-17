@@ -621,6 +621,8 @@ function VideoEditor(props: InnerProps) {
   const problems =
     !!narrationError || (metaChanged && Object.keys(metaErrors).length > 0)
   const { edit, cancel, save, dialogs } = useEditorState(props, dirty)
+  // A script waiting for approval is not narrated yet: nothing to re-time.
+  const retime = narrationChanged && d.stage !== "script"
 
   const words = countWords(narration)
   const estimate = Math.round(words / WORDS_PER_SECOND)
@@ -648,7 +650,7 @@ function VideoEditor(props: InnerProps) {
         title: meta.title.trim(),
         description: meta.description.trim(),
       }
-    void save(body, narrationChanged)
+    void save(body, retime)
   }
 
   const titleChars = meta ? countChars(meta.title) : 0
@@ -767,9 +769,9 @@ function VideoEditor(props: InnerProps) {
       <Footer
         dirty={dirty}
         saving={edit.isPending}
-        saveLabel={narrationChanged ? m.editor.saveRetime : m.editor.save}
+        saveLabel={retime ? m.editor.saveRetime : m.editor.save}
         note={
-          narrationChanged ? (
+          retime ? (
             <p className="flex gap-2 rounded-lg border border-info/30 bg-info/5 px-3 py-2 text-sm">
               <InfoIcon className="mt-0.5 size-4 shrink-0 text-info" />
               <span>{m.editor.retimeNote}</span>

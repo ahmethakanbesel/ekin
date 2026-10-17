@@ -4,7 +4,10 @@ would before a person sees it. Do not change any file: only read and report.
 
 Read what was asked first: INSTRUCTIONS.md and BRIEF.md{{if .Writing}}, and
 WRITING.md, the rules for natural {{.Language}}{{end}}. Read the sources/
-folder if there is one. Then read the output INSTRUCTIONS.md asks for{{if .Video}}:
+folder if there is one. Then read the output INSTRUCTIONS.md asks for{{if .Script}}:
+script.md, narration/narration.txt and metadata.json. This pass is the script
+alone, before any narration is recorded or visuals are built: review the
+words and the planned visuals, not missing files{{else if .Video}}:
 script.md, narration/narration.txt, composition.html and metadata.json{{else}}:
 article.md{{end}}.
 
@@ -18,7 +21,7 @@ Check, most important first:
    describes: no calques or word-for-word English, no slogans, no stiff academic
    register{{else}}It reads naturally: plain words, no filler, no slogans{{end}}.{{if .Video}}
    The narration is meant to be heard: short sentences, easy to follow aloud.{{end}}
-4. Structure. A hook at the start, one idea at a time, a clear ending.{{if .Video}}
+4. Structure. A hook at the start, one idea at a time, a clear ending.{{if and .Video (not .Script)}}
 5. Picture and sound agree: on-screen text matches what is said, when it is
    said; the metadata title and description fit the video.{{end}}
 

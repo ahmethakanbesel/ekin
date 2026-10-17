@@ -82,7 +82,7 @@ func (s *Service) selfReview(ctx context.Context, task DraftTask, dir string, a 
 			fmt.Fprintf(&notes, "\n  - %s: %s", is.File, firstLine(is.Problem))
 		}
 		prompt, err := execute("self-fix.md", map[string]any{
-			"Round": round, "Max": rounds, "Issues": v.Issues, "Video": task.Video, "Tool": toolCmd,
+			"Round": round, "Max": rounds, "Issues": v.Issues, "Video": task.Video && task.Stage != StageScript, "Tool": toolCmd,
 		})
 		if err != nil {
 			return "", err
@@ -109,7 +109,8 @@ func (s *Service) review(ctx context.Context, task DraftTask, dir string, round,
 		lang = task.Spec.Language
 	}
 	prompt, err2 := execute("self-review.md", map[string]any{
-		"Video": task.Video, "Writing": err == nil, "Language": lang, "Round": round, "Max": rounds,
+		"Video": task.Video, "Script": task.Stage == StageScript, "Writing": err == nil, "Language": lang,
+		"Round": round, "Max": rounds,
 	})
 	if err2 != nil {
 		return verdict{}, err2

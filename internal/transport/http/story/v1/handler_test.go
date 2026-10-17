@@ -9,9 +9,11 @@ import (
 	"github.com/google/uuid"
 
 	"kurgu/internal/apperror"
+	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	storydomain "kurgu/internal/domain/story/v1"
 	"kurgu/internal/gen"
 	notifysvc "kurgu/internal/service/notify/v1"
+	"kurgu/pkg/id"
 )
 
 func TestFeedbackToWireNamesTheAuthor(t *testing.T) {
@@ -150,3 +152,36 @@ func TestListNotificationsPassesItsFilter(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// A video waiting for its script's approval says so, and stops saying so
+// once the script is approved.
+func TestToWireShowsTheScriptStage(t *testing.T) {
+	now := time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)
+	v, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 45*time.Second)
+	o, _ := pipelinedomain.NewOutputs(&v, nil, "")
+	idea, _ := storydomain.NewIdea("Kaygı", "açı", nil)
+	st, err := storydomain.New(id.New(), storydomain.Plan{
+		WorkspaceID: id.New(), Origin: storydomain.OriginAdHoc, Language: pipelinedomain.Turkish, Idea: idea, Outputs: o,
+		Brief: storydomain.Brief{Production: pipelinedomain.Production{ReviewAt: pipelinedomain.ReviewScript}},
+	}, id.New, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire := ToWire(st)
+	if s := wire.Deliverables[0].Stage; s == nil || *s != gen.DeliverableStageScript {
+		t.Fatalf("stage = %v", s)
+	}
+	if p := wire.Production; p == nil || p.ReviewAt == nil || *p.ReviewAt != gen.ProductionReviewAtScript {
+		t.Fatalf("production = %+v", p)
+	}
+	d := st.Lead()
+	_, _ = st.StartDrafting(d.ID(), now)
+	_, _ = st.Drafted(d.ID(), nil, "s", "", storydomain.Measures{}, now)
+	if _, err := st.Approve(d.ID(), id.New(), id.New, now); err != nil {
+		t.Fatal(err)
+	}
+	wire = ToWire(st)
+	if s := wire.Deliverables[0].Stage; s == nil || *s != gen.DeliverableStageVideo || wire.Deliverables[0].ScriptApprovedAt == nil {
+		t.Fatalf("after approval: stage %v, script approved %v", s, wire.Deliverables[0].ScriptApprovedAt)
+	}
+}

@@ -44,6 +44,7 @@ import {
 } from "./model"
 import {
   ArticlePreview,
+  ScriptPreview,
   VideoFrameElement,
   videoFile,
   type ArtifactRef,
@@ -436,14 +437,24 @@ export function DraftFrame({
         }
       : undefined
 
-  if (d?.kind === "article") {
+  // A video's script waiting for approval reads as a page, like an article.
+  const script =
+    d?.kind === "video" &&
+    (revision ? revision.stage === "script" : d.stage === "script" && d.revision > 0)
+  if (d?.kind === "article" || script) {
     // Its own scroller: the wheel reads on and, at either end, a new
     // gesture moves the feed. Focused (click or Tab), Space and the arrow
     // keys scroll the article; J and K still move between drafts.
     return (
       <div
         role={current ? "region" : undefined}
-        aria-label={current ? m.feed.article(story.title) : undefined}
+        aria-label={
+          current
+            ? script
+              ? m.feed.script(story.title)
+              : m.feed.article(story.title)
+            : undefined
+        }
         tabIndex={current ? 0 : undefined}
         className="frame-paper paper scroll-area overflow-y-auto rounded-xl border bg-card text-card-foreground shadow-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
       >
@@ -451,7 +462,7 @@ export function DraftFrame({
           <StatusBadge status={d.status} revision={d.revision} quiet />
           <Badge variant="outline">
             <FileTextIcon data-icon="inline-start" />
-            {m.values.kind.article}
+            {script ? m.feed.scriptKind : m.values.kind.article}
             {" · "}
             <span className="uppercase">{d.language}</span>
             {measuredWords(measured) ? ` · ${measuredWords(measured)}` : null}
@@ -459,11 +470,19 @@ export function DraftFrame({
         </div>
         <div className="p-5 md:px-8 md:py-7">
           {player && artifacts && revision ? (
-            <ArticlePreview
-              artifacts={artifacts}
-              revision={revision}
-              lang={d.language}
-            />
+            script ? (
+              <ScriptPreview
+                artifacts={artifacts}
+                revision={revision}
+                lang={d.language}
+              />
+            ) : (
+              <ArticlePreview
+                artifacts={artifacts}
+                revision={revision}
+                lang={d.language}
+              />
+            )
           ) : loading ? (
             <FrameLoading />
           ) : (

@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button"
 import { FieldGroup } from "@/components/ui/field"
 import {
   Select,
@@ -8,7 +9,7 @@ import {
 } from "@/components/ui/select"
 import { m } from "@/i18n"
 import { Row, Section } from "./form-parts"
-import type { DraftEffort, PreviewQuality, ProductionValues } from "./model"
+import type { DraftEffort, PreviewQuality, ProductionValues, ReviewAt } from "./model"
 
 /** The select value standing for "the workspace default" (a select item needs a value). */
 const DEFAULT = "default"
@@ -24,6 +25,8 @@ const MODELS = [
 const EFFORTS: DraftEffort[] = ["low", "medium", "high", "xhigh", "max"]
 
 const QUALITIES: PreviewQuality[] = ["360p", "540p", "720p", "1080p"]
+
+const REVIEW_POINTS: ReviewAt[] = ["video", "script"]
 
 /**
  * "Production" in the pipeline and request forms: how the stories are
@@ -129,6 +132,34 @@ export function ProductionSection({
           </Row>
         ) : null}
       </FieldGroup>
+      {video ? (
+        <div className="mt-5 grid gap-2">
+          <p className="text-sm font-medium" id={`${idPrefix}-review-label`}>
+            {t.reviewAt}
+          </p>
+          <div
+            className="flex flex-wrap gap-1.5"
+            role="radiogroup"
+            aria-labelledby={`${idPrefix}-review-label`}
+          >
+            {REVIEW_POINTS.map((point) => (
+              <Button
+                key={point}
+                type="button"
+                size="sm"
+                variant="outline"
+                role="radio"
+                aria-checked={value.reviewAt === point}
+                className="aria-checked:bg-secondary aria-checked:text-foreground aria-checked:inset-ring aria-checked:inset-ring-foreground/70"
+                onClick={() => set({ reviewAt: point })}
+              >
+                {t.reviewPoints[point]}
+              </Button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">{t.reviewHints[value.reviewAt]}</p>
+        </div>
+      ) : null}
     </Section>
   )
 }

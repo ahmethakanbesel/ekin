@@ -17,7 +17,32 @@ YouTube{{if not .Long}} Shorts{{end}}. Everything you need is in this directory:
   English examples in these instructions and in `STYLE.md`.
 {{- end}}
 
-Work in this order and do not stop until `kurgu tool check` passes.
+{{- if .ScriptOnly}}
+This pass is **the script only**. A reviewer reads and approves it before any
+narration is recorded or any visuals are built, so do steps 1, 2 and 6 below
+and stop:
+
+- In step 2, write `narration/narration.txt` but do not run `{{.Tool}} tts`; aim
+  for the target word count instead.
+- In step 6, write `metadata.json` without chapters{{if .Long}} (they need the
+  narration timings, which come once the script is approved){{end}}.
+- Skip steps 3, 4, 5 and 7: no composition, frames, music or check yet.
+
+`script.md` is what the reviewer reads: for every scene, the narration itself,
+word for word as in `narration/narration.txt`, and the visual idea under it,
+clearly enough to judge. When done, reply with two or three sentences describing
+the planned video.
+{{- else}}
+{{- if .FromScript}}
+A reviewer **approved** `script.md` and `narration/narration.txt`. Build the
+video from them: keep the narration word for word, starting at step 2 (run
+`{{.Tool}} tts`). If the tool says the length is out of range, make the
+smallest change that fits and say so in your reply. Keep `script.md` in step
+with the narration, and complete `metadata.json`{{if .Long}} with the chapters{{end}}.
+{{- end}}
+
+Work in this order and do not stop until `{{.Tool}} check` passes.
+{{- end}}
 
 1. **Script.** Write `script.md`: the narration in {{.LanguageName}}, split into scenes,
    each with a one-line visual note. Target about {{.TargetWords}} spoken words

@@ -422,6 +422,16 @@ export const en = {
         "720p": "720p",
         "1080p": "1080p · final quality",
       } as Record<string, string>,
+      reviewAt: "First review",
+      reviewPoints: {
+        video: "The video",
+        script: "The script, then the video",
+      } as Record<string, string>,
+      reviewHints: {
+        video: "You review each video once it is drafted and rendered.",
+        script:
+          "You read each script first. Approving it has the agent narrate and build the video, which comes back for review; sending it back revises only the script.",
+      } as Record<string, string>,
     },
     createTitle: "New pipeline",
     editTitle: "Edit pipeline",
@@ -638,6 +648,7 @@ export const en = {
     startSitting: "Start review sitting",
     ratio: { vertical: "9:16", horizontal: "16:9", square: "1:1" } as Record<string, string>,
     posterFormat: (format: string, ratio: string) => `${format} · ${ratio}`,
+    scriptStage: "script",
   },
   story: {
     notFound: "This story does not exist.",
@@ -720,6 +731,8 @@ export const en = {
     approve: "Approve",
     approved: "Approved",
     approvedVideo: "Approved — rendering the final video",
+    approveScript: "Approve script",
+    approvedScript: "Script approved — the agent builds the video next",
     approving: (n: number) => `Approving revision ${n}…`,
     approvingHint: "It goes through in a few seconds unless you undo it.",
     approvingRail: "Approving…",
@@ -866,6 +879,9 @@ export const en = {
     rail: (n: number) => `Decide on revision ${n}`,
     railOther: "Actions",
     approve: (n: number) => `Approve revision ${n}`,
+    approveScript: (n: number) => `Approve the script (revision ${n}) and build the video`,
+    script: (title: string) => `Video script: ${title}`,
+    scriptKind: "Video script",
     requestChanges: (n: number) => `Request changes to revision ${n}`,
     requestChangesUnsent: (n: number, notes: number) =>
       notes === 1
@@ -900,6 +916,7 @@ export const en = {
     title: "History",
     entries: (n: number) => (n === 1 ? "1 entry" : `${n} entries`),
     written: "Written by the agent",
+    scriptOnly: "Script",
     askedOn: (n: number, author?: string) =>
       author ? `${author}’s note on r${n}` : `Note on r${n}`,
     addressedIn: (n: number) => `Addressed in r${n}`,
@@ -1044,6 +1061,8 @@ export const en = {
     script: "Script",
     narration: "Narration",
     noArticle: "This revision has no article.",
+    noScript: "This revision has no script.",
+    narrationText: "Narration, as it will be spoken",
     slug: "Slug",
     seoTitle: "SEO title",
     files: "Files",

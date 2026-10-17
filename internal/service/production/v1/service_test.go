@@ -124,6 +124,10 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 	a.seen = append(a.seen, string(seen))
 	a.mu.Unlock()
 	switch {
+	case strings.Contains(string(instructions), "**the script only**"):
+		write("script.md", "Sahne 1: Kaygı nedir? Görsel: bir soru işareti.")
+		write("narration/narration.txt", strings.Repeat("Kaygı bedenin bir alarmıdır. ", 10))
+		write("metadata.json", `{"title":"Kaygı nedir?","description":"Kısa açıklama.","tags":["kaygı"]}`)
 	case strings.Contains(string(instructions), "produce a"):
 		write("script.md", "Sahne 1: Kaygı nedir?")
 		write("narration/narration.txt", "Kaygı nedir?")
@@ -1395,5 +1399,122 @@ func TestPreviewQuality(t *testing.T) {
 				t.Fatalf("final reused the preview = %v; artifacts %v", reused, last)
 			}
 		})
+	}
+}
+
+// A story that reviews scripts first: the agent writes the script alone,
+// changes and edits keep it a script, and approving it builds the video
+// (resuming the session that wrote it), which is reviewed and finished
+// as usual.
+func TestScriptReviewThenVideo(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	log := &scaleLog{}
+	svc := f.hostWith(func(d *production.Deps) { d.Renderer = fakeRenderer{scales: log} })
+	video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
+	outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
+	req := production.AdHocRequest{Idea: "Kaygı ve endişe farkı", Count: 1, Language: pipelinedomain.Turkish, Outputs: outputs,
+		SelfReview: 1, Production: pipelinedomain.Production{ReviewAt: pipelinedomain.ReviewScript}}
+	if _, err := svc.QueueAdHoc(ctx, f.ws, id.New(), req); err != nil {
+		t.Fatal(err)
+	}
+	f.drainOn(t, svc)
+	st := f.story(t)
+	d := st.Lead()
+	last := func() storydomain.Revision {
+		t.Helper()
+		revs, err := svc.Revisions(ctx, f.ws, st.ID(), d.ID())
+		if err != nil || len(revs) == 0 {
+			t.Fatalf("revisions = %d, %v", len(revs), err)
+		}
+		return revs[len(revs)-1]
+	}
+	if d.Status() != storydomain.StatusReview || !st.AtScript(d.ID()) || len(log.all()) != 0 {
+		t.Fatalf("after the script: %s, at script %v, renders %v", d.Status(), st.AtScript(d.ID()), log.all())
+	}
+	if rev := last(); rev.Stage != storydomain.StageScript || rev.Artifacts[storydomain.ArtifactScript] == "" ||
+		rev.Artifacts[storydomain.ArtifactNarrationText] == "" || rev.Artifacts[storydomain.ArtifactPreview] != "" {
+		t.Fatalf("script revision = %+v", rev)
+	}
+	if n := len(f.agent.reviews); n != 1 || !strings.Contains(f.agent.reviews[0].Prompt, "This pass is the script") {
+		t.Fatalf("editor ran %d times on the script", n)
+	}
+
+	// Changes revise the script in the same session; it is still a script.
+	fb, _ := storydomain.NewFeedback([]storydomain.Note{{Text: "Girişi kısalt", Scope: storydomain.ScopeScript}}, id.New(), time.Now())
+	if _, err := svc.RequestChanges(ctx, f.ws, st.ID(), d.ID(), fb); err != nil {
+		t.Fatal(err)
+	}
+	f.drainOn(t, svc)
+	revise := f.agent.prompts[len(f.agent.prompts)-2] // before the editor's review
+	if !strings.Contains(revise.Prompt, "still the script alone") || revise.Resume == "" {
+		t.Fatalf("script revision turn = resume %q: %s", revise.Resume, revise.Prompt)
+	}
+	st = f.story(t)
+	d = st.Lead()
+	if d.Status() != storydomain.StatusReview || last().Stage != storydomain.StageScript {
+		t.Fatalf("after changes: %s, stage %q", d.Status(), last().Stage)
+	}
+
+	// An edited narration stays in review: there is no audio to re-time.
+	narration := strings.Repeat("Kaygı bir alarmdır. ", 12)
+	st, err := svc.EditContent(ctx, f.ws, st.ID(), d.ID(), id.New(), production.Edit{Revision: d.Revision(), Narration: &narration})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d = st.Lead()
+	if d.Status() != storydomain.StatusReview || last().Stage != storydomain.StageScript {
+		t.Fatalf("after an edit: %s, stage %q", d.Status(), last().Stage)
+	}
+
+	// Approving the script builds the video from it, in the same session.
+	if _, err := svc.Approve(ctx, f.ws, st.ID(), d.ID(), id.New()); err != nil {
+		t.Fatal(err)
+	}
+	f.drainOn(t, svc)
+	var build *claude.Request
+	for i := range f.agent.prompts {
+		if strings.Contains(f.agent.prompts[i].Prompt, "approved your script") {
+			build = &f.agent.prompts[i]
+		}
+	}
+	if build == nil || build.Resume == "" {
+		t.Fatalf("no build turn resuming the script's session: %+v", build)
+	}
+	instructions, _ := os.ReadFile(filepath.Join(build.Dir, "INSTRUCTIONS.md"))
+	if !strings.Contains(string(instructions), "**approved**") || strings.Contains(string(instructions), "**the script only**") {
+		t.Fatalf("build instructions:\n%s", instructions)
+	}
+	st = f.story(t)
+	d = st.Lead()
+	if d.Status() != storydomain.StatusReview || st.AtScript(d.ID()) || d.ScriptApprovedAt().IsZero() || !d.ApprovedAt().IsZero() {
+		t.Fatalf("after the script's approval: %s", d.Status())
+	}
+	if rev := last(); rev.Stage != storydomain.StageFull || rev.Artifacts[storydomain.ArtifactPreview] == "" {
+		t.Fatalf("video revision = %+v", rev)
+	}
+
+	// The video is approved and finished as usual.
+	if _, err := svc.Approve(ctx, f.ws, st.ID(), d.ID(), id.New()); err != nil {
+		t.Fatal(err)
+	}
+	f.drainOn(t, svc)
+	if got := log.all(); len(got) != 2 {
+		t.Fatalf("renders = %v, want a preview and a final", got)
+	}
+	if d := f.story(t).Lead(); d.Status() != storydomain.StatusReady && d.Status() != storydomain.StatusPublished {
+		t.Fatalf("lead = %s: %s", d.Status(), d.Failure())
+	}
+}
+
+// Reviewing scripts first needs a video output.
+func TestScriptReviewNeedsAVideo(t *testing.T) {
+	f := newFixture(t)
+	article, _ := pipelinedomain.NewArticleSpec(900, nil)
+	outputs, _ := pipelinedomain.NewOutputs(nil, &article, "")
+	req := production.AdHocRequest{Idea: "Kaygı", Count: 1, Language: pipelinedomain.Turkish, Outputs: outputs,
+		Production: pipelinedomain.Production{ReviewAt: pipelinedomain.ReviewScript}}
+	if _, err := f.svc.QueueAdHoc(context.Background(), f.ws, id.New(), req); !apperror.Is(err, apperror.ValidationFailed) {
+		t.Fatalf("err = %v", err)
 	}
 }

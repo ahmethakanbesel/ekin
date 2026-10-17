@@ -34,6 +34,11 @@ const (
 //
 //	waiting → queued → drafting → rendering → review ⇄ (changes) queued
 //	review → finalizing → ready → publishing → published
+//
+// A video whose story reviews scripts first goes queued → drafting →
+// review (the script) ⇄ (changes) queued, and approving the script
+// queues it again to be built as a video (see Story.AtScript).
+//
 //	review → rejected; drafting|rendering|finalizing|publishing → failed → (retry)
 type Status string
 
@@ -222,8 +227,11 @@ type Deliverable struct {
 	// may resume a publication cut short.
 	publishJob uuid.UUID
 	measures   Measures
-	createdAt  time.Time
-	updatedAt  time.Time
+	// scriptApprovedAt is when a person approved the video's script;
+	// zero until then, or when the story does not review scripts.
+	scriptApprovedAt time.Time
+	createdAt        time.Time
+	updatedAt        time.Time
 }
 
 func (d *Deliverable) ID() uuid.UUID                        { return d.id }
@@ -244,6 +252,7 @@ func (d *Deliverable) ApprovedAt() time.Time                { return d.approvedA
 func (d *Deliverable) Publication() *Publication            { return d.published }
 func (d *Deliverable) PublishJob() uuid.UUID                { return d.publishJob }
 func (d *Deliverable) Measures() Measures                   { return d.measures }
+func (d *Deliverable) ScriptApprovedAt() time.Time          { return d.scriptApprovedAt }
 func (d *Deliverable) CreatedAt() time.Time                 { return d.createdAt }
 func (d *Deliverable) UpdatedAt() time.Time                 { return d.updatedAt }
 func (d *Deliverable) IsVideo() bool                        { return d.kind == pipelinedomain.KindVideo }
@@ -257,11 +266,25 @@ type Revision struct {
 	Artifacts     map[string]string
 	Notes         string
 	Measures      Measures
+	// Stage is what the revision holds: StageScript for a video's script
+	// waiting for approval, StageFull otherwise.
+	Stage Stage
 	// EditedBy is the person who edited this revision in place; Nil when
 	// the agent made it.
 	EditedBy  uuid.UUID
 	CreatedAt time.Time
 }
+
+// Stage is how much of a deliverable a revision holds.
+type Stage string
+
+const (
+	// StageFull is the whole deliverable: a rendered video or an article.
+	StageFull Stage = ""
+	// StageScript is a video's script and narration text alone, for a
+	// person to approve before the video is built.
+	StageScript Stage = "script"
+)
 
 // Artifact names shared by the production pipeline.
 const (
@@ -273,6 +296,9 @@ const (
 	ArtifactMetadata  = "metadata.json"
 	ArtifactScript    = "script.md"
 	ArtifactNarration = "narration.wav"
+	// ArtifactNarrationText is what the voice says (or will say, while a
+	// script waits for approval).
+	ArtifactNarrationText = "narration.txt"
 )
 
 func (s *Story) find(id uuid.UUID, allowed ...Status) (*Deliverable, error) {
@@ -293,6 +319,18 @@ func (d *Deliverable) set(st Status, now time.Time) {
 	d.updatedAt = timeutil.Normalize(now)
 }
 
+// AtScript reports whether deliverable id is a video whose story
+// reviews scripts first and whose script is not approved yet: its next
+// draft is the script alone, and approving that queues the video.
+func (s *Story) AtScript(id uuid.UUID) bool {
+	d, err := s.Deliverable(id)
+	return err == nil && s.atScript(d)
+}
+
+func (s *Story) atScript(d *Deliverable) bool {
+	return d.IsVideo() && s.brief.Production.ReviewAt == pipelinedomain.ReviewScript && d.scriptApprovedAt.IsZero()
+}
+
 // StartDrafting hands a queued deliverable to the agent and returns the
 // feedback to address (nil for a first draft). A deliverable already
 // drafting starts over: its draft was interrupted (the worker stopped)
@@ -309,7 +347,8 @@ func (s *Story) StartDrafting(id uuid.UUID, now time.Time) (*Feedback, error) {
 
 // Drafted records the agent's output as the next revision, measured
 // as m (its words and narrator; the length comes from the render).
-// Videos go on to the preview render; articles straight to review.
+// Videos go on to the preview render; articles, and a video's script
+// awaiting approval, straight to review.
 func (s *Story) Drafted(id uuid.UUID, artifacts map[string]string, session, notes string, m Measures, now time.Time) (Revision, error) {
 	d, err := s.find(id, StatusDrafting)
 	if err != nil {
@@ -321,11 +360,15 @@ func (s *Story) Drafted(id uuid.UUID, artifacts map[string]string, session, note
 		DeliverableID: d.id, Number: d.revision, Feedback: d.pending,
 		Artifacts: maps.Clone(artifacts), Notes: notes, Measures: d.measures, CreatedAt: timeutil.Normalize(now),
 	}
+	script := s.atScript(d)
+	if script {
+		rev.Stage = StageScript
+	}
 	d.pending, d.failure, d.failedStep = nil, "", ""
 	if session != "" {
 		d.session = session
 	}
-	if d.IsVideo() {
+	if d.IsVideo() && !script {
 		d.set(StatusRendering, now)
 	} else {
 		d.set(StatusReview, now)
@@ -347,6 +390,10 @@ func (s *Story) Edited(id uuid.UUID, artifacts map[string]string, by uuid.UUID, 
 	if retime != nil && !d.IsVideo() {
 		return Revision{}, apperror.New(apperror.ValidationFailed, "only a video is re-timed after an edit")
 	}
+	script := s.atScript(d)
+	if retime != nil && script {
+		return Revision{}, apperror.New(apperror.ValidationFailed, "a script in review is not narrated yet; there is nothing to re-time")
+	}
 	d.revision++
 	d.measures.Words = max(words, 0)
 	if retime != nil {
@@ -355,6 +402,9 @@ func (s *Story) Edited(id uuid.UUID, artifacts map[string]string, by uuid.UUID, 
 	rev := Revision{
 		DeliverableID: d.id, Number: d.revision, Artifacts: maps.Clone(artifacts), EditedBy: by,
 		Notes: "Edited in place.", Measures: d.measures, CreatedAt: timeutil.Normalize(now),
+	}
+	if script {
+		rev.Stage = StageScript
 	}
 	if retime != nil {
 		rev.Notes = "Narration edited in place; the agent re-times the video to it."
@@ -403,11 +453,19 @@ func (s *Story) RequestChanges(id uuid.UUID, fb Feedback, now time.Time) error {
 // articles are ready at once. Approving an article adds its
 // translations. It returns the deliverables that became queued. Derived
 // deliverables are released separately (ReleaseDerived), once the lead
-// is live and they can link to it.
+// is live and they can link to it. Approving a video's script (AtScript)
+// approves only the script: the video is queued to be built from it and
+// comes back for review.
 func (s *Story) Approve(id, by uuid.UUID, newID func() uuid.UUID, now time.Time) ([]*Deliverable, error) {
 	d, err := s.find(id, StatusReview)
 	if err != nil {
 		return nil, err
+	}
+	if s.atScript(d) {
+		d.scriptApprovedAt = timeutil.Normalize(now)
+		d.set(StatusQueued, now)
+		s.touch(now)
+		return nil, nil
 	}
 	d.approvedBy, d.approvedAt = by, timeutil.Normalize(now)
 	if d.IsVideo() {

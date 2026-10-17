@@ -355,3 +355,62 @@ func TestStoryLoadsFromOneSave(t *testing.T) {
 		t.Fatalf("story v%d loaded with its lead %s", got.Version(), got.Lead().Status())
 	}
 }
+
+// A story that reviews scripts first keeps when the script was approved
+// and which revision held only the script.
+func TestScriptReviewRoundTrip(t *testing.T) {
+	impls := map[string]func(t *testing.T) (storyrepo.Repository, uuid.UUID){
+		"inmemory": func(*testing.T) (storyrepo.Repository, uuid.UUID) { return storyrepo.NewInMemory(), id.New() },
+		"sqlite": func(t *testing.T) (storyrepo.Repository, uuid.UUID) {
+			_, tx := dbtest.Open(t)
+			w, _ := workspacedomain.New(id.New(), "ws", time.UTC, now)
+			if err := workspacerepo.NewSQLite(tx).Create(context.Background(), w); err != nil {
+				t.Fatal(err)
+			}
+			return storyrepo.NewSQLite(tx), w.ID()
+		},
+	}
+	for name, open := range impls {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			repo, ws := open(t)
+			v, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 45*time.Second)
+			o, _ := pipelinedomain.NewOutputs(&v, nil, "")
+			idea, _ := storydomain.NewIdea("Kaygı", "açı", nil)
+			s, err := storydomain.New(id.New(), storydomain.Plan{
+				WorkspaceID: ws, Origin: storydomain.OriginManual, Language: pipelinedomain.Turkish, Idea: idea, Outputs: o,
+				Brief: storydomain.Brief{Production: pipelinedomain.Production{ReviewAt: pipelinedomain.ReviewScript}},
+			}, id.New, now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.Create(ctx, s); err != nil {
+				t.Fatal(err)
+			}
+			video := s.Lead()
+			_, _ = s.StartDrafting(video.ID(), now)
+			rev, _ := s.Drafted(video.ID(), map[string]string{"workdir.tar.gz": "k"}, "sess", "", storydomain.Measures{Words: 90}, now)
+			if err := repo.PutRevision(ctx, rev); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.Approve(video.ID(), id.New(), id.New, now.Add(time.Minute)); err != nil {
+				t.Fatal(err)
+			}
+			if err := repo.Save(ctx, s); err != nil {
+				t.Fatal(err)
+			}
+			back, _ := repo.Revision(ctx, video.ID(), 1)
+			if back.Stage != storydomain.StageScript {
+				t.Fatalf("revision stage = %q", back.Stage)
+			}
+			got, _ := repo.Get(ctx, ws, s.ID())
+			d := got.Lead()
+			if !d.ScriptApprovedAt().Equal(now.Add(time.Minute)) || d.Status() != storydomain.StatusQueued || got.AtScript(d.ID()) {
+				t.Fatalf("lead = %s, script approved %v", d.Status(), d.ScriptApprovedAt())
+			}
+			if got.Brief().Production.ReviewAt != pipelinedomain.ReviewScript {
+				t.Fatalf("brief = %+v", got.Brief().Production)
+			}
+		})
+	}
+}

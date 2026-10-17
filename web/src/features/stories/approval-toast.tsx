@@ -47,7 +47,11 @@ export function startApproval({
           keepalive
         )
         toast.success(
-          d.kind === "video" ? m.review.approvedVideo : m.review.approved,
+          d.stage === "script"
+            ? m.review.approvedScript
+            : d.kind === "video"
+              ? m.review.approvedVideo
+              : m.review.approved,
           { id, description: what, action: undefined, duration: 4_000 }
         )
       } catch (err) {

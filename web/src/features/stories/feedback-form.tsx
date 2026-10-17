@@ -26,7 +26,7 @@ import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
 import { cn } from "@/lib/utils"
 import { useRequestChanges } from "@/queries/stories"
-import { SCOPES, formatTimestamp, parseTimestamp, scopeLabel } from "./model"
+import { formatTimestamp, parseTimestamp, scopeLabel, scopesFor, timedNotes } from "./model"
 import { recordDecision } from "./sitting-ledger"
 import {
   EMPTY_NOTE,
@@ -130,7 +130,7 @@ export function FeedbackForm({
   onShowHistory?: () => void
 }) {
   const request = useRequestChanges(workspaceId, storyId)
-  const video = d.kind === "video"
+  const video = timedNotes(d)
   const noteRef = useRef<HTMLTextAreaElement>(null)
   // What a submit is for: adding the note to the list, or sending them all.
   const intent = useRef<"add" | "send">("send")
@@ -308,7 +308,7 @@ export function FeedbackForm({
                   next[0] && field.handleChange(next[0] as FeedbackScope)
                 }
               >
-                {SCOPES[d.kind].map((s) => (
+                {scopesFor(d).map((s) => (
                   <ToggleGroupItem key={s} value={s}>
                     {scopeLabel(s, d.kind)}
                   </ToggleGroupItem>

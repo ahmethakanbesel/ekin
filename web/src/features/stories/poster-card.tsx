@@ -218,8 +218,9 @@ function VideoPoster({
   const orientation = video?.orientation ?? "vertical"
   const length = measuredLength(lead?.measured)
   const Icon = orientationIcon[orientation] ?? SquarePlayIcon
+  // A script waiting for approval has no picture yet.
   const src =
-    lead && lead.revision > 0
+    lead && lead.revision > 0 && lead.stage !== "script"
       ? artifactUrl(workspaceId, story.id, lead.id, lead.revision, "poster.jpg")
       : undefined
   // The pipeline's hue, darkened, behind the frame and as the fallback.
@@ -256,6 +257,7 @@ function VideoPoster({
             m.stories.ratio[orientation] ?? orientation
           )}
           {length ? ` · ${length}` : null}
+          {lead?.stage === "script" ? ` · ${m.stories.scriptStage}` : null}
         </Badge>
       </div>
       <PosterStrip

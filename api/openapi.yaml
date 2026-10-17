@@ -2241,6 +2241,17 @@ components:
         failure: { type: string }
         failedStep: { type: string }
         approvedAt: { type: string, format: date-time }
+        stage:
+          type: string
+          enum: [script, video]
+          description: >-
+            Videos only. script while the video's script waits for a person's
+            approval (being drafted, in review, or sent back with changes);
+            video otherwise.
+        scriptApprovedAt:
+          type: string
+          format: date-time
+          description: When a person approved the video's script, for stories that review scripts first.
         publication: { $ref: "#/components/schemas/Publication" }
         measured:
           $ref: "#/components/schemas/Measures"
@@ -2320,6 +2331,10 @@ components:
           type: string
           format: uuid
           description: The person who edited this revision in place; absent when the agent made it.
+        stage:
+          type: string
+          enum: [script]
+          description: script when the revision holds only a video's script (no narration audio or render yet); absent otherwise.
         measured: { $ref: "#/components/schemas/Measures" }
         createdAt: { type: string, format: date-time }
 
@@ -2378,6 +2393,14 @@ components:
             Resolution of the review render (the short side of a 1080p frame).
             At 1080p, approving reuses the preview as the final video instead
             of rendering again. Absent: the host profile's preview scale.
+        reviewAt:
+          type: string
+          enum: [video, script]
+          description: >-
+            When a person first reviews a video. video (the default): the
+            rendered preview. script: the script, narration text and metadata
+            first; approving them has the agent build the video, which is then
+            reviewed as usual. script needs a video output.
 
     AdHocInput:
       type: object

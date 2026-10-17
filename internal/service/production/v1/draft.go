@@ -83,7 +83,22 @@ type DraftTask struct {
 	// Agent is the drafting model and effort; empty fields take the
 	// workspace defaults.
 	Agent pipelinedomain.Agent `json:"agent,omitzero"`
+	// Stage is what this draft makes of a video whose story reviews
+	// scripts first: the script alone, or the video from the approved
+	// script. Empty for every other draft.
+	Stage DraftStage `json:"stage,omitempty"`
 }
+
+// DraftStage is the part of a video one draft makes.
+type DraftStage string
+
+const (
+	// StageScript writes the script, narration text and metadata only,
+	// for a person to approve before the video is built.
+	StageScript DraftStage = "script"
+	// StageFromScript builds the video from an approved script.
+	StageFromScript DraftStage = "from-script"
+)
 
 // DraftResult is what the agent produced besides files.
 type DraftResult struct {
@@ -125,22 +140,45 @@ func (s *Service) BeginDraft(ctx context.Context, p DeliverablePayload) (DraftTa
 	if err := s.ensureWorkDir(ctx, d, dir); err != nil {
 		return DraftTask{}, "", s.stepFailed(ctx, p, err)
 	}
-	t, err := s.prepare(ctx, st, d, dir)
+	stage, err := s.draftStage(ctx, st, d)
+	if err != nil {
+		return DraftTask{}, "", s.stepFailed(ctx, p, err)
+	}
+	t, err := s.prepare(ctx, st, d, dir, stage)
 	if err != nil {
 		return DraftTask{}, "", s.stepFailed(ctx, p, err)
 	}
 	task := DraftTask{
 		Payload: p, Spec: t.spec, Video: d.IsVideo(), Translation: d.Role() == storydomain.RoleTranslation,
 		Revision: d.Revision(), Feedback: feedback, SelfReview: st.Brief().SelfReview,
-		Agent: st.Brief().Production.Agent,
+		Agent: st.Brief().Production.Agent, Stage: stage, TargetWords: t.targetWords,
 	}
 	if t.article != nil {
 		task.TargetWords = t.article.Words()
 	}
-	if feedback != nil {
+	if feedback != nil || stage == StageFromScript {
 		task.Resume = d.Session()
 	}
 	return task, dir, nil
+}
+
+// draftStage is what d's next draft makes: its script, its video from
+// the script a person just approved, or (empty) the whole deliverable.
+func (s *Service) draftStage(ctx context.Context, st *storydomain.Story, d *storydomain.Deliverable) (DraftStage, error) {
+	if st.AtScript(d.ID()) {
+		return StageScript, nil
+	}
+	if !d.IsVideo() || d.ScriptApprovedAt().IsZero() || d.Revision() == 0 {
+		return "", nil
+	}
+	rev, err := s.stories.Revision(ctx, d.ID(), d.Revision())
+	if err != nil {
+		return "", err
+	}
+	if rev.Stage == storydomain.StageScript {
+		return StageFromScript, nil
+	}
+	return "", nil
 }
 
 // RunDraft runs the agent in dir until its output validates. It touches
@@ -159,7 +197,7 @@ func (s *Service) RunDraft(ctx context.Context, task DraftTask, dir string) (Dra
 	if err != nil {
 		return DraftResult{}, err
 	}
-	if task.Feedback != nil && task.Resume != "" {
+	if task.Resume != "" && (task.Feedback != nil || task.Stage == StageFromScript) {
 		req.Resume = task.Resume
 	}
 	res, err := s.agent.Run(ctx, req)
@@ -253,8 +291,12 @@ func (s *Service) FinishDraft(ctx context.Context, task DraftTask, dir string, r
 		return err
 	}
 	if d, _ := st.Deliverable(p.DeliverableID); d.Status() == storydomain.StatusReview {
+		detail := fmt.Sprintf("%s revision %d is ready for review", d.Kind(), rev.Number)
+		if rev.Stage == storydomain.StageScript {
+			detail = fmt.Sprintf("the video's script (revision %d) is ready for review", rev.Number)
+		}
 		s.notify(ctx, Event{WorkspaceID: st.WorkspaceID(), StoryID: st.ID(), Kind: "review", Title: st.Idea().Title,
-			Detail: fmt.Sprintf("%s revision %d is ready for review", d.Kind(), rev.Number)})
+			Detail: detail})
 	}
 	return nil
 }
@@ -356,6 +398,8 @@ const toolCmd = "kurgu tool"
 type task struct {
 	spec    agenttool.Spec
 	article *pipelinedomain.ArticleSpec
+	// targetWords is a video's spoken word target.
+	targetWords int
 }
 
 func (s *Service) toolEnv(ctx context.Context, spec agenttool.Spec) []string {
@@ -390,7 +434,7 @@ func (s *Service) binDir(ctx context.Context) string {
 }
 
 // prepare writes INSTRUCTIONS.md, BRIEF.md, KIT.md and the sources.
-func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydomain.Deliverable, dir string) (task, error) {
+func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydomain.Deliverable, dir string, stage DraftStage) (task, error) {
 	t := task{spec: agenttool.Spec{Language: string(d.Language())}, article: d.Article()}
 	write := func(name, content string) error {
 		p := filepath.Join(dir, name)
@@ -458,7 +502,9 @@ func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydo
 		data["MinSeconds"], data["MaxSeconds"] = int(lo), int(hi)
 		wps := wordsPerSecond(d.Language())
 		data["WordsPerSecond"] = strconv.FormatFloat(wps, 'f', 1, 64)
-		data["TargetWords"] = int(v.Duration().Seconds() * wps)
+		t.targetWords = int(v.Duration().Seconds() * wps)
+		data["TargetWords"] = t.targetWords
+		data["ScriptOnly"], data["FromScript"] = stage == StageScript, stage == StageFromScript
 		if instructions, err = execute("video.md", data); err != nil {
 			return t, err
 		}
@@ -589,6 +635,9 @@ func (s *Service) brief(st *storydomain.Story, d *storydomain.Deliverable, t tas
 // validate checks the agent's output the same way the tools do, so a
 // session that ended early cannot slip through.
 func (s *Service) validate(ctx context.Context, t DraftTask, dir string) []string {
+	if t.Stage == StageScript {
+		return validateScript(t, dir)
+	}
 	if t.Video {
 		rep := agenttool.Check(ctx, s.renderer, dir, "composition.html", t.Spec)
 		return rep.Errors
@@ -610,6 +659,34 @@ func (s *Service) validate(ctx context.Context, t DraftTask, dir string) []strin
 	return nil
 }
 
+// validateScript checks a script-only draft: the script, the narration
+// text near its word target and the metadata a reviewer judges.
+func validateScript(t DraftTask, dir string) []string {
+	var problems []string
+	read := func(rel string) string {
+		b, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(rel))) //nolint:gosec // our work dir
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSpace(string(b))
+	}
+	if read("script.md") == "" {
+		problems = append(problems, "script.md is missing or empty")
+	}
+	if narration := read(narrationFile); narration == "" {
+		problems = append(problems, narrationFile+" is missing or empty")
+	} else if words := countWords(narration); t.TargetWords > 0 && (words < t.TargetWords/2 || words > t.TargetWords*3/2) {
+		problems = append(problems, fmt.Sprintf("the narration has %d words; the target is about %d", words, t.TargetWords))
+	}
+	var meta struct {
+		Title string `json:"title"`
+	}
+	if err := json.Unmarshal([]byte(read(metadataFile)), &meta); err != nil || strings.TrimSpace(meta.Title) == "" {
+		problems = append(problems, metadataFile+" is missing or has no title")
+	}
+	return problems
+}
+
 // wordsPerSecond is the narration pace scripts are written for: brisk and
 // conversational, like the explainer channels Shorts viewers stay for
 // (about 170 words a minute in English). Turkish words are longer, so
@@ -627,6 +704,13 @@ func wordsPerSecond(l pipelinedomain.Language) float64 {
 func draftPrompt(task DraftTask) (string, error) {
 	fb := task.Feedback
 	switch {
+	case fb != nil && task.Resume != "" && task.Stage == StageScript:
+		return execute("revise-script.md", map[string]any{
+			"Revision": task.Revision, "Count": len(fb.Notes), "Notes": feedbackList(fb), "Tool": toolCmd,
+		})
+	case task.Stage == StageFromScript && task.Resume != "":
+		return "A reviewer approved your script and narration. INSTRUCTIONS.md now covers building the video " +
+			"from them: read it again, then do the task it describes.", nil
 	case fb != nil && task.Resume != "":
 		return execute("revise.md", map[string]any{
 			"Revision": task.Revision, "Count": len(fb.Notes), "Notes": feedbackList(fb), "Tool": toolCmd,
@@ -755,10 +839,11 @@ func (s *Service) archive(ctx context.Context, st *storydomain.Story, d *storydo
 	}
 	out[storydomain.ArtifactWorkdir] = prefix + storydomain.ArtifactWorkdir
 	files := map[string]string{
-		storydomain.ArtifactScript:    "script.md",
-		storydomain.ArtifactMetadata:  "metadata.json",
-		storydomain.ArtifactArticle:   "article.md",
-		storydomain.ArtifactNarration: "narration/speech.wav",
+		storydomain.ArtifactScript:        "script.md",
+		storydomain.ArtifactMetadata:      "metadata.json",
+		storydomain.ArtifactArticle:       "article.md",
+		storydomain.ArtifactNarration:     "narration/speech.wav",
+		storydomain.ArtifactNarrationText: narrationFile,
 	}
 	for name, rel := range files {
 		p := filepath.Join(dir, rel)

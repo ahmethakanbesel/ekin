@@ -25,6 +25,7 @@ var artifactTypes = map[string]string{
 	".jpg":  "image/jpeg",
 	".wav":  "audio/wav",
 	".md":   "text/markdown; charset=utf-8",
+	".txt":  "text/plain; charset=utf-8",
 	".json": "application/json",
 	".gz":   "application/gzip",
 }

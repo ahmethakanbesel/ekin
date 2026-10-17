@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { m } from "@/i18n"
+import { timedNotes } from "./model"
 import { cn } from "@/lib/utils"
 import { APPROVE_DELAY_MS, type PendingApproval } from "./pending-approvals"
 import type { DeliverableReview } from "./use-deliverable-review"
@@ -96,7 +97,7 @@ export function ActionRail({
   // N does what Request changes does: pause, pin the playhead, write.
   const pinTip = (
     <>
-      {d.kind === "video" ? m.feed.pinNote : m.feed.writeNote}
+      {timedNotes(d) ? m.feed.pinNote : m.feed.writeNote}
       <Kbd>N</Kbd>
     </>
   )
@@ -141,13 +142,17 @@ export function ActionRail({
       ) : (
         <RailItem
           key="approve"
-          label={m.review.approve}
+          label={d.stage === "script" ? m.review.approveScript : m.review.approve}
           labelClass="text-success"
         >
           <Button
             size="icon-lg"
             className={cn(round, tones.approve)}
-            aria-label={m.feed.approve(d.revision)}
+            aria-label={
+              d.stage === "script"
+                ? m.feed.approveScript(d.revision)
+                : m.feed.approve(d.revision)
+            }
             disabled={busy}
             onClick={onApprove}
           >
