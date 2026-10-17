@@ -571,6 +571,7 @@ function StoryView({
           pipelineName={pipelineName(story)}
           pipelinesLoaded={!!pipelines.data}
           onDelete={() => setDeleting(true)}
+          onPick={pick}
         />
       </aside>
 

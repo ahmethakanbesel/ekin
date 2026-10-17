@@ -40,6 +40,7 @@ import {
   type ScriptNote,
 } from "./previews"
 import { RevisionHistory, historyCount } from "./revision-history"
+import { ShortsPanel } from "./shorts-panel"
 import { StatusBanner } from "./status-alert"
 import type {
   DeliverableReview,
@@ -61,6 +62,7 @@ export function ReviewPanel({
   pipelineName,
   pipelinesLoaded,
   onDelete,
+  onPick,
 }: {
   workspaceId: string
   timezone: string
@@ -72,6 +74,8 @@ export function ReviewPanel({
   pipelineName: string | undefined
   pipelinesLoaded: boolean
   onDelete: () => void
+  /** Shows another deliverable of the story. */
+  onPick: (deliverableId: string) => void
 }) {
   const { current, latest, artifacts } = review
   const language = m.values.language[story.language] ?? story.language
@@ -196,6 +200,25 @@ export function ReviewPanel({
                   ? (t) => seekVideo(review.videoRef, t)
                   : undefined
               }
+            />
+          </Section>
+        </>
+      ) : null}
+      {d.kind === "video" && d.video?.format === "long" && LIVE.includes(d.status) ? (
+        <>
+          <Separator />
+          <Section name="shorts" title={m.shorts.title}>
+            <ShortsPanel
+              workspaceId={workspaceId}
+              story={story}
+              deliverable={d}
+              canEdit={canEdit}
+              onSeek={
+                current && videoFile(current)
+                  ? (t) => seekVideo(review.videoRef, t)
+                  : undefined
+              }
+              onPick={onPick}
             />
           </Section>
         </>
@@ -328,6 +351,9 @@ function scriptNotes(
 
 /** The History section, which the feedback sheet points to for earlier notes. */
 const HISTORY_ID = "panel-history"
+
+/** A long video is cut into shorts once it is approved and live. */
+const LIVE: Deliverable["status"][] = ["ready", "publishing", "published"]
 
 /** Brings the panel's History into view, open, and moves focus to its heading. */
 export function showHistory() {

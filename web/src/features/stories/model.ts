@@ -67,6 +67,11 @@ export const TAB_STATUSES: Record<StoryTab, DeliverableStatus[]> = {
 
 /** "Video · lead", "Article · derived", "Article · EN translation". */
 export function deliverableLabel(d: Deliverable): string {
+  if (d.clip) {
+    return m.stories.shortLabel(
+      `${formatTimestamp(d.clip.startSeconds)}–${formatTimestamp(d.clip.endSeconds)}`
+    )
+  }
   const kind = m.values.kind[d.kind] ?? d.kind
   if (d.role === "translation") return m.stories.translationLabel(kind, d.language.toUpperCase())
   return m.stories.roleLabel(kind, m.stories.roles[d.role] ?? d.role)

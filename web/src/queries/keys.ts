@@ -77,6 +77,8 @@ export const keys = {
     ["workspaces", workspaceId, "stories", storyId, "deliverables", deliverableId, "revisions"] as const,
   content: (workspaceId: string, storyId: string, deliverableId: string) =>
     ["workspaces", workspaceId, "stories", storyId, "deliverables", deliverableId, "content"] as const,
+  moments: (workspaceId: string, storyId: string, deliverableId: string) =>
+    ["workspaces", workspaceId, "stories", storyId, "deliverables", deliverableId, "moments"] as const,
   artifact: (
     workspaceId: string,
     storyId: string,

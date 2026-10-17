@@ -35,7 +35,7 @@ export function parseQueueFilter(raw: unknown): Queue | undefined {
  * of these kinds. A new kind must be added here to be found by queue.
  */
 export const QUEUE_KINDS: Record<Queue, string[]> = {
-  control: ["story.adhoc", "pipeline.run"],
+  control: ["story.adhoc", "story.moments", "pipeline.run"],
   agent: ["deliverable.draft", "seo.refresh", "template.generate"],
   tts: ["voice.preview"],
   render: ["deliverable.render"],

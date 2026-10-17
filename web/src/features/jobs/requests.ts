@@ -32,6 +32,7 @@ export const PHASES: Phase[] = [
 export function phaseOf(job: Job): Phase {
   switch (job.kind) {
     case "story.adhoc":
+    case "story.moments":
     case "pipeline.run":
       return "plan"
     case "deliverable.draft":

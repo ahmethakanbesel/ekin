@@ -20,6 +20,8 @@ import {
   type DeliverableEdit,
   type DeliverableStatus,
   type FeedbackInput,
+  type MomentInput,
+  type MomentPatch,
   type Story,
 } from "@/api/client"
 import { keys } from "./keys"
@@ -391,6 +393,107 @@ export function useCreateStories(workspaceId: string) {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: keys.jobs(workspaceId) })
       void qc.invalidateQueries({ queryKey: keys.storyLists(workspaceId) })
+    },
+  })
+}
+
+/**
+ * The moments of a long video that could be shorts, its narration's
+ * sentences and the shorts limits. `blocked` says why none can be cut
+ * (yet). Keyed by the shorts the story holds as well, so a short made
+ * elsewhere (the pipeline, another reviewer) fetches them again.
+ */
+export const momentsQuery = (workspaceId: string, storyId: string, deliverableId: string, shorts: number) =>
+  queryOptions({
+    queryKey: [...keys.moments(workspaceId, storyId, deliverableId), { shorts }] as const,
+    queryFn: ({ signal }) =>
+      call(
+        api.GET("/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/moments", {
+          params: { path: { workspaceId, storyId, deliverableId } },
+          signal,
+        })
+      ),
+  })
+
+function useRefreshMoments(workspaceId: string, storyId: string, deliverableId: string) {
+  const qc = useQueryClient()
+  return () => void qc.invalidateQueries({ queryKey: keys.moments(workspaceId, storyId, deliverableId) })
+}
+
+/** Queues the agent to suggest moments; resolves to the scan job to follow. */
+export function useScanMoments(workspaceId: string, storyId: string, deliverableId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () =>
+      call(
+        api.POST("/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/moments/scan", {
+          params: { path: { workspaceId, storyId, deliverableId } },
+        })
+      ),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.jobs(workspaceId) }),
+  })
+}
+
+/** Adds a moment a person chose; the server snaps it to sentences. */
+export function useAddMoment(workspaceId: string, storyId: string, deliverableId: string) {
+  const refresh = useRefreshMoments(workspaceId, storyId, deliverableId)
+  return useMutation({
+    mutationFn: (body: MomentInput) =>
+      call(
+        api.POST("/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/moments", {
+          params: { path: { workspaceId, storyId, deliverableId } },
+          body,
+        })
+      ),
+    onSuccess: refresh,
+  })
+}
+
+/** Moves or renames a suggested moment of the long video deliverableId. */
+export function useAdjustMoment(workspaceId: string, storyId: string, deliverableId: string) {
+  const refresh = useRefreshMoments(workspaceId, storyId, deliverableId)
+  return useMutation({
+    mutationFn: ({ momentId, body }: { momentId: string; body: MomentPatch }) =>
+      call(
+        api.PATCH("/workspaces/{workspaceId}/stories/{storyId}/moments/{momentId}", {
+          params: { path: { workspaceId, storyId, momentId } },
+          body,
+        })
+      ),
+    onSuccess: refresh,
+  })
+}
+
+/** Sets a suggested moment aside. */
+export function useDiscardMoment(workspaceId: string, storyId: string, deliverableId: string) {
+  const refresh = useRefreshMoments(workspaceId, storyId, deliverableId)
+  return useMutation({
+    mutationFn: async (momentId: string) => {
+      await call(
+        api.DELETE("/workspaces/{workspaceId}/stories/{storyId}/moments/{momentId}", {
+          params: { path: { workspaceId, storyId, momentId } },
+        })
+      )
+    },
+    onSuccess: refresh,
+  })
+}
+
+/** Makes a short from each chosen moment and queues their drafts. */
+export function useMakeShorts(workspaceId: string, storyId: string, deliverableId: string) {
+  const store = useStoreStory(workspaceId)
+  const refresh = useRefreshMoments(workspaceId, storyId, deliverableId)
+  return useMutation({
+    mutationFn: (momentIds: string[]) =>
+      call(
+        api.POST("/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/shorts", {
+          params: { path: { workspaceId, storyId, deliverableId } },
+          body: { momentIds },
+        })
+      ),
+    onSuccess: (s) => {
+      store(s)
+      refresh()
     },
   })
 }
