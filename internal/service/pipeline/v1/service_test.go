@@ -261,3 +261,75 @@ func TestRedefineRejectsStaleVersion(t *testing.T) {
 		t.Fatalf("stale redefine err = %v", err)
 	}
 }
+
+// racingPipelines runs race once, right after the next Get.
+type racingPipelines struct {
+	pipelinerepo.Repository
+	race func()
+}
+
+func (r *racingPipelines) Get(ctx context.Context, ws, id uuid.UUID) (*pipelinedomain.Pipeline, error) {
+	p, err := r.Repository.Get(ctx, ws, id)
+	if race := r.race; race != nil {
+		r.race = nil
+		race()
+	}
+	return p, err
+}
+
+// Pausing or resuming applies on top of a run started meanwhile instead of
+// failing as stale: the caller named no version, so nothing is stale.
+func TestPauseAndResumeApplyOnAConcurrentRun(t *testing.T) {
+	tests := []struct {
+		name   string
+		setup  func(f fixture, svc *pipelinesvc.Service, p *pipelinedomain.Pipeline)
+		change func(svc *pipelinesvc.Service, ctx context.Context, ws, id uuid.UUID) (*pipelinedomain.Pipeline, error)
+		want   pipelinedomain.Status
+	}{
+		{name: "pause", change: (*pipelinesvc.Service).Pause, want: pipelinedomain.StatusPaused},
+		{name: "resume", setup: func(f fixture, svc *pipelinesvc.Service, p *pipelinedomain.Pipeline) {
+			if _, err := svc.Pause(context.Background(), f.ws, p.ID()); err != nil {
+				t.Fatal(err)
+			}
+		}, change: (*pipelinesvc.Service).Resume, want: pipelinedomain.StatusActive},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			_, tx := dbtest.Open(t)
+			c := newClock(t0)
+			workspaces := workspacerepo.NewSQLite(tx)
+			w, _ := workspacedomain.New(id.New(), "acme", time.UTC, t0)
+			_ = workspaces.Create(ctx, w)
+			jobs := jobsvc.NewService(jobrepo.NewSQLite(tx), tx).WithClock(c.Now)
+			repo := &racingPipelines{Repository: pipelinerepo.NewSQLite(tx)}
+			svc := pipelinesvc.NewService(repo, workspaces, jobs, tx).WithClock(c.Now)
+			f := fixture{svc: svc, jobs: jobs, clock: c, ws: w.ID()}
+			p, err := svc.Create(ctx, w.ID(), definition(t, "0 2 * * *"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tt.setup != nil {
+				tt.setup(f, svc, p)
+			}
+			ran := make(chan error, 1)
+			repo.race = func() {
+				// Someone starts a run as the change is being made.
+				go func() { _, err := svc.RunNow(context.Background(), w.ID(), p.ID(), 1); ran <- err }()
+				select {
+				case err := <-ran:
+					ran <- err
+				case <-time.After(300 * time.Millisecond):
+				}
+			}
+			got, err := tt.change(svc, ctx, w.ID(), p.ID())
+			<-ran
+			if err != nil {
+				t.Fatalf("%s = %v", tt.name, err)
+			}
+			if got.Status() != tt.want {
+				t.Fatalf("status = %s, want %s", got.Status(), tt.want)
+			}
+		})
+	}
+}

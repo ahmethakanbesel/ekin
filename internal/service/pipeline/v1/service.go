@@ -165,21 +165,21 @@ func (s *Service) Redefine(ctx context.Context, workspaceID, pipelineID uuid.UUI
 	if err := s.checkDefinition(ctx, workspaceID, def); err != nil {
 		return nil, err
 	}
-	return s.change(ctx, workspaceID, pipelineID, version, func(p *pipelinedomain.Pipeline, now time.Time) error {
+	return s.change(ctx, workspaceID, pipelineID, version, func(_ context.Context, p *pipelinedomain.Pipeline, now time.Time) error {
 		return p.Redefine(def, now)
 	})
 }
 
 // Pause stops a pipeline's schedule.
 func (s *Service) Pause(ctx context.Context, workspaceID, pipelineID uuid.UUID) (*pipelinedomain.Pipeline, error) {
-	return s.change(ctx, workspaceID, pipelineID, 0, func(p *pipelinedomain.Pipeline, now time.Time) error {
+	return s.change(ctx, workspaceID, pipelineID, 0, func(_ context.Context, p *pipelinedomain.Pipeline, now time.Time) error {
 		return p.Pause(now)
 	})
 }
 
 // Resume restarts a pipeline's schedule.
 func (s *Service) Resume(ctx context.Context, workspaceID, pipelineID uuid.UUID) (*pipelinedomain.Pipeline, error) {
-	return s.change(ctx, workspaceID, pipelineID, 0, func(p *pipelinedomain.Pipeline, now time.Time) error {
+	return s.change(ctx, workspaceID, pipelineID, 0, func(_ context.Context, p *pipelinedomain.Pipeline, now time.Time) error {
 		return p.Resume(now)
 	})
 }
@@ -326,18 +326,25 @@ func (s *Service) enqueue(ctx context.Context, run pipelinedomain.Run) (*jobdoma
 	})
 }
 
-// change loads, mutates and saves a pipeline. A non-zero version must
-// match the stored one.
-func (s *Service) change(ctx context.Context, workspaceID, pipelineID uuid.UUID, version int64, fn func(*pipelinedomain.Pipeline, time.Time) error) (*pipelinedomain.Pipeline, error) {
-	p, err := s.repo.Get(ctx, workspaceID, pipelineID)
-	if err != nil {
-		return nil, err
-	}
-	if version != 0 && p.Version() != version {
-		return nil, apperror.New(apperror.StaleVersion, "pipeline was changed by someone else; reload and retry")
-	}
-	if err := fn(p, s.now()); err != nil {
-		return nil, err
-	}
-	return s.repo.Update(ctx, p)
+// change loads, mutates and saves a pipeline in one transaction, so a
+// change made meanwhile (the scheduler consuming a slot) is applied on,
+// not refused as stale. A non-zero version is the one the caller read
+// and must still be the stored one.
+func (s *Service) change(ctx context.Context, workspaceID, pipelineID uuid.UUID, version int64, fn func(ctx context.Context, p *pipelinedomain.Pipeline, now time.Time) error) (*pipelinedomain.Pipeline, error) {
+	var out *pipelinedomain.Pipeline
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		p, err := s.repo.Get(ctx, workspaceID, pipelineID)
+		if err != nil {
+			return err
+		}
+		if version != 0 && p.Version() != version {
+			return apperror.New(apperror.StaleVersion, "pipeline was changed by someone else; reload and retry")
+		}
+		if err := fn(ctx, p, s.now()); err != nil {
+			return err
+		}
+		out, err = s.repo.Update(ctx, p)
+		return err
+	})
+	return out, err
 }
