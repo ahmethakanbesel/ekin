@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"math"
 	"kurgu/internal/apperror"
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -335,8 +335,8 @@ type fixture struct {
 	hostWith func(adjust func(*production.Deps)) *production.Service
 	// hostConfigured is hostWith with its config adjusted too.
 	hostConfigured func(config func(*production.Config), adjust func(*production.Deps)) *production.Service
-	blobs    blob.Store
-	tx       *db.SQLiteTxManager
+	blobs          blob.Store
+	tx             *db.SQLiteTxManager
 }
 
 func newFixture(t *testing.T) fixture {
@@ -1482,7 +1482,7 @@ func TestRenderQuality(t *testing.T) {
 		// rendered preview, before approving.
 		editMetadata bool
 		wantRenders  []float64 // preview, then final if one runs
-		wantFPS              []int     // of the same renders; nil for 30 each
+		wantFPS      []int     // of the same renders; nil for 30 each
 	}{
 		{name: "defaults", wantRenders: []float64{0.5, 1}},
 		{name: "720p preview", preview: pipelinedomain.Quality720p, wantRenders: []float64{2.0 / 3, 1}},
