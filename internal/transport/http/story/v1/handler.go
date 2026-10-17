@@ -349,6 +349,10 @@ func ToWire(st *storydomain.Story) gen.Story {
 		if pub := d.Publication(); pub != nil {
 			wd.Publication = &gen.Publication{Url: pub.URL, ExternalId: pub.ExternalID, At: pub.At}
 		}
+		if c := d.Clip(); c != nil {
+			wire := clipToWire(*c)
+			wd.Clip = &wire
+		}
 		out.Deliverables = append(out.Deliverables, wd)
 	}
 	return out

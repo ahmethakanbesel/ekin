@@ -1591,6 +1591,105 @@ paths:
               schema: { $ref: "#/components/schemas/Story" }
         default: { $ref: "#/components/responses/Error" }
 
+  /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/moments:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+      - $ref: "#/components/parameters/DeliverableId"
+    get:
+      operationId: listMoments
+      tags: [stories]
+      description: >
+        The moments found in a long video that could stand alone as shorts,
+        with its narration's sentences to choose more from and the shorts
+        limits. When shorts cannot be cut from it (yet), `blocked` says why
+        and `sentences` is empty.
+      responses:
+        "200":
+          description: Moments.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moments" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: addMoment
+      tags: [stories]
+      description: >
+        Adds a moment a person chose. Its start moves to the nearest sentence
+        start and its end to the nearest sentence end, and a moment longer
+        than the short limit ends at the last sentence that fits.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MomentInput" }
+      responses:
+        "201":
+          description: The moment as kept.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/stories/{storyId}/moments/{momentId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+      - $ref: "#/components/parameters/MomentId"
+    patch:
+      operationId: adjustMoment
+      tags: [stories]
+      description: >
+        Moves a suggested moment (snapped to sentences like a new one) or
+        renames it. An adjusted moment counts as the person's and survives
+        the agent's next suggestions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MomentPatch" }
+      responses:
+        "200":
+          description: The moment as kept.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: discardMoment
+      tags: [stories]
+      description: Sets a suggested moment aside; it stays listed as discarded.
+      responses:
+        "204":
+          description: Discarded.
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/shorts:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - $ref: "#/components/parameters/StoryId"
+      - $ref: "#/components/parameters/DeliverableId"
+    post:
+      operationId: makeShorts
+      tags: [stories]
+      description: >
+        Makes a vertical short from each chosen moment of a live long video
+        and queues their drafts. Each short speaks its slice of the long
+        video's narration. Refused past the shorts-per-video limit or when
+        two shorts would come closer than the minimum gap.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ShortsInput" }
+      responses:
+        "200":
+          description: The updated story.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Story" }
+        default: { $ref: "#/components/responses/Error" }
+
   /workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/retry:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"
@@ -1913,6 +2012,11 @@ components:
       schema: { type: string, format: uuid }
     DeliverableId:
       name: deliverableId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    MomentId:
+      name: momentId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -2256,8 +2360,105 @@ components:
         measured:
           $ref: "#/components/schemas/Measures"
           description: What the latest revision came out as; absent until something was measured.
+        clip:
+          $ref: "#/components/schemas/Clip"
+          description: For a short cut from a long video (sourceId), the span of the long video's narration it speaks.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    Clip:
+      type: object
+      description: A span of a long video's narration, in seconds of its audio.
+      required: [startSeconds, endSeconds]
+      properties:
+        startSeconds: { type: number, format: double }
+        endSeconds: { type: number, format: double }
+
+    Moment:
+      type: object
+      description: A span of a long video that could stand alone as a short.
+      required: [id, sourceId, clip, hook, reason, score, origin, status, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        sourceId: { type: string, format: uuid, description: The long video it was found in. }
+        clip: { $ref: "#/components/schemas/Clip" }
+        hook: { type: string, description: The short's working title. }
+        reason: { type: string, description: Why the moment stands alone. }
+        score: { type: integer, minimum: 0, maximum: 100, description: The agent's ranking; 0 for a person's moments. }
+        origin:
+          type: string
+          enum: [agent, manual]
+        status:
+          type: string
+          enum: [suggested, made, discarded]
+        shortId: { type: string, format: uuid, description: The short made from it. }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Sentence:
+      type: object
+      required: [text, startSeconds, endSeconds]
+      properties:
+        text: { type: string }
+        startSeconds: { type: number, format: double }
+        endSeconds: { type: number, format: double }
+
+    ShortsLimits:
+      type: object
+      description: The server's limits on cutting shorts from long videos (KURGU_SHORTS_*).
+      required: [sourceMinSeconds, sourceMaxSeconds, clipMinSeconds, clipMaxSeconds, maxPerVideo, minGapSeconds]
+      properties:
+        sourceMinSeconds: { type: number, format: double }
+        sourceMaxSeconds: { type: number, format: double }
+        clipMinSeconds: { type: number, format: double }
+        clipMaxSeconds: { type: number, format: double }
+        maxPerVideo: { type: integer }
+        minGapSeconds: { type: number, format: double }
+
+    Moments:
+      type: object
+      required: [moments, sentences, limits, shorts]
+      properties:
+        blocked:
+          type: string
+          description: Why shorts cannot be cut from this video (yet); absent when they can.
+        moments:
+          type: array
+          description: In the order they come in the video.
+          items: { $ref: "#/components/schemas/Moment" }
+        sentences:
+          type: array
+          items: { $ref: "#/components/schemas/Sentence" }
+        limits: { $ref: "#/components/schemas/ShortsLimits" }
+        shorts:
+          type: integer
+          description: Shorts already made from this video.
+
+    MomentInput:
+      type: object
+      required: [startSeconds, endSeconds]
+      properties:
+        startSeconds: { type: number, format: double, minimum: 0 }
+        endSeconds: { type: number, format: double, minimum: 0 }
+        hook: { type: string, maxLength: 120 }
+
+    MomentPatch:
+      type: object
+      description: Give both times to move the moment, a hook to rename it, or both.
+      properties:
+        startSeconds: { type: number, format: double, minimum: 0 }
+        endSeconds: { type: number, format: double, minimum: 0 }
+        hook: { type: string, maxLength: 120 }
+
+    ShortsInput:
+      type: object
+      required: [momentIds]
+      properties:
+        momentIds:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { type: string, format: uuid }
 
     Measures:
       type: object

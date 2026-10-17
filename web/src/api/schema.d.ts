@@ -965,6 +965,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/moments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        /** @description The moments found in a long video that could stand alone as shorts, with its narration's sentences to choose more from and the shorts limits. When shorts cannot be cut from it (yet), `blocked` says why and `sentences` is empty. */
+        get: operations["listMoments"];
+        put?: never;
+        /** @description Adds a moment a person chose. Its start moves to the nearest sentence start and its end to the nearest sentence end, and a moment longer than the short limit ends at the last sentence that fits. */
+        post: operations["addMoment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/stories/{storyId}/moments/{momentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Sets a suggested moment aside; it stays listed as discarded. */
+        delete: operations["discardMoment"];
+        options?: never;
+        head?: never;
+        /** @description Moves a suggested moment (snapped to sentences like a new one) or renames it. An adjusted moment counts as the person's and survives the agent's next suggestions. */
+        patch: operations["adjustMoment"];
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/shorts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Makes a vertical short from each chosen moment of a live long video and queues their drafts. Each short speaks its slice of the long video's narration. Refused past the shorts-per-video limit or when two shorts would come closer than the minimum gap. */
+        post: operations["makeShorts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/stories/{storyId}/deliverables/{deliverableId}/retry": {
         parameters: {
             query?: never;
@@ -1409,10 +1474,98 @@ export interface components {
             publication?: components["schemas"]["Publication"];
             /** @description What the latest revision came out as; absent until something was measured. */
             measured?: components["schemas"]["Measures"];
+            /** @description For a short cut from a long video (sourceId), the span of the long video's narration it speaks. */
+            clip?: components["schemas"]["Clip"];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        /** @description A span of a long video's narration, in seconds of its audio. */
+        Clip: {
+            /** Format: double */
+            startSeconds: number;
+            /** Format: double */
+            endSeconds: number;
+        };
+        /** @description A span of a long video that could stand alone as a short. */
+        Moment: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description The long video it was found in.
+             */
+            sourceId: string;
+            clip: components["schemas"]["Clip"];
+            /** @description The short's working title. */
+            hook: string;
+            /** @description Why the moment stands alone. */
+            reason: string;
+            /** @description The agent's ranking; 0 for a person's moments. */
+            score: number;
+            /** @enum {string} */
+            origin: "agent" | "manual";
+            /** @enum {string} */
+            status: "suggested" | "made" | "discarded";
+            /**
+             * Format: uuid
+             * @description The short made from it.
+             */
+            shortId?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        Sentence: {
+            text: string;
+            /** Format: double */
+            startSeconds: number;
+            /** Format: double */
+            endSeconds: number;
+        };
+        /** @description The server's limits on cutting shorts from long videos (KURGU_SHORTS_*). */
+        ShortsLimits: {
+            /** Format: double */
+            sourceMinSeconds: number;
+            /** Format: double */
+            sourceMaxSeconds: number;
+            /** Format: double */
+            clipMinSeconds: number;
+            /** Format: double */
+            clipMaxSeconds: number;
+            maxPerVideo: number;
+            /** Format: double */
+            minGapSeconds: number;
+        };
+        Moments: {
+            /** @description Why shorts cannot be cut from this video (yet); absent when they can. */
+            blocked?: string;
+            /** @description In the order they come in the video. */
+            moments: components["schemas"]["Moment"][];
+            sentences: components["schemas"]["Sentence"][];
+            limits: components["schemas"]["ShortsLimits"];
+            /** @description Shorts already made from this video. */
+            shorts: number;
+        };
+        MomentInput: {
+            /** Format: double */
+            startSeconds: number;
+            /** Format: double */
+            endSeconds: number;
+            hook?: string;
+        };
+        /** @description Give both times to move the moment, a hook to rename it, or both. */
+        MomentPatch: {
+            /** Format: double */
+            startSeconds?: number;
+            /** Format: double */
+            endSeconds?: number;
+            hook?: string;
+        };
+        ShortsInput: {
+            momentIds: string[];
         };
         /** @description What a revision came out as, as opposed to the pipeline's targets. Each field is absent until measured. */
         Measures: {
@@ -2036,6 +2189,7 @@ export interface components {
         Search: string;
         StoryId: string;
         DeliverableId: string;
+        MomentId: string;
         DocumentId: string;
         AssetId: string;
         InvitationToken: string;
@@ -4033,6 +4187,141 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description The updated story. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Story"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listMoments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Moments. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moments"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    addMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MomentInput"];
+            };
+        };
+        responses: {
+            /** @description The moment as kept. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    discardMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Discarded. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    adjustMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MomentPatch"];
+            };
+        };
+        responses: {
+            /** @description The moment as kept. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    makeShorts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: components["parameters"]["StoryId"];
+                deliverableId: components["parameters"]["DeliverableId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShortsInput"];
+            };
+        };
         responses: {
             /** @description The updated story. */
             200: {

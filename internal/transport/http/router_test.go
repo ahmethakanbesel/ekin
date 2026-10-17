@@ -25,6 +25,7 @@ import (
 	identitydomain "kurgu/internal/domain/identity/v1"
 	jobdomain "kurgu/internal/domain/job/v1"
 	settingsdomain "kurgu/internal/domain/settings/v1"
+	storydomain "kurgu/internal/domain/story/v1"
 	"kurgu/internal/gen"
 	identityrepo "kurgu/internal/repository/identity/v1"
 	jobrepo "kurgu/internal/repository/job/v1"
@@ -32,12 +33,14 @@ import (
 	libraryrepo "kurgu/internal/repository/library/v1"
 	pipelinerepo "kurgu/internal/repository/pipeline/v1"
 	settingsrepo "kurgu/internal/repository/settings/v1"
+	storyrepo "kurgu/internal/repository/story/v1"
 	templaterepo "kurgu/internal/repository/template/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
 	identitysvc "kurgu/internal/service/identity/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
 	librarysvc "kurgu/internal/service/library/v1"
+	productionsvc "kurgu/internal/service/production/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	settingssvc "kurgu/internal/service/settings/v1"
 	templatesvc "kurgu/internal/service/template/v1"
@@ -56,6 +59,8 @@ type server struct {
 	knowledge *knowledgesvc.Service
 	library   *librarysvc.Service
 	jobs      *jobsvc.Service
+	stories   storyrepo.Repository
+	blobs     blob.Store
 	logs      *syncBuffer
 }
 
@@ -94,7 +99,12 @@ func newServer(t *testing.T) *server {
 		WithCredentials(settingsdomain.Credentials{DecisionModel: "typesafe/jev-1.13"}, box)
 	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, nil, t.TempDir())
 	pipelines.WithTemplates(templates)
+	stories := storyrepo.NewSQLite(tx)
+	production := productionsvc.NewService(productionsvc.Config{Shorts: storydomain.DefaultShortsLimits()}, productionsvc.Deps{
+		Stories: stories, Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs,
+	})
 	router, err := httptransport.NewRouter(httptransport.Deps{
+		Production: production,
 		Templates:  templates,
 		System:     systemhandler.New(settings, "default", "test", nil),
 		Identity:   identity,
@@ -112,7 +122,7 @@ func newServer(t *testing.T) *server {
 	}
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)
-	return &server{Server: srv, identity: identity, knowledge: knowledge, library: library, jobs: jobs, logs: logs}
+	return &server{Server: srv, identity: identity, knowledge: knowledge, library: library, jobs: jobs, stories: stories, blobs: blobs, logs: logs}
 }
 
 // client is a browser: it keeps cookies.

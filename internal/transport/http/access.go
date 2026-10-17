@@ -88,6 +88,11 @@ var workspaceActions = map[string]identitydomain.Action{
 	"RejectDeliverable":      identitydomain.ActionEdit,
 	"RetryDeliverable":       identitydomain.ActionEdit,
 	"PublishDeliverable":     identitydomain.ActionEdit,
+	"ListMoments":            identitydomain.ActionView,
+	"AddMoment":              identitydomain.ActionEdit,
+	"AdjustMoment":           identitydomain.ActionEdit,
+	"DiscardMoment":          identitydomain.ActionEdit,
+	"MakeShorts":             identitydomain.ActionEdit,
 
 	"ListPipelines":    identitydomain.ActionView,
 	"GetPipeline":      identitydomain.ActionView,
