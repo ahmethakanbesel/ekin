@@ -156,6 +156,75 @@ func (r *SQLite) Delete(ctx context.Context, workspaceID, id uuid.UUID) error {
 	return nil
 }
 
+func (r *SQLite) RecordUsage(ctx context.Context, u librarydomain.Usage) error {
+	_, err := r.q.W(ctx).ExecContext(ctx, `INSERT INTO library_usages (asset_id, workspace_id, story_id, deliverable_id, revision, used_at)
+		SELECT id, workspace_id, ?, ?, ?, ? FROM library_assets WHERE id = ? AND workspace_id = ?
+		ON CONFLICT DO NOTHING`,
+		u.StoryID.String(), u.DeliverableID.String(), u.Revision, timeutil.ToMillis(u.At), u.AssetID.String(), u.WorkspaceID.String())
+	if err != nil {
+		return fmt.Errorf("record usage: %w", err)
+	}
+	return nil
+}
+
+func (r *SQLite) Usages(ctx context.Context, workspaceID, assetID uuid.UUID) ([]librarydomain.Usage, error) {
+	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT story_id, deliverable_id, revision, used_at FROM library_usages
+		WHERE workspace_id = ? AND asset_id = ? ORDER BY used_at DESC, deliverable_id DESC, revision DESC`,
+		workspaceID.String(), assetID.String())
+	if err != nil {
+		return nil, fmt.Errorf("list usages: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []librarydomain.Usage
+	for rows.Next() {
+		var (
+			story, deliverable string
+			at                 int64
+		)
+		u := librarydomain.Usage{AssetID: assetID, WorkspaceID: workspaceID}
+		if err := rows.Scan(&story, &deliverable, &u.Revision, &at); err != nil {
+			return nil, fmt.Errorf("scan usage: %w", err)
+		}
+		u.StoryID, _ = uuid.Parse(story)
+		u.DeliverableID, _ = uuid.Parse(deliverable)
+		u.At = timeutil.FromMillis(at)
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+func (r *SQLite) UsageCounts(ctx context.Context, workspaceID uuid.UUID, assetIDs []uuid.UUID) (map[uuid.UUID]int, error) {
+	out := map[uuid.UUID]int{}
+	if len(assetIDs) == 0 {
+		return out, nil
+	}
+	args := []any{workspaceID.String()}
+	for _, id := range assetIDs {
+		args = append(args, id.String())
+	}
+	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT asset_id, COUNT(DISTINCT deliverable_id) FROM library_usages
+		WHERE workspace_id = ? AND asset_id IN (`+placeholders(len(assetIDs))+`) GROUP BY asset_id`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("count usages: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var (
+			raw string
+			n   int
+		)
+		if err := rows.Scan(&raw, &n); err != nil {
+			return nil, fmt.Errorf("scan usage count: %w", err)
+		}
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, fmt.Errorf("parse usage asset: %w", err)
+		}
+		out[id] = n
+	}
+	return out, rows.Err()
+}
+
 func strs[T ~string](in []T) []string {
 	out := make([]string, len(in))
 	for i, v := range in {

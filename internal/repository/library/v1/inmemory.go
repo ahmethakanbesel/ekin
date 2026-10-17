@@ -20,6 +20,7 @@ import (
 type InMemory struct {
 	mu     sync.RWMutex
 	assets map[uuid.UUID]librarydomain.Snapshot
+	usages []librarydomain.Usage
 }
 
 var _ Repository = (*InMemory)(nil)
@@ -139,5 +140,52 @@ func (r *InMemory) Delete(_ context.Context, workspaceID, id uuid.UUID) error {
 		return notFound()
 	}
 	delete(r.assets, id)
+	r.usages = slices.DeleteFunc(r.usages, func(u librarydomain.Usage) bool { return u.AssetID == id })
 	return nil
+}
+
+func (r *InMemory) RecordUsage(_ context.Context, u librarydomain.Usage) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if s, ok := r.assets[u.AssetID]; !ok || s.WorkspaceID != u.WorkspaceID {
+		return nil
+	}
+	for _, o := range r.usages {
+		if o.AssetID == u.AssetID && o.DeliverableID == u.DeliverableID && o.Revision == u.Revision {
+			return nil
+		}
+	}
+	r.usages = append(r.usages, u)
+	return nil
+}
+
+func (r *InMemory) Usages(_ context.Context, workspaceID, assetID uuid.UUID) ([]librarydomain.Usage, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var out []librarydomain.Usage
+	for _, u := range r.usages {
+		if u.WorkspaceID == workspaceID && u.AssetID == assetID {
+			out = append(out, u)
+		}
+	}
+	slices.SortFunc(out, func(a, b librarydomain.Usage) int {
+		return cmp.Or(b.At.Compare(a.At), cmp.Compare(b.DeliverableID.String(), a.DeliverableID.String()), cmp.Compare(b.Revision, a.Revision))
+	})
+	return out, nil
+}
+
+func (r *InMemory) UsageCounts(_ context.Context, workspaceID uuid.UUID, assetIDs []uuid.UUID) (map[uuid.UUID]int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	seen := map[[2]uuid.UUID]bool{}
+	out := map[uuid.UUID]int{}
+	for _, u := range r.usages {
+		key := [2]uuid.UUID{u.AssetID, u.DeliverableID}
+		if u.WorkspaceID != workspaceID || !slices.Contains(assetIDs, u.AssetID) || seen[key] {
+			continue
+		}
+		seen[key] = true
+		out[u.AssetID]++
+	}
+	return out, nil
 }

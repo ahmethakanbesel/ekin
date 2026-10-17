@@ -59,4 +59,11 @@ type Repository interface {
 	// the cursor of the next page ("" after the last).
 	List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*librarydomain.Asset, string, error)
 	Delete(ctx context.Context, workspaceID, id uuid.UUID) error
+	// RecordUsage stores a usage; recording the same one again is a no-op.
+	RecordUsage(ctx context.Context, u librarydomain.Usage) error
+	// Usages returns the asset's usages, newest first.
+	Usages(ctx context.Context, workspaceID, assetID uuid.UUID) ([]librarydomain.Usage, error)
+	// UsageCounts returns, per asset, how many deliverables used it;
+	// assets never used are absent.
+	UsageCounts(ctx context.Context, workspaceID uuid.UUID, assetIDs []uuid.UUID) (map[uuid.UUID]int, error)
 }

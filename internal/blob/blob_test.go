@@ -44,3 +44,24 @@ func TestFS(t *testing.T) {
 		}
 	}
 }
+
+func TestFromEnv(t *testing.T) {
+	dir := t.TempDir()
+	env := func(vars map[string]string) func(string) string { return func(k string) string { return vars[k] } }
+	tests := []struct {
+		name string
+		vars map[string]string
+		ok   bool
+	}{
+		{"fs", map[string]string{"KURGU_BLOB_DRIVER": "fs", "KURGU_BLOB_DIR": dir}, true},
+		{"fs relative", map[string]string{"KURGU_BLOB_DRIVER": "fs", "KURGU_BLOB_DIR": "data/blobs"}, false},
+		{"unset", map[string]string{}, false},
+		{"s3 without bucket", map[string]string{"KURGU_BLOB_DRIVER": "s3", "KURGU_S3_ENDPOINT": "https://s3.example.com"}, false},
+		{"s3", map[string]string{"KURGU_BLOB_DRIVER": "s3", "KURGU_S3_ENDPOINT": "https://s3.example.com", "KURGU_S3_BUCKET": "b"}, true},
+	}
+	for _, tt := range tests {
+		if _, err := blob.FromEnv(env(tt.vars)); (err == nil) != tt.ok {
+			t.Errorf("%s: err = %v", tt.name, err)
+		}
+	}
+}

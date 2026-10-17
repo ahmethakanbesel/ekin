@@ -131,6 +131,35 @@ func TestConformance(t *testing.T) {
 				t.Fatalf("bad cursor err = %v", err)
 			}
 
+			usage := func(asset uuid.UUID, deliverable uuid.UUID, revision int, at time.Time) {
+				t.Helper()
+				u, err := librarydomain.NewUsage(asset, ws, id.New(), deliverable, revision, at)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := repo.RecordUsage(ctx, u); err != nil {
+					t.Fatal(err)
+				}
+			}
+			d1, d2 := id.New(), id.New()
+			usage(clip.ID(), d1, 1, now)
+			usage(clip.ID(), d1, 2, now.Add(time.Hour))
+			usage(clip.ID(), d1, 2, now.Add(2*time.Hour)) // the same revision again
+			usage(clip.ID(), d2, 1, now.Add(3*time.Hour))
+			usage(music.ID(), d2, 1, now.Add(3*time.Hour))
+			if err := repo.RecordUsage(ctx, librarydomain.Usage{AssetID: clip.ID(), WorkspaceID: id.New(), StoryID: id.New(),
+				DeliverableID: id.New(), Revision: 1, At: now}); err != nil {
+				t.Fatalf("usage in another workspace err = %v", err)
+			}
+			counts, err := repo.UsageCounts(ctx, ws, []uuid.UUID{clip.ID(), music.ID(), photo.ID()})
+			if err != nil || !reflect.DeepEqual(counts, map[uuid.UUID]int{clip.ID(): 2, music.ID(): 1}) {
+				t.Fatalf("counts = %v, %v", counts, err)
+			}
+			uses, err := repo.Usages(ctx, ws, clip.ID())
+			if err != nil || len(uses) != 3 || uses[0].DeliverableID != d2 || uses[2].Revision != 1 || !uses[1].At.Equal(now.Add(time.Hour)) {
+				t.Fatalf("usages = %+v, %v", uses, err)
+			}
+
 			if err := repo.Delete(ctx, ws, clip.ID()); err != nil {
 				t.Fatal(err)
 			}
@@ -139,6 +168,9 @@ func TestConformance(t *testing.T) {
 			}
 			if err := repo.Update(ctx, clip); !apperror.Is(err, apperror.AssetNotFound) {
 				t.Fatalf("update deleted err = %v", err)
+			}
+			if uses, _ := repo.Usages(ctx, ws, clip.ID()); len(uses) != 0 {
+				t.Fatalf("usages outlived their asset: %d", len(uses))
 			}
 		})
 	}

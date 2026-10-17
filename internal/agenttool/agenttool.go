@@ -23,7 +23,30 @@ import (
 	"kurgu/internal/adapter/pexels"
 	"kurgu/internal/adapter/render"
 	"kurgu/internal/adapter/speech"
+	"kurgu/internal/blob"
+	librarydomain "kurgu/internal/domain/library/v1"
 )
+
+// blobFetcher fetches library files straight from the blob store, on the
+// host that holds it.
+type blobFetcher struct{ store blob.Store }
+
+func (f blobFetcher) Fetch(ctx context.Context, key, dest string) error {
+	rc, _, err := f.store.Open(ctx, key)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = rc.Close() }()
+	out, err := os.Create(dest) //nolint:gosec // the agent's working directory
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, rc); err != nil {
+		_ = out.Close()
+		return err
+	}
+	return out.Close()
+}
 
 // Spec is what the deliverable must satisfy, passed as JSON in
 // KURGU_TOOL_SPEC by the worker.
@@ -37,14 +60,20 @@ type Spec struct {
 	Speech speech.Options `json:"speech"`
 	// Long marks long-form video: metadata needs YouTube chapters.
 	Long bool `json:"long,omitempty"`
+	// Media says, per kind, whether music and stock come from the library,
+	// are made fresh, or both.
+	Media librarydomain.Policy `json:"media,omitzero"`
 }
 
 // Env is the tool configuration read from the environment.
 type Env struct {
-	Spec      Spec
-	Speech    speech.Synth
-	Pexels    pexels.Client
-	Renderer  render.Renderer
+	Spec     Spec
+	Speech   speech.Synth
+	Pexels   pexels.Client
+	Renderer render.Renderer
+	// Library fetches library files; nil when the library is not
+	// reachable from this host.
+	Library   Fetcher
 	Dir       string // working directory
 	Stdout    io.Writer
 	Stderr    io.Writer
@@ -61,6 +90,9 @@ func FromEnviron() (Env, error) {
 		Stdout:    os.Stdout,
 		Stderr:    os.Stderr,
 		Transcode: true,
+	}
+	if store, err := blob.FromEnv(os.Getenv); err == nil {
+		e.Library = blobFetcher{store}
 	}
 	if raw := os.Getenv("KURGU_TOOL_SPEC"); raw != "" {
 		if err := json.Unmarshal([]byte(raw), &e.Spec); err != nil {
@@ -80,6 +112,9 @@ const usage = `usage: kurgu tool <command> [flags]
   stock  --query "calm sea" [--type video|photo] [--count 1]
                                                    download stock media into assets/
   music  [--duration seconds]                      render music.js to music.wav
+  library [--type music|video|photo] [--query "calm piano"]
+                                                   search this video's media library
+  library use <id>                                 put a library item in place and credit it
 `
 
 // Run executes one tool command.
@@ -130,6 +165,13 @@ func Run(ctx context.Context, e Env, args []string) error {
 			return err
 		}
 		return e.music(ctx, *duration)
+	case "library":
+		kind := fs.String("type", "", "music, video or photo; default all")
+		query := fs.String("query", "", "words to look for in titles, tags and descriptions")
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		return e.library(ctx, fs.Args(), *kind, *query)
 	}
 	_, _ = fmt.Fprint(e.Stderr, usage)
 	return fmt.Errorf("unknown tool command %q", args[0])
@@ -285,6 +327,7 @@ func Check(ctx context.Context, r Prober, dir, pagePath string, spec Spec) Repor
 			rep.Warnings = append(rep.Warnings, warns...)
 		}
 	}
+	rep.Errors = append(rep.Errors, CheckMedia(dir, spec)...)
 	if _, err := os.Stat(filepath.Join(dir, "music.js")); err == nil {
 		if _, err := os.Stat(filepath.Join(dir, "music.wav")); err != nil {
 			rep.Warnings = append(rep.Warnings, "music.js has not been rendered; run kurgu tool music to hear-check its level")
@@ -355,14 +398,19 @@ func checkMetadata(p string, long bool, duration float64) error {
 	return nil
 }
 
-// Credit is one stock item's attribution (assets/credits.json).
+// Credit is one stock or library item's attribution (assets/credits.json).
 type Credit struct {
 	File    string `json:"file"`
 	Source  string `json:"source"`
+	Kind    string `json:"kind,omitempty"` // video, photo or music
 	Author  string `json:"author"`
 	URL     string `json:"url"`
-	Query   string `json:"query"`
+	Licence string `json:"licence,omitempty"`
+	Query   string `json:"query,omitempty"`
 	Seconds int    `json:"seconds,omitempty"`
+	// Library is the library asset the file came from; "" for stock
+	// fetched from Pexels.
+	Library string `json:"library,omitempty"`
 }
 
 func (e Env) stock(ctx context.Context, query, kind string, count int) error {
@@ -371,6 +419,9 @@ func (e Env) stock(ctx context.Context, query, kind string, count int) error {
 	}
 	if kind != "video" && kind != "photo" {
 		return errors.New("--type must be video or photo")
+	}
+	if !e.Spec.Media.AllowsFresh(librarydomain.Kind(kind)) {
+		return fmt.Errorf("this video takes %ss from the library only: run kurgu tool library --type %s", kind, kind)
 	}
 	count = max(1, min(count, 5))
 	orientation := pexels.Orientation("portrait")
@@ -422,7 +473,7 @@ func (e Env) stock(ctx context.Context, query, kind string, count int) error {
 			}
 		}
 		rel, _ := filepath.Rel(e.Dir, file)
-		credits = append(credits, Credit{File: rel, Source: "Pexels", Author: it.Author, URL: it.PageURL, Query: query,
+		credits = append(credits, Credit{File: rel, Source: "Pexels", Kind: it.Kind, Author: it.Author, URL: it.PageURL, Query: query,
 			Seconds: int(math.Min(it.Duration, 15))})
 		desc := fmt.Sprintf("%s  (%dx%d", rel, it.Width, it.Height)
 		if it.Kind == "video" {
@@ -430,6 +481,10 @@ func (e Env) stock(ctx context.Context, query, kind string, count int) error {
 		}
 		_, _ = fmt.Fprintln(e.Stdout, desc+")")
 	}
+	return writeCredits(assets, credits)
+}
+
+func writeCredits(assets string, credits []Credit) error {
 	b, _ := json.MarshalIndent(credits, "", "  ")
 	return os.WriteFile(filepath.Join(assets, "credits.json"), b, 0o600)
 }
@@ -444,7 +499,15 @@ func readCredits(p string) []Credit {
 
 func (e Env) music(ctx context.Context, duration float64) error {
 	if _, err := os.Stat(e.path("music.js")); err != nil {
+		if _, ok, _ := ReadMusicTrack(e.Dir); ok {
+			return errors.New("music.json uses a library track; there is nothing to render")
+		}
 		return errors.New("music.js is missing")
+	}
+	if !e.Spec.Media.AllowsFresh(librarydomain.KindMusic) {
+		if problems := CheckMedia(e.Dir, e.Spec); len(problems) > 0 {
+			return errors.New(strings.Join(problems, "; "))
+		}
 	}
 	if duration <= 0 {
 		raw, err := os.ReadFile(e.path("narration/timings.json"))

@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -264,5 +266,59 @@ func TestUpdateAndDelete(t *testing.T) {
 	}
 	if _, err := f.svc.Get(ctx, f.ws, a.ID()); !apperror.Is(err, apperror.AssetNotFound) {
 		t.Fatalf("get deleted err = %v", err)
+	}
+}
+
+func TestCatalogAndUsage(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	ingest := func(name string, m librarydomain.Media) *librarydomain.Asset {
+		t.Helper()
+		f.proc.media = m
+		a := f.upload(t, name, name)
+		if err := f.runIngest(t); err != nil {
+			t.Fatal(err)
+		}
+		return a
+	}
+	ingest("tall.mp4", librarydomain.Media{Format: "webm", Width: 1080, Height: 1920, Duration: time.Second})
+	ingest("wide.mp4", librarydomain.Media{Format: "webm", Width: 1920, Height: 1080, Duration: time.Second})
+	ingest("square.jpg", librarydomain.Media{Format: "jpg", Width: 1000, Height: 1000})
+	used := ingest("used.mp4", librarydomain.Media{Format: "webm", Width: 1080, Height: 1920, Duration: time.Second})
+	archived := ingest("old.mp4", librarydomain.Media{Format: "webm", Width: 1080, Height: 1920, Duration: time.Second})
+	music := ingest("song.mp3", librarydomain.Media{Format: "opus", Duration: time.Minute})
+	yes := true
+	if _, err := f.svc.Update(ctx, f.ws, archived.ID(), librarysvc.Patch{Archived: &yes}); err != nil {
+		t.Fatal(err)
+	}
+	story, deliverable := id.New(), id.New()
+	if err := f.svc.RecordUsage(ctx, f.ws, story, deliverable, 1, []uuid.UUID{used.ID(), id.New()}); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err := f.svc.Catalog(ctx, f.ws, []librarydomain.Kind{librarydomain.KindVideo, librarydomain.KindPhoto}, librarydomain.OrientationPortrait)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, e := range entries {
+		got = append(got, fmt.Sprintf("%s:%d", e.Asset.Title(), e.Uses))
+	}
+	// Fitting, unarchived, least used first, then newest; no music, no wide clip.
+	if want := []string{"square:0", "tall:0", "used:1"}; !slices.Equal(got, want) {
+		t.Fatalf("catalog = %v, want %v", got, want)
+	}
+	if e, _ := f.svc.Catalog(ctx, f.ws, nil, librarydomain.OrientationPortrait); e != nil {
+		t.Fatalf("no kinds = %v", e)
+	}
+	if e, _ := f.svc.Catalog(ctx, f.ws, []librarydomain.Kind{librarydomain.KindMusic}, librarydomain.OrientationLandscape); len(e) != 1 || e[0].Asset.ID() != music.ID() {
+		t.Fatalf("music catalog = %v", e)
+	}
+	uses, err := f.svc.Usages(ctx, f.ws, used.ID())
+	if err != nil || len(uses) != 1 || uses[0].StoryID != story || uses[0].Revision != 1 {
+		t.Fatalf("usages = %+v, %v", uses, err)
+	}
+	if _, err := f.svc.Usages(ctx, id.New(), used.ID()); !apperror.Is(err, apperror.AssetNotFound) {
+		t.Fatalf("usages in another workspace err = %v", err)
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -341,6 +342,74 @@ func (s *Service) Delete(ctx context.Context, workspaceID, assetID uuid.UUID) er
 		return err
 	}
 	return s.blobs.DeletePrefix(ctx, a.Prefix())
+}
+
+// UsageCounts returns how many deliverables used each asset; unused ones
+// are absent.
+func (s *Service) UsageCounts(ctx context.Context, workspaceID uuid.UUID, assetIDs []uuid.UUID) (map[uuid.UUID]int, error) {
+	return s.repo.UsageCounts(ctx, workspaceID, assetIDs)
+}
+
+// Usages returns where an asset was used, newest first.
+func (s *Service) Usages(ctx context.Context, workspaceID, assetID uuid.UUID) ([]librarydomain.Usage, error) {
+	if _, err := s.repo.Get(ctx, workspaceID, assetID); err != nil {
+		return nil, err
+	}
+	return s.repo.Usages(ctx, workspaceID, assetID)
+}
+
+// RecordUsage notes that a revision used the assets; ids not in the
+// workspace's library are ignored (the agent may have invented one).
+func (s *Service) RecordUsage(ctx context.Context, workspaceID, storyID, deliverableID uuid.UUID, revision int, assetIDs []uuid.UUID) error {
+	for _, assetID := range assetIDs {
+		u, err := librarydomain.NewUsage(assetID, workspaceID, storyID, deliverableID, revision, s.now())
+		if err != nil {
+			return err
+		}
+		if err := s.repo.RecordUsage(ctx, u); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// catalogLimit bounds how many assets of one kind a draft is offered.
+const catalogLimit = 500
+
+// Entry is an asset offered to a draft, with how often it was used.
+type Entry struct {
+	Asset *librarydomain.Asset
+	Uses  int
+}
+
+// Catalog lists the usable assets of kinds that fit a frame of
+// orientation, least used first and then newest: what a draft may take
+// from the library.
+func (s *Service) Catalog(ctx context.Context, workspaceID uuid.UUID, kinds []librarydomain.Kind, orientation librarydomain.Orientation) ([]Entry, error) {
+	if len(kinds) == 0 {
+		return nil, nil
+	}
+	assets, _, err := s.repo.List(ctx, workspaceID, Filter{Kinds: kinds, Statuses: []librarydomain.Status{librarydomain.StatusReady},
+		Limit: catalogLimit * len(kinds)})
+	if err != nil {
+		return nil, err
+	}
+	assets = slices.DeleteFunc(assets, func(a *librarydomain.Asset) bool { return !a.Usable() || !a.Fits(orientation) })
+	ids := make([]uuid.UUID, len(assets))
+	for i, a := range assets {
+		ids[i] = a.ID()
+	}
+	counts, err := s.repo.UsageCounts(ctx, workspaceID, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Entry, len(assets))
+	for i, a := range assets {
+		out[i] = Entry{Asset: a, Uses: counts[a.ID()]}
+	}
+	// Stable: the listing is newest first, so equal counts stay that way.
+	slices.SortStableFunc(out, func(a, b Entry) int { return a.Uses - b.Uses })
+	return out, nil
 }
 
 // Open returns one of an asset's files.
