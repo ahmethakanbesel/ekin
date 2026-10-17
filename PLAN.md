@@ -96,7 +96,7 @@ Runtime-editable settings, with env defaults:
 | `heavy.cooldown` | 30s | pause between heavy jobs |
 | `render.duty_cycle` | 1.0 | sleep between frames (0.25 = 4× slower) |
 | `render.preview_scale` / `render.final_scale` | 0.5 / 1.0 | review at 540p, final at 1080p after approval; a preview that covers the final (as sharp, same frame rate) is reused instead. Mac: preview 1.0, since screenshot capture costs the same at 540p |
-| `render.preview_fps` / `render.final_fps` | 30 / 30 | preview 15, 24 or 30; final 30 or 60. Pipelines and ad-hoc requests can override these and the scales |
+| `render.preview_fps` / `render.final_fps` | 30 / 30 | preview 15, 24 or 30; final 30 or 60. A workspace, then a pipeline or ad-hoc request, can override these and the scales (see Settings layers) |
 | `render.chunks`, `render.encoder`, `render.gpu` | 1, libx264, off | Mac: chunks = cores, h264_videotoolbox, gpu on |
 | `ffmpeg.threads`, `process.nice` | 1, 19 | |
 | `worker.paused` | false | global pause |
@@ -120,11 +120,22 @@ Container ceiling on the VPS: `cpuset: "1"`, `cpu_shares: 64`, `cpus: 0.5`,
 | publishing | Channel (YouTube, sealed refresh token), BlogTarget, Publication |
 | job | Job (queue, kind, unique key, attempts, lease) |
 | settings | Host profiles (throttle) and credentials (sealed, override env) |
+| defaults | Workspace production defaults (model, effort, self-review, render quality and frame rate, first review, media sources, thumbnails) |
 | notify | Email digests |
 
 A derived deliverable starts once its lead is live (published, or ready when no publisher
 is connected), so an article can embed the published video. Approving an article queues
 its translations.
+
+### Settings layers
+
+Every production setting resolves top down: built-in → **Server** (env, then the
+settings page: credentials and the host profile, kept by the operator on `/system`) →
+**Workspace** (Settings › Production, owners) → **Pipeline** or **ad-hoc request**
+(editors). An unset value inherits from the layer above; the resolved values are copied
+into the story's brief at planning, so later changes leave planned stories alone. The
+UI shows each setting beside what it inherits and where from. The throttle is changed
+only on `/system`; Jobs shows paused hosts and links there.
 
 ## 6. Production flow
 
