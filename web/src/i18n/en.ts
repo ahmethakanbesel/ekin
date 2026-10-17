@@ -433,6 +433,23 @@ export const en = {
         script:
           "You read each script first. Approving it has the agent narrate and build the video, which comes back for review; sending it back revises only the script.",
       } as Record<string, string>,
+      media: "Media sources",
+      mediaHint: "Where each video's music, clips and photos come from: made fresh by the agent, or taken from the library.",
+      mediaKinds: { music: "Music", video: "Video clips", photo: "Photos" } as Record<string, string>,
+      mediaSources: {
+        fresh: "Compose / search",
+        library: "Library only",
+        mixed: "Library first",
+      } as Record<string, string>,
+      freshHints: {
+        music: "The agent composes its own score.",
+        video: "The agent searches Pexels.",
+        photo: "The agent searches Pexels.",
+      } as Record<string, string>,
+      inLibrary: (n: number, more: boolean) =>
+        n === 0 ? "None in the library yet." : `${more ? `${n}+` : n} ready in the library.`,
+      emptyLibraryOnly: "None in the library yet, so videos will have none.",
+      openLibrary: "Open the library",
     },
     createTitle: "New pipeline",
     editTitle: "Edit pipeline",
@@ -1198,6 +1215,7 @@ export const en = {
     play: (title: string) => `Play “${title}”`,
     pause: (title: string) => `Pause “${title}”`,
     open: (title: string) => `Open “${title}”`,
+    uses: (n: number) => (n === 1 ? "used once" : `used ${n}×`),
     sheet: {
       description: (kind: string, origin: string) => `${kind} · ${origin}`,
       processingTitle: "Processing…",
@@ -1233,6 +1251,10 @@ export const en = {
         duration: "Length",
         added: "Added",
       },
+      usedIn: "Used in",
+      usedInCount: (n: number) => (n === 0 ? "Not used yet" : n === 1 ? "1 video" : `${n} videos`),
+      usage: (revision: number, when: string) => `revision ${revision} · ${when}`,
+      deletedStory: "A deleted story",
       archive: "Archive",
       archiveHint: "Archived items stay in the library, but new drafts no longer use them.",
       unarchive: "Restore",

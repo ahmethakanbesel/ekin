@@ -6,6 +6,8 @@ type Production = Schemas["Production"]
 export type DraftEffort = Schemas["DraftEffort"]
 export type PreviewQuality = NonNullable<Production["previewQuality"]>
 export type ReviewAt = NonNullable<Production["reviewAt"]>
+export type MediaSource = Schemas["MediaSource"]
+export type MediaKind = "music" | "video" | "photo"
 import { emptyOverride, fromOverride, toOverride, type VoiceOverrideValues } from "@/features/voice/model"
 import { DEFAULT_SELF_REVIEW } from "./self-review-section"
 import { m } from "@/i18n"
@@ -78,10 +80,14 @@ export type ProductionValues = {
   draftEffort: DraftEffort | ""
   previewQuality: PreviewQuality | ""
   reviewAt: ReviewAt
+  /** Where each kind of media comes from; fresh is the default. */
+  media: Record<MediaKind, MediaSource>
 }
 
+const freshMedia = (): Record<MediaKind, MediaSource> => ({ music: "fresh", video: "fresh", photo: "fresh" })
+
 export function emptyProduction(): ProductionValues {
-  return { draftModel: "", draftEffort: "", previewQuality: "", reviewAt: "video" }
+  return { draftModel: "", draftEffort: "", previewQuality: "", reviewAt: "video", media: freshMedia() }
 }
 
 export function fromProduction(p: Production | undefined): ProductionValues {
@@ -90,6 +96,7 @@ export function fromProduction(p: Production | undefined): ProductionValues {
     draftEffort: p?.draftEffort ?? "",
     previewQuality: p?.previewQuality ?? "",
     reviewAt: p?.reviewAt ?? "video",
+    media: { ...freshMedia(), ...p?.media },
   }
 }
 
@@ -100,6 +107,7 @@ export function toProduction(v: ProductionValues): Production | undefined {
   if (v.draftEffort) out.draftEffort = v.draftEffort
   if (v.previewQuality) out.previewQuality = v.previewQuality
   if (v.reviewAt === "script") out.reviewAt = v.reviewAt
+  if (Object.values(v.media).some((source) => source !== "fresh")) out.media = { ...v.media }
   return Object.keys(out).length > 0 ? out : undefined
 }
 

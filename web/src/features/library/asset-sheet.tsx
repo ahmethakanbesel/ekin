@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
@@ -48,6 +49,7 @@ import { formatDateTime, formatDuration } from "@/lib/time"
 import {
   libraryAssetQuery,
   libraryFileUrl,
+  libraryUsagesQuery,
   useDeleteLibraryAsset,
   useRetryLibraryAsset,
   useUpdateLibraryAsset,
@@ -205,6 +207,7 @@ function SheetBody({
         </Banner>
       ) : null}
       <Facts asset={a} timezone={timezone} />
+      <UsedIn workspaceId={workspaceId} asset={a} timezone={timezone} />
       <Separator />
       <DetailsForm workspaceId={workspaceId} asset={a} canEdit={canEdit} />
       {canEdit ? (
@@ -344,6 +347,59 @@ function Facts({
         </div>
       ))}
     </dl>
+  )
+}
+
+function UsedIn({
+  workspaceId,
+  asset: a,
+  timezone,
+}: {
+  workspaceId: string
+  asset: LibraryAsset
+  timezone: string
+}) {
+  const s = m.library.sheet
+  const usages = useQuery({
+    ...libraryUsagesQuery(workspaceId, a.id),
+    enabled: a.usageCount > 0,
+  })
+  return (
+    <section className="grid gap-2 text-sm" aria-label={s.usedIn}>
+      <h3 className="font-heading font-medium">
+        {s.usedIn}{" "}
+        <span className="tabular font-normal text-muted-foreground">
+          · {s.usedInCount(a.usageCount)}
+        </span>
+      </h3>
+      {usages.data && usages.data.length > 0 ? (
+        <ul className="grid gap-1">
+          {usages.data.map((u) => (
+            <li
+              key={`${u.deliverableId}-${u.revision}`}
+              className="flex min-w-0 items-baseline justify-between gap-3"
+            >
+              {u.storyTitle ? (
+                <Link
+                  to="/w/$workspaceId/stories/$storyId"
+                  params={{ workspaceId, storyId: u.storyId }}
+                  className="truncate hover:underline"
+                >
+                  {u.storyTitle}
+                </Link>
+              ) : (
+                <span className="truncate text-muted-foreground">
+                  {s.deletedStory}
+                </span>
+              )}
+              <span className="tabular shrink-0 text-xs text-muted-foreground">
+                {s.usage(u.revision, formatDateTime(u.usedAt, timezone))}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
   )
 }
 

@@ -1,3 +1,7 @@
+import type { ReactNode } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
+
 import { Button } from "@/components/ui/button"
 import { FieldGroup } from "@/components/ui/field"
 import {
@@ -7,9 +11,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
+import { librarySizeQuery } from "@/queries/library"
 import { Row, Section } from "./form-parts"
-import type { DraftEffort, PreviewQuality, ProductionValues, ReviewAt } from "./model"
+import type {
+  DraftEffort,
+  MediaKind,
+  MediaSource,
+  PreviewQuality,
+  ProductionValues,
+  ReviewAt,
+} from "./model"
 
 /** The select value standing for "the workspace default" (a select item needs a value). */
 const DEFAULT = "default"
@@ -27,6 +40,10 @@ const EFFORTS: DraftEffort[] = ["low", "medium", "high", "xhigh", "max"]
 const QUALITIES: PreviewQuality[] = ["360p", "540p", "720p", "1080p"]
 
 const REVIEW_POINTS: ReviewAt[] = ["video", "script"]
+
+const MEDIA_KINDS: MediaKind[] = ["music", "video", "photo"]
+
+const MEDIA_SOURCES: MediaSource[] = ["fresh", "library", "mixed"]
 
 /**
  * "Production" in the pipeline and request forms: how the stories are
@@ -160,6 +177,85 @@ export function ProductionSection({
           <p className="text-xs text-muted-foreground">{t.reviewHints[value.reviewAt]}</p>
         </div>
       ) : null}
+      {video ? (
+        <div className="mt-6 grid gap-3">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">{t.media}</p>
+            <p className="text-xs text-muted-foreground">{t.mediaHint}</p>
+          </div>
+          <FieldGroup className="gap-5 sm:grid sm:grid-cols-3">
+            {MEDIA_KINDS.map((kind) => (
+              <MediaRow
+                key={kind}
+                id={`${idPrefix}-media-${kind}`}
+                kind={kind}
+                source={value.media[kind]}
+                readOnly={readOnly}
+                onChange={(source) => set({ media: { ...value.media, [kind]: source } })}
+              />
+            ))}
+          </FieldGroup>
+        </div>
+      ) : null}
     </Section>
+  )
+}
+
+/** One kind's media source, with how much of it the library holds. */
+function MediaRow({
+  id,
+  kind,
+  source,
+  readOnly,
+  onChange,
+}: {
+  id: string
+  kind: MediaKind
+  source: MediaSource
+  readOnly: boolean
+  onChange: (source: MediaSource) => void
+}) {
+  const t = m.pipelineForm.production
+  const workspace = useWorkspace()
+  const size = useQuery({ ...librarySizeQuery(workspace.id, kind), enabled: source !== "fresh" })
+  const items = MEDIA_SOURCES.map((s) => ({ value: s, label: t.mediaSources[s] }))
+  let hint: ReactNode = t.freshHints[kind]
+  if (source !== "fresh" && size.data) {
+    const empty = size.data.count === 0
+    hint = (
+      <>
+        {empty && source === "library" ? t.emptyLibraryOnly : t.inLibrary(size.data.count, size.data.more)}{" "}
+        {empty ? (
+          <Link
+            to="/w/$workspaceId/library"
+            params={{ workspaceId: workspace.id }}
+            search={{ kind }}
+            className="underline underline-offset-4"
+          >
+            {t.openLibrary}
+          </Link>
+        ) : null}
+      </>
+    )
+  }
+  return (
+    <div className="grid gap-2">
+      <label htmlFor={id} className="text-sm font-medium">
+        {t.mediaKinds[kind]}
+      </label>
+      <Select items={items} disabled={readOnly} value={source} onValueChange={(v) => v && onChange(v as MediaSource)}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {items.map((it) => (
+            <SelectItem key={it.value} value={it.value}>
+              {it.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="text-xs text-muted-foreground">{hint}</p>
+    </div>
   )
 }

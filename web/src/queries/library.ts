@@ -83,6 +83,26 @@ export const libraryQuery = (
   })
 }
 
+/** How many ready, unarchived assets of a kind the library holds, up to a hundred. */
+const SIZE_LIMIT = 100
+
+export const librarySizeQuery = (workspaceId: string, kind: LibraryAssetKind) =>
+  queryOptions({
+    queryKey: [...keys.libraryLists(workspaceId), "size", kind] as const,
+    queryFn: async ({ signal }) => {
+      const res = await call(
+        api.GET("/workspaces/{workspaceId}/library/assets", {
+          params: {
+            path: { workspaceId },
+            query: { kind: [kind], status: ["ready"], limit: SIZE_LIMIT },
+          },
+          signal,
+        })
+      )
+      return { count: res.assets.length, more: !!res.nextCursor }
+    },
+  })
+
 export const libraryAssetQuery = (workspaceId: string, assetId: string) =>
   queryOptions({
     queryKey: keys.libraryAsset(workspaceId, assetId),
@@ -95,6 +115,21 @@ export const libraryAssetQuery = (workspaceId: string, assetId: string) =>
       ),
     refetchInterval: (q) =>
       q.state.data?.status === "processing" ? POLL_PROCESSING_MS : false,
+  })
+
+/** The revisions that used an asset, newest first. */
+export const libraryUsagesQuery = (workspaceId: string, assetId: string) =>
+  queryOptions({
+    queryKey: [...keys.libraryAsset(workspaceId, assetId), "usages"] as const,
+    queryFn: async ({ signal }) => {
+      const res = await call(
+        api.GET("/workspaces/{workspaceId}/library/assets/{assetId}/usages", {
+          params: { path: { workspaceId, assetId } },
+          signal,
+        })
+      )
+      return res.usages
+    },
   })
 
 /**

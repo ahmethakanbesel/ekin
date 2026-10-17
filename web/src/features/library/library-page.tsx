@@ -269,6 +269,7 @@ function AssetCard({
       : undefined,
     a.orientation ? m.library.orientation[a.orientation] : a.mood || undefined,
     m.library.origin[a.origin],
+    a.usageCount > 0 ? m.library.uses(a.usageCount) : undefined,
   ].filter(Boolean)
 
   return (
