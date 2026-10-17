@@ -995,7 +995,7 @@ export const en = {
     tooShort: (n: number) => `A short lasts at least ${n} s`,
     tooLong: (n: number) => `A short lasts at most ${n} s`,
     hookLabel: "Working title",
-    hookPlaceholder: "Working title (optional)",
+    hookPlaceholder: "Working title",
     add: "Add moment",
     addFailed: "The moment could not be added",
   },
