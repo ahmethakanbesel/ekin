@@ -261,18 +261,8 @@ func (s *Service) PlanRun(ctx context.Context, run pipelinesvc.RunPayload) error
 			Idea: idea.Idea, Brief: brief, Outputs: p.Outputs(),
 		})
 	}
-	created, err := s.createStories(ctx, plans, p.Name())
-	if err != nil {
-		return err
-	}
-	for _, st := range created {
-		if b := st.Brief(); b.OpportunityID != uuid.Nil {
-			if err := s.seo.MarkUsed(ctx, st.WorkspaceID(), b.OpportunityID, st.ID()); err != nil {
-				s.log.WarnContext(ctx, "opportunity not marked used", slog.Any("error", err))
-			}
-		}
-	}
-	return nil
+	_, err = s.createStories(ctx, plans, p.Name())
+	return err
 }
 
 func describeOpportunity(o seodomain.Opportunity) string {
@@ -301,11 +291,24 @@ func (s *Service) createStories(ctx context.Context, plans []storydomain.Plan, l
 	}
 	var created []*storydomain.Story
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		created = nil // a retried transaction starts over
 		for _, plan := range plans {
 			plan.TraceID = jobdomain.TraceFrom(ctx) // the planning job's request
 			st, err := storydomain.New(id.New(), plan, id.New, s.now())
 			if err != nil {
 				return err
+			}
+			// The keyword was picked before the ideas were written; claim
+			// it with the story, so two runs never write for one keyword.
+			if opp := plan.Brief.OpportunityID; opp != uuid.Nil && s.seo != nil {
+				claimed, err := s.seo.Claim(ctx, plan.WorkspaceID, opp, st.ID())
+				if err != nil {
+					return err
+				}
+				if !claimed {
+					s.log.WarnContext(ctx, "keyword taken meanwhile; idea dropped", slog.String("keyword", plan.Brief.Keyword))
+					continue
+				}
 			}
 			if err := s.stories.Create(ctx, st); err != nil {
 				return err
@@ -320,8 +323,11 @@ func (s *Service) createStories(ctx context.Context, plans []storydomain.Plan, l
 	if err != nil {
 		return nil, err
 	}
+	if len(created) == 0 {
+		return nil, jobdomain.Permanent(errors.New("no new stories: every keyword was taken by another run meanwhile"))
+	}
 	s.notify(ctx, Event{WorkspaceID: plans[0].WorkspaceID, Kind: "run", Title: label,
-		Detail: fmt.Sprintf("%d new stories in production", len(plans))})
+		Detail: fmt.Sprintf("%d new stories in production", len(created))})
 	return created, nil
 }
 

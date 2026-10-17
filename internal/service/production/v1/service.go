@@ -81,7 +81,9 @@ type Knowledge interface {
 // Opportunities hands out SEO keyword opportunities (the seo service).
 type Opportunities interface {
 	Next(ctx context.Context, workspaceID uuid.UUID, language string, n int) ([]seodomain.Opportunity, error)
-	MarkUsed(ctx context.Context, workspaceID, opportunityID, storyID uuid.UUID) error
+	// Claim gives an open opportunity to a story, reporting false when
+	// it is no longer open.
+	Claim(ctx context.Context, workspaceID, opportunityID, storyID uuid.UUID) (bool, error)
 }
 
 // Templates resolves a template to the style a story keeps (the

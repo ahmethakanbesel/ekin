@@ -4,7 +4,6 @@ package seo
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"slices"
 	"sync"
@@ -22,7 +21,10 @@ type Repository interface {
 	// Add inserts o unless the workspace already has the keyword; it
 	// reports whether it inserted.
 	Add(ctx context.Context, o seodomain.Opportunity) (bool, error)
-	Save(ctx context.Context, o seodomain.Opportunity) error
+	// Save stores o's status if the stored status is still from, so two
+	// callers never both act on one opportunity (two runs using one
+	// keyword, a dismissal undoing a use); otherwise Conflict.
+	Save(ctx context.Context, o seodomain.Opportunity, from seodomain.Status) error
 	Get(ctx context.Context, workspaceID, id uuid.UUID) (seodomain.Opportunity, error)
 	// List returns the workspace's opportunities with status (all when
 	// empty), newest first.
@@ -47,14 +49,28 @@ func (r *SQLite) Add(ctx context.Context, o seodomain.Opportunity) (bool, error)
 	return n == 1, nil
 }
 
-func (r *SQLite) Save(ctx context.Context, o seodomain.Opportunity) error {
+func (r *SQLite) Save(ctx context.Context, o seodomain.Opportunity, from seodomain.Status) error {
 	var story sql.NullString
 	if o.StoryID != uuid.Nil {
 		story = sql.NullString{String: o.StoryID.String(), Valid: true}
 	}
-	_, err := r.q.W(ctx).ExecContext(ctx, `UPDATE opportunities SET status = ?, story_id = ?, updated_at = ? WHERE id = ?`,
-		string(o.Status), story, timeutil.ToMillis(o.UpdatedAt), o.ID.String())
-	return err
+	res, err := r.q.W(ctx).ExecContext(ctx, `UPDATE opportunities SET status = ?, story_id = ?, updated_at = ?
+		WHERE workspace_id = ? AND id = ? AND status = ?`,
+		string(o.Status), story, timeutil.ToMillis(o.UpdatedAt), o.WorkspaceID.String(), o.ID.String(), string(from))
+	if err != nil {
+		return fmt.Errorf("update opportunity: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		if _, err := r.Get(ctx, o.WorkspaceID, o.ID); err != nil {
+			return err
+		}
+		return changed()
+	}
+	return nil
+}
+
+func changed() error {
+	return apperror.New(apperror.Conflict, "the opportunity changed meanwhile; reload and try again")
 }
 
 func (r *SQLite) Get(ctx context.Context, workspaceID, id uuid.UUID) (seodomain.Opportunity, error) {
@@ -136,16 +152,19 @@ func (r *InMemory) Add(_ context.Context, o seodomain.Opportunity) (bool, error)
 	return true, nil
 }
 
-func (r *InMemory) Save(_ context.Context, o seodomain.Opportunity) error {
+func (r *InMemory) Save(_ context.Context, o seodomain.Opportunity, from seodomain.Status) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i := range r.rows {
-		if r.rows[i].ID == o.ID {
+		if r.rows[i].WorkspaceID == o.WorkspaceID && r.rows[i].ID == o.ID {
+			if r.rows[i].Status != from {
+				return changed()
+			}
 			r.rows[i] = o
 			return nil
 		}
 	}
-	return errors.New("not found")
+	return apperror.New(apperror.NotFound, "opportunity not found")
 }
 
 func (r *InMemory) Get(_ context.Context, ws, id uuid.UUID) (seodomain.Opportunity, error) {

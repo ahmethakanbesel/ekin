@@ -23,6 +23,7 @@ import (
 	"kurgu/internal/db/dbtest"
 	jobdomain "kurgu/internal/domain/job/v1"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
+	seodomain "kurgu/internal/domain/seo/v1"
 	storydomain "kurgu/internal/domain/story/v1"
 	templatedomain "kurgu/internal/domain/template/v1"
 	voicedomain "kurgu/internal/domain/voice/v1"
@@ -62,6 +63,9 @@ type fakeAgent struct {
 	verdicts  []string
 	reviewErr error
 	reviews   []claude.Request
+	// onIdeas, when set, runs once while the agent writes ideas: what
+	// happens elsewhere during a planning job.
+	onIdeas func()
 }
 
 func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result, error) {
@@ -90,6 +94,13 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 		return claude.Result{SessionID: "editor", Structured: json.RawMessage(answer)}, nil
 	}
 	if len(req.JSONSchema) > 0 {
+		a.mu.Lock()
+		onIdeas := a.onIdeas
+		a.onIdeas = nil
+		a.mu.Unlock()
+		if onIdeas != nil {
+			onIdeas()
+		}
 		var ideas []map[string]any
 		for _, t := range a.titles {
 			ideas = append(ideas, map[string]any{"title": t, "angle": "Bedensel belirtiler üzerinden anlatım.", "keywords": []string{"kaygı"}})
@@ -1061,5 +1072,43 @@ func TestConcurrentEditsKeepTheSavedOnesFiles(t *testing.T) {
 	}
 	if !strings.Contains(*got.Article, "(onların)") {
 		t.Fatalf("revision 2 holds the refused edit:\n%s", *got.Article)
+	}
+}
+
+// A keyword another run takes while this run's agent writes ideas for it
+// does not get a second story.
+func TestKeywordTakenMeanwhileGetsNoSecondStory(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	if _, err := f.seo.Import(ctx, f.ws, []seosvc.Item{{Keyword: "ruminasyon nedir", Language: "tr", Volume: 2400}}, "manual"); err != nil {
+		t.Fatal(err)
+	}
+	open, _ := f.seo.Next(ctx, f.ws, "tr", 1)
+	other := id.New()
+	f.agent.onIdeas = func() {
+		if ok, err := f.seo.Claim(ctx, f.ws, open[0].ID, other); !ok || err != nil {
+			t.Errorf("the other run's claim = %v, %v", ok, err)
+		}
+	}
+	video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
+	outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
+	source, _ := pipelinedomain.NewSEOSource("Arama yapan yetişkinlere eğitici kısa videolar.")
+	p, err := f.pipelines.Create(ctx, f.ws, pipelinedomain.Definition{Name: "SEO", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = f.pipelines.RunNow(ctx, f.ws, p.ID(), 1)
+	run, _ := f.jobs.Claim(ctx, jobdomain.Queues, []string{pipelinesvc.KindRun}, "test", time.Minute)
+	var rp pipelinesvc.RunPayload
+	_ = json.Unmarshal(run.Payload(), &rp)
+	if err := f.svc.PlanRun(ctx, rp); !errors.Is(err, jobdomain.ErrPermanent) {
+		t.Fatalf("plan = %v, want a permanent failure: nothing left to write", err)
+	}
+	if list, _ := f.svc.List(ctx, f.ws, production.Filter{}); len(list) != 0 {
+		t.Fatalf("%d stories for a keyword another run took", len(list))
+	}
+	used, _ := f.seo.List(ctx, f.ws, seodomain.StatusUsed)
+	if len(used) != 1 || used[0].StoryID != other {
+		t.Fatalf("used = %+v", used)
 	}
 }

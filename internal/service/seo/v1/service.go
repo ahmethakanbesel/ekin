@@ -135,12 +135,14 @@ func rank(s seodomain.Status) int {
 	return map[seodomain.Status]int{seodomain.StatusOpen: 0, seodomain.StatusUsed: 1, seodomain.StatusDismissed: 2}[s]
 }
 
-// SetStatus dismisses or reopens an opportunity.
+// SetStatus dismisses or reopens an opportunity. One that a run took
+// meanwhile fails with Conflict instead of losing the story it went to.
 func (s *Service) SetStatus(ctx context.Context, workspaceID, id uuid.UUID, status seodomain.Status) (seodomain.Opportunity, error) {
 	o, err := s.repo.Get(ctx, workspaceID, id)
 	if err != nil {
 		return o, err
 	}
+	from := o.Status
 	switch status {
 	case seodomain.StatusDismissed:
 		o.Dismiss(s.now())
@@ -149,7 +151,7 @@ func (s *Service) SetStatus(ctx context.Context, workspaceID, id uuid.UUID, stat
 	default:
 		return o, apperror.New(apperror.ValidationFailed, "status must be open or dismissed")
 	}
-	return o, s.repo.Save(ctx, o)
+	return o, s.repo.Save(ctx, o, from)
 }
 
 // Next returns up to n open opportunities in language, best first.
@@ -170,16 +172,27 @@ func (s *Service) Next(ctx context.Context, workspaceID uuid.UUID, language stri
 	return out, nil
 }
 
-// MarkUsed records that a story took the opportunity.
-func (s *Service) MarkUsed(ctx context.Context, workspaceID, opportunityID, storyID uuid.UUID) error {
+// Claim gives an open opportunity to a story and reports whether it did:
+// false when it is no longer open (another run took it, or it was
+// dismissed). Call it in the transaction that creates the story.
+func (s *Service) Claim(ctx context.Context, workspaceID, opportunityID, storyID uuid.UUID) (bool, error) {
 	o, err := s.repo.Get(ctx, workspaceID, opportunityID)
+	if apperror.Is(err, apperror.NotFound) {
+		return false, nil
+	}
 	if err != nil {
-		return err
+		return false, err
 	}
-	if err := o.Use(storyID, s.now()); err != nil {
-		return err
+	if err := o.Use(storyID, s.now()); apperror.Is(err, apperror.InvalidTransition) {
+		return false, nil
+	} else if err != nil {
+		return false, err
 	}
-	return s.repo.Save(ctx, o)
+	err = s.repo.Save(ctx, o, seodomain.StatusOpen)
+	if apperror.Is(err, apperror.Conflict) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 // Profile returns the workspace's SEO context.
