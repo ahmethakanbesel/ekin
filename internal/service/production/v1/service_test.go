@@ -436,7 +436,8 @@ type fixture struct {
 	// defaults are the workspace's production defaults; the fixture's
 	// workspace turns self-review off, so drafts get none unless a test
 	// asks for it.
-	defaults *defaultssvc.Service
+	defaults  *defaultssvc.Service
+	templates *templatesvc.Service
 }
 
 func newFixture(t *testing.T) fixture {
@@ -457,7 +458,7 @@ func newFixture(t *testing.T) fixture {
 	voices := voicesvc.NewService(settingsrepo.NewSQLite(tx), jobs, nil, blobs)
 	pipelines.WithTemplates(templates).WithVoices(voices)
 	defaults := defaultssvc.NewService(settingsrepo.NewSQLite(tx), nil, defaultssvc.Config{})
-	if _, err := defaults.Put(context.Background(), w.ID(), pipelinedomain.Production{SelfReview: pipelinedomain.SelfReviewOff}, id.New()); err != nil {
+	if _, err := defaults.Put(context.Background(), w.ID(), defaultssvc.Workspace{Production: pipelinedomain.Production{SelfReview: pipelinedomain.SelfReviewOff}}, id.New()); err != nil {
 		t.Fatal(err)
 	}
 	hostConfigured := func(config func(*production.Config), adjust func(*production.Deps)) *production.Service {
@@ -489,7 +490,7 @@ func newFixture(t *testing.T) fixture {
 		})
 	}
 	return fixture{voices: voices, seo: seo, svc: svc, jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID(), host: host,
-		blobs: blobs, hostWith: hostWith, hostConfigured: hostConfigured, tx: tx, defaults: defaults}
+		blobs: blobs, hostWith: hostWith, hostConfigured: hostConfigured, tx: tx, defaults: defaults, templates: templates}
 }
 
 // drain runs queued jobs until none are left, like a worker would.
@@ -796,6 +797,95 @@ func TestTemplateReachesTheAgent(t *testing.T) {
 	brief, _ := os.ReadFile(filepath.Join(dir, "BRIEF.md"))
 	if !strings.Contains(string(brief), "Follow `STYLE.md`") {
 		t.Fatal("brief does not point at STYLE.md")
+	}
+}
+
+// A story keeps its pipeline's or request's template, none when it asks
+// for none, and otherwise the workspace's default template, resolved
+// when the story is planned.
+func TestWorkspaceDefaultTemplateResolvesAtPlanning(t *testing.T) {
+	ctx := context.Background()
+	cosmic := templatedomain.BuiltinID("cosmic-flat")
+	tests := []struct {
+		name          string
+		adHoc         bool
+		choice        pipelinedomain.TemplateChoice
+		noDefault     bool // the workspace sets no default template
+		deleteDefault bool // the default is deleted before the run
+		want          string
+	}{
+		{name: "a pipeline inherits the workspace's default", want: "Ev stili"},
+		{name: "a pipeline's own template wins", choice: pipelinedomain.TemplateChoice{ID: cosmic}, want: "Cosmic flat explainer"},
+		{name: "a pipeline's no template beats the workspace's default", choice: pipelinedomain.TemplateChoice{None: true}},
+		{name: "an ad-hoc request inherits the workspace's default", adHoc: true, want: "Ev stili"},
+		{name: "an ad-hoc request's own template wins", adHoc: true, choice: pipelinedomain.TemplateChoice{ID: cosmic},
+			want: "Cosmic flat explainer"},
+		{name: "an ad-hoc request's no template beats the workspace's default", adHoc: true,
+			choice: pipelinedomain.TemplateChoice{None: true}},
+		{name: "a deleted default leaves a pipeline's stories without one", deleteDefault: true},
+		{name: "a deleted default leaves an ad-hoc request's stories without one", adHoc: true, deleteDefault: true},
+		{name: "no default leaves a pipeline as before", noDefault: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			own, err := f.templates.Create(ctx, f.ws, templatedomain.Spec{Name: "Ev stili", Guide: "Sakin, sade.",
+				Kinds: []pipelinedomain.Kind{pipelinedomain.KindVideo}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !tt.noDefault {
+				w, _ := f.defaults.Get(ctx, f.ws)
+				w.TemplateID = own.ID
+				if _, err := f.defaults.Put(ctx, f.ws, w, id.New()); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tt.deleteDefault {
+				if err := f.templates.Delete(ctx, f.ws, own.ID); err != nil {
+					t.Fatal(err)
+				}
+			}
+			video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
+			outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
+			if tt.adHoc {
+				req := production.AdHocRequest{Idea: "Kaygı ve endişe farkı", Count: 1, Language: pipelinedomain.Turkish,
+					Outputs: outputs, Template: tt.choice}
+				if _, err := f.svc.QueueAdHoc(ctx, f.ws, id.New(), req); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				source, _ := pipelinedomain.NewPromptSource("Kaygı üzerine.")
+				p, err := f.pipelines.Create(ctx, f.ws, pipelinedomain.Definition{Name: "A", Language: pipelinedomain.Turkish,
+					Outputs: outputs, Source: source, TemplateID: tt.choice.ID, NoTemplate: tt.choice.None})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err := f.pipelines.RunNow(ctx, f.ws, p.ID(), 1); err != nil {
+					t.Fatal(err)
+				}
+			}
+			f.drain(t)
+			got := ""
+			if tmpl := f.story(t).Brief().Template; tmpl != nil {
+				got = tmpl.Name
+			}
+			if got != tt.want {
+				t.Fatalf("story template = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// An ad-hoc request cannot pick a template and no template at once.
+func TestAdHocRejectsTemplateAndNoTemplate(t *testing.T) {
+	f := newFixture(t)
+	video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 20*time.Second)
+	outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
+	req := production.AdHocRequest{Idea: "Kaygı", Count: 1, Language: pipelinedomain.Turkish, Outputs: outputs,
+		Template: pipelinedomain.TemplateChoice{ID: templatedomain.BuiltinID("cosmic-flat"), None: true}}
+	if _, err := f.svc.QueueAdHoc(context.Background(), f.ws, id.New(), req); !apperror.Is(err, apperror.ValidationFailed) {
+		t.Fatalf("err = %v, want ValidationFailed", err)
 	}
 }
 
@@ -1865,7 +1955,7 @@ func TestWorkspaceDefaultsResolveAtPlanning(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFixture(t)
-			if _, err := f.defaults.Put(ctx, f.ws, tt.defaults, id.New()); err != nil {
+			if _, err := f.defaults.Put(ctx, f.ws, defaultssvc.Workspace{Production: tt.defaults}, id.New()); err != nil {
 				t.Fatal(err)
 			}
 			if tt.adHoc {

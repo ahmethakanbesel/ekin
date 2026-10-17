@@ -5,7 +5,8 @@ package handler
 import (
 	"context"
 
-	pipelinedomain "kurgu/internal/domain/pipeline/v1"
+	"github.com/google/uuid"
+
 	"kurgu/internal/gen"
 	defaultssvc "kurgu/internal/service/defaults/v1"
 	pipelinehandler "kurgu/internal/transport/http/pipeline/v1"
@@ -31,9 +32,13 @@ func (h *Handler) GetWorkspaceProduction(ctx context.Context, req gen.GetWorkspa
 }
 
 func (h *Handler) SaveWorkspaceProduction(ctx context.Context, req gen.SaveWorkspaceProductionRequestObject) (gen.SaveWorkspaceProductionResponseObject, error) {
-	in, err := pipelinehandler.ProductionOf(&req.Body.Defaults, req.Body.SelfReviewRounds)
+	prod, err := pipelinehandler.ProductionOf(&req.Body.Defaults, req.Body.SelfReviewRounds)
 	if err != nil {
 		return nil, err
+	}
+	in := defaultssvc.Workspace{Production: prod}
+	if req.Body.TemplateId != nil {
+		in.TemplateID = *req.Body.TemplateId
 	}
 	pr, err := principal.From(ctx)
 	if err != nil {
@@ -50,14 +55,17 @@ func (h *Handler) SaveWorkspaceProduction(ctx context.Context, req gen.SaveWorks
 	return gen.SaveWorkspaceProduction200JSONResponse(out), nil
 }
 
-func (h *Handler) toWire(ctx context.Context, p pipelinedomain.Production) (gen.WorkspaceProduction, error) {
+func (h *Handler) toWire(ctx context.Context, w defaultssvc.Workspace) (gen.WorkspaceProduction, error) {
 	srv, err := h.svc.Server(ctx)
 	if err != nil {
 		return gen.WorkspaceProduction{}, err
 	}
-	out := gen.WorkspaceProduction{SelfReviewRounds: p.SelfReview.Wire(), Server: serverToWire(srv)}
-	if d := pipelinehandler.ProductionToWire(p); d != nil {
+	out := gen.WorkspaceProduction{SelfReviewRounds: w.SelfReview.Wire(), Server: serverToWire(srv)}
+	if d := pipelinehandler.ProductionToWire(w.Production); d != nil {
 		out.Defaults = *d
+	}
+	if w.TemplateID != uuid.Nil {
+		out.TemplateId = &w.TemplateID
 	}
 	return out, nil
 }

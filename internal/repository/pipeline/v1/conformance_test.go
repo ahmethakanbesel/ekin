@@ -93,6 +93,47 @@ func runConformance(t *testing.T, newHarness func(t *testing.T) harness) {
 		}
 	})
 
+	t.Run("template choice round trip", func(t *testing.T) {
+		tests := []struct {
+			name       string
+			templateID uuid.UUID
+			noTemplate bool
+		}{
+			{name: "inherit the workspace's"},
+			{name: "a chosen template", templateID: id.New()},
+			{name: "no template", noTemplate: true},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				h := newHarness(t)
+				p := newPipeline(t, h.workspace(t), "", t0)
+				if err := h.repo.Create(ctx, p); err != nil {
+					t.Fatal(err)
+				}
+				snap := p.Snapshot()
+				def, err := pipelinedomain.DefinitionFromSnapshot(snap)
+				if err != nil {
+					t.Fatal(err)
+				}
+				def.TemplateID, def.NoTemplate = tt.templateID, tt.noTemplate
+				if err := p.Redefine(def, t0.Add(time.Minute)); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := h.repo.Update(ctx, p); err != nil {
+					t.Fatal(err)
+				}
+				got, err := h.repo.Get(ctx, p.WorkspaceID(), p.ID())
+				if err != nil {
+					t.Fatal(err)
+				}
+				want := pipelinedomain.TemplateChoice{ID: tt.templateID, None: tt.noTemplate}
+				if got.Template() != want {
+					t.Fatalf("template = %+v, want %+v", got.Template(), want)
+				}
+			})
+		}
+	})
+
 	t.Run("manual pipeline round trip", func(t *testing.T) {
 		h := newHarness(t)
 		p := newPipeline(t, h.workspace(t), "", t0)

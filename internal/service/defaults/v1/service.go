@@ -14,6 +14,7 @@ import (
 	"kurgu/internal/apperror"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	settingsdomain "kurgu/internal/domain/settings/v1"
+	storydomain "kurgu/internal/domain/story/v1"
 	settingsrepo "kurgu/internal/repository/settings/v1"
 	settingssvc "kurgu/internal/service/settings/v1"
 )
@@ -24,6 +25,21 @@ import (
 type Settings interface {
 	CredentialStatuses(ctx context.Context) ([]settingssvc.CredentialStatus, error)
 	Profile(ctx context.Context, name string) (settingsdomain.Profile, error)
+}
+
+// Templates resolves templates (the template service): a workspace's
+// own or a built-in.
+type Templates interface {
+	Style(ctx context.Context, workspaceID, templateID uuid.UUID) (*storydomain.TemplateStyle, error)
+}
+
+// Workspace is what a workspace sets for its stories: how they are made
+// and the house style they use.
+type Workspace struct {
+	pipelinedomain.Production
+	// TemplateID is the template stories use where their pipeline or
+	// request picks none; Nil for none.
+	TemplateID uuid.UUID `json:"templateId,omitzero"`
 }
 
 // Config names the server's own settings.
@@ -62,10 +78,11 @@ type Server struct {
 
 // Service reads and writes workspace production defaults.
 type Service struct {
-	repo     settingsrepo.Repository
-	settings Settings
-	cfg      Config
-	now      func() time.Time
+	repo      settingsrepo.Repository
+	settings  Settings
+	templates Templates
+	cfg       Config
+	now       func() time.Time
 }
 
 // NewService returns a Service. settings may be nil, leaving the server's
@@ -74,25 +91,43 @@ func NewService(repo settingsrepo.Repository, settings Settings, cfg Config) *Se
 	return &Service{repo: repo, settings: settings, cfg: cfg, now: time.Now}
 }
 
+// WithTemplates makes Put check the default template.
+func (s *Service) WithTemplates(t Templates) *Service {
+	s.templates = t
+	return s
+}
+
+// key holds a workspace's defaults: the Production fields at the top
+// level, as before the default template joined them, and templateId.
 func key(ws uuid.UUID) string { return "production:" + ws.String() }
 
 // Get returns the workspace's defaults; zero when it set none.
-func (s *Service) Get(ctx context.Context, workspaceID uuid.UUID) (pipelinedomain.Production, error) {
-	var p pipelinedomain.Production
-	err := s.repo.Get(ctx, key(workspaceID), &p)
+func (s *Service) Get(ctx context.Context, workspaceID uuid.UUID) (Workspace, error) {
+	var w Workspace
+	err := s.repo.Get(ctx, key(workspaceID), &w)
 	if apperror.Is(err, apperror.NotFound) {
-		return pipelinedomain.Production{}, nil
+		return Workspace{}, nil
 	}
-	return p, err
+	return w, err
 }
 
 // Put validates and stores the workspace's defaults. Reviewing scripts
-// first is allowed here: stories without a video review as usual.
-func (s *Service) Put(ctx context.Context, workspaceID uuid.UUID, p pipelinedomain.Production, by uuid.UUID) (pipelinedomain.Production, error) {
-	if err := p.Check(); err != nil {
-		return pipelinedomain.Production{}, err
+// first is allowed here: stories without a video review as usual. The
+// default template must be a built-in or one of the workspace's.
+func (s *Service) Put(ctx context.Context, workspaceID uuid.UUID, w Workspace, by uuid.UUID) (Workspace, error) {
+	if err := w.Check(); err != nil {
+		return Workspace{}, err
 	}
-	return p, s.repo.Put(ctx, key(workspaceID), p, by, s.now())
+	if w.TemplateID != uuid.Nil && s.templates != nil {
+		_, err := s.templates.Style(ctx, workspaceID, w.TemplateID)
+		if apperror.Is(err, apperror.NotFound) {
+			return Workspace{}, apperror.New(apperror.ValidationFailed, "the chosen template does not exist")
+		}
+		if err != nil {
+			return Workspace{}, err
+		}
+	}
+	return w, s.repo.Put(ctx, key(workspaceID), w, by, s.now())
 }
 
 // Server returns the server's values.

@@ -146,7 +146,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	pipelines.WithTemplates(templates).WithVoices(voices)
 	hostProfile := func(ctx context.Context) settingsdomain.Profile { return settings.Cached(ctx, cfg.Worker.Profile) }
 	defaults := defaultssvc.NewService(settingsrepo.NewSQLite(tx), settings,
-		defaultssvc.Config{Profile: cfg.Worker.Profile, Effort: cfg.Production.ClaudeEffort})
+		defaultssvc.Config{Profile: cfg.Worker.Profile, Effort: cfg.Production.ClaudeEffort}).WithTemplates(templates)
 	production, err := newProduction(cfg, settings, hostProfile, productionsvc.Deps{
 		Defaults:  defaults,
 		SEO:       seo,

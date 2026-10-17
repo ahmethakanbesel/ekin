@@ -31,6 +31,7 @@ import (
 	storydomain "kurgu/internal/domain/story/v1"
 	voicedomain "kurgu/internal/domain/voice/v1"
 	storyrepo "kurgu/internal/repository/story/v1"
+	defaultssvc "kurgu/internal/service/defaults/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
 	librarysvc "kurgu/internal/service/library/v1"
 )
@@ -115,10 +116,10 @@ type Voices interface {
 	CheckOverride(ctx context.Context, language string, o voicedomain.Override) error
 }
 
-// Defaults reads a workspace's production defaults (the defaults
-// service).
+// Defaults reads a workspace's production defaults and default template
+// (the defaults service).
 type Defaults interface {
-	Get(ctx context.Context, workspaceID uuid.UUID) (pipelinedomain.Production, error)
+	Get(ctx context.Context, workspaceID uuid.UUID) (defaultssvc.Workspace, error)
 }
 
 // Notifier tells people that something needs them (M5: email digests).
@@ -225,7 +226,7 @@ type Deps struct {
 	// Library is optional: without it drafts compose and search as ever.
 	Library Library
 	// Defaults is optional: without it stories take only their pipeline's
-	// or request's settings over the server's.
+	// or request's settings and template over the server's.
 	Defaults Defaults
 	Log      *slog.Logger
 }

@@ -23,6 +23,7 @@ type Snapshot struct {
 	Source      SourceSnapshot
 	Schedule    *ScheduleSnapshot
 	TemplateID  uuid.UUID
+	NoTemplate  bool
 	Voice       *voicedomain.Override
 	Production  Production
 	Status      string
@@ -73,6 +74,7 @@ func (p *Pipeline) Snapshot() Snapshot {
 		Lead:        string(p.def.Outputs.lead),
 		Source:      p.def.Source.snapshot(),
 		TemplateID:  p.def.TemplateID,
+		NoTemplate:  p.def.NoTemplate,
 		Voice:       p.Voice(),
 		Production:  p.def.Production,
 		Status:      string(p.status),
@@ -189,8 +191,8 @@ func DefinitionFromSnapshot(s Snapshot) (Definition, error) {
 		}
 		schedule = &sc
 	}
-	return Definition{Name: s.Name, Language: lang, Outputs: outputs, Source: source, Schedule: schedule, TemplateID: s.TemplateID, Voice: s.Voice,
-		Production: s.Production}, nil
+	return Definition{Name: s.Name, Language: lang, Outputs: outputs, Source: source, Schedule: schedule, TemplateID: s.TemplateID,
+		NoTemplate: s.NoTemplate, Voice: s.Voice, Production: s.Production}, nil
 }
 
 func sourceFromSnapshot(s SourceSnapshot) (Source, error) {

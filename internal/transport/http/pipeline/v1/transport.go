@@ -30,9 +30,11 @@ func parseDefinition(in gen.PipelineDefinition) (pipelinedomain.Definition, erro
 		return pipelinedomain.Definition{}, err
 	}
 	def := pipelinedomain.Definition{Name: in.Name, Language: language, Outputs: outputs, Source: source}
-	if in.TemplateId != nil {
-		def.TemplateID = *in.TemplateId
+	tmpl, err := TemplateChoiceOf(in.TemplateId, in.NoTemplate)
+	if err != nil {
+		return pipelinedomain.Definition{}, err
 	}
+	def.TemplateID, def.NoTemplate = tmpl.ID, tmpl.None
 	def.Voice = voicehandler.OverrideOf(in.Voice)
 	if def.Production, err = ProductionOf(in.Production, in.SelfReviewRounds); err != nil {
 		return pipelinedomain.Definition{}, err
@@ -181,10 +183,25 @@ func definitionToWire(p *pipelinedomain.Pipeline) gen.PipelineDefinition {
 	if tid := p.TemplateID(); tid != uuid.Nil {
 		def.TemplateId = &tid
 	}
+	if p.Template().None {
+		none := true
+		def.NoTemplate = &none
+	}
 	def.Voice = voicehandler.OverrideToWire(p.Voice())
 	def.SelfReviewRounds = p.Production().SelfReview.Wire()
 	def.Production = ProductionToWire(p.Production())
 	return def
+}
+
+// TemplateChoiceOf parses a wire template choice (shared with ad-hoc
+// story requests): a template id, noTemplate, or neither for the
+// workspace's default.
+func TemplateChoiceOf(id *uuid.UUID, none *bool) (pipelinedomain.TemplateChoice, error) {
+	var tid uuid.UUID
+	if id != nil {
+		tid = *id
+	}
+	return pipelinedomain.NewTemplateChoice(tid, none != nil && *none)
 }
 
 // ProductionOf parses wire production settings and self-review rounds,

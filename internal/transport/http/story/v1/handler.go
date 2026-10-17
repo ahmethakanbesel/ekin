@@ -134,8 +134,8 @@ func (h *Handler) CreateStories(ctx context.Context, req gen.CreateStoriesReques
 		return nil, err
 	}
 	in := productionsvc.AdHocRequest{Idea: req.Body.Idea, Count: req.Body.Count, Language: lang, Outputs: outputs}
-	if req.Body.TemplateId != nil {
-		in.TemplateID = *req.Body.TemplateId
+	if in.Template, err = pipelinehandler.TemplateChoiceOf(req.Body.TemplateId, req.Body.NoTemplate); err != nil {
+		return nil, err
 	}
 	in.Voice = voicehandler.OverrideOf(req.Body.Voice)
 	if in.Production, err = pipelinehandler.ProductionOf(req.Body.Production, req.Body.SelfReviewRounds); err != nil {

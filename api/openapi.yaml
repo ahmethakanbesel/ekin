@@ -1239,9 +1239,10 @@ paths:
       operationId: getWorkspaceProduction
       tags: [production]
       description: >-
-        The workspace's production defaults, which every pipeline and ad-hoc
-        request takes where it sets nothing, and the server's values, which
-        apply where the workspace sets nothing either.
+        The workspace's production defaults and default template, which
+        every pipeline and ad-hoc request takes where it sets nothing, and
+        the server's values, which apply where the workspace sets nothing
+        either.
       responses:
         "200":
           description: The defaults and the server's values.
@@ -1253,9 +1254,10 @@ paths:
       operationId: saveWorkspaceProduction
       tags: [production]
       description: >-
-        Replaces the workspace's production defaults; an absent field goes
-        back to the server's value. Stories already planned keep the
-        settings they were planned with.
+        Replaces the workspace's production defaults and default template;
+        an absent field goes back to the server's value (no template).
+        Stories already planned keep the settings and template they were
+        planned with. An unknown templateId is a ValidationFailed.
       requestBody:
         required: true
         content:
@@ -3063,6 +3065,14 @@ components:
       properties:
         defaults: { $ref: "#/components/schemas/Production" }
         selfReviewRounds: { $ref: "#/components/schemas/SelfReviewRounds" }
+        templateId:
+          type: string
+          format: uuid
+          description: >-
+            Default house style: the template (a built-in or one of the
+            workspace's) that stories use where their pipeline or request
+            neither picks a template nor sets noTemplate. Absent: no
+            template.
 
     WorkspaceProduction:
       type: object
@@ -3070,6 +3080,13 @@ components:
       properties:
         defaults: { $ref: "#/components/schemas/Production" }
         selfReviewRounds: { $ref: "#/components/schemas/SelfReviewRounds" }
+        templateId:
+          type: string
+          format: uuid
+          description: >-
+            Default house style for stories whose pipeline or request
+            neither picks a template nor sets noTemplate; absent for none.
+            It may name a template deleted since, which then means none.
         server: { $ref: "#/components/schemas/ServerProduction" }
 
     ServerProduction:
@@ -3122,7 +3139,16 @@ components:
         templateId:
           type: string
           format: uuid
-          description: House style for the stories.
+          description: >-
+            House style for the stories. Absent: the workspace's default
+            template (Settings › Production), unless noTemplate is set.
+        noTemplate:
+          type: boolean
+          description: >-
+            True makes the stories use no template, whatever the workspace's
+            default; templateId must then be absent (both is a
+            ValidationFailed). Absent or false: templateId, else the
+            workspace's default.
         voice: { $ref: "#/components/schemas/VoiceOverride" }
         selfReviewRounds:
           type: integer
@@ -3703,7 +3729,17 @@ components:
         templateId:
           type: string
           format: uuid
-          description: House style for this pipeline's stories.
+          description: >-
+            House style for this pipeline's stories. Absent: the workspace's
+            default template (Settings › Production) at each run, unless
+            noTemplate is set.
+        noTemplate:
+          type: boolean
+          description: >-
+            True makes this pipeline's stories use no template, whatever the
+            workspace's default; templateId must then be absent (both is a
+            ValidationFailed). Absent or false: templateId, else the
+            workspace's default. Read back only when true.
         voice: { $ref: "#/components/schemas/VoiceOverride" }
         selfReviewRounds:
           type: integer

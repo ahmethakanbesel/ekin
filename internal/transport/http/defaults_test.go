@@ -4,6 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
+	templatedomain "kurgu/internal/domain/template/v1"
 	"kurgu/internal/gen"
 )
 
@@ -129,4 +132,92 @@ func TestPipelineSelfReviewRounds(t *testing.T) {
 	def := shortsDefinition()
 	def["selfReviewRounds"] = 6
 	owner.fail("POST", base, def, 400, "ValidationFailed")
+}
+
+// A workspace's default template: a built-in or one of its own, read
+// back as saved; an unknown one is refused.
+func TestWorkspaceDefaultTemplate(t *testing.T) {
+	srv := newServer(t)
+	owner := srv.signedIn(t, "owner@example.com")
+	ws := owner.workspace("acme")
+	path := "/api/v1/workspaces/" + ws.Id.String() + "/production"
+	builtin := templatedomain.BuiltinID("cosmic-flat").String()
+
+	var got gen.WorkspaceProduction
+	owner.call("PUT", path, map[string]any{"defaults": map[string]any{}, "templateId": builtin}, 200, &got)
+	if got.TemplateId == nil || got.TemplateId.String() != builtin {
+		t.Fatalf("saved template = %v", got.TemplateId)
+	}
+	var again gen.WorkspaceProduction
+	owner.call("GET", path, nil, 200, &again)
+	if again.TemplateId == nil || again.TemplateId.String() != builtin {
+		t.Fatalf("read back template = %v", again.TemplateId)
+	}
+	owner.fail("PUT", path, map[string]any{"defaults": map[string]any{}, "templateId": uuid.NewString()}, 400, "ValidationFailed")
+	owner.call("GET", path, nil, 200, &again)
+	if again.TemplateId == nil || again.TemplateId.String() != builtin {
+		t.Fatalf("a refused save changed the template: %v", again.TemplateId)
+	}
+	var cleared gen.WorkspaceProduction
+	owner.call("PUT", path, map[string]any{"defaults": map[string]any{}}, 200, &cleared)
+	if cleared.TemplateId != nil {
+		t.Fatalf("an absent template kept %v", cleared.TemplateId)
+	}
+}
+
+// A pipeline or an ad-hoc request picks a template, no template, or
+// neither (the workspace's default); both at once is refused.
+func TestNoTemplate(t *testing.T) {
+	srv := newServer(t)
+	owner := srv.signedIn(t, "owner@example.com")
+	ws := owner.workspace("acme")
+	base := "/api/v1/workspaces/" + ws.Id.String()
+	builtin := templatedomain.BuiltinID("cosmic-flat").String()
+	tests := []struct {
+		name       string
+		templateID string
+		noTemplate *bool
+		wantStatus int
+		wantNone   bool
+	}{
+		{name: "neither inherits the workspace's", wantStatus: 201},
+		{name: "a template", templateID: builtin, wantStatus: 201},
+		{name: "no template", noTemplate: ptr(true), wantStatus: 201, wantNone: true},
+		{name: "no template false is neither", noTemplate: ptr(false), wantStatus: 201},
+		{name: "both", templateID: builtin, noTemplate: ptr(true), wantStatus: 400},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			def := shortsDefinition()
+			adHoc := map[string]any{"idea": "Kaygı ile endişe farkı", "count": 1, "language": "tr",
+				"outputs": def["outputs"]}
+			for _, body := range []map[string]any{def, adHoc} {
+				if tt.templateID != "" {
+					body["templateId"] = tt.templateID
+				}
+				if tt.noTemplate != nil {
+					body["noTemplate"] = *tt.noTemplate
+				}
+			}
+			if tt.wantStatus == 400 {
+				owner.fail("POST", base+"/pipelines", def, 400, "ValidationFailed")
+				owner.fail("POST", base+"/stories", adHoc, 400, "ValidationFailed")
+				return
+			}
+			var p gen.Pipeline
+			owner.call("POST", base+"/pipelines", def, 201, &p)
+			if got := p.Definition.NoTemplate != nil && *p.Definition.NoTemplate; got != tt.wantNone {
+				t.Fatalf("noTemplate = %v, want %v", p.Definition.NoTemplate, tt.wantNone)
+			}
+			if (p.Definition.TemplateId != nil) != (tt.templateID != "") {
+				t.Fatalf("templateId = %v", p.Definition.TemplateId)
+			}
+			var again gen.Pipeline
+			owner.call("GET", base+"/pipelines/"+p.Id.String(), nil, 200, &again)
+			if got := again.Definition.NoTemplate != nil && *again.Definition.NoTemplate; got != tt.wantNone {
+				t.Fatalf("read back noTemplate = %v, want %v", again.Definition.NoTemplate, tt.wantNone)
+			}
+			owner.call("POST", base+"/stories", adHoc, 202, nil)
+		})
+	}
 }

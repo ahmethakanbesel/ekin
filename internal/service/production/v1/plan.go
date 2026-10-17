@@ -21,6 +21,7 @@ import (
 	storydomain "kurgu/internal/domain/story/v1"
 	voicedomain "kurgu/internal/domain/voice/v1"
 	storyrepo "kurgu/internal/repository/story/v1"
+	defaultssvc "kurgu/internal/service/defaults/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
 	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	"kurgu/pkg/id"
@@ -51,6 +52,7 @@ type AdHocPayload struct {
 	Lead        string                          `json:"lead,omitempty"`
 	Refs        []storydomain.Ref               `json:"refs,omitempty"`
 	TemplateID  uuid.UUID                       `json:"templateId,omitempty"`
+	NoTemplate  bool                            `json:"noTemplate,omitempty"`
 	Voice       *voicedomain.Override           `json:"voice,omitempty"`
 	// LegacySelfReview is the rounds a payload queued before
 	// self-review joined Production carries; read only.
@@ -66,8 +68,9 @@ type AdHocRequest struct {
 	Style    string
 	Outputs  pipelinedomain.Outputs
 	Refs     []storydomain.Ref
-	// TemplateID is the house style; Nil for none.
-	TemplateID uuid.UUID
+	// Template is the house style: a chosen template, none, or (zero)
+	// the workspace's default.
+	Template pipelinedomain.TemplateChoice
 	// Voice overrides the narration voice; nil for none.
 	Voice *voicedomain.Override
 	// Production overrides how the stories are made (self-review rounds
@@ -95,15 +98,18 @@ func (s *Service) QueueAdHoc(ctx context.Context, workspaceID, actorID uuid.UUID
 	p := AdHocPayload{
 		WorkspaceID: workspaceID, ActorID: actorID, Idea: strings.TrimSpace(req.Idea), Count: req.Count,
 		Language: string(req.Language), Style: strings.TrimSpace(req.Style), Lead: string(req.Outputs.Lead()), Refs: req.Refs,
-		TemplateID: req.TemplateID, Voice: req.Voice, Production: req.Production,
+		TemplateID: req.Template.ID, NoTemplate: req.Template.None, Voice: req.Voice, Production: req.Production,
+	}
+	if _, err := pipelinedomain.NewTemplateChoice(req.Template.ID, req.Template.None); err != nil {
+		return nil, err
 	}
 	if req.Voice != nil && s.voices != nil {
 		if err := s.voices.CheckOverride(ctx, string(req.Language), *req.Voice); err != nil {
 			return nil, err
 		}
 	}
-	if req.TemplateID != uuid.Nil && s.templates != nil {
-		if _, err := s.templates.Style(ctx, workspaceID, req.TemplateID); err != nil {
+	if req.Template.ID != uuid.Nil && s.templates != nil {
+		if _, err := s.templates.Style(ctx, workspaceID, req.Template.ID); err != nil {
 			return nil, apperror.New(apperror.ValidationFailed, "the chosen template does not exist")
 		}
 	}
@@ -152,15 +158,12 @@ func (s *Service) PlanAdHoc(ctx context.Context, p AdHocPayload) error {
 	if err != nil {
 		return err
 	}
-	tmpl, err := s.style(ctx, p.WorkspaceID, p.TemplateID)
-	if err != nil {
-		return err
-	}
 	own := p.Production
 	if own.SelfReview == 0 && p.LegacySelfReview > 0 {
 		own.SelfReview = pipelinedomain.SelfReviewRounds(p.LegacySelfReview)
 	}
-	prod, err := s.resolveProduction(ctx, p.WorkspaceID, own, outputs)
+	choice := pipelinedomain.TemplateChoice{ID: p.TemplateID, None: p.NoTemplate}
+	prod, tmpl, err := s.resolve(ctx, p.WorkspaceID, own, choice, outputs)
 	if err != nil {
 		return err
 	}
@@ -177,18 +180,24 @@ func (s *Service) PlanAdHoc(ctx context.Context, p AdHocPayload) error {
 	return err
 }
 
-// resolveProduction lays a pipeline's or request's settings over the
-// workspace's defaults, fitted to the outputs.
-func (s *Service) resolveProduction(ctx context.Context, workspaceID uuid.UUID, own pipelinedomain.Production,
-	outputs pipelinedomain.Outputs) (pipelinedomain.Production, error) {
-	var base pipelinedomain.Production
+// resolve lays a pipeline's or request's settings over the workspace's
+// defaults, fitted to the outputs, and picks the template its stories
+// keep: the chosen one, none, or the workspace's default. A template
+// deleted since leaves the stories without one.
+func (s *Service) resolve(ctx context.Context, workspaceID uuid.UUID, own pipelinedomain.Production,
+	choice pipelinedomain.TemplateChoice, outputs pipelinedomain.Outputs) (pipelinedomain.Production, *storydomain.TemplateStyle, error) {
+	var base defaultssvc.Workspace
 	if s.defaults != nil {
 		var err error
 		if base, err = s.defaults.Get(ctx, workspaceID); err != nil {
-			return pipelinedomain.Production{}, err
+			return pipelinedomain.Production{}, nil, err
 		}
 	}
-	return own.Over(base).For(outputs), nil
+	tmpl, err := s.style(ctx, workspaceID, choice.Over(base.TemplateID))
+	if err != nil {
+		return pipelinedomain.Production{}, nil, err
+	}
+	return own.Over(base.Production).For(outputs), tmpl, nil
 }
 
 func outputsFromPayload(p AdHocPayload) (pipelinedomain.Outputs, error) {
@@ -269,11 +278,7 @@ func (s *Service) PlanRun(ctx context.Context, run pipelinesvc.RunPayload) error
 	if err != nil {
 		return err
 	}
-	tmpl, err := s.style(ctx, p.WorkspaceID(), p.TemplateID())
-	if err != nil {
-		return err
-	}
-	prod, err := s.resolveProduction(ctx, p.WorkspaceID(), p.Production(), p.Outputs())
+	prod, tmpl, err := s.resolve(ctx, p.WorkspaceID(), p.Production(), p.Template(), p.Outputs())
 	if err != nil {
 		return err
 	}

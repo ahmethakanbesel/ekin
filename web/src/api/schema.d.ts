@@ -732,9 +732,9 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description The workspace's production defaults, which every pipeline and ad-hoc request takes where it sets nothing, and the server's values, which apply where the workspace sets nothing either. */
+        /** @description The workspace's production defaults and default template, which every pipeline and ad-hoc request takes where it sets nothing, and the server's values, which apply where the workspace sets nothing either. */
         get: operations["getWorkspaceProduction"];
-        /** @description Replaces the workspace's production defaults; an absent field goes back to the server's value. Stories already planned keep the settings they were planned with. */
+        /** @description Replaces the workspace's production defaults and default template; an absent field goes back to the server's value (no template). Stories already planned keep the settings and template they were planned with. An unknown templateId is a ValidationFailed. */
         put: operations["saveWorkspaceProduction"];
         post?: never;
         delete?: never;
@@ -1949,10 +1949,20 @@ export interface components {
         WorkspaceProductionInput: {
             defaults: components["schemas"]["Production"];
             selfReviewRounds?: components["schemas"]["SelfReviewRounds"];
+            /**
+             * Format: uuid
+             * @description Default house style: the template (a built-in or one of the workspace's) that stories use where their pipeline or request neither picks a template nor sets noTemplate. Absent: no template.
+             */
+            templateId?: string;
         };
         WorkspaceProduction: {
             defaults: components["schemas"]["Production"];
             selfReviewRounds?: components["schemas"]["SelfReviewRounds"];
+            /**
+             * Format: uuid
+             * @description Default house style for stories whose pipeline or request neither picks a template nor sets noTemplate; absent for none. It may name a template deleted since, which then means none.
+             */
+            templateId?: string;
             server: components["schemas"]["ServerProduction"];
         };
         /** @description What stories get where neither the workspace nor a pipeline or request sets a value. */
@@ -1985,9 +1995,11 @@ export interface components {
             refs?: components["schemas"]["KnowledgeRef"][];
             /**
              * Format: uuid
-             * @description House style for the stories.
+             * @description House style for the stories. Absent: the workspace's default template (Settings › Production), unless noTemplate is set.
              */
             templateId?: string;
+            /** @description True makes the stories use no template, whatever the workspace's default; templateId must then be absent (both is a ValidationFailed). Absent or false: templateId, else the workspace's default. */
+            noTemplate?: boolean;
             voice?: components["schemas"]["VoiceOverride"];
             /** @description Rounds of self-review per draft, at most: a fresh agent reviews the draft and the author fixes what it reports, until it passes or the rounds run out. 0 turns it off; omitted means the workspace default (Settings › Production), then 1. */
             selfReviewRounds?: number;
@@ -2401,9 +2413,11 @@ export interface components {
             schedule?: components["schemas"]["Schedule"];
             /**
              * Format: uuid
-             * @description House style for this pipeline's stories.
+             * @description House style for this pipeline's stories. Absent: the workspace's default template (Settings › Production) at each run, unless noTemplate is set.
              */
             templateId?: string;
+            /** @description True makes this pipeline's stories use no template, whatever the workspace's default; templateId must then be absent (both is a ValidationFailed). Absent or false: templateId, else the workspace's default. Read back only when true. */
+            noTemplate?: boolean;
             voice?: components["schemas"]["VoiceOverride"];
             /** @description Rounds of self-review per draft, at most: a fresh agent reviews the draft and the author fixes what it reports, until it passes or the rounds run out. 0 turns it off; omitted means the workspace default (Settings › Production), then 1. */
             selfReviewRounds?: number;

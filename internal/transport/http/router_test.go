@@ -114,10 +114,11 @@ func newServer(t *testing.T) *server {
 		Jobs:       jobs,
 		Knowledge:  knowledge,
 		Library:    library,
-		Defaults:   defaultssvc.NewService(settingsrepo.NewSQLite(tx), settings, defaultssvc.Config{Profile: "default", Effort: "high"}),
-		PublicURL:  publicURL,
-		UI:         fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Kurgu</title>")}},
-		Log:        slog.New(slog.NewJSONHandler(logs, nil)),
+		Defaults: defaultssvc.NewService(settingsrepo.NewSQLite(tx), settings, defaultssvc.Config{Profile: "default", Effort: "high"}).
+			WithTemplates(templates),
+		PublicURL: publicURL,
+		UI:        fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Kurgu</title>")}},
+		Log:       slog.New(slog.NewJSONHandler(logs, nil)),
 	})
 	if err != nil {
 		t.Fatal(err)

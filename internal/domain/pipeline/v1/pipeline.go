@@ -34,8 +34,12 @@ type Definition struct {
 	Outputs  Outputs
 	Source   Source
 	Schedule *Schedule
-	// TemplateID is the house style its stories use; Nil for none.
+	// TemplateID is the house style its stories use; Nil takes the
+	// workspace's default template unless NoTemplate is set.
 	TemplateID uuid.UUID
+	// NoTemplate makes its stories use no template, whatever the
+	// workspace's default; TemplateID must then be Nil.
+	NoTemplate bool
 	// Voice overrides the workspace's narration voice; nil for none.
 	Voice *voicedomain.Override
 	// Production overrides how the stories are made (self-review rounds
@@ -194,6 +198,13 @@ func (p *Pipeline) Language() Language     { return p.def.Language }
 func (p *Pipeline) Outputs() Outputs       { return p.def.Outputs }
 func (p *Pipeline) Source() Source         { return p.def.Source }
 func (p *Pipeline) TemplateID() uuid.UUID  { return p.def.TemplateID }
+
+// Template is the pipeline's template choice, to resolve over the
+// workspace's default.
+func (p *Pipeline) Template() TemplateChoice {
+	return TemplateChoice{ID: p.def.TemplateID, None: p.def.NoTemplate}
+}
+
 func (p *Pipeline) Voice() *voicedomain.Override {
 	if p.def.Voice == nil {
 		return nil
@@ -239,6 +250,9 @@ func checkDefinition(def Definition) (Definition, error) {
 		return Definition{}, apperror.New(apperror.ValidationFailed, "an article cannot be translated into its own language")
 	}
 	if err := def.Production.CheckFor(def.Outputs); err != nil {
+		return Definition{}, err
+	}
+	if _, err := NewTemplateChoice(def.TemplateID, def.NoTemplate); err != nil {
 		return Definition{}, err
 	}
 	return def, nil
