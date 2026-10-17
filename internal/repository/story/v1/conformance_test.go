@@ -236,7 +236,7 @@ func TestListPagesAndFilters(t *testing.T) {
 					}
 					f.After = next
 				}
-				if !slices.Equal(got, tt.want) && !(len(got) == 0 && len(tt.want) == 0) {
+				if !slices.Equal(got, tt.want) {
 					t.Fatalf("titles = %q, want %q", got, tt.want)
 				}
 			})
