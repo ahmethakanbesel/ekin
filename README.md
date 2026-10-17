@@ -96,7 +96,7 @@ environment variables below, which remain the fallback.
 
 | Feature | Settings |
 |---|---|
-| Authoring agent | `claude` signed in (Mac) or `CLAUDE_CODE_OAUTH_TOKEN` (server); `KURGU_CLAUDE_MODEL` |
+| Authoring agent | `claude` signed in (Mac) or `CLAUDE_CODE_OAUTH_TOKEN` (server); `KURGU_CLAUDE_MODEL`, `KURGU_CLAUDE_EFFORT` (`low` … `max`; the CLI's default when unset) |
 | Speech | `tools/speech` scripts via `uv` (weights download on first use) |
 | Stock footage | `KURGU_PEXELS_API_KEY` |
 | ElevenLabs narration | `KURGU_ELEVENLABS_API_KEY`, or System → Credentials. A hybrid worker reads only its own environment. |

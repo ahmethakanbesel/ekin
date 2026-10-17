@@ -61,6 +61,7 @@ func TestLoadRejectsBadValues(t *testing.T) {
 		{"bad concurrency", map[string]string{"KURGU_QUEUE_CONCURRENCY": "gpu=1"}, "KURGU_QUEUE_CONCURRENCY"},
 		{"bad heavy queue", map[string]string{"KURGU_HEAVY_QUEUES": "render,gpu"}, "KURGU_HEAVY_QUEUES"},
 		{"nice too low", map[string]string{"KURGU_NICE": "20"}, "KURGU_NICE"},
+		{"bad claude effort", map[string]string{"KURGU_CLAUDE_EFFORT": "turbo"}, "KURGU_CLAUDE_EFFORT"},
 		{"unknown blob driver", map[string]string{"KURGU_BLOB_DRIVER": "gcs"}, "KURGU_BLOB_DRIVER"},
 		{"s3 without bucket", map[string]string{"KURGU_BLOB_DRIVER": "s3", "KURGU_S3_ENDPOINT": "https://x"}, "KURGU_S3_BUCKET"},
 		{"relative public url", map[string]string{"KURGU_PUBLIC_URL": "kurgu.example.com"}, "KURGU_PUBLIC_URL"},

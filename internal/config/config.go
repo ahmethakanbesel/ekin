@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -66,6 +67,7 @@ type Production struct {
 	WorkDir      string
 	ClaudeBin    string
 	ClaudeModel  string
+	ClaudeEffort string // --effort for every agent run; empty for the CLI's default
 	AgentTimeout time.Duration
 	SpeechDir    string
 	SpeechModels string
@@ -224,6 +226,7 @@ func load(getenv func(string) string) (Config, error) {
 		WorkDir:       str("KURGU_WORK_DIR", filepath.Join(dataDir, "work")),
 		ClaudeBin:     str("KURGU_CLAUDE_BIN", "claude"),
 		ClaudeModel:   str("KURGU_CLAUDE_MODEL", ""),
+		ClaudeEffort:  str("KURGU_CLAUDE_EFFORT", ""),
 		AgentTimeout:  duration("KURGU_AGENT_TIMEOUT", 45*time.Minute),
 		SpeechDir:     speechDir,
 		SpeechModels:  str("KURGU_SPEECH_MODELS", ""),
@@ -262,6 +265,9 @@ func load(getenv func(string) string) (Config, error) {
 	}
 	if t := cfg.Notify.SMTPTLS; t != "starttls" && t != "tls" && t != "none" {
 		errs = append(errs, "KURGU_SMTP_TLS: must be starttls, tls or none")
+	}
+	if e := cfg.Production.ClaudeEffort; e != "" && !slices.Contains([]string{"low", "medium", "high", "xhigh", "max"}, e) {
+		errs = append(errs, "KURGU_CLAUDE_EFFORT: must be low, medium, high, xhigh or max")
 	}
 	if e := cfg.Production.Encoder; e != "libx264" && e != "h264_videotoolbox" {
 		errs = append(errs, "KURGU_RENDER_ENCODER: must be libx264 or h264_videotoolbox")

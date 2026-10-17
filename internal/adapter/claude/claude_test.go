@@ -27,7 +27,7 @@ func fake(t *testing.T, out string, code int) (string, string) {
 func TestRunSuccess(t *testing.T) {
 	bin, argsFile := fake(t, `{"type":"result","subtype":"success","is_error":false,"result":"done","session_id":"s1","total_cost_usd":0.5,"num_turns":3,"structured_output":{"ok":true}}`, 0)
 	work := t.TempDir()
-	r := &claude.Runner{Bin: bin, Model: "sonnet"}
+	r := &claude.Runner{Bin: bin, Model: "sonnet", Effort: "low"}
 	res, err := r.Run(context.Background(), claude.Request{
 		Dir: work, Prompt: "write it", Tools: []string{"Read", "Write"},
 		Allowed: []string{"Read", "Bash(/k tool:*)"}, Resume: "s0", JSONSchema: []byte(`{"type":"object"}`),
@@ -40,7 +40,7 @@ func TestRunSuccess(t *testing.T) {
 	}
 	raw, _ := os.ReadFile(argsFile)
 	args := string(raw)
-	for _, want := range []string{"-p\nwrite it\n", "--tools\nRead,Write\n", "--allowedTools\nRead,Bash(/k tool:*)\n", "--resume\ns0\n", "--model\nsonnet\n", "--setting-sources\n\n"} {
+	for _, want := range []string{"-p\nwrite it\n", "--tools\nRead,Write\n", "--allowedTools\nRead,Bash(/k tool:*)\n", "--resume\ns0\n", "--model\nsonnet\n", "--effort\nlow\n", "--setting-sources\n\n"} {
 		if !strings.Contains(args, want) {
 			t.Errorf("args missing %q:\n%s", want, args)
 		}

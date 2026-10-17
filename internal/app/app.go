@@ -124,7 +124,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 				RedirectURL: cfg.PublicURL + "/api/v1/oauth/youtube/callback"}
 		},
 		&github.Client{}, log.With(slog.String("component", "publishing")))
-	agent := dynamicAgent{settings: settings, base: claude.Runner{Bin: cfg.Production.ClaudeBin}}
+	agent := dynamicAgent{settings: settings, base: claude.Runner{Bin: cfg.Production.ClaudeBin, Effort: cfg.Production.ClaudeEffort}}
 	seo := seosvc.NewService(seorepo.NewSQLite(tx), settingsrepo.NewSQLite(tx), jobs, agent, cfg.Production.WorkDir).
 		WithResearch(openSEO(settings))
 	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, agent, cfg.Production.WorkDir)
@@ -209,7 +209,7 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, hostProfile
 		Threads: p.Threads, GPU: p.GPU,
 	}
 	if deps.Agent == nil {
-		deps.Agent = &claude.Runner{Bin: p.ClaudeBin, Model: p.ClaudeModel}
+		deps.Agent = &claude.Runner{Bin: p.ClaudeBin, Model: p.ClaudeModel, Effort: p.ClaudeEffort}
 	}
 	deps.Renderer = renderer
 	toolEnv := []string{

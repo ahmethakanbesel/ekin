@@ -20,6 +20,9 @@ import (
 type Runner struct {
 	Bin   string // default "claude"
 	Model string // optional --model
+	// Effort is the thinking effort (low, medium, high, xhigh, max);
+	// empty leaves the CLI's default.
+	Effort string
 	// Env is added to the inherited environment (CLAUDE_CODE_OAUTH_TOKEN
 	// on a server, tool locations for `kurgu tool`).
 	Env []string
@@ -112,6 +115,9 @@ func (r *Runner) Run(ctx context.Context, req Request) (Result, error) {
 	}
 	if r.Model != "" {
 		args = append(args, "--model", r.Model)
+	}
+	if r.Effort != "" {
+		args = append(args, "--effort", r.Effort)
 	}
 	if req.AppendSystemPrompt != "" {
 		args = append(args, "--append-system-prompt", req.AppendSystemPrompt)
