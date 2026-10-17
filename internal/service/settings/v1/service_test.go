@@ -28,7 +28,7 @@ func defaults() settingsdomain.Profile {
 func TestProfiles(t *testing.T) {
 	ctx := context.Background()
 	_, tx := dbtest.Open(t)
-	svc := settingssvc.NewService(settingsrepo.NewSQLite(tx), defaults(), slog.New(slog.DiscardHandler))
+	svc := settingssvc.NewService(settingsrepo.NewSQLite(tx), tx, defaults(), slog.New(slog.DiscardHandler))
 
 	p, err := svc.Profile(ctx, "vps")
 	if err != nil || p.Name != "vps" || p.Concurrency[jobdomain.QueueIO] != 2 {
@@ -121,7 +121,7 @@ func TestCredentials(t *testing.T) {
 	box, _ := secretbox.New([]byte("test-secret-0123456789"))
 	env := settingsdomain.Credentials{PexelsAPIKey: "env-pexels-key-1234", DecisionModel: "typesafe/jev-1.13"}
 	repo := settingsrepo.NewSQLite(tx)
-	svc := settingssvc.NewService(repo, defaults(), slog.New(slog.DiscardHandler)).WithCredentials(env, box)
+	svc := settingssvc.NewService(repo, tx, defaults(), slog.New(slog.DiscardHandler)).WithCredentials(env, box)
 
 	if c := svc.Credentials(ctx); c.PexelsAPIKey != "env-pexels-key-1234" {
 		t.Fatalf("env fallback = %+v", c)
@@ -180,7 +180,7 @@ func TestCredentialDefaultsAreNotReportedAsEnv(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := settingssvc.NewService(settingsrepo.NewSQLite(tx), defaults(), slog.New(slog.DiscardHandler)).
+			svc := settingssvc.NewService(settingsrepo.NewSQLite(tx), tx, defaults(), slog.New(slog.DiscardHandler)).
 				WithCredentials(tt.env, box).
 				WithCredentialDefaults(settingsdomain.Credentials{DecisionModel: "typesafe/jev-1.13", SMTPTLS: "starttls"})
 			if c := svc.Credentials(ctx); c.DecisionModel != tt.wantValue || c.SMTPTLS != "starttls" {
@@ -193,5 +193,51 @@ func TestCredentialDefaultsAreNotReportedAsEnv(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// racingSettings runs race once, right after the next Get of key.
+type racingSettings struct {
+	settingsrepo.Repository
+	key  string
+	race func()
+}
+
+func (r *racingSettings) Get(ctx context.Context, key string, v any) error {
+	err := r.Repository.Get(ctx, key, v)
+	if race := r.race; race != nil && key == r.key {
+		r.race = nil
+		race()
+	}
+	return err
+}
+
+// Two admins saving different credentials at once both keep theirs.
+func TestConcurrentCredentialPatchesBothLand(t *testing.T) {
+	ctx := context.Background()
+	_, tx := dbtest.Open(t)
+	box, _ := secretbox.New([]byte("test-secret-0123456789"))
+	repo := &racingSettings{Repository: settingsrepo.NewSQLite(tx), key: "credentials"}
+	svc := settingssvc.NewService(repo, tx, defaults(), slog.New(slog.DiscardHandler)).WithCredentials(settingsdomain.Credentials{}, box)
+	other := make(chan error, 1)
+	repo.race = func() {
+		go func() {
+			other <- svc.UpdateCredentials(context.Background(), map[string]string{"smtpPort": "587"}, id.New())
+		}()
+		select {
+		case err := <-other:
+			other <- err
+		case <-time.After(300 * time.Millisecond):
+		}
+	}
+	if err := svc.UpdateCredentials(ctx, map[string]string{"pexelsApiKey": "ui-key-abcdef9876"}, id.New()); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-other; err != nil {
+		t.Fatal(err)
+	}
+	fresh := settingssvc.NewService(settingsrepo.NewSQLite(tx), tx, defaults(), slog.New(slog.DiscardHandler)).WithCredentials(settingsdomain.Credentials{}, box)
+	if c := fresh.Credentials(ctx); c.PexelsAPIKey != "ui-key-abcdef9876" || c.Port() != 587 {
+		t.Fatalf("stored = pexels %q, port %d; want both patches", c.PexelsAPIKey, c.Port())
 	}
 }

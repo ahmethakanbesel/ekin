@@ -113,7 +113,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		_ = d.Close()
 		return nil, err
 	}
-	settings := settingssvc.NewService(settingsrepo.NewSQLite(tx), defaultProfile(cfg), log.With(slog.String("component", "settings"))).
+	settings := settingssvc.NewService(settingsrepo.NewSQLite(tx), tx, defaultProfile(cfg), log.With(slog.String("component", "settings"))).
 		WithCredentials(envCredentials(cfg), box).WithCredentialDefaults(credentialDefaults())
 	notify := notifysvc.NewService(notifyrepo.NewSQLite(tx), directory{identity, workspaceSvc}, dynamicMailer{settings}, cfg.PublicURL,
 		log.With(slog.String("component", "notify")))

@@ -31,7 +31,7 @@ func TestRemoteWorkerFollowsTheSavedProfile(t *testing.T) {
 		Name: "default", Concurrency: map[jobdomain.Queue]int{jobdomain.QueueIO: 2},
 		RenderDuty: 1, RenderChunks: 1, PreviewScale: 0.5, FinalScale: 1,
 	}
-	settings := settingssvc.NewService(settingsrepo.NewSQLite(tx), server, log)
+	settings := settingssvc.NewService(settingsrepo.NewSQLite(tx), tx, server, log)
 	const token = "a-worker-token-of-enough-length"
 	mux := http.NewServeMux()
 	workerapi.Register(mux, token, nil, nil, settings, log, func(w http.ResponseWriter, _ *http.Request, err error) {

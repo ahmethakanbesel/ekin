@@ -86,7 +86,7 @@ func newServer(t *testing.T) *server {
 	pipelines := pipelinesvc.NewService(pipelinerepo.NewSQLite(tx), workspaces, jobs, tx).WithDocuments(knowledge)
 	knowledge.WithUsage(pipelines)
 	box, _ := secretbox.New([]byte("router-test-secret-0123"))
-	settings := settingssvc.NewService(settingsrepo.NewSQLite(tx), settingsdomain.Profile{Name: "default"}, slog.New(slog.DiscardHandler)).
+	settings := settingssvc.NewService(settingsrepo.NewSQLite(tx), tx, settingsdomain.Profile{Name: "default"}, slog.New(slog.DiscardHandler)).
 		WithCredentials(settingsdomain.Credentials{DecisionModel: "typesafe/jev-1.13"}, box)
 	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, nil, t.TempDir())
 	pipelines.WithTemplates(templates)

@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"kurgu/internal/apperror"
+	"kurgu/internal/db"
 	settingsdomain "kurgu/internal/domain/settings/v1"
 	settingsrepo "kurgu/internal/repository/settings/v1"
 	jobsvc "kurgu/internal/service/job/v1"
@@ -28,6 +29,7 @@ const cacheFor = 10 * time.Second
 // Service reads and writes host profiles and credentials.
 type Service struct {
 	repo     settingsrepo.Repository
+	tx       db.TxManager
 	defaults settingsdomain.Profile // from the environment
 	log      *slog.Logger
 	now      func() time.Time
@@ -143,15 +145,20 @@ func (s *Service) UpdateCredentials(ctx context.Context, patch map[string]string
 	if s.box == nil {
 		return apperror.New(apperror.InternalError, "credentials are not enabled")
 	}
-	c, err := s.stored(ctx)
+	// Read, patch and store in one transaction: two admins saving
+	// different fields at once both keep theirs.
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		c, err := s.stored(ctx)
+		if err != nil {
+			return err
+		}
+		if err := c.Apply(patch); err != nil {
+			return err
+		}
+		raw, _ := json.Marshal(c)
+		return s.repo.Put(ctx, credentialsKey, sealedDoc{Sealed: s.box.Seal(string(raw))}, by, s.now())
+	})
 	if err != nil {
-		return err
-	}
-	if err := c.Apply(patch); err != nil {
-		return err
-	}
-	raw, _ := json.Marshal(c)
-	if err := s.repo.Put(ctx, credentialsKey, sealedDoc{Sealed: s.box.Seal(string(raw))}, by, s.now()); err != nil {
 		return err
 	}
 	s.mu.Lock()
@@ -167,8 +174,8 @@ type cachedProfile struct {
 
 // NewService returns a Service. defaults (built from KURGU_* variables)
 // apply to any profile not saved yet.
-func NewService(repo settingsrepo.Repository, defaults settingsdomain.Profile, log *slog.Logger) *Service {
-	return &Service{repo: repo, defaults: defaults, log: log, now: time.Now, cached: map[string]cachedProfile{}}
+func NewService(repo settingsrepo.Repository, tx db.TxManager, defaults settingsdomain.Profile, log *slog.Logger) *Service {
+	return &Service{repo: repo, tx: tx, defaults: defaults, log: log, now: time.Now, cached: map[string]cachedProfile{}}
 }
 
 // Profile returns the named profile, or the defaults under that name.

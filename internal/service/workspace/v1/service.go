@@ -124,25 +124,32 @@ type Change struct {
 	Location *time.Location
 }
 
-// Update applies change to the workspace.
+// Update applies change to the workspace. It reads and saves in one
+// transaction, so two people changing different fields at once both keep
+// theirs.
 func (s *Service) Update(ctx context.Context, id uuid.UUID, change Change) (*workspacedomain.Workspace, error) {
-	w, err := s.repo.Get(ctx, id)
+	var out *workspacedomain.Workspace
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		w, err := s.repo.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+		now := s.now()
+		if change.Name != nil {
+			if err := w.Rename(*change.Name, now); err != nil {
+				return err
+			}
+		}
+		if change.Location != nil {
+			if err := w.ChangeTimezone(change.Location, now); err != nil {
+				return err
+			}
+		}
+		out = w
+		return s.repo.Update(ctx, w)
+	})
 	if err != nil {
 		return nil, err
 	}
-	now := s.now()
-	if change.Name != nil {
-		if err := w.Rename(*change.Name, now); err != nil {
-			return nil, err
-		}
-	}
-	if change.Location != nil {
-		if err := w.ChangeTimezone(change.Location, now); err != nil {
-			return nil, err
-		}
-	}
-	if err := s.repo.Update(ctx, w); err != nil {
-		return nil, err
-	}
-	return w, nil
+	return out, nil
 }
