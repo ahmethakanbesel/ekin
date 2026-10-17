@@ -170,7 +170,25 @@ service tests with in-memory repos and a fixed clock, and `httptest` through the
    weight) passed to the agent with `STYLE.md`. After that, the picked thumbnail as
    the article's cover or OG image, once the marketing site's schema has a field for it.
 
-When phase 1 lands, add thumbnails to PLAN.md §1 and §6.
+Built: phases 1–3. Where the build differs from the plan above:
+
+- **Count.** `Production.Thumbnails` unset means 3; 0 turns thumbnails off; 1–4 asks for
+  exactly that many variants. Outputs without a long video ignore the setting instead
+  of refusing it, so switching a pipeline to shorts never fails to save.
+- **Picking** is allowed while the video is in review, finalizing or ready.
+  `EditedThumbnails` (not `st.Edited`) records a text edit: the deliverable goes to
+  rendering, keeps its pick, and the revision carries the video and the old images
+  until the variants are drawn again.
+- **Thumbnail-only renders** are chosen by `Revision.ThumbnailsOnly()`: the revision
+  answers thumbnail-only feedback or is a person's text edit, and the revision before
+  it has a preview. The render draws the variants alone and carries the preview,
+  poster, preview settings and length over.
+- **A failed preview thumbnail** does not fail the preview render: the video goes to
+  review with its poster frame and the failure is logged.
+- **A refused `thumbnails.set`** is added to the "published" notification rather than
+  sent as a notification of its own.
+- **Downloads** are on the review panel's Thumbnails section in every status (each
+  variant and `thumbnails.zip`); there is no separate story-page view.
 
 ## 10. Decisions
 

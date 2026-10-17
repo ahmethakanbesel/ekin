@@ -40,7 +40,7 @@ its default.
 | `kurgu all` | Both, for a single machine |
 | `kurgu migrate up\|down\|status` | Schema migrations (also applied at start unless `KURGU_MIGRATE_ON_START=false`) |
 | `kurgu user create\|reset-password` | Accounts; the password comes from `KURGU_PASSWORD`, a prompt or stdin |
-| `kurgu tool tts\|frame\|check\|stock\|music` | The authoring agent's tools (run by the agent in its work dir) |
+| `kurgu tool tts\|frame\|check\|stock\|music\|thumbnail` | The authoring agent's tools (run by the agent in its work dir) |
 
 ## Templates
 
@@ -69,6 +69,25 @@ the review panel and on the story page. They are made on request from the narrat
 timings (written words, not the pronunciation dictionary's respellings): sentences end a
 cue, and a cue holds at most two lines of 42 characters and six seconds. Upload either to
 YouTube Studio or a player as a caption track.
+
+## Thumbnails
+
+A long video gets designed thumbnails instead of a grabbed frame: the agent draws three
+variants (Production → Thumbnail variants: 0–4) with different concepts, each with at most
+five words. In review, the **Thumbnails** section shows them at full size and at a phone
+feed's size beside the title. Pick the one the video goes out with (the agent's
+recommended one otherwise), change a variant's words in place, or send notes about the
+thumbnails alone. Neither renders the video again; the variants are redrawn in seconds.
+Publishing uploads the picked variant; a channel YouTube has not verified for custom
+thumbnails keeps YouTube's frame, and the "published" notification says so. Every variant
+stays downloadable, one by one or as `thumbnails.zip`. Shorts keep a frame of the video.
+See `docs/thumbnails.md`.
+
+## Team notes
+
+Every revision can carry one team note (**History** → *Add a team note*): what was
+decided, what to remember. Editors write and change it at any status; viewers read it.
+The agent never sees it. It is not feedback; use **Request changes** for that.
 
 ## Voice
 

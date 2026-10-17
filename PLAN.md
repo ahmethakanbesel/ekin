@@ -36,6 +36,14 @@ Update this file whenever a decision below changes.
   (docs/library.md). Uploaded files are processed with ffmpeg; each pipeline or request
   picks, per kind, whether drafts compose and search fresh, use the library only, or
   look there first. Usage is counted, never limited.
+- **Thumbnails**: a long video gets 1–4 designed thumbnail variants (3 by default) drawn
+  on a page of their own; the reviewer picks one, rewords them in place or sends notes
+  on them alone, none of which renders the video again (docs/thumbnails.md). Shorts
+  keep a frame of the video.
+- **Captions**: every narrated revision offers its narration as SRT and WebVTT, made on
+  request from the word timings.
+- **Team notes**: one note per revision, written and edited by people, never read by
+  the agent.
 - **Deduplication**: every idea is compared against previous stories before production.
 - **Multi-user ready**: everything is scoped to a workspace; users have roles.
 
@@ -106,7 +114,7 @@ Container ceiling on the VPS: `cpuset: "1"`, `cpu_shares: 64`, `cpus: 0.5`,
 | seo | Opportunity (keyword, volume, difficulty, intent), SEO profile |
 | voice | Voice settings per language (engine voice, speed, pauses, seed, quality), pronunciation dictionary, per-pipeline override |
 | template | Template (house style: guide, palette, fonts, music mood); built-ins in code, workspace copies and agent drafts in the database |
-| story | Story (idea, brief, sources, target keyword) owning deliverables: video / article as lead, derived or translation; Revision; Feedback |
+| story | Story (idea, brief, sources, target keyword) owning deliverables: video / article as lead, derived or translation; Revision (thumbnail variants, team note); Feedback |
 | publishing | Channel (YouTube, sealed refresh token), BlogTarget, Publication |
 | job | Job (queue, kind, unique key, attempts, lease) |
 | settings | Host profiles (throttle) and credentials (sealed, override env) |
@@ -125,7 +133,10 @@ its translations.
    `scenes.json` + `music.js`, checking its work with `preview_frame(t)`.
 4. Validate (schema, duration vs audio, no network during render) → preview render (540p).
 5. Review → feedback → `claude --resume` on the affected stages only → new revision.
-6. Approve → final render (1080p) → publish → cross-link video ↔ article.
+   A long video's preview also draws its thumbnail variants (`thumbnail.html`); notes
+   on the thumbnails alone, or reworded variants, redraw only them.
+6. Approve → final render (1080p) → publish (with the picked thumbnail) → cross-link
+   video ↔ article.
 
 Long-form video is the same flow per chapter, concatenated with ffmpeg.
 
