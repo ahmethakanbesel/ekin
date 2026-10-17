@@ -28,6 +28,26 @@ func Register(r *jobsvc.Runner, svc *productionsvc.Service) {
 	})
 }
 
+// Watch has jobs settle a deliverable whose step job ended without
+// finishing it (svc.Abandoned). Every process that ends jobs needs it:
+// the server cancels them and serves remote workers, workers expire
+// them.
+func Watch(jobs *jobsvc.Service, svc *productionsvc.Service) {
+	for _, kind := range []string{productionsvc.KindDraft, productionsvc.KindRender, productionsvc.KindPublish} {
+		jobs.OnEnded(kind, func(ctx context.Context, j *jobdomain.Job) error {
+			var p productionsvc.DeliverablePayload
+			if err := json.Unmarshal(j.Payload(), &p); err != nil {
+				return nil // nothing to settle
+			}
+			reason := j.LastError()
+			if j.Status() == jobdomain.StatusCancelled {
+				reason = "the job was cancelled"
+			}
+			return svc.Abandoned(ctx, j.Kind(), j.ID(), p, reason)
+		})
+	}
+}
+
 func handle[P any](fn func(context.Context, P) error) jobsvc.Handler {
 	return func(ctx context.Context, j *jobdomain.Job) error {
 		var p P

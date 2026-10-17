@@ -5,6 +5,7 @@ package job
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,14 +21,39 @@ const abandonedSweepLimit = 100
 
 // Service runs job use cases.
 type Service struct {
-	repo jobrepo.Repository
-	tx   db.TxManager
-	now  func() time.Time
+	repo  jobrepo.Repository
+	tx    db.TxManager
+	now   func() time.Time
+	ended map[string]Ended
 }
+
+// Ended is told about a job that ended without succeeding: it failed
+// for good, expired or was cancelled. It runs inside the transaction
+// that ends the job, so whatever the job left waiting is settled with
+// it or not at all.
+type Ended func(ctx context.Context, j *jobdomain.Job) error
 
 // NewService returns a Service.
 func NewService(repo jobrepo.Repository, tx db.TxManager) *Service {
-	return &Service{repo: repo, tx: tx, now: time.Now}
+	return &Service{repo: repo, tx: tx, now: time.Now, ended: map[string]Ended{}}
+}
+
+// OnEnded calls fn for every job of kind that ends without succeeding.
+// Register before the service is used.
+func (s *Service) OnEnded(kind string, fn Ended) *Service {
+	s.ended[kind] = fn
+	return s
+}
+
+// settle tells the kind's Ended about j when j ended without succeeding.
+func (s *Service) settle(ctx context.Context, j *jobdomain.Job) error {
+	if st := j.Status(); st != jobdomain.StatusFailed && st != jobdomain.StatusCancelled {
+		return nil
+	}
+	if fn, ok := s.ended[j.Kind()]; ok {
+		return fn(ctx, j)
+	}
+	return nil
 }
 
 // WithClock replaces the clock, for tests.
@@ -112,32 +138,52 @@ func (s *Service) Cancel(ctx context.Context, workspaceID, jobID uuid.UUID) (*jo
 			return err
 		}
 		out = j
-		return s.repo.Save(ctx, j)
+		if err := s.repo.Save(ctx, j); err != nil {
+			return err
+		}
+		return s.settle(ctx, j)
 	})
 	return out, err
 }
 
 // ExpireAbandoned fails jobs whose worker vanished on their last attempt.
+// Each job ends in a transaction of its own, so one that cannot be
+// settled does not hold up the rest; it is tried again next sweep.
 func (s *Service) ExpireAbandoned(ctx context.Context) (int, error) {
+	jobs, err := s.repo.ListAbandoned(ctx, s.now(), abandonedSweepLimit)
+	if err != nil {
+		return 0, err
+	}
 	n := 0
-	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
-		now := s.now()
-		jobs, err := s.repo.ListAbandoned(ctx, now, abandonedSweepLimit)
-		if err != nil {
-			return err
-		}
-		for _, j := range jobs {
+	var errs []error
+	for _, candidate := range jobs {
+		expired := false
+		err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+			j, err := s.repo.GetByID(ctx, candidate.ID())
+			if err != nil {
+				return err
+			}
+			now := s.now()
+			if !j.Abandoned(now) {
+				return nil // its worker came back meanwhile
+			}
 			if err := j.Expire(now); err != nil {
 				return err
 			}
 			if err := s.repo.Save(ctx, j); err != nil {
 				return err
 			}
+			expired = true
+			return s.settle(ctx, j)
+		})
+		switch {
+		case err != nil:
+			errs = append(errs, err)
+		case expired:
 			n++
 		}
-		return nil
-	})
-	return n, err
+	}
+	return n, errors.Join(errs...)
 }
 
 // Get returns one of a workspace's jobs.
@@ -159,7 +205,10 @@ func (s *Service) mutate(ctx context.Context, jobID uuid.UUID, fn func(j *jobdom
 		if err := fn(j, s.now()); err != nil {
 			return err
 		}
-		return s.repo.Save(ctx, j)
+		if err := s.repo.Save(ctx, j); err != nil {
+			return err
+		}
+		return s.settle(ctx, j)
 	})
 }
 

@@ -279,6 +279,45 @@ func (s *Service) FailStep(ctx context.Context, p DeliverablePayload, cause erro
 	s.fail(ctx, st, d, cause)
 }
 
+// Abandoned fails the deliverable a step job was moving forward when
+// that job (jobID, of kind) ended without finishing its step: its worker
+// vanished, it was cancelled or it failed outright. Otherwise the
+// deliverable would wait for a job that is gone, and could neither be
+// retried nor deleted. Call it inside the transaction that ends the job.
+func (s *Service) Abandoned(ctx context.Context, kind string, jobID uuid.UUID, p DeliverablePayload, reason string) error {
+	var step storydomain.Step
+	switch {
+	case kind == KindDraft:
+		step = storydomain.StepDraft
+	case kind == KindRender && p.Final:
+		step = storydomain.StepFinal
+	case kind == KindRender:
+		step = storydomain.StepPreview
+	case kind == KindPublish:
+		step = storydomain.StepPublish
+	default:
+		return nil
+	}
+	failed := false
+	st, err := s.mutate(ctx, p.StoryID, func(_ context.Context, st *storydomain.Story) error {
+		var err error
+		failed, err = st.Abandon(p.DeliverableID, step, jobID, reason, s.now())
+		return err
+	})
+	if apperror.Is(err, apperror.StoryNotFound) || apperror.Is(err, apperror.NotFound) {
+		return nil // deleted meanwhile
+	}
+	if err != nil || !failed {
+		return err
+	}
+	d, _ := st.Deliverable(p.DeliverableID)
+	s.log.WarnContext(ctx, "step job ended without finishing", slog.String("deliverable", d.ID().String()),
+		slog.String("kind", kind), slog.String("reason", reason))
+	s.notify(ctx, Event{WorkspaceID: st.WorkspaceID(), StoryID: st.ID(), Kind: "failed", Title: st.Idea().Title,
+		Detail: fmt.Sprintf("%s failed: %s", d.Kind(), firstLine(reason))})
+	return nil
+}
+
 // WorkDir is the local working directory of a deliverable.
 func (s *Service) WorkDir(deliverableID uuid.UUID) string {
 	return filepath.Join(s.cfg.WorkRoot, deliverableID.String())

@@ -484,13 +484,58 @@ func (s *Story) Fail(id uuid.UUID, reason string, now time.Time) error {
 	if err != nil {
 		return err
 	}
+	d.fail(reason, now)
+	s.touch(now)
+	return nil
+}
+
+func (d *Deliverable) fail(reason string, now time.Time) {
 	if len(reason) > 4000 {
 		reason = reason[:4000]
 	}
 	d.failedStep, d.failure = d.status, reason
 	d.set(StatusFailed, now)
+}
+
+// Step is the job that moves a deliverable forward.
+type Step string
+
+const (
+	StepDraft   Step = "draft"
+	StepPreview Step = "preview" // the render for review
+	StepFinal   Step = "final"   // the render after approval
+	StepPublish Step = "publish"
+)
+
+// Abandon fails deliverable id when job, the job running step for it,
+// ended without finishing it (it expired, was cancelled or failed
+// outright), so the deliverable does not wait for a job that is gone and
+// a person can retry it. A deliverable that has moved on is left alone;
+// Abandon reports whether it failed it.
+func (s *Story) Abandon(id uuid.UUID, step Step, job uuid.UUID, reason string, now time.Time) (bool, error) {
+	d, err := s.Deliverable(id)
+	if err != nil {
+		return false, err
+	}
+	var waiting bool
+	switch step {
+	case StepDraft:
+		waiting = d.status == StatusQueued || d.status == StatusDrafting
+	case StepPreview:
+		waiting = d.status == StatusRendering
+	case StepFinal:
+		waiting = d.status == StatusFinalizing
+	case StepPublish:
+		waiting = d.status == StatusPublishing && d.publishJob == job
+	default:
+		return false, apperror.New(apperror.ValidationFailed, "unknown step "+string(step))
+	}
+	if !waiting {
+		return false, nil
+	}
+	d.fail(reason, now)
 	s.touch(now)
-	return nil
+	return true, nil
 }
 
 // Retry resumes a failed deliverable at the step that failed and returns

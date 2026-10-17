@@ -150,6 +150,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		return nil, err
 	}
 	production.AddPublisher(publishing.Video()).AddPublisher(publishing.Article())
+	productionworker.Watch(jobs, production)
 	return &App{
 		cfg:        cfg,
 		log:        log,

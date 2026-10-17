@@ -236,6 +236,79 @@ func TestStartPublishingBelongsToOneJob(t *testing.T) {
 	}
 }
 
+func TestAbandonFailsOnlyAWaitingDeliverable(t *testing.T) {
+	publisher, other := id.New(), id.New()
+	tests := []struct {
+		name     string
+		setup    func(s *story.Story, d *story.Deliverable) // from a queued video lead
+		step     story.Step
+		job      uuid.UUID
+		want     bool
+		wantStep story.Status // the step a retry resumes
+	}{
+		{name: "draft never started", step: story.StepDraft, want: true, wantStep: story.StatusQueued},
+		{name: "draft cut short", setup: drafting, step: story.StepDraft, want: true, wantStep: story.StatusDrafting},
+		{name: "preview render", setup: rendering, step: story.StepPreview, want: true, wantStep: story.StatusRendering},
+		{name: "final render", setup: finalizing, step: story.StepFinal, want: true, wantStep: story.StatusFinalizing},
+		{name: "publication", setup: publishing(publisher), step: story.StepPublish, job: publisher, want: true, wantStep: story.StatusPublishing},
+		{name: "another job's publication", setup: publishing(publisher), step: story.StepPublish, job: other},
+		{name: "draft moved on to rendering", setup: rendering, step: story.StepDraft},
+		{name: "render of a deliverable in review", setup: inReview, step: story.StepPreview},
+		{name: "preview job, final render running", setup: finalizing, step: story.StepPreview},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := newStory(t, outputs(t, true, false, ""))
+			d := s.Lead()
+			if tt.setup != nil {
+				tt.setup(s, d)
+			}
+			before := d.Status()
+			got, err := s.Abandon(d.ID(), tt.step, tt.job, "worker lease expired", now)
+			if err != nil || got != tt.want {
+				t.Fatalf("abandon = %v, %v; want %v", got, err, tt.want)
+			}
+			if !tt.want {
+				if d.Status() != before {
+					t.Fatalf("left alone, yet %s became %s", before, d.Status())
+				}
+				return
+			}
+			if d.Status() != story.StatusFailed || d.Failure() != "worker lease expired" || d.FailedStep() != tt.wantStep {
+				t.Fatalf("abandoned = %s %q at %s", d.Status(), d.Failure(), d.FailedStep())
+			}
+			if _, err := s.Retry(d.ID(), now); err != nil {
+				t.Fatalf("retry = %v", err)
+			}
+		})
+	}
+}
+
+func drafting(s *story.Story, d *story.Deliverable) { _, _ = s.StartDrafting(d.ID(), now) }
+
+func rendering(s *story.Story, d *story.Deliverable) {
+	drafting(s, d)
+	_, _ = s.Drafted(d.ID(), nil, "", "", story.Measures{}, now)
+}
+
+func inReview(s *story.Story, d *story.Deliverable) {
+	rendering(s, d)
+	_ = s.Rendered(d.ID(), 0, now)
+}
+
+func finalizing(s *story.Story, d *story.Deliverable) {
+	inReview(s, d)
+	_, _ = s.Approve(d.ID(), id.New(), id.New, now)
+}
+
+func publishing(job uuid.UUID) func(s *story.Story, d *story.Deliverable) {
+	return func(s *story.Story, d *story.Deliverable) {
+		finalizing(s, d)
+		_ = s.Rendered(d.ID(), 0, now)
+		_ = s.StartPublishing(d.ID(), job, now)
+	}
+}
+
 func TestMeasuresFollowTheLatestRevision(t *testing.T) {
 	s := newStory(t, outputs(t, true, false, pipelinedomain.KindVideo))
 	video := s.Lead()

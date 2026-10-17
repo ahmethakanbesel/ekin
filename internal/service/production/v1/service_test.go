@@ -213,7 +213,16 @@ func newFixture(t *testing.T) fixture {
 		svc.AddPublisher(fakePublisher{pipelinedomain.KindVideo}).AddPublisher(fakePublisher{pipelinedomain.KindArticle})
 		return svc
 	}
-	return fixture{voices: voices, seo: seo, svc: host(), jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID(), host: host}
+	svc := host()
+	// As transport/job/production.Watch does in the app.
+	for _, kind := range []string{production.KindDraft, production.KindRender, production.KindPublish} {
+		jobs.OnEnded(kind, func(ctx context.Context, j *jobdomain.Job) error {
+			var p production.DeliverablePayload
+			_ = json.Unmarshal(j.Payload(), &p)
+			return svc.Abandoned(ctx, j.Kind(), j.ID(), p, j.LastError())
+		})
+	}
+	return fixture{voices: voices, seo: seo, svc: svc, jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID(), host: host}
 }
 
 // drain runs queued jobs until none are left, like a worker would.
@@ -926,5 +935,79 @@ func TestCutShortPublicationResumesOnItsJob(t *testing.T) {
 	}
 	if got := f.story(t).Lead(); got.Status() != storydomain.StatusPublished || got.Publication() == nil {
 		t.Fatalf("after the retry the article is %s", got.Status())
+	}
+}
+
+// A draft whose job ends without finishing it (its worker vanished, it
+// was cancelled, or it failed outright) fails the deliverable, which a
+// person can then retry, instead of leaving it waiting for a job that is
+// gone.
+func TestDraftWhoseJobEndsCanBeRetried(t *testing.T) {
+	tests := []struct {
+		name  string
+		begun bool // the worker marked the deliverable drafting
+		end   func(f fixture, j *jobdomain.Job) error
+	}{
+		{name: "worker vanished mid-draft", begun: true, end: func(f fixture, _ *jobdomain.Job) error {
+			later := time.Now().Add(time.Hour)
+			f.jobs.WithClock(func() time.Time { return later })
+			_, err := f.jobs.ExpireAbandoned(context.Background())
+			return err
+		}},
+		{name: "cancelled before it began", end: func(f fixture, j *jobdomain.Job) error {
+			_, err := f.jobs.Cancel(context.Background(), f.ws, j.ID())
+			return err
+		}},
+		{name: "failed outright", begun: true, end: func(f fixture, j *jobdomain.Job) error {
+			return f.jobs.Complete(context.Background(), j.ID(), "test", errors.New("disk full"))
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			f := newFixture(t)
+			article, _ := pipelinedomain.NewArticleSpec(900, nil)
+			outputs, _ := pipelinedomain.NewOutputs(nil, &article, "")
+			source, _ := pipelinedomain.NewPromptSource("Kaygı üzerine.")
+			p, err := f.pipelines.Create(ctx, f.ws, pipelinedomain.Definition{Name: "A", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, _ = f.pipelines.RunNow(ctx, f.ws, p.ID(), 1)
+			run, _ := f.jobs.Claim(ctx, jobdomain.Queues, []string{pipelinesvc.KindRun}, "test", time.Minute)
+			var rp pipelinesvc.RunPayload
+			_ = json.Unmarshal(run.Payload(), &rp)
+			if err := f.svc.PlanRun(ctx, rp); err != nil {
+				t.Fatal(err)
+			}
+			_ = f.jobs.Complete(ctx, run.ID(), "test", nil)
+
+			draft, err := f.jobs.Claim(ctx, jobdomain.Queues, []string{production.KindDraft}, "test", time.Minute)
+			if err != nil || draft == nil {
+				t.Fatalf("claim draft = %v, %v", draft, err)
+			}
+			if tt.begun {
+				var dp production.DeliverablePayload
+				_ = json.Unmarshal(draft.Payload(), &dp)
+				if _, _, err := f.svc.BeginDraft(ctx, dp); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := tt.end(f, draft); err != nil {
+				t.Fatal(err)
+			}
+			st := f.story(t)
+			d := st.Lead()
+			if d.Status() != storydomain.StatusFailed {
+				t.Fatalf("after the job ended the article is %s", d.Status())
+			}
+			if _, err := f.svc.Retry(ctx, f.ws, st.ID(), d.ID()); err != nil {
+				t.Fatal(err)
+			}
+			f.drain(t)
+			if d := f.story(t).Lead(); d.Status() != storydomain.StatusReview || d.Revision() != 1 {
+				t.Fatalf("after the retry: %s r%d", d.Status(), d.Revision())
+			}
+		})
 	}
 }
