@@ -1,12 +1,17 @@
 package handler
 
 import (
+	"context"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	"kurgu/internal/apperror"
 	storydomain "kurgu/internal/domain/story/v1"
+	"kurgu/internal/gen"
+	notifysvc "kurgu/internal/service/notify/v1"
 )
 
 func TestFeedbackToWireNamesTheAuthor(t *testing.T) {
@@ -91,3 +96,57 @@ func TestFeedbackToWireKeepsEveryNote(t *testing.T) {
 		}
 	}
 }
+
+// fakeFeed records the filter it was asked for.
+type fakeFeed struct {
+	got  notifysvc.FeedFilter
+	next string
+}
+
+func (f *fakeFeed) Feed(_ context.Context, _ uuid.UUID, filter notifysvc.FeedFilter) ([]notifysvc.Notification, string, error) {
+	f.got = filter
+	return nil, f.next, nil
+}
+
+func TestListNotificationsPassesItsFilter(t *testing.T) {
+	kinds := func(k ...gen.ListNotificationsParamsKind) *[]gen.ListNotificationsParamsKind { return &k }
+	tests := []struct {
+		name    string
+		params  gen.ListNotificationsParams
+		next    string
+		want    notifysvc.FeedFilter
+		wantErr apperror.Code
+	}{
+		{name: "defaults", want: notifysvc.FeedFilter{}},
+		{name: "kinds, limit and cursor", params: gen.ListNotificationsParams{
+			Kind: kinds(gen.ListNotificationsParamsKindFailed, gen.ListNotificationsParamsKindReview), Limit: ptr(10), Cursor: ptr("c1"),
+		}, next: "c2", want: notifysvc.FeedFilter{Kinds: []string{"failed", "review"}, Limit: 10, After: "c1"}},
+		{name: "unknown kind", params: gen.ListNotificationsParams{Kind: kinds("lost")}, wantErr: apperror.ValidationFailed},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			feed := &fakeFeed{next: tt.next}
+			res, err := New(nil, feed).ListNotifications(context.Background(), gen.ListNotificationsRequestObject{
+				WorkspaceId: uuid.New(), Params: tt.params,
+			})
+			if tt.wantErr != "" {
+				if !apperror.Is(err, tt.wantErr) {
+					t.Fatalf("err = %v, want %s", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(feed.got, tt.want) {
+				t.Fatalf("filter = %+v, want %+v", feed.got, tt.want)
+			}
+			out := res.(gen.ListNotifications200JSONResponse)
+			if (out.NextCursor == nil) != (tt.next == "") || out.NextCursor != nil && *out.NextCursor != tt.next {
+				t.Fatalf("next = %v, want %q", out.NextCursor, tt.next)
+			}
+		})
+	}
+}
+
+func ptr[T any](v T) *T { return &v }
