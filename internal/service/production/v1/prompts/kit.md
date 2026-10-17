@@ -60,7 +60,8 @@ Kurgu.composition({
 
 ## Rules the check enforces
 
-- No network: every image, video and font is a local file (stock via `kurgu tool stock`).
+- No network: every image, video and font is a local file (stock via `kurgu tool stock`{{if .Media.Library}}
+  or `kurgu tool library use`{{end}}).
 - No `requestAnimationFrame`, `setInterval`, `setTimeout` loops, `Date.now()`,
   `performance.now()`, CSS animations or transitions, autoplaying media.
 - `duration` covers the narration plus at most 4 s.

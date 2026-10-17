@@ -55,7 +55,8 @@ Work in this order and do not stop until `{{.Tool}} check` passes.
    contrast and anything off-brand, then look again.
 4. **Music (optional).** `music.js` (or `music.json`) is the long video's music,
    when it had any. Keep it, adapt it to the short's mood and length, or remove
-   it; if you change `music.js`, run `{{.Tool}} music`.
+   it; if you change `music.js`, run `{{.Tool}} music`.{{if .Media.Library}} To replace it, or to add
+   stock, follow **Media sources** below.{{end}}
 5. **Metadata.** Write `metadata.json`:
    `{"title": "...", "description": "...", "tags": ["..."]}` in {{.LanguageName}}.
    Title ≤ 70 characters, specific to this moment, no clickbait, no emojis, may
@@ -67,6 +68,7 @@ Work in this order and do not stop until `{{.Tool}} check` passes.
    The check also samples the picture with the captions hidden: it fails on
    caption-only stretches and on stretches where nothing changes. Fix warnings
    too unless the brief or `STYLE.md` calls for it.
-
+{{if .Media.Library}}
+{{template "media.md" .}}{{end}}
 You may only run `{{.Tool}} ...` commands in the shell. Keep all files inside this
 directory. When done, reply with two or three sentences describing the short.

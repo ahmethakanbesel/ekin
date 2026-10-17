@@ -71,6 +71,9 @@ func (renderer) Video(_ context.Context, _, _ string, _ render.VideoOptions, out
 	return render.Meta{Duration: 21}, os.WriteFile(out, []byte("v"), 0o600)
 }
 func (renderer) Music(context.Context, string, float64, string) (float64, error) { return 0, nil }
+func (renderer) MusicTrack(_ context.Context, _ string, _, _ float64, out string) error {
+	return os.WriteFile(out, []byte("track"), 0o600)
+}
 func (renderer) Mix(_ context.Context, _, _, _ string, _ float64, out string) error {
 	return os.WriteFile(out, []byte("remote-render"), 0o600)
 }

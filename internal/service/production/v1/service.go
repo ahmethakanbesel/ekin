@@ -25,12 +25,14 @@ import (
 	"kurgu/internal/blob"
 	"kurgu/internal/db"
 	jobdomain "kurgu/internal/domain/job/v1"
+	librarydomain "kurgu/internal/domain/library/v1"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	seodomain "kurgu/internal/domain/seo/v1"
 	storydomain "kurgu/internal/domain/story/v1"
 	voicedomain "kurgu/internal/domain/voice/v1"
 	storyrepo "kurgu/internal/repository/story/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
+	librarysvc "kurgu/internal/service/library/v1"
 )
 
 // Job kinds.
@@ -58,8 +60,16 @@ type Renderer interface {
 	Probe(ctx context.Context, dir, pagePath string) (render.Meta, []string, error)
 	Video(ctx context.Context, dir, pagePath string, opts render.VideoOptions, out string) (render.Meta, error)
 	Music(ctx context.Context, dir string, duration float64, out string) (float64, error)
+	MusicTrack(ctx context.Context, in string, offset, duration float64, out string) error
 	Mix(ctx context.Context, video, narration, music string, duration float64, out string) error
 	Poster(ctx context.Context, video string, t float64, out string) error
+}
+
+// Library is the part of the media library a draft needs: what it may
+// use, and a record of what it used.
+type Library interface {
+	Catalog(ctx context.Context, workspaceID uuid.UUID, kinds []librarydomain.Kind, orientation librarydomain.Orientation) ([]librarysvc.Entry, error)
+	RecordUsage(ctx context.Context, workspaceID, storyID, deliverableID uuid.UUID, revision int, assetIDs []uuid.UUID) error
 }
 
 // Enqueuer is the part of the job service this package needs.
@@ -152,6 +162,9 @@ type Config struct {
 	// Shorts bound cutting shorts from long videos; the zero value
 	// allows none.
 	Shorts storydomain.ShortsLimits
+	// LibraryEnv lets `kurgu tool library` reach the library's files:
+	// the blob store settings, with an absolute directory.
+	LibraryEnv []string
 }
 
 // Service runs production use cases.
@@ -170,6 +183,7 @@ type Service struct {
 	seo        Opportunities
 	templates  Templates
 	voices     Voices
+	library    Library
 	publishers map[pipelinedomain.Kind]Publisher
 	log        *slog.Logger
 	now        func() time.Time
@@ -190,7 +204,9 @@ type Deps struct {
 	SEO       Opportunities
 	Templates Templates
 	Voices    Voices
-	Log       *slog.Logger
+	// Library is optional: without it drafts compose and search as ever.
+	Library Library
+	Log     *slog.Logger
 }
 
 // NewService returns a Service.
@@ -218,7 +234,7 @@ func NewService(cfg Config, d Deps) *Service {
 	return &Service{
 		cfg: cfg, stories: d.Stories, pipelines: d.Pipelines, knowledge: d.Knowledge, jobs: d.Jobs, tx: d.Tx,
 		blobs: d.Blobs, agent: d.Agent, renderer: d.Renderer, notifier: notifier, dedupe: d.Dedupe, seo: d.SEO, templates: d.Templates, voices: d.Voices,
-		publishers: map[pipelinedomain.Kind]Publisher{}, log: log, now: time.Now,
+		library: d.Library, publishers: map[pipelinedomain.Kind]Publisher{}, log: log, now: time.Now,
 	}
 }
 

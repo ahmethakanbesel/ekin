@@ -123,7 +123,10 @@ func (e Env) library(ctx context.Context, args []string, kind, query string) err
 		return err
 	}
 	if len(items) == 0 {
-		return errors.New("this video has no library to draw on; compose music and search stock as usual")
+		if _, err := os.Stat(filepath.Join(e.Dir, CatalogPath)); err != nil {
+			return errors.New("this video does not use the library; compose music and search stock as usual")
+		}
+		return errors.New("the library has nothing this video can use; compose or search where the instructions allow it, and do without where they do not")
 	}
 	if len(args) > 0 {
 		if args[0] != "use" || len(args) != 2 {
@@ -288,7 +291,9 @@ func fileSHA256(p string) string {
 
 // CheckMedia enforces the spec's media policy on dir: no Pexels stock of
 // a library-only kind, no composed score when music is library-only, one
-// music source, and a music track that is in the catalog.
+// music source, and library files that are present. A library item need
+// not be in this draft's catalog when its file is there: a short arrives
+// with its long video's media, and an item may be archived since.
 func CheckMedia(dir string, spec Spec) []string {
 	var problems []string
 	items, err := ReadCatalog(dir)
@@ -306,8 +311,8 @@ func CheckMedia(dir string, spec Spec) []string {
 		if c.Library == "" && !spec.Media.AllowsFresh(librarydomain.Kind(kind)) && referenced(dir, c.File) {
 			problems = append(problems, fmt.Sprintf("%s comes from Pexels, but this video takes %ss from the library only; replace it with kurgu tool library --type %s", c.File, kind, kind))
 		}
-		if c.Library != "" && !inCatalog(c.Library) {
-			problems = append(problems, fmt.Sprintf("%s names library item %s, which is not in this video's library", c.File, c.Library))
+		if c.Library != "" && !inCatalog(c.Library) && !exists(dir, c.File) {
+			problems = append(problems, fmt.Sprintf("%s names library item %s, which is neither in this video's library nor here", c.File, c.Library))
 		}
 	}
 	track, hasTrack, err := ReadMusicTrack(dir)
@@ -320,10 +325,7 @@ func CheckMedia(dir string, spec Spec) []string {
 	case hasTrack && hasScore:
 		problems = append(problems, "music.js and music.json both exist; keep one music source")
 	case hasTrack && err == nil:
-		if !inCatalog(track.Asset) {
-			problems = append(problems, "music.json names a track that is not in this video's library")
-		}
-		if _, err := os.Stat(filepath.Join(dir, track.File)); err != nil {
+		if !exists(dir, track.File) {
 			problems = append(problems, "music.json names "+track.File+", which is missing; run kurgu tool library use again")
 		}
 	case hasScore && !spec.Media.AllowsFresh(librarydomain.KindMusic):
@@ -333,6 +335,11 @@ func CheckMedia(dir string, spec Spec) []string {
 		}
 	}
 	return problems
+}
+
+func exists(dir, file string) bool {
+	_, err := os.Stat(filepath.Join(dir, file))
+	return err == nil
 }
 
 // referenced reports whether composition.html names file; a download the

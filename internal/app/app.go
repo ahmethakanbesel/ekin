@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"kurgu/internal/adapter/claude"
@@ -148,6 +149,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		Voices:    voices,
 		Stories:   storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs,
 		Notifier: notify,
+		Library:  library,
 		Agent:    agent,
 		Dedupe:   dynamicDedupe{settings},
 		Log:      log.With(slog.String("component", "production")),
@@ -228,7 +230,12 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, hostProfile
 	if err := os.MkdirAll(p.WorkDir, 0o750); err != nil {
 		return nil, err
 	}
+	libraryEnv, err := libraryEnv(cfg.Blob)
+	if err != nil {
+		return nil, err
+	}
 	pc := productionsvc.Config{
+		LibraryEnv: libraryEnv,
 		WorkRoot: p.WorkDir, KurguBin: bin, ToolEnv: toolEnv, AgentTimeout: p.AgentTimeout,
 		PreviewScale: p.PreviewScale, FinalScale: p.FinalScale, Shorts: cfg.Shorts,
 	}
@@ -252,6 +259,22 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, hostProfile
 		}
 	}
 	return productionsvc.NewService(pc, deps), nil
+}
+
+// libraryEnv is the blob store's settings for `kurgu tool library`, which
+// runs in a draft's working directory: a relative blob directory is made
+// absolute.
+func libraryEnv(c config.Blob) ([]string, error) {
+	if c.Driver == "s3" {
+		return []string{"KURGU_BLOB_DRIVER=s3", "KURGU_S3_ENDPOINT=" + c.S3.Endpoint, "KURGU_S3_REGION=" + c.S3.Region,
+			"KURGU_S3_BUCKET=" + c.S3.Bucket, "KURGU_S3_PREFIX=" + c.S3.Prefix, "KURGU_S3_ACCESS_KEY_ID=" + c.S3.AccessKey,
+			"KURGU_S3_SECRET_ACCESS_KEY=" + c.S3.SecretKey}, nil
+	}
+	dir, err := filepath.Abs(c.Dir)
+	if err != nil {
+		return nil, err
+	}
+	return []string{"KURGU_BLOB_DRIVER=fs", "KURGU_BLOB_DIR=" + dir}, nil
 }
 
 func openBlobs(c config.Blob) (blob.Store, error) {

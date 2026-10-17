@@ -88,26 +88,30 @@ Work in this order and do not stop until `{{.Tool}} check` passes.
    Prefer typography, shapes, diagrams and data visualisations you build in
    HTML/CSS/SVG.{{if .Long}} For a long video, organise the page as a list of scenes
    (one per chapter section) driven by `Kurgu.scenes`, show a chapter title card at
-   each chapter start, and keep each scene's DOM small so seeking stays fast.{{end}} Stock footage is optional: `{{.Tool}} stock --query "..." --type video`
+   each chapter start, and keep each scene's DOM small so seeking stays fast.{{end}}{{if .Media.Library}} Stock clips and photos are optional;
+   **Media sources** below says where they come from. Use them sparingly as
+   backgrounds, dimmed under text.{{else}} Stock footage is optional: `{{.Tool}} stock --query "..." --type video`
    (or `--type photo`) downloads into `assets/`; use it sparingly as backgrounds,
-   dimmed under text. Keep text large ({{if .Long}}≥ 44 px{{else}}≥ 56 px{{end}}) and
+   dimmed under text.{{end}} Keep text large ({{if .Long}}≥ 44 px{{else}}≥ 56 px{{end}}) and
    high-contrast; at most about 8 words on screen besides captions.
 4. **Look at it.** Run `{{.Tool}} frame --at 0.5,<a few scene midpoints>,<last second>` and
    read the JPEGs in `frames/`. Fix overlaps, clipped text, empty frames, low
    contrast and anything off-brand, then look again.
-5. **Music (optional).** If the brief does not forbid it, write `music.js`
-   (calm, quiet, under the voice) and run `{{.Tool}} music`.
+5. **Music (optional).** If the brief does not forbid it, {{if .Media.Library}}add music
+   as **Media sources** below says{{else}}write `music.js`{{end}}
+   (calm, quiet, under the voice) and run `{{.Tool}} music`{{if .Media.Library}} for a score{{end}}.
 6. **Metadata.** Write `metadata.json`:
    `{"title": "...", "description": "...", "tags": ["..."]{{if .Long}}, "chapters": [{"at": 0, "title": "..."}]{{end}}}`
    in {{.LanguageName}}. Title ≤ 70 characters, specific, no clickbait, no
    emojis{{if not .Long}}, may end with #shorts{{end}}. Description: 2–4 sentences
    about what the viewer learns{{if .HasSources}}, then the sources{{end}}, then the
-   stock credits from `assets/credits.json` if any. No `<` or `>`.
+   {{if .Media.Library}}stock and library{{else}}stock{{end}} credits from `assets/credits.json` if any. No `<` or `>`.
 7. **Check.** Run `{{.Tool}} check` and fix every error until it reports `"ok": true`.
    The check also samples the picture with the captions hidden: it fails on
    caption-only stretches and on stretches where nothing changes, and warns
    when the visuals leave the lower part of their area empty. Fix warnings too
    unless the brief or `STYLE.md` calls for it.
-
+{{if .Media.Library}}
+{{template "media.md" .}}{{end}}
 You may only run `{{.Tool}} ...` commands in the shell. Keep all files inside this
 directory. When done, reply with two or three sentences describing the video.

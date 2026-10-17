@@ -3,6 +3,7 @@ package pipeline_test
 import (
 	"testing"
 
+	library "kurgu/internal/domain/library/v1"
 	pipeline "kurgu/internal/domain/pipeline/v1"
 )
 
@@ -60,6 +61,26 @@ func TestPreviewQuality(t *testing.T) {
 			p := pipeline.Production{PreviewQuality: pipeline.PreviewQuality(tt.in)}
 			if err := p.Check(); (err != nil) != tt.wantErr {
 				t.Fatalf("Check() = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestProductionChecksMedia(t *testing.T) {
+	tests := []struct {
+		name    string
+		media   library.Policy
+		wantErr bool
+	}{
+		{name: "all fresh", media: library.Policy{}},
+		{name: "library music, mixed video", media: library.Policy{Music: library.ModeLibrary, Video: library.ModeMixed}},
+		{name: "unknown mode", media: library.Policy{Photo: "anything"}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := pipeline.Production{Media: tt.media}.Check()
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"kurgu/internal/apperror"
+	librarydomain "kurgu/internal/domain/library/v1"
 )
 
 // Production is how stories are made rather than what they are: settings
@@ -19,6 +20,9 @@ type Production struct {
 	// ReviewAt is when a person first reviews a video: the finished video
 	// (the default) or, first, its script.
 	ReviewAt ReviewPoint `json:"reviewAt,omitempty"`
+	// Media says, per kind, whether music and stock are made fresh, come
+	// from the workspace's library, or both.
+	Media librarydomain.Policy `json:"media,omitzero"`
 }
 
 // Check reports whether every setting is valid.
@@ -29,8 +33,10 @@ func (p Production) Check() error {
 	if _, err := ParsePreviewQuality(string(p.PreviewQuality)); err != nil {
 		return err
 	}
-	_, err := ParseReviewPoint(string(p.ReviewAt))
-	return err
+	if _, err := ParseReviewPoint(string(p.ReviewAt)); err != nil {
+		return err
+	}
+	return p.Media.Check()
 }
 
 // CheckFor reports whether the settings fit outputs: reviewing scripts

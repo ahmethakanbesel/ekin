@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"math"
@@ -25,6 +26,7 @@ import (
 	"kurgu/internal/adapter/render"
 	"kurgu/internal/agenttool"
 	"kurgu/internal/blob"
+	"kurgu/internal/db"
 	"kurgu/internal/db/dbtest"
 	jobdomain "kurgu/internal/domain/job/v1"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
@@ -74,6 +76,10 @@ type fakeAgent struct {
 	// clipDirs holds, per short cut from a long video, the files its
 	// draft found in place (path → content).
 	clipDirs []map[string]string
+	// useLibrary, when set, has video drafts take these library assets
+	// with kurgu tool library, fetching through library.
+	useLibrary []string
+	library    agenttool.Fetcher
 	// moveClip, when set, has the next short's draft move its cut to
 	// these window sentences with kurgu tool clip.
 	moveClip []string
@@ -180,6 +186,9 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 		write("narration/speech.wav", "RIFF")
 		write("composition.html", `<script src="/kit/kurgu.js"></script>`)
 		write("metadata.json", `{"title":"Kaygı nedir?","description":"Kısa açıklama.","tags":["kaygı"]}`)
+		if err := a.takeFromLibrary(ctx, req); err != nil {
+			return claude.Result{}, err
+		}
 	default:
 		body := strings.Repeat("Kaygı ile ilgili açıklayıcı bir cümle. ", 150)
 		lead, _ := os.ReadFile(filepath.Join(req.Dir, "sources", "lead.md"))
@@ -191,10 +200,36 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 	return claude.Result{SessionID: "session-" + filepath.Base(req.Dir), Text: "done"}, nil
 }
 
+// takeFromLibrary runs kurgu tool library use for each of useLibrary,
+// with the tool spec the draft was given.
+func (a *fakeAgent) takeFromLibrary(ctx context.Context, req claude.Request) error {
+	env := agenttool.Env{Dir: req.Dir, Stdout: io.Discard, Stderr: io.Discard, Library: a.library}
+	for _, kv := range req.Env {
+		if raw, ok := strings.CutPrefix(kv, "KURGU_TOOL_SPEC="); ok {
+			_ = json.Unmarshal([]byte(raw), &env.Spec)
+		}
+	}
+	for _, assetID := range a.useLibrary {
+		if err := agenttool.Run(ctx, env, []string{"library", "use", assetID}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // fakeRenderer writes placeholder files instead of driving Chrome.
 // fakeRenderer writes stand-in files; with scales set it records the
 // scale of every video it renders.
-type fakeRenderer struct{ scales *scaleLog }
+type fakeRenderer struct {
+	scales *scaleLog
+	tracks *trackLog
+}
+
+// trackLog records the library tracks cut for a render.
+type trackLog struct {
+	mu    sync.Mutex
+	calls []string
+}
 
 type scaleLog struct {
 	mu     sync.Mutex
@@ -230,6 +265,14 @@ func (r fakeRenderer) Video(_ context.Context, dir, _ string, opts render.VideoO
 	return render.Meta{Width: 1080, Height: 1920, FPS: 30, Duration: compositionLength(dir)}, os.WriteFile(out, []byte("video"), 0o600)
 }
 func (fakeRenderer) Music(context.Context, string, float64, string) (float64, error) { return 0.5, nil }
+func (r fakeRenderer) MusicTrack(_ context.Context, in string, offset, duration float64, out string) error {
+	if r.tracks != nil {
+		r.tracks.mu.Lock()
+		r.tracks.calls = append(r.tracks.calls, fmt.Sprintf("%s@%g+%g", filepath.Base(in), offset, duration))
+		r.tracks.mu.Unlock()
+	}
+	return os.WriteFile(out, []byte("track"), 0o600)
+}
 func (fakeRenderer) Mix(_ context.Context, _, _, _ string, duration float64, out string) error {
 	return os.WriteFile(out, tinyMP4(duration), 0o600)
 }
@@ -280,6 +323,7 @@ type fixture struct {
 	// hostWith is host with some of its dependencies swapped.
 	hostWith func(adjust func(*production.Deps)) *production.Service
 	blobs    blob.Store
+	tx       *db.SQLiteTxManager
 }
 
 func newFixture(t *testing.T) fixture {
@@ -324,7 +368,7 @@ func newFixture(t *testing.T) fixture {
 		})
 	}
 	return fixture{voices: voices, seo: seo, svc: svc, jobs: jobs, pipelines: pipelines, agent: agent, ws: w.ID(), host: host,
-		blobs: blobs, hostWith: hostWith}
+		blobs: blobs, hostWith: hostWith, tx: tx}
 }
 
 // drain runs queued jobs until none are left, like a worker would.

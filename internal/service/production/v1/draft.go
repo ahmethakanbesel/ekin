@@ -21,6 +21,7 @@ import (
 	"kurgu/internal/agenttool"
 	"kurgu/internal/apperror"
 	jobdomain "kurgu/internal/domain/job/v1"
+	librarydomain "kurgu/internal/domain/library/v1"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	storydomain "kurgu/internal/domain/story/v1"
 	voicedomain "kurgu/internal/domain/voice/v1"
@@ -302,6 +303,7 @@ func (s *Service) FinishDraft(ctx context.Context, task DraftTask, dir string, r
 	if err != nil {
 		return err
 	}
+	s.recordUsage(ctx, st, p.DeliverableID, rev.Number, dir)
 	if d, _ := st.Deliverable(p.DeliverableID); d.Status() == storydomain.StatusReview {
 		detail := fmt.Sprintf("%s revision %d is ready for review", d.Kind(), rev.Number)
 		if rev.Stage == storydomain.StageScript {
@@ -421,6 +423,9 @@ func (s *Service) toolEnv(ctx context.Context, spec agenttool.Spec) []string {
 	env := append(append([]string(nil), s.cfg.ToolEnv...), "KURGU_TOOL_SPEC="+string(raw))
 	if s.cfg.ExtraEnv != nil {
 		env = append(env, s.cfg.ExtraEnv(ctx)...)
+	}
+	if spec.Media.LibraryKinds() != nil {
+		env = append(env, s.cfg.LibraryEnv...)
 	}
 	if dir := s.binDir(ctx); dir != "" {
 		// Both: the PATH for the agent's process, and an env file Claude Code
@@ -565,6 +570,11 @@ func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydo
 		t.targetWords = int(v.Duration().Seconds() * wps)
 		data["TargetWords"] = t.targetWords
 		data["ScriptOnly"], data["FromScript"] = stage == StageScript, stage == StageFromScript
+		t.spec.Media = st.Brief().Production.Media
+		data["Media"] = mediaModes(t.spec.Media)
+		if err := s.writeCatalog(ctx, st, t.spec.Media, librarydomain.OrientationOf(w, h), dir); err != nil {
+			return t, err
+		}
 		page := "video.md"
 		if t.clip != nil {
 			// The narration is the long video's slice: the composition
@@ -610,6 +620,82 @@ func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydo
 		}
 	}
 	return t, write("BRIEF.md", s.brief(st, d, t, source))
+}
+
+// mediaSource is one kind's source as the prompts name it.
+type mediaSource struct {
+	Label, Kind, Mode string // Mode: fresh, library or mixed
+}
+
+// mediaModes describes the media policy for the prompts: whether any kind
+// comes from the library, and each kind's source.
+func mediaModes(p librarydomain.Policy) map[string]any {
+	return map[string]any{
+		"Library": p.LibraryKinds() != nil,
+		"Sources": []mediaSource{
+			{"Video clips", "video", p.Video.String()},
+			{"Photos", "photo", p.Photo.String()},
+			{"Music", "music", p.Music.String()},
+		},
+	}
+}
+
+// writeCatalog lists in the work dir the library assets the draft may use
+// (agenttool.CatalogPath), or removes the list when it may use none.
+func (s *Service) writeCatalog(ctx context.Context, st *storydomain.Story, policy librarydomain.Policy,
+	orientation librarydomain.Orientation, dir string) error {
+	p := filepath.Join(dir, agenttool.CatalogPath)
+	kinds := policy.LibraryKinds()
+	if kinds == nil || s.library == nil {
+		_ = os.Remove(p)
+		return nil
+	}
+	entries, err := s.library.Catalog(ctx, st.WorkspaceID(), kinds, orientation)
+	if err != nil {
+		return err
+	}
+	items := make([]agenttool.CatalogItem, 0, len(entries))
+	for _, e := range entries {
+		a := e.Asset
+		key, ok := a.Key(librarydomain.FileMain)
+		if !ok {
+			continue
+		}
+		items = append(items, agenttool.CatalogItem{
+			ID: a.ID().String(), Kind: string(a.Kind()), Title: a.Title(), Description: a.Description(), Tags: a.Tags(),
+			Mood: a.Mood(), Tempo: a.Tempo(), Seconds: a.Duration().Seconds(), Width: a.Width(), Height: a.Height(),
+			Uses: e.Uses, Format: a.Format(), Key: key, SHA256: a.SHA256(), Credit: a.Credit(),
+		})
+	}
+	raw, err := json.MarshalIndent(items, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(p), 0o750); err != nil {
+		return err
+	}
+	return os.WriteFile(p, raw, 0o600)
+}
+
+// recordUsage notes the library assets a finished revision uses. Usage
+// is a count for people browsing the library; failing to note it does
+// not fail the draft.
+func (s *Service) recordUsage(ctx context.Context, st *storydomain.Story, deliverableID uuid.UUID, revision int, dir string) {
+	if s.library == nil {
+		return
+	}
+	var ids []uuid.UUID
+	for _, raw := range agenttool.LibraryIDs(dir) {
+		if id, err := uuid.Parse(raw); err == nil {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	if err := s.library.RecordUsage(ctx, st.WorkspaceID(), st.ID(), deliverableID, revision, ids); err != nil {
+		s.log.WarnContext(ctx, "cannot record library usage", slog.Any("error", err))
+	}
 }
 
 type sourceMaterial struct {

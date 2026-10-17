@@ -208,10 +208,17 @@ func TestCheckMedia(t *testing.T) {
 			"composition.html":    `<img src="assets/pexels-photo-9.jpg">`,
 			"assets/credits.json": credits(agenttool.Credit{File: "assets/pexels-photo-9.jpg", Source: "Pexels", Kind: "photo"}),
 		}, ""},
-		{"library item not in catalog", libraryOnly, map[string]string{
+		{"library item neither in catalog nor here", libraryOnly, map[string]string{
 			"composition.html":    `<video src="assets/library-zz.webm">`,
 			"assets/credits.json": credits(agenttool.Credit{File: "assets/library-zz.webm", Source: "Library", Kind: "video", Library: "zz"}),
-		}, "not in this video's library"},
+		}, "neither in this video's library nor here"},
+		{"library item carried over from a long video", libraryOnly, map[string]string{
+			"composition.html":       `<video src="assets/library-zz.webm">`,
+			"assets/library-zz.webm": "clip",
+			"assets/credits.json":    credits(agenttool.Credit{File: "assets/library-zz.webm", Source: "Library", Kind: "video", Library: "zz"}),
+			"music.json":             `{"asset":"m9","file":"assets/library-m9.opus"}`,
+			"assets/library-m9.opus": "a",
+		}, ""},
 		{"composed score in library mode", libraryOnly, map[string]string{"music.js": "mine"}, "music from the library only"},
 		{"library score in library mode", libraryOnly, map[string]string{"music.js": "k/m2"}, ""},
 		{"composed score in mixed mode", librarydomain.Policy{Music: librarydomain.ModeMixed}, map[string]string{"music.js": "mine"}, ""},

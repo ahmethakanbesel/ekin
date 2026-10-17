@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"kurgu/internal/adapter/render"
+	"kurgu/internal/agenttool"
 	"kurgu/internal/apperror"
 	jobdomain "kurgu/internal/domain/job/v1"
 	storydomain "kurgu/internal/domain/story/v1"
@@ -99,12 +100,9 @@ func (s *Service) RunRender(ctx context.Context, task RenderTask, dir, outDir st
 	if err != nil {
 		return nil, err
 	}
-	music := ""
-	if _, err := os.Stat(filepath.Join(dir, "music.js")); err == nil {
-		music = filepath.Join(outDir, "music.wav")
-		if _, err := s.renderer.Music(ctx, dir, meta.Duration, music); err != nil {
-			return nil, err
-		}
+	music, err := s.renderMusic(ctx, dir, outDir, meta.Duration)
+	if err != nil {
+		return nil, err
 	}
 	out := filepath.Join(outDir, name)
 	if err := s.renderer.Mix(ctx, silent, filepath.Join(dir, "narration", "speech.wav"), music, meta.Duration, out); err != nil {
@@ -526,4 +524,19 @@ func (s *Service) Artifact(ctx context.Context, workspaceID, storyID, deliverabl
 		return nil, 0, err
 	}
 	return rc, info.Size, nil
+}
+
+// renderMusic renders the video's music to a WAV in outDir: the composed
+// music.js, or the library track music.json names. "" when it has none.
+func (s *Service) renderMusic(ctx context.Context, dir, outDir string, duration float64) (string, error) {
+	out := filepath.Join(outDir, "music.wav")
+	if _, err := os.Stat(filepath.Join(dir, "music.js")); err == nil {
+		_, err := s.renderer.Music(ctx, dir, duration, out)
+		return out, err
+	}
+	track, ok, err := agenttool.ReadMusicTrack(dir)
+	if err != nil || !ok {
+		return "", err
+	}
+	return out, s.renderer.MusicTrack(ctx, filepath.Join(dir, track.File), track.Offset, duration, out)
 }
