@@ -365,3 +365,53 @@ func TestAdoptOrphans(t *testing.T) {
 		t.Fatalf("ada's workspaces = %+v", entries)
 	}
 }
+
+// racingUsers runs race once, right after the next CountUsers.
+type racingUsers struct {
+	identityrepo.Repository
+	race func()
+}
+
+func (r *racingUsers) CountUsers(ctx context.Context) (int, error) {
+	n, err := r.Repository.CountUsers(ctx)
+	if race := r.race; race != nil {
+		r.race = nil
+		race()
+	}
+	return n, err
+}
+
+// Of two first accounts created at once, only one runs the instance.
+func TestOnlyOneFirstAccountIsAdmin(t *testing.T) {
+	ctx := context.Background()
+	_, tx := dbtest.Open(t)
+	repo := &racingUsers{Repository: identityrepo.NewSQLite(tx)}
+	hasher := password.New(password.Params{Memory: 64, Time: 1, Threads: 1})
+	svc := identitysvc.NewService(repo, workspacerepo.NewSQLite(tx), tx, hasher)
+	other := make(chan *identitydomain.User, 1)
+	repo.race = func() {
+		go func() {
+			u, err := svc.CreateUser(context.Background(), email(t, "b@example.com"), "B", pw(t, "password-b-1234"))
+			if err != nil {
+				t.Error(err)
+			}
+			other <- u
+		}()
+		select {
+		case u := <-other:
+			other <- u
+		case <-time.After(300 * time.Millisecond):
+		}
+	}
+	a, err := svc.CreateUser(ctx, email(t, "a@example.com"), "A", pw(t, "password-a-1234"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := <-other
+	if b == nil {
+		t.Fatal("the second account was not created")
+	}
+	if a.IsAdmin() == b.IsAdmin() {
+		t.Fatalf("admins: a %v, b %v; want exactly one", a.IsAdmin(), b.IsAdmin())
+	}
+}

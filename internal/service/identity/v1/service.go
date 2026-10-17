@@ -83,14 +83,19 @@ func (s *Service) CreateUser(ctx context.Context, email identitydomain.Email, na
 	if err != nil {
 		return nil, err
 	}
-	n, err := s.repo.CountUsers(ctx)
+	// Count and create in one transaction: of two first accounts created
+	// at once, only one becomes the admin.
+	err = s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		n, err := s.repo.CountUsers(ctx)
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			u.MakeAdmin(s.now()) // the first account runs the instance
+		}
+		return s.repo.CreateUser(ctx, u)
+	})
 	if err != nil {
-		return nil, err
-	}
-	if n == 0 {
-		u.MakeAdmin(s.now()) // the first account runs the instance
-	}
-	if err := s.repo.CreateUser(ctx, u); err != nil {
 		return nil, err
 	}
 	return u, nil
