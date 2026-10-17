@@ -1113,7 +1113,7 @@ func TestKeywordTakenMeanwhileGetsNoSecondStory(t *testing.T) {
 	if list, _, _ := f.svc.List(ctx, f.ws, production.Filter{}); len(list) != 0 {
 		t.Fatalf("%d stories for a keyword another run took", len(list))
 	}
-	used, _ := f.seo.List(ctx, f.ws, seodomain.StatusUsed)
+	used, _, _ := f.seo.List(ctx, f.ws, seosvc.Filter{Statuses: []seodomain.Status{seodomain.StatusUsed}})
 	if len(used) != 1 || used[0].StoryID != other {
 		t.Fatalf("used = %+v", used)
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	seodomain "kurgu/internal/domain/seo/v1"
+	"kurgu/internal/apperror"
 	"kurgu/internal/gen"
 	seosvc "kurgu/internal/service/seo/v1"
 	jobhandler "kurgu/internal/transport/http/job/v1"
@@ -47,17 +48,41 @@ func (h *Handler) SaveSEOProfile(ctx context.Context, req gen.SaveSEOProfileRequ
 }
 
 func (h *Handler) ListOpportunities(ctx context.Context, req gen.ListOpportunitiesRequestObject) (gen.ListOpportunitiesResponseObject, error) {
-	var status seodomain.Status
+	var f seosvc.Filter
 	if req.Params.Status != nil {
-		status = seodomain.Status(*req.Params.Status)
+		for _, raw := range *req.Params.Status {
+			st, err := seodomain.ParseStatus(string(raw))
+			if err != nil {
+				return nil, err
+			}
+			f.Statuses = append(f.Statuses, st)
+		}
 	}
-	list, err := h.svc.List(ctx, req.WorkspaceId, status)
+	if req.Params.Language != nil {
+		if !req.Params.Language.Valid() {
+			return nil, apperror.New(apperror.ValidationFailed, "language must be tr or en")
+		}
+		f.Language = string(*req.Params.Language)
+	}
+	if req.Params.Q != nil {
+		f.Query = *req.Params.Q
+	}
+	if req.Params.Limit != nil {
+		f.Limit = *req.Params.Limit
+	}
+	if req.Params.Cursor != nil {
+		f.After = *req.Params.Cursor
+	}
+	list, next, err := h.svc.List(ctx, req.WorkspaceId, f)
 	if err != nil {
 		return nil, err
 	}
 	out := gen.ListOpportunities200JSONResponse{Opportunities: []gen.Opportunity{}}
 	for _, o := range list {
 		out.Opportunities = append(out.Opportunities, toWire(o))
+	}
+	if next != "" {
+		out.NextCursor = &next
 	}
 	return out, nil
 }

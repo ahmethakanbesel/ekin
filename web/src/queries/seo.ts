@@ -48,7 +48,7 @@ export const opportunitiesQuery = (workspaceId: string, status: OpportunityStatu
         api.GET("/workspaces/{workspaceId}/opportunities", {
           params: {
             path: { workspaceId },
-            query: { status: status === "all" ? undefined : status },
+            query: { status: status === "all" ? undefined : [status] },
           },
           signal,
         })

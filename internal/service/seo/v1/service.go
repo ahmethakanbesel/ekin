@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -116,23 +115,13 @@ func (s *Service) Import(ctx context.Context, workspaceID uuid.UUID, items []Ite
 	return added, nil
 }
 
-// List returns the pool, best open opportunities first.
-func (s *Service) List(ctx context.Context, workspaceID uuid.UUID, status seodomain.Status) ([]seodomain.Opportunity, error) {
-	list, err := s.repo.List(ctx, workspaceID, status)
-	if err != nil {
-		return nil, err
-	}
-	slices.SortStableFunc(list, func(a, b seodomain.Opportunity) int {
-		if a.Status != b.Status {
-			return cmp.Compare(rank(a.Status), rank(b.Status))
-		}
-		return cmp.Compare(b.Score(), a.Score())
-	})
-	return list, nil
-}
+// Filter narrows a listing of the pool and picks its page.
+type Filter = seorepo.Filter
 
-func rank(s seodomain.Status) int {
-	return map[seodomain.Status]int{seodomain.StatusOpen: 0, seodomain.StatusUsed: 1, seodomain.StatusDismissed: 2}[s]
+// List returns a page of the pool, open first, best first, and the cursor
+// of the next page ("" after the last).
+func (s *Service) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]seodomain.Opportunity, string, error) {
+	return s.repo.List(ctx, workspaceID, f)
 }
 
 // SetStatus dismisses or reopens an opportunity. One that a run took
@@ -156,20 +145,11 @@ func (s *Service) SetStatus(ctx context.Context, workspaceID, id uuid.UUID, stat
 
 // Next returns up to n open opportunities in language, best first.
 func (s *Service) Next(ctx context.Context, workspaceID uuid.UUID, language string, n int) ([]seodomain.Opportunity, error) {
-	open, err := s.List(ctx, workspaceID, seodomain.StatusOpen)
-	if err != nil {
-		return nil, err
+	if n <= 0 {
+		return nil, nil
 	}
-	var out []seodomain.Opportunity
-	for _, o := range open {
-		if o.Language == language {
-			out = append(out, o)
-			if len(out) == n {
-				break
-			}
-		}
-	}
-	return out, nil
+	open, _, err := s.repo.List(ctx, workspaceID, Filter{Statuses: []seodomain.Status{seodomain.StatusOpen}, Language: language, Limit: n})
+	return open, err
 }
 
 // Claim gives an open opportunity to a story and reports whether it did:
@@ -296,17 +276,11 @@ func (s *Service) Refresh(ctx context.Context, p RefreshPayload) error {
 	if r := s.direct(ctx); r != nil {
 		return s.refreshDirect(ctx, r, prof, p)
 	}
-	existing, err := s.repo.List(ctx, p.WorkspaceID, "")
+	known, err := s.repo.Keywords(ctx, p.WorkspaceID)
 	if err != nil {
 		return err
 	}
-	var known []string
-	for i, o := range existing {
-		if i == 200 {
-			break
-		}
-		known = append(known, o.Keyword)
-	}
+	known = known[:min(len(known), 200)]
 	prompt := fmt.Sprintf(`Find %d keyword opportunities with the OpenSEO tools for content in %s for searchers in %s.
 Site: %s
 Topics: %s
@@ -394,13 +368,9 @@ func (s *Service) refreshDirect(ctx context.Context, r Research, prof seodomain.
 	if len(cands) == 0 && len(failures) > 0 {
 		return jobdomain.Permanent(errors.New("OpenSEO research failed: " + strings.Join(failures, "; ")))
 	}
-	existing, err := s.repo.List(ctx, p.WorkspaceID, "")
+	known, err := s.repo.Keywords(ctx, p.WorkspaceID)
 	if err != nil {
 		return err
-	}
-	known := make([]string, 0, len(existing))
-	for _, o := range existing {
-		known = append(known, o.Keyword)
 	}
 	brand, _, _ := strings.Cut(prof.Domain, ".")
 	terms := append(prof.SeedList(), strings.FieldsFunc(prof.Topics, func(r rune) bool { return r == ',' || r == '\n' || r == ';' })...)

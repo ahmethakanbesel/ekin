@@ -2971,7 +2971,14 @@ export interface operations {
     listOpportunities: {
         parameters: {
             query?: {
-                status?: components["schemas"]["OpportunityStatus"];
+                status?: components["schemas"]["OpportunityStatus"][];
+                language?: components["schemas"]["Language"];
+                /** @description Keep keywords containing this text, compared ignoring case, accents and the Turkish dotted and dotless i. */
+                q?: string;
+                /** @description Opportunities per page; 1000 when omitted. */
+                limit?: number;
+                /** @description Continue a listing after the page that returned this `nextCursor`. Keyset paging: rows added meanwhile are neither skipped nor repeated. */
+                cursor?: components["parameters"]["Cursor"];
             };
             header?: never;
             path: {
@@ -2981,7 +2988,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Open first, best first. */
+            /** @description A page of the pool, open first then used then dismissed, best first within each. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2989,6 +2996,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         opportunities: components["schemas"]["Opportunity"][];
+                        /** @description Pass as `cursor` for the next page; absent after the last. */
+                        nextCursor?: string;
                     };
                 };
             };

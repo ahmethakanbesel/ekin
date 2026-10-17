@@ -28,6 +28,26 @@ const (
 	StatusDismissed Status = "dismissed"
 )
 
+// ParseStatus parses an opportunity status.
+func ParseStatus(s string) (Status, error) {
+	switch st := Status(s); st {
+	case StatusOpen, StatusUsed, StatusDismissed:
+		return st, nil
+	}
+	return "", apperror.New(apperror.ValidationFailed, "status must be open, used or dismissed")
+}
+
+// Rank orders the pool by status: open first, then used, then dismissed.
+func (s Status) Rank() int {
+	switch s {
+	case StatusOpen:
+		return 0
+	case StatusUsed:
+		return 1
+	}
+	return 2
+}
+
 // Opportunity is one keyword to target.
 type Opportunity struct {
 	ID          uuid.UUID

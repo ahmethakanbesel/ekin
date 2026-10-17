@@ -864,10 +864,26 @@ paths:
       parameters:
         - name: status
           in: query
-          schema: { $ref: "#/components/schemas/OpportunityStatus" }
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: "#/components/schemas/OpportunityStatus" }
+        - name: language
+          in: query
+          schema: { $ref: "#/components/schemas/Language" }
+        - name: q
+          in: query
+          description: Keep keywords containing this text, compared ignoring case, accents and the Turkish dotted and dotless i.
+          schema: { type: string, maxLength: 200 }
+        - name: limit
+          in: query
+          description: Opportunities per page; 1000 when omitted.
+          schema: { type: integer, minimum: 1, maximum: 1000 }
+        - $ref: "#/components/parameters/Cursor"
       responses:
         "200":
-          description: Open first, best first.
+          description: A page of the pool, open first then used then dismissed, best first within each.
           content:
             application/json:
               schema:
@@ -877,6 +893,9 @@ paths:
                   opportunities:
                     type: array
                     items: { $ref: "#/components/schemas/Opportunity" }
+                  nextCursor:
+                    type: string
+                    description: Pass as `cursor` for the next page; absent after the last.
         default: { $ref: "#/components/responses/Error" }
     post:
       operationId: importOpportunities

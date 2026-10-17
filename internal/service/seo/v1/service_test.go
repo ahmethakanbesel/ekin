@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -120,7 +121,7 @@ func TestDirectRefresh(t *testing.T) {
 		strings.Join(research.domains, ",") != "example.com" {
 		t.Fatalf("calls: seeds %v market %+v domains %v", research.seeds, research.market, research.domains)
 	}
-	open, _ := svc.List(ctx, w.ID(), seodomain.StatusOpen)
+	open, _, _ := svc.List(ctx, w.ID(), seosvc.Filter{Statuses: []seodomain.Status{seodomain.StatusOpen}})
 	var got []string
 	for _, o := range open {
 		if o.Source == "openseo" {
@@ -132,5 +133,32 @@ func TestDirectRefresh(t *testing.T) {
 	}
 	if len(got) != 2 || !strings.Contains(strings.Join(got, ","), "kaygı bozukluğu belirtileri") || !strings.Contains(strings.Join(got, ","), "ruminasyon nedir") {
 		t.Fatalf("imported %v (brand, known and too-hard keywords must be skipped)", got)
+	}
+}
+
+// The best open keyword is found however many newer ones came after it
+// (the pool was cut at the newest 1000 and then ranked).
+func TestNextFindsTheBestOfAPoolOfAnySize(t *testing.T) {
+	ctx := context.Background()
+	_, tx := dbtest.Open(t)
+	w, _ := workspacedomain.New(id.New(), "ws", time.UTC, time.Now())
+	_ = workspacerepo.NewSQLite(tx).Create(ctx, w)
+	svc := seosvc.NewService(seorepo.NewSQLite(tx), settingsrepo.NewSQLite(tx), nil, &noAgent{}, t.TempDir())
+	if _, err := svc.Import(ctx, w.ID(), []seosvc.Item{{Keyword: "kaygı nedir", Language: "tr", Volume: 9000, Difficulty: 10}}, "manual"); err != nil {
+		t.Fatal(err)
+	}
+	// 1200 newer, worse keywords.
+	for batch := range 3 {
+		items := make([]seosvc.Item, 0, 400)
+		for i := range 400 {
+			items = append(items, seosvc.Item{Keyword: fmt.Sprintf("uzun kuyruk %d %d", batch, i), Language: "tr", Volume: 20, Difficulty: 40})
+		}
+		if n, err := svc.Import(ctx, w.ID(), items, "manual"); err != nil || n != 400 {
+			t.Fatalf("import = %d, %v", n, err)
+		}
+	}
+	next, err := svc.Next(ctx, w.ID(), "tr", 1)
+	if err != nil || len(next) != 1 || next[0].Keyword != "kaygı nedir" {
+		t.Fatalf("next = %+v, %v", next, err)
 	}
 }
