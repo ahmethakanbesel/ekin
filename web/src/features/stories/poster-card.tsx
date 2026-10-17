@@ -2,9 +2,9 @@ import { useState, type CSSProperties } from "react"
 import { Link } from "@tanstack/react-router"
 import {
   FileTextIcon,
-  MonitorIcon,
-  SmartphoneIcon,
+  MonitorPlayIcon,
   SquareIcon,
+  SquarePlayIcon,
   type LucideIcon,
 } from "lucide-react"
 
@@ -24,8 +24,8 @@ import {
 } from "./model"
 
 const orientationIcon: Record<string, LucideIcon> = {
-  vertical: SmartphoneIcon,
-  horizontal: MonitorIcon,
+  vertical: SquarePlayIcon,
+  horizontal: MonitorPlayIcon,
   square: SquareIcon,
 }
 
@@ -217,7 +217,7 @@ function VideoPoster({
   const video = lead?.video
   const orientation = video?.orientation ?? "vertical"
   const length = measuredLength(lead?.measured)
-  const Icon = orientationIcon[orientation] ?? SmartphoneIcon
+  const Icon = orientationIcon[orientation] ?? SquarePlayIcon
   const src =
     lead && lead.revision > 0
       ? artifactUrl(workspaceId, story.id, lead.id, lead.revision, "poster.jpg")
