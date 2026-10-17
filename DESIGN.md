@@ -208,7 +208,7 @@ A warm off-white desk with a single cornflower signal, three status tones, and t
 ### Primary
 - **Cornflower** (cornflower / cornflower-dark): the needs-you signal and the primary action. Fills the primary button, the attention badge ("In review"), the review-count pill in the sidebar and tab list, the unread notification count, and the feedback sheet's send button. Still a soft blue in both themes, but the light theme's is a step deeper (`oklch(0.74 0.1 254)` against dark's `oklch(0.8 0.08 250)`): at the dark value's 1.82:1 against the light page, a primary button read as nearly disabled beside an outline button. The light fill sits at 2.25:1 against the page (2.30:1 on Card White, 2.18:1 on Sidebar Linen), so it still never stands alone: every cornflower fill carries a 1px inset boundary in Cornflower Ink, which gives the 3:1 boundary (5.98:1 against the page; 2.65:1 against the fill itself). In dark the fill is 10.5:1 against the page and needs no help.
 - **Cornflower On** (cornflower-on / cornflower-on-dark): the deep navy text on any cornflower fill: `oklch(0.22 0.06 262)` at 7.56:1 on the light fill, `oklch(0.25 0.05 262)` at 8.64:1 on the dark one.
-- **Cornflower Ink** (cornflower-ink, cornflower-ink-dark): cornflower as text, edge and dot. Used for cornflower boundaries, the review count beside the Review nav item, the attention banner icon, "request changes" on the action rail, the in-review status beside a deliverable in the story switcher, link text in rendered Markdown, the text caret, and small "needs a look" dots (fresh notification, paused throttle). 6.0:1 on the light page; in dark it equals Cornflower itself (10.5:1).
+- **Cornflower Ink** (cornflower-ink, cornflower-ink-dark): cornflower as text, edge and dot. Used for cornflower boundaries, the review count beside the Review nav item, the attention banner icon, "request changes" on the action rail, the in-review status beside a deliverable in the story switcher, link text in rendered Markdown, the text caret, and the small "needs a look" dot on a fresh notification, and the Server link in the settings foot note. 6.0:1 on the light page; in dark it equals Cornflower itself (10.5:1).
 - **Focus Ring** (focus-ring, focus-ring-dark): Cornflower Ink in light (6.0:1) and Cornflower in dark. It is the only ring colour; see Components.
 
 ### Neutral
@@ -279,14 +279,22 @@ Spacing runs on the 4px Tailwind step: 4 and 8 inside controls, 12 to 16 between
 
 **The end of a sitting** is the last snap, centred like the drafts: the title "That was the last draft", one sentence counting what the reviewer decided on this sitting's drafts since the page loaded ("You decided on 3 drafts: 1 approved, 1 sent back with 3 notes and 1 rejected."), a hairline-ruled ledger of those decisions (outcome in its tone with its icon, story title, output, revision, note count), a line on what is still under way (stories still waiting for the reviewer, stories the agent is working on), and Back to Review. Counts come only from decisions made in the page and the stories' known statuses; with nothing decided it says so.
 
-**Jobs** pairs the list with the throttle panel side by side from 1440px; below that the throttle opens from a button.
+**Jobs** is the list alone. The job throttle is edited only on Server (/system, the operator's layer): an admin sees each paused host as a muted banner with a pause icon and a "Throttle on Server" outline link, and with nothing paused that link sits in the page header's actions.
+
+**Workspace settings** is a page header over two columns from `md`: a 200px section nav (General, Production, Voice, Publishing, Library, SEO, Members) and the section, 32px apart, in a column up to 1152px. Members lives here, not in the sidebar. Under the nav a hairline-topped foot note in 12px Stone Text says credentials, render hosts and the job throttle are server settings and links to Server. Below `md` the nav becomes a horizontally scrolling strip of the same items and the note moves to the foot of the page. Each section opens with a title (Title size) and one line of description, 20px above its cards.
+
+**Settings layers** run Server → Workspace → Pipeline → Request: the operator's server values (on /system, named "Server" in the UI) under the workspace's settings, under a pipeline's, under one request's. An unset value inherits from the layer above, so every layer below Server shows what it inherits beside what it sets (see Layered Settings).
+
+**Sticky saves.** Long forms keep their save in view. The workspace Production card's save bar sticks to the bottom of the viewport only while the card holds unsaved changes; clean, it sits at the card's foot. The pipeline and request forms' action rows stick to the viewport bottom always, a hairline-topped strip on the page colour at 95% with a backdrop blur that runs to the content column's edges.
 
 ### Named Rules
+**The Where-From Rule.** A setting that inherits shows, on its own row, the value it inherits and the layer that gives it, beside what this layer sets. Unset means inherit; a layer never copies the value above it to look complete.
+
 **The Real Shape Rule.** A draft is shown at its delivered aspect (9:16, 16:9, square, or a page), never cropped to fit a card. An article is a page to read, not a phone screen: it gets a reading column, not a 9:16 sheet (the inbox poster is the one exception).
 
 ## Elevation & Depth
 
-Flat by default, with stock shadcn's small shadows. Depth comes from tonal steps (page, card, sidebar, stone fill) and hairline borders. Shadows are light and functional: extra-small under buttons, inputs and cards (cards pair theirs with a 10% ink ring); small under posters and draft frames, rising to medium on poster hover; large only for overlays (sheets, dropdowns, popovers). Floating strips over media (poster foot, caption strip, format badges) use the page colour at 80 to 85% so the draft shows through without hurting legibility.
+Flat by default, with stock shadcn's small shadows. Depth comes from tonal steps (page, card, sidebar, stone fill) and hairline borders. Shadows are light and functional: extra-small under buttons, inputs and cards (cards pair theirs with a 10% ink ring); small under posters and draft frames, rising to medium on poster hover; large only for overlays (sheets, dropdowns, popovers). Floating strips over media (poster foot, caption strip, format badges) use the page colour at 80 to 85% so the draft shows through without hurting legibility. Sticky save strips are the same idea over a form: the card colour (inside a card) or the page colour (a form's action row) at 95% with a backdrop blur and a hairline top edge, no shadow.
 
 ### Named Rules
 **The Tonal Depth Rule.** A surface is distinguished by its fill and hairline first. A shadow larger than small belongs only to something that floats above the page.
@@ -301,10 +309,10 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 
 ### Buttons
 - **Shape:** 8px corners, 36px tall by default (24 / 32 / 40px sizes), 14px medium label, icons at 16px.
-- **Primary:** Cornflower with Cornflower On text and an inset 1px Cornflower Ink boundary; hover drops to 80% fill. One per surface: "Start review sitting", "Send 3 notes to the agent" in the feedback sheet. Where a page stacks forms that save on their own (Settings: General, each language's voice, the blog; Account, SEO, System), a card's save is an outline button while the card is clean and turns primary only once it holds unsaved changes, so the primary marks the card that needs saving.
+- **Primary:** Cornflower with Cornflower On text and an inset 1px Cornflower Ink boundary; hover drops to 80% fill. One per surface: "Start review sitting", "Send 3 notes to the agent" in the feedback sheet. Where a page stacks forms that save on their own (each workspace Settings section's cards, such as Production; Account; Server), a card's save is an outline button while the card is clean and turns primary only once it holds unsaved changes, so the primary marks the card that needs saving.
 - **Outline / Secondary / Ghost:** page fill with hairline border; stone fill; transparent with stone hover. These carry all ordinary actions.
 - **Destructive:** red text on a 10% red tint (20% in dark).
-- **Link:** Cornflower Ink text, underline on hover.
+- **Link:** Cornflower Ink text, underline on hover. Inside layered settings cards, links that are part of the reading (Reset, "Workspace defaults", the summary's pipelines link) are quiet instead: Ink or Stone Text with an always-visible Field Edge underline that darkens to Ink on hover.
 - **Focus:** a 3px ring in Focus Ring at full strength (stock uses 50%).
 - **Press:** a 1px downward nudge.
 - **Touch:** extra-small and small icon buttons extend their hit area with an invisible inset (8px, 6px) below `md`.
@@ -322,6 +330,16 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 - **Sending:** the footer's primary button counts what it sends, the typed note included: "Send note to the agent", "Send 3 notes to the agent". Under it, a line names the N key.
 - **Unsent notes** live with the draft until sent, through closing the sheet and moving through the feed. Approving or rejecting with notes waiting asks first.
 - **Earlier notes** are not repeated in the sheet; History in the panel is the record. The sheet says how many there are in one line, "2 earlier notes · see History", and the link brings History into view (closing the sheet first below 1280px).
+
+### Layered Settings
+- **Card:** a settings card of setting rows, under a column head in 12px medium Stone Text over a hairline: Setting · Inherited · the layer's own name (the workspace's name, "This pipeline", "This request"). The summary beside the title counts saved values only ("2 of 9 set in acme"); the workspace card adds "Every pipeline follows these" or "N pipelines change some of these", linked to Pipelines. Rows are grouped under 12px semibold sentence-case group titles (Drafting, Render, Review) with hairline dividers between rows.
+- **Row:** a four-column grid from `md`: Setting (8 to 11rem) · Inherited · this layer's control (13 to 20rem) · Reset (4.5rem), 20px column gap. Below `md` it folds to the label, the control, the inherited line, then Reset. A hint spans the inherited and control columns in 12px Stone Text.
+- **Inherited:** the inherited value in Stone Text beside an outline source chip naming where it comes from (Server, Built-in, or the workspace's name). Source chips are 20px pills with a hairline edge and a 12px medium label.
+- **Set here:** a value this layer sets reads medium-weight in its trigger with a neutral "Set here" chip (Stone Fill, Ink text, a 1px Ink-at-70% inset edge, the same neutral selection mark as a selected tab); the inherited value beside it is struck through, and an underlined Reset returns the row to inheriting. An unset trigger shows its inherited choice in Stone Text.
+- **Select:** the first option inherits and says what it gives: "Inherit · 1080p".
+- **Unsaved:** a row that differs from what is saved carries "Unsaved" with a small Ink-at-70% dot under its label (beside it below `md`). The card's save bar names the unsaved settings ("2 unsaved changes · Self-review, Final quality"), shows Discard only while dirty, and its save turns primary only while dirty; clean it says "Every change is saved."
+- **Pipeline and request forms** carry one "Production" layered card inheriting from the workspace, its description linking to the workspace defaults. The request's starts folded to a one-line card ("All from acme", or "2 changed for this request") with an outline "Change settings" button, and opens by itself when it already sets something.
+- **Loading:** the workspace card loads as skeleton rows in the row's own columns (label, inherited value, 36px control); the form card as a stack of 36px control skeletons.
 
 ### Badges and Status
 - **Style:** fully round, 20px tall, 12px medium label.
@@ -362,6 +380,7 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 ### Navigation
 - **Sidebar:** stock shadcn sidebar on Sidebar Linen; the active item takes the stone accent fill and medium weight, never cornflower. The review count is a Cornflower Ink number.
 - **Phone nav strip:** 32px items in Stone Text; active on stone fill with Ink text; the review count is a Cornflower pill.
+- **Settings section nav:** 32px items in Ink at 8px corners with a stone hover; the current section takes Stone Fill, medium weight and a 1px Ink-at-70% inset edge, never cornflower.
 - **Brand mark:** a 32px cornflower square with a clapperboard and the ink boundary; it is the identity asset, not a pattern for other surfaces.
 
 ## Do's and Don'ts
@@ -376,6 +395,7 @@ The base is stock shadcn base-vega on Base UI. Only the deviations below are loc
 - **Do** keep focus rings at full strength (3px, Focus Ring) on every focusable element, including posters, feed and links.
 - **Do** check new colours in both themes: 4.5:1 for text, 3:1 for boundaries, state edges and focus.
 - **Do** show drafts at their real aspect and let them carry the strongest colour on screen.
+- **Do** show inherited settings as layered rows: the inherited value with its source chip, this layer's control, and Reset once set here.
 - **Do** regenerate UI primitives from the stock base-vega style and re-apply only the documented deviations.
 
 ### Don't:
