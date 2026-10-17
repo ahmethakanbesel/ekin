@@ -38,6 +38,7 @@ type VideoSnapshot struct {
 	Format          string `json:"format"`
 	Orientation     string `json:"orientation"`
 	DurationSeconds int    `json:"durationSeconds"`
+	Shorts          int    `json:"shorts,omitempty"`
 }
 
 type ArticleSnapshot struct {
@@ -84,7 +85,8 @@ func (p *Pipeline) Snapshot() Snapshot {
 		Version:     p.version,
 	}
 	if v, ok := p.def.Outputs.Video(); ok {
-		s.Video = &VideoSnapshot{Format: string(v.format), Orientation: string(v.orientation), DurationSeconds: int(v.duration / time.Second)}
+		vs := SnapshotVideo(v)
+		s.Video = &vs
 	}
 	if a, ok := p.def.Outputs.Article(); ok {
 		tr := make([]string, 0, len(a.translations))
@@ -147,7 +149,7 @@ func DefinitionFromSnapshot(s Snapshot) (Definition, error) {
 	}
 	var video *VideoSpec
 	if s.Video != nil {
-		v, err := NewVideoSpec(Format(s.Video.Format), Orientation(s.Video.Orientation), time.Duration(s.Video.DurationSeconds)*time.Second)
+		v, err := VideoFromSnapshot(*s.Video)
 		if err != nil {
 			return Definition{}, err
 		}
@@ -219,12 +221,16 @@ func sourceFromSnapshot(s SourceSnapshot) (Source, error) {
 
 // SnapshotVideo returns v's persisted form.
 func SnapshotVideo(v VideoSpec) VideoSnapshot {
-	return VideoSnapshot{Format: string(v.format), Orientation: string(v.orientation), DurationSeconds: int(v.duration / time.Second)}
+	return VideoSnapshot{Format: string(v.format), Orientation: string(v.orientation), DurationSeconds: int(v.duration / time.Second), Shorts: v.shorts}
 }
 
 // VideoFromSnapshot parses a persisted VideoSpec.
 func VideoFromSnapshot(s VideoSnapshot) (VideoSpec, error) {
-	return NewVideoSpec(Format(s.Format), Orientation(s.Orientation), time.Duration(s.DurationSeconds)*time.Second)
+	v, err := NewVideoSpec(Format(s.Format), Orientation(s.Orientation), time.Duration(s.DurationSeconds)*time.Second)
+	if err != nil {
+		return VideoSpec{}, err
+	}
+	return v.WithShorts(s.Shorts)
 }
 
 // SnapshotArticle returns a's persisted form.

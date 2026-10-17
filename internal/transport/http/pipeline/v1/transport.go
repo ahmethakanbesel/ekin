@@ -62,6 +62,11 @@ func ParseOutputs(in gen.Outputs) (pipelinedomain.Outputs, error) {
 		if err != nil {
 			return pipelinedomain.Outputs{}, err
 		}
+		if n := in.Video.ShortsPerVideo; n != nil {
+			if v, err = v.WithShorts(*n); err != nil {
+				return pipelinedomain.Outputs{}, err
+			}
+		}
 		video = &v
 	}
 	var article *pipelinedomain.ArticleSpec
@@ -147,11 +152,7 @@ func definitionToWire(p *pipelinedomain.Pipeline) gen.PipelineDefinition {
 	lead := gen.DeliverableKind(outputs.Lead())
 	def.Outputs.Lead = &lead
 	if v, ok := outputs.Video(); ok {
-		def.Outputs.Video = &gen.VideoSpec{
-			Format:          gen.VideoSpecFormat(v.Format()),
-			Orientation:     gen.VideoSpecOrientation(v.Orientation()),
-			DurationSeconds: int(v.Duration() / time.Second),
-		}
+		def.Outputs.Video = VideoToWire(v)
 	}
 	if a, ok := outputs.Article(); ok {
 		tr := make([]gen.Language, 0, len(a.Translations()))
@@ -268,11 +269,15 @@ func deref(p *int) int {
 
 // VideoToWire converts a video spec.
 func VideoToWire(v pipelinedomain.VideoSpec) *gen.VideoSpec {
-	return &gen.VideoSpec{
+	out := &gen.VideoSpec{
 		Format:          gen.VideoSpecFormat(v.Format()),
 		Orientation:     gen.VideoSpecOrientation(v.Orientation()),
 		DurationSeconds: int(v.Duration() / time.Second),
 	}
+	if n := v.Shorts(); n > 0 {
+		out.ShortsPerVideo = &n
+	}
+	return out
 }
 
 // ArticleToWire converts an article spec.

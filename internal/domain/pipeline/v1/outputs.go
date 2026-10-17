@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"fmt"
 	"slices"
 	"time"
 
@@ -66,11 +67,18 @@ const (
 	MaxLongDuration  = time.Hour
 )
 
+// MaxShortsPerVideo bounds how many shorts a long video may ask to be
+// cut into.
+const MaxShortsPerVideo = 20
+
 // VideoSpec describes the video a pipeline produces.
 type VideoSpec struct {
 	format      Format
 	orientation Orientation
 	duration    time.Duration
+	// shorts is how many shorts to cut from a long video once it is
+	// live; 0 for none.
+	shorts int
 }
 
 // NewVideoSpec returns a VideoSpec. Shorts must be vertical or square
@@ -99,6 +107,22 @@ func NewVideoSpec(format Format, orientation Orientation, duration time.Duration
 	}
 	return VideoSpec{format: format, orientation: orientation, duration: duration.Truncate(time.Second)}, nil
 }
+
+// WithShorts returns v asking for n shorts to be cut from it once it is
+// live (docs/shorts.md); only a long video can.
+func (v VideoSpec) WithShorts(n int) (VideoSpec, error) {
+	switch {
+	case n < 0 || n > MaxShortsPerVideo:
+		return VideoSpec{}, apperror.New(apperror.ValidationFailed, fmt.Sprintf("shorts per video must be between 0 and %d", MaxShortsPerVideo))
+	case n > 0 && v.format != FormatLong:
+		return VideoSpec{}, apperror.New(apperror.ValidationFailed, "only a long video can be cut into shorts")
+	}
+	v.shorts = n
+	return v, nil
+}
+
+// Shorts is how many shorts to cut from the video once it is live.
+func (v VideoSpec) Shorts() int { return v.shorts }
 
 func (v VideoSpec) Format() Format           { return v.format }
 func (v VideoSpec) Orientation() Orientation { return v.orientation }

@@ -3129,6 +3129,14 @@ components:
           type: string
           enum: [vertical, horizontal, square]
         durationSeconds: { type: integer, minimum: 10, maximum: 3600 }
+        shortsPerVideo:
+          type: integer
+          minimum: 0
+          maximum: 20
+          description: >-
+            Long videos only: how many vertical shorts to cut from each video
+            once it is live, from the moments the agent finds (capped by the
+            server's KURGU_SHORTS_MAX_PER_VIDEO). Absent or 0 for none.
 
     ArticleSpec:
       type: object

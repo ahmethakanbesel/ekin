@@ -2066,6 +2066,8 @@ export interface components {
             /** @enum {string} */
             orientation: "vertical" | "horizontal" | "square";
             durationSeconds: number;
+            /** @description Long videos only: how many vertical shorts to cut from each video once it is live, from the moments the agent finds (capped by the server's KURGU_SHORTS_MAX_PER_VIDEO). Absent or 0 for none. */
+            shortsPerVideo?: number;
         };
         ArticleSpec: {
             words: number;

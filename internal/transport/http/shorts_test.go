@@ -147,3 +147,37 @@ func TestShortsAPI(t *testing.T) {
 	stranger.workspace("other")
 	stranger.fail("GET", moments, nil, 404, "WorkspaceNotFound")
 }
+
+func TestPipelineShortsPerVideo(t *testing.T) {
+	srv := newServer(t)
+	owner := srv.signedIn(t, "owner@example.com")
+	ws := owner.workspace("acme")
+	pipelines := fmt.Sprintf("/api/v1/workspaces/%s/pipelines", ws.Id)
+	def := func(format string, seconds, shorts int) map[string]any {
+		d := shortsDefinition()
+		orientation := "vertical"
+		if format == "long" {
+			orientation = "horizontal"
+		}
+		d["outputs"] = map[string]any{"video": map[string]any{
+			"format": format, "orientation": orientation, "durationSeconds": seconds, "shortsPerVideo": shorts,
+		}}
+		return d
+	}
+	var p gen.Pipeline
+	owner.call("POST", pipelines, def("long", 600, 3), 201, &p)
+	if v := p.Definition.Outputs.Video; v == nil || v.ShortsPerVideo == nil || *v.ShortsPerVideo != 3 {
+		t.Fatalf("video = %+v", p.Definition.Outputs.Video)
+	}
+	owner.call("GET", pipelines+"/"+p.Id.String(), nil, 200, &p)
+	if v := p.Definition.Outputs.Video; v.ShortsPerVideo == nil || *v.ShortsPerVideo != 3 {
+		t.Fatalf("stored video = %+v", v)
+	}
+	var none gen.Pipeline
+	owner.call("POST", pipelines, def("long", 600, 0), 201, &none)
+	if none.Definition.Outputs.Video.ShortsPerVideo != nil {
+		t.Fatalf("no shorts came back as %d", *none.Definition.Outputs.Video.ShortsPerVideo)
+	}
+	owner.fail("POST", pipelines, def("short", 45, 1), 400, "ValidationFailed")
+	owner.fail("POST", pipelines, def("long", 600, 21), 400, "ValidationFailed")
+}

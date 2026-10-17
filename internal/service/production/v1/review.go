@@ -204,7 +204,24 @@ func (s *Service) release(ctx context.Context, st *storydomain.Story, source uui
 			return err
 		}
 	}
-	return nil
+	return s.autoShorts(ctx, st, source)
+}
+
+// autoShorts queues the agent to make a live long video's shorts when it
+// asks for some (its pipeline's or request's shorts per video), once.
+// A video the limits rule out is left alone.
+func (s *Service) autoShorts(ctx context.Context, st *storydomain.Story, source uuid.UUID) error {
+	d, err := st.Deliverable(source)
+	if err != nil || !d.IsVideo() || d.Video().Shorts() == 0 {
+		return err
+	}
+	if _, err := st.CanCut(source, s.cfg.Shorts); err != nil {
+		s.log.InfoContext(ctx, "no shorts cut from the long video", slog.String("story", st.ID().String()), slog.String("reason", apperror.Message(err)))
+		return nil
+	}
+	p := MomentsPayload{StoryID: st.ID(), SourceID: source, Make: d.Video().Shorts()}
+	_, err = s.enqueueScan(ctx, st, p, KindMoments+":auto:"+source.String())
+	return err
 }
 
 // renderSettings are the host profile's render knobs now.

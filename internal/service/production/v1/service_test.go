@@ -207,23 +207,27 @@ func (l *scaleLog) all() []float64 {
 	return append([]float64(nil), l.scales...)
 }
 
-// Probe reports 21 s, or a little more than a longer narration, as a
-// composition timed to it would last.
-func (fakeRenderer) Probe(_ context.Context, dir, _ string) (render.Meta, []string, error) {
+// compositionLength is 21 s, or a little more than a longer narration
+// in dir, as a composition timed to it would last.
+func compositionLength(dir string) float64 {
 	var t struct {
 		Duration float64 `json:"duration"`
 	}
 	raw, _ := os.ReadFile(filepath.Join(dir, "narration", "timings.json")) //nolint:gosec // the test's work dir
 	_ = json.Unmarshal(raw, &t)
-	return render.Meta{Width: 1080, Height: 1920, FPS: 30, Duration: math.Max(21, t.Duration+0.5)}, nil, nil
+	return math.Max(21, t.Duration+0.5)
 }
-func (r fakeRenderer) Video(_ context.Context, _, _ string, opts render.VideoOptions, out string) (render.Meta, error) {
+
+func (fakeRenderer) Probe(_ context.Context, dir, _ string) (render.Meta, []string, error) {
+	return render.Meta{Width: 1080, Height: 1920, FPS: 30, Duration: compositionLength(dir)}, nil, nil
+}
+func (r fakeRenderer) Video(_ context.Context, dir, _ string, opts render.VideoOptions, out string) (render.Meta, error) {
 	if r.scales != nil {
 		r.scales.mu.Lock()
 		r.scales.scales = append(r.scales.scales, opts.Scale)
 		r.scales.mu.Unlock()
 	}
-	return render.Meta{Width: 1080, Height: 1920, FPS: 30, Duration: 21}, os.WriteFile(out, []byte("video"), 0o600)
+	return render.Meta{Width: 1080, Height: 1920, FPS: 30, Duration: compositionLength(dir)}, os.WriteFile(out, []byte("video"), 0o600)
 }
 func (fakeRenderer) Music(context.Context, string, float64, string) (float64, error) { return 0.5, nil }
 func (fakeRenderer) Mix(_ context.Context, _, _, _ string, duration float64, out string) error {

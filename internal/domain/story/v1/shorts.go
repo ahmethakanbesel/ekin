@@ -20,7 +20,7 @@ import (
 
 // MaxShortsPerVideo is the ceiling for the per-video limit and for a
 // pipeline's shorts setting.
-const MaxShortsPerVideo = 20
+const MaxShortsPerVideo = pipelinedomain.MaxShortsPerVideo
 
 // MaxMomentsPerSource bounds the moments one long video keeps.
 const MaxMomentsPerSource = 40

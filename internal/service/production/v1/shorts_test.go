@@ -41,6 +41,13 @@ func timingsJSON(length float64) []byte {
 // files hold files.
 func longVideo(t *testing.T, f fixture, length time.Duration, live bool, files map[string][]byte) (*storydomain.Story, uuid.UUID) {
 	t.Helper()
+	spec, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatLong, pipelinedomain.Horizontal, 10*time.Minute)
+	return longVideoOf(t, f, spec, length, live, files)
+}
+
+// longVideoOf is longVideo with the long video's spec.
+func longVideoOf(t *testing.T, f fixture, spec pipelinedomain.VideoSpec, length time.Duration, live bool, files map[string][]byte) (*storydomain.Story, uuid.UUID) {
+	t.Helper()
 	ctx := context.Background()
 	var stories storyrepo.Repository
 	f.hostWith(func(d *production.Deps) { stories = d.Stories })
@@ -62,7 +69,6 @@ func longVideo(t *testing.T, f fixture, length time.Duration, live bool, files m
 		t.Fatal(err)
 	}
 
-	spec, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatLong, pipelinedomain.Horizontal, 10*time.Minute)
 	o, _ := pipelinedomain.NewOutputs(&spec, nil, "")
 	idea, _ := storydomain.NewIdea("Duygu adlandırma", "açı", nil)
 	st, err := storydomain.New(id.New(), storydomain.Plan{
@@ -430,5 +436,56 @@ func TestScanNeedsALiveLongVideo(t *testing.T) {
 	st, long := longVideo(t, f, 10*time.Minute, false, map[string][]byte{"narration/timings.json": timingsJSON(600)})
 	if _, err := f.svc.ScanMoments(context.Background(), f.ws, st.ID(), long); !apperror.Is(err, apperror.InvalidTransition) {
 		t.Fatalf("scan of a video in review = %v", err)
+	}
+}
+
+func TestLongVideoGoingLiveMakesTheShortsItAsksFor(t *testing.T) {
+	ctx := context.Background()
+	tests := []struct {
+		name       string
+		narration  float64 // seconds; the render lasts about as long
+		wantScans  int
+		wantShorts int
+	}{
+		{"long enough", 600, 1, 2},
+		{"shorter than the source minimum", 150, 0, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			f.agent.moments = `{"moments": [
+				{"first": 3, "last": 8, "hook": "Bir", "reason": "x", "score": 90},
+				{"first": 20, "last": 26, "hook": "İki", "reason": "x", "score": 80},
+				{"first": 40, "last": 46, "hook": "Üç", "reason": "x", "score": 70}
+			]}`
+			spec, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatLong, pipelinedomain.Horizontal, 10*time.Minute)
+			spec, _ = spec.WithShorts(2)
+			st, long := longVideoOf(t, f, spec, sec(tt.narration+0.5), false, map[string][]byte{
+				"narration/speech.wav": wavFile(int(tt.narration)), "narration/timings.json": timingsJSON(tt.narration),
+				"composition.html": []byte("<!-- long -->"),
+			})
+			if _, err := f.svc.Approve(ctx, f.ws, st.ID(), long, id.New()); err != nil {
+				t.Fatal(err)
+			}
+			f.drain(t)
+
+			got, _ := f.svc.Get(ctx, f.ws, st.ID())
+			lead, _ := got.Deliverable(long)
+			if lead.Status() != storydomain.StatusPublished {
+				t.Fatalf("long video = %s (%s)", lead.Status(), lead.Failure())
+			}
+			if len(f.agent.momentPrompts) != tt.wantScans {
+				t.Fatalf("moment scans = %d, want %d", len(f.agent.momentPrompts), tt.wantScans)
+			}
+			shorts := got.Shorts(long)
+			if len(shorts) != tt.wantShorts {
+				t.Fatalf("shorts = %d, want %d", len(shorts), tt.wantShorts)
+			}
+			for _, d := range shorts {
+				if d.Status() != storydomain.StatusReview {
+					t.Fatalf("short = %s (%s)", d.Status(), d.Failure())
+				}
+			}
+		})
 	}
 }

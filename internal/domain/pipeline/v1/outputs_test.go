@@ -171,3 +171,43 @@ func TestNewPromptSourceRequiresInstructions(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestVideoSpecWithShorts(t *testing.T) {
+	long, _ := pipeline.NewVideoSpec(pipeline.FormatLong, pipeline.Horizontal, 10*time.Minute)
+	short, _ := pipeline.NewVideoSpec(pipeline.FormatShort, pipeline.Vertical, 45*time.Second)
+	tests := []struct {
+		name    string
+		spec    pipeline.VideoSpec
+		n       int
+		wantErr bool
+	}{
+		{"long with shorts", long, 3, false},
+		{"long without", long, 0, false},
+		{"long at the ceiling", long, pipeline.MaxShortsPerVideo, false},
+		{"over the ceiling", long, pipeline.MaxShortsPerVideo + 1, true},
+		{"negative", long, -1, true},
+		{"a short cannot be cut", short, 1, true},
+		{"a short asks for none", short, 0, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.spec.WithShorts(tt.n)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("err = %v, want error %v", err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
+			if got.Shorts() != tt.n {
+				t.Fatalf("shorts = %d", got.Shorts())
+			}
+			back, err := pipeline.VideoFromSnapshot(pipeline.SnapshotVideo(got))
+			if err != nil || back != got {
+				t.Fatalf("round trip = %+v, %v", back, err)
+			}
+		})
+	}
+	if _, err := pipeline.VideoFromSnapshot(pipeline.VideoSnapshot{Format: "short", Orientation: "vertical", DurationSeconds: 45, Shorts: 2}); err == nil {
+		t.Fatal("a stored short asking for shorts rehydrated")
+	}
+}
