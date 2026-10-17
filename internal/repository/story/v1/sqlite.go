@@ -15,6 +15,7 @@ import (
 	"kurgu/internal/db"
 	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	storydomain "kurgu/internal/domain/story/v1"
+	"kurgu/pkg/page"
 	"kurgu/pkg/timeutil"
 )
 
@@ -118,7 +119,7 @@ func (r *SQLite) getOne(ctx context.Context, where string, args ...any) (*storyd
 	return stories[0], nil
 }
 
-func (r *SQLite) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*storydomain.Story, error) {
+func (r *SQLite) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*storydomain.Story, string, error) {
 	where := []string{"workspace_id = ?"}
 	args := []any{workspaceID.String()}
 	if len(f.Statuses) > 0 {
@@ -131,14 +132,37 @@ func (r *SQLite) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*
 		where = append(where, "pipeline_id = ?")
 		args = append(args, f.PipelineID.String())
 	}
-	limit := f.Limit
-	if limit <= 0 || limit > 500 {
-		limit = 100
+	if f.Origin != "" {
+		where = append(where, "origin = ?")
+		args = append(args, string(f.Origin))
 	}
-	args = append(args, limit)
-	return r.query(ctx, `SELECT `+storyColumns+` FROM stories WHERE `+strings.Join(where, " AND ")+
+	if q := storydomain.Fingerprint(f.Query); q != "" {
+		where = append(where, `fingerprint LIKE ? ESCAPE '\'`)
+		args = append(args, "%"+likeEscaper.Replace(q)+"%")
+	}
+	var after cursor
+	if ok, err := page.Decode(f.After, &after); err != nil {
+		return nil, "", apperror.Wrap(apperror.ValidationFailed, err, "invalid cursor")
+	} else if ok {
+		where = append(where, "(created_at < ? OR (created_at = ? AND id < ?))")
+		args = append(args, after.At, after.At, after.ID)
+	}
+	limit := page.Limit(f.Limit, DefaultListLimit, MaxListLimit)
+	args = append(args, limit+1)
+	stories, err := r.query(ctx, `SELECT `+storyColumns+` FROM stories WHERE `+strings.Join(where, " AND ")+
 		` ORDER BY created_at DESC, id DESC LIMIT ?`, args...)
+	if err != nil || len(stories) <= limit {
+		return stories, "", err
+	}
+	stories = stories[:limit]
+	return stories, nextCursor(stories[limit-1]), nil
 }
+
+func nextCursor(last *storydomain.Story) string {
+	return page.Encode(cursor{At: timeutil.ToMillis(last.CreatedAt()), ID: last.ID().String()})
+}
+
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 func (r *SQLite) query(ctx context.Context, query string, args ...any) ([]*storydomain.Story, error) {
 	rows, err := r.q.R(ctx).QueryContext(ctx, query, args...)
@@ -175,13 +199,17 @@ func (r *SQLite) query(ctx context.Context, query string, args ...any) ([]*story
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	ids := make([]uuid.UUID, 0, len(snaps))
+	for _, s := range snaps {
+		ids = append(ids, s.ID)
+	}
+	byStory, err := r.deliverables(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]*storydomain.Story, 0, len(snaps))
 	for _, s := range snaps {
-		ds, err := r.deliverables(ctx, s.ID)
-		if err != nil {
-			return nil, err
-		}
-		s.Deliverables = ds
+		s.Deliverables = byStory[s.ID]
 		st, err := storydomain.Rehydrate(s)
 		if err != nil {
 			return nil, err
@@ -191,27 +219,37 @@ func (r *SQLite) query(ctx context.Context, query string, args ...any) ([]*story
 	return out, nil
 }
 
-func (r *SQLite) deliverables(ctx context.Context, storyID uuid.UUID) ([]storydomain.DeliverableSnapshot, error) {
-	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT id, kind, role, source_id, language, video, article, status,
+// deliverables loads the deliverables of every story in ids in one
+// query, by story, in position order.
+func (r *SQLite) deliverables(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]storydomain.DeliverableSnapshot, error) {
+	out := map[uuid.UUID][]storydomain.DeliverableSnapshot{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	args := make([]any, 0, len(ids))
+	for _, id := range ids {
+		args = append(args, id.String())
+	}
+	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT story_id, id, kind, role, source_id, language, video, article, status,
 		revision, pending, failure, failed_step, session, approved_by, approved_at, published, publish_job, duration_ms, words,
 		narrator, created_at, updated_at
-		FROM deliverables WHERE story_id = ? ORDER BY position`, storyID.String())
+		FROM deliverables WHERE story_id IN (`+strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")+`)
+		ORDER BY story_id, position`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query deliverables: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
-	var out []storydomain.DeliverableSnapshot
 	for rows.Next() {
 		var (
 			d                                  storydomain.DeliverableSnapshot
-			rawID                              string
+			rawStory, rawID                    string
 			sourceID, approvedBy               sql.NullString
 			video, article, pending, published sql.NullString
 			narrator, publishJob               sql.NullString
 			approvedAt, durationMS, words      sql.NullInt64
 			created, updated                   int64
 		)
-		if err := rows.Scan(&rawID, &d.Kind, &d.Role, &sourceID, &d.Language, &video, &article, &d.Status,
+		if err := rows.Scan(&rawStory, &rawID, &d.Kind, &d.Role, &sourceID, &d.Language, &video, &article, &d.Status,
 			&d.Revision, &pending, &d.Failure, &d.FailedStep, &d.Session, &approvedBy, &approvedAt, &published, &publishJob,
 			&durationMS, &words, &narrator, &created, &updated); err != nil {
 			return nil, fmt.Errorf("scan deliverable: %w", err)
@@ -239,7 +277,8 @@ func (r *SQLite) deliverables(ctx context.Context, storyID uuid.UUID) ([]storydo
 		}
 		d.Measures = measures(durationMS, words, narrator)
 		d.CreatedAt, d.UpdatedAt = timeutil.FromMillis(created), timeutil.FromMillis(updated)
-		out = append(out, d)
+		storyID, _ := uuid.Parse(rawStory)
+		out[storyID] = append(out[storyID], d)
 	}
 	return out, rows.Err()
 }

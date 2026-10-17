@@ -138,7 +138,7 @@ func TestRemoteWorkerDraftsAndRenders(t *testing.T) {
 	stories := storyrepo.NewSQLite(tx)
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		list, _ := stories.List(ctx, w.ID(), storyrepo.Filter{})
+		list, _, _ := stories.List(ctx, w.ID(), storyrepo.Filter{})
 		if len(list) == 1 && list[0].Lead().Status() == storydomain.StatusReview {
 			lead := list[0].Lead()
 			if lead.Session() != "s-mac" {
@@ -163,6 +163,6 @@ func TestRemoteWorkerDraftsAndRenders(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	list, _ := stories.List(ctx, w.ID(), storyrepo.Filter{})
+	list, _, _ := stories.List(ctx, w.ID(), storyrepo.Filter{})
 	t.Fatalf("story never reached review: %s %s", list[0].Lead().Status(), list[0].Lead().Failure())
 }

@@ -1857,6 +1857,10 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Continue a listing after the page that returned this `nextCursor`. Keyset paging: rows added meanwhile are neither skipped nor repeated. */
+        Cursor: string;
+        /** @description Keep rows whose title contains this text, compared ignoring case, accents and the Turkish dotted and dotless i. */
+        Search: string;
         StoryId: string;
         DeliverableId: string;
         DocumentId: string;
@@ -3407,7 +3411,13 @@ export interface operations {
             query?: {
                 status?: components["schemas"]["DeliverableStatus"][];
                 pipelineId?: string;
+                origin?: "schedule" | "manual" | "adhoc";
+                /** @description Keep rows whose title contains this text, compared ignoring case, accents and the Turkish dotted and dotless i. */
+                q?: components["parameters"]["Search"];
+                /** @description Stories per page; 100 when omitted. */
                 limit?: number;
+                /** @description Continue a listing after the page that returned this `nextCursor`. Keyset paging: rows added meanwhile are neither skipped nor repeated. */
+                cursor?: components["parameters"]["Cursor"];
             };
             header?: never;
             path: {
@@ -3417,7 +3427,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Stories, newest first. `status` filters on the story's summary status. */
+            /** @description A page of stories, newest first. `status` filters on the story's summary status. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3425,6 +3435,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         stories: components["schemas"]["Story"][];
+                        /** @description Pass as `cursor` for the next page; absent after the last. */
+                        nextCursor?: string;
                     };
                 };
             };

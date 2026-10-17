@@ -5,12 +5,15 @@ import (
 	"context"
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
 
 	"kurgu/internal/apperror"
 	storydomain "kurgu/internal/domain/story/v1"
+	"kurgu/pkg/page"
+	"kurgu/pkg/timeutil"
 )
 
 type revKey struct {
@@ -74,19 +77,33 @@ func (r *InMemory) GetByID(_ context.Context, id uuid.UUID) (*storydomain.Story,
 	return storydomain.Rehydrate(s)
 }
 
-func (r *InMemory) List(_ context.Context, workspaceID uuid.UUID, f Filter) ([]*storydomain.Story, error) {
+func (r *InMemory) List(_ context.Context, workspaceID uuid.UUID, f Filter) ([]*storydomain.Story, string, error) {
+	var after cursor
+	hasAfter, err := page.Decode(f.After, &after)
+	if err != nil {
+		return nil, "", apperror.Wrap(apperror.ValidationFailed, err, "invalid cursor")
+	}
+	query := storydomain.Fingerprint(f.Query)
 	r.mu.RLock()
 	var all []*storydomain.Story
 	for _, snap := range r.stories {
-		if snap.WorkspaceID != workspaceID || (f.PipelineID != uuid.Nil && snap.PipelineID != f.PipelineID) {
+		if snap.WorkspaceID != workspaceID || (f.PipelineID != uuid.Nil && snap.PipelineID != f.PipelineID) ||
+			(f.Origin != "" && snap.Origin != string(f.Origin)) {
 			continue
 		}
 		s, err := storydomain.Rehydrate(snap)
 		if err != nil {
 			r.mu.RUnlock()
-			return nil, err
+			return nil, "", err
 		}
 		if len(f.Statuses) > 0 && !slices.Contains(f.Statuses, s.Status()) {
+			continue
+		}
+		if query != "" && !strings.Contains(s.Idea().Fingerprint(), query) {
+			continue
+		}
+		at := timeutil.ToMillis(s.CreatedAt())
+		if hasAfter && (at > after.At || at == after.At && s.ID().String() >= after.ID) {
 			continue
 		}
 		all = append(all, s)
@@ -95,14 +112,12 @@ func (r *InMemory) List(_ context.Context, workspaceID uuid.UUID, f Filter) ([]*
 	slices.SortFunc(all, func(a, b *storydomain.Story) int {
 		return cmp.Or(b.CreatedAt().Compare(a.CreatedAt()), cmp.Compare(b.ID().String(), a.ID().String()))
 	})
-	limit := f.Limit
-	if limit <= 0 || limit > 500 {
-		limit = 100
+	limit := page.Limit(f.Limit, DefaultListLimit, MaxListLimit)
+	if len(all) <= limit {
+		return all, "", nil
 	}
-	if len(all) > limit {
-		all = all[:limit]
-	}
-	return all, nil
+	all = all[:limit]
+	return all, nextCursor(all[limit-1]), nil
 }
 
 func (r *InMemory) Delete(_ context.Context, workspaceID, id uuid.UUID) error {

@@ -137,13 +137,13 @@ func TestConformance(t *testing.T) {
 				t.Fatalf("revision notes = %v, want %v", got, wantNotes)
 			}
 
-			inReview, _ := repo.List(ctx, ws, storyrepo.Filter{Statuses: []storydomain.Status{storydomain.StatusReview}})
+			inReview, _, _ := repo.List(ctx, ws, storyrepo.Filter{Statuses: []storydomain.Status{storydomain.StatusReview}})
 			if len(inReview) != 1 {
 				t.Fatalf("review list = %d", len(inReview))
 			}
 			other := newStory(t, ws, "Çocuklarda uyku düzeni", now.Add(time.Hour))
 			_ = repo.Create(ctx, other)
-			all, _ := repo.List(ctx, ws, storyrepo.Filter{})
+			all, _, _ := repo.List(ctx, ws, storyrepo.Filter{})
 			if len(all) != 2 || all[0].ID() != other.ID() {
 				t.Fatalf("list = %d", len(all))
 			}
@@ -172,6 +172,81 @@ func TestConformance(t *testing.T) {
 			}
 			if _, err := repo.Get(ctx, ws, s.ID()); !apperror.Is(err, apperror.StoryNotFound) {
 				t.Fatalf("deleted get = %v", err)
+			}
+		})
+	}
+}
+
+func impls() map[string]func(t *testing.T) (storyrepo.Repository, uuid.UUID) {
+	return map[string]func(t *testing.T) (storyrepo.Repository, uuid.UUID){
+		"inmemory": func(*testing.T) (storyrepo.Repository, uuid.UUID) { return storyrepo.NewInMemory(), id.New() },
+		"sqlite": func(t *testing.T) (storyrepo.Repository, uuid.UUID) {
+			_, tx := dbtest.Open(t)
+			w, _ := workspacedomain.New(id.New(), "ws", time.UTC, now)
+			if err := workspacerepo.NewSQLite(tx).Create(context.Background(), w); err != nil {
+				t.Fatal(err)
+			}
+			return storyrepo.NewSQLite(tx), w.ID()
+		},
+	}
+}
+
+// List pages through every match exactly once, newest first, whatever
+// the page size, and filters by title and origin.
+func TestListPagesAndFilters(t *testing.T) {
+	titles := []string{"Kaygı nedir", "Uyku düzeni", "KAYGI ve beden", "Panik atak", "Sınav kaygısı"}
+	tests := []struct {
+		name   string
+		filter storyrepo.Filter
+		want   []string // titles, newest first
+	}{
+		{name: "everything, two at a time", filter: storyrepo.Filter{Limit: 2},
+			want: []string{"Sınav kaygısı", "Panik atak", "KAYGI ve beden", "Uyku düzeni", "Kaygı nedir"}},
+		{name: "everything in one page", filter: storyrepo.Filter{Limit: 5},
+			want: []string{"Sınav kaygısı", "Panik atak", "KAYGI ve beden", "Uyku düzeni", "Kaygı nedir"}},
+		{name: "title search folds case and Turkish letters", filter: storyrepo.Filter{Query: "kaygi", Limit: 1},
+			want: []string{"Sınav kaygısı", "KAYGI ve beden", "Kaygı nedir"}},
+		{name: "by origin", filter: storyrepo.Filter{Origin: storydomain.OriginManual},
+			want: []string{"Sınav kaygısı", "Panik atak", "KAYGI ve beden", "Uyku düzeni", "Kaygı nedir"}},
+		{name: "another origin", filter: storyrepo.Filter{Origin: storydomain.OriginSchedule}, want: nil},
+	}
+	for name, open := range impls() {
+		for _, tt := range tests {
+			t.Run(name+"/"+tt.name, func(t *testing.T) {
+				ctx := context.Background()
+				repo, ws := open(t)
+				for i, title := range titles {
+					// Two stories share each instant, so ties go to the id.
+					if err := repo.Create(ctx, newStory(t, ws, title, now.Add(time.Duration(i/2)*time.Minute))); err != nil {
+						t.Fatal(err)
+					}
+				}
+				var got []string
+				f := tt.filter
+				for range 10 {
+					list, next, err := repo.List(ctx, ws, f)
+					if err != nil {
+						t.Fatal(err)
+					}
+					for _, st := range list {
+						got = append(got, st.Idea().Title)
+					}
+					if next == "" {
+						break
+					}
+					f.After = next
+				}
+				if !slices.Equal(got, tt.want) && !(len(got) == 0 && len(tt.want) == 0) {
+					t.Fatalf("titles = %q, want %q", got, tt.want)
+				}
+			})
+		}
+	}
+	for name, open := range impls() {
+		t.Run(name+"/bad cursor", func(t *testing.T) {
+			repo, ws := open(t)
+			if _, _, err := repo.List(context.Background(), ws, storyrepo.Filter{After: "nope"}); !apperror.Is(err, apperror.ValidationFailed) {
+				t.Fatalf("bad cursor = %v", err)
 			}
 		})
 	}

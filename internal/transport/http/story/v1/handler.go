@@ -73,10 +73,23 @@ func (h *Handler) ListStories(ctx context.Context, req gen.ListStoriesRequestObj
 	if req.Params.PipelineId != nil {
 		f.PipelineID = *req.Params.PipelineId
 	}
+	if req.Params.Origin != nil {
+		o, err := storydomain.ParseOrigin(string(*req.Params.Origin))
+		if err != nil {
+			return nil, err
+		}
+		f.Origin = o
+	}
+	if req.Params.Q != nil {
+		f.Query = *req.Params.Q
+	}
 	if req.Params.Limit != nil {
 		f.Limit = *req.Params.Limit
 	}
-	stories, err := h.svc.List(ctx, req.WorkspaceId, f)
+	if req.Params.Cursor != nil {
+		f.After = *req.Params.Cursor
+	}
+	stories, next, err := h.svc.List(ctx, req.WorkspaceId, f)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +97,11 @@ func (h *Handler) ListStories(ctx context.Context, req gen.ListStoriesRequestObj
 	for _, st := range stories {
 		out = append(out, ToWire(st))
 	}
-	return gen.ListStories200JSONResponse{Stories: out}, nil
+	resp := gen.ListStories200JSONResponse{Stories: out}
+	if next != "" {
+		resp.NextCursor = &next
+	}
+	return resp, nil
 }
 
 func (h *Handler) CreateStories(ctx context.Context, req gen.CreateStoriesRequestObject) (gen.CreateStoriesResponseObject, error) {

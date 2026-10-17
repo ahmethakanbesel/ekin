@@ -1185,12 +1185,22 @@ paths:
         - name: pipelineId
           in: query
           schema: { type: string, format: uuid }
+        - name: origin
+          in: query
+          schema:
+            type: string
+            enum: [schedule, manual, adhoc]
+        - $ref: "#/components/parameters/Search"
         - name: limit
           in: query
+          description: Stories per page; 100 when omitted.
           schema: { type: integer, minimum: 1, maximum: 500 }
+        - $ref: "#/components/parameters/Cursor"
       responses:
         "200":
-          description: Stories, newest first. `status` filters on the story's summary status.
+          description: >-
+            A page of stories, newest first. `status` filters on the story's
+            summary status.
           content:
             application/json:
               schema:
@@ -1200,6 +1210,9 @@ paths:
                   stories:
                     type: array
                     items: { $ref: "#/components/schemas/Story" }
+                  nextCursor:
+                    type: string
+                    description: Pass as `cursor` for the next page; absent after the last.
         default: { $ref: "#/components/responses/Error" }
     post:
       operationId: createStories
@@ -1652,6 +1665,20 @@ components:
       schema: { type: string }
 
   parameters:
+    Cursor:
+      name: cursor
+      in: query
+      description: >-
+        Continue a listing after the page that returned this `nextCursor`.
+        Keyset paging: rows added meanwhile are neither skipped nor repeated.
+      schema: { type: string, maxLength: 512 }
+    Search:
+      name: q
+      in: query
+      description: >-
+        Keep rows whose title contains this text, compared ignoring case,
+        accents and the Turkish dotted and dotless i.
+      schema: { type: string, maxLength: 200 }
     StoryId:
       name: storyId
       in: path

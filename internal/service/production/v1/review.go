@@ -400,8 +400,9 @@ func (s *Service) Get(ctx context.Context, workspaceID, storyID uuid.UUID) (*sto
 // Filter narrows a story listing.
 type Filter = storyrepo.Filter
 
-// List returns stories newest first.
-func (s *Service) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*storydomain.Story, error) {
+// List returns a page of stories, newest first, and the cursor of the
+// next page ("" after the last).
+func (s *Service) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*storydomain.Story, string, error) {
 	return s.stories.List(ctx, workspaceID, f)
 }
 

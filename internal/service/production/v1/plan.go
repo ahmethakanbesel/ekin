@@ -356,7 +356,7 @@ func (s *Service) windows(ctx context.Context, p *pipelinedomain.Pipeline, count
 		return nil, jobdomain.Permanent(errors.New("the referenced pages have no text"))
 	}
 	start := 0
-	prev, err := s.stories.List(ctx, p.WorkspaceID(), storyrepo.Filter{PipelineID: p.ID(), Limit: 1})
+	prev, _, err := s.stories.List(ctx, p.WorkspaceID(), storyrepo.Filter{PipelineID: p.ID(), Limit: 1})
 	if err != nil {
 		return nil, err
 	}
@@ -451,7 +451,7 @@ var ideasSchema = json.RawMessage(`{
 // ideas asks the agent for ideas and filters out repeats, asking once
 // more for replacements when some are dropped.
 func (s *Service) ideas(ctx context.Context, req ideaRequest) ([]plannedIdea, error) {
-	recent, err := s.stories.List(ctx, req.WorkspaceID, storyrepo.Filter{Limit: avoidTitles})
+	recent, _, err := s.stories.List(ctx, req.WorkspaceID, storyrepo.Filter{Limit: avoidTitles})
 	if err != nil {
 		return nil, err
 	}

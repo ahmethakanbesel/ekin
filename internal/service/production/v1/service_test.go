@@ -297,7 +297,7 @@ func (f fixture) drainOn(t *testing.T, svc *production.Service) {
 
 func (f fixture) story(t *testing.T) *storydomain.Story {
 	t.Helper()
-	list, err := f.svc.List(context.Background(), f.ws, production.Filter{})
+	list, _, err := f.svc.List(context.Background(), f.ws, production.Filter{})
 	if err != nil || len(list) != 1 {
 		t.Fatalf("stories = %d, %v", len(list), err)
 	}
@@ -1110,7 +1110,7 @@ func TestKeywordTakenMeanwhileGetsNoSecondStory(t *testing.T) {
 	if err := f.svc.PlanRun(ctx, rp); !errors.Is(err, jobdomain.ErrPermanent) {
 		t.Fatalf("plan = %v, want a permanent failure: nothing left to write", err)
 	}
-	if list, _ := f.svc.List(ctx, f.ws, production.Filter{}); len(list) != 0 {
+	if list, _, _ := f.svc.List(ctx, f.ws, production.Filter{}); len(list) != 0 {
 		t.Fatalf("%d stories for a keyword another run took", len(list))
 	}
 	used, _ := f.seo.List(ctx, f.ws, seodomain.StatusUsed)
