@@ -35,6 +35,6 @@ body { font-family: "Inter", system-ui, sans-serif; color: #fff; -webkit-font-sm
 /* No CSS animations or transitions: every frame is a pure function of t. */
 *, *::before, *::after { animation: none !important; transition: none !important; }
 
-.ekin-captions, .kurgu-captions { position: absolute; left: 7%; right: 7%; text-align: center; font-weight: 800; line-height: 1.15; text-wrap: balance; }
-.ekin-captions .w, .kurgu-captions .w { display: inline-block; margin: 0 0.12em; opacity: 0.55; }
-.ekin-captions .w.on, .kurgu-captions .w.on { opacity: 1; }
+.ekin-captions { position: absolute; left: 7%; right: 7%; text-align: center; font-weight: 800; line-height: 1.15; text-wrap: balance; }
+.ekin-captions .w { display: inline-block; margin: 0 0.12em; opacity: 0.55; }
+.ekin-captions .w.on { opacity: 1; }

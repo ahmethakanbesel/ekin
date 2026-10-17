@@ -6,9 +6,7 @@
 package agenttool
 
 import (
-	"bytes"
 	"context"
-	"ekin/pkg/env"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -92,18 +90,18 @@ type Env struct {
 // FromEnviron builds Env from EKIN_* variables.
 func FromEnviron() (Env, error) {
 	e := Env{
-		Speech: speech.Synth{UV: env.Get("EKIN_UV"), ScriptDir: env.Get("EKIN_SPEECH_DIR"), ModelDir: env.Get("EKIN_SPEECH_MODELS"),
-			ElevenLabsKey: func(context.Context) string { return env.Get("EKIN_ELEVENLABS_API_KEY") }},
-		Pexels:    pexels.Client{APIKey: env.Get("EKIN_PEXELS_API_KEY")},
-		Renderer:  render.Renderer{Chrome: env.Get("EKIN_CHROME"), FFmpeg: env.Get("EKIN_FFMPEG")},
+		Speech: speech.Synth{UV: os.Getenv("EKIN_UV"), ScriptDir: os.Getenv("EKIN_SPEECH_DIR"), ModelDir: os.Getenv("EKIN_SPEECH_MODELS"),
+			ElevenLabsKey: func(context.Context) string { return os.Getenv("EKIN_ELEVENLABS_API_KEY") }},
+		Pexels:    pexels.Client{APIKey: os.Getenv("EKIN_PEXELS_API_KEY")},
+		Renderer:  render.Renderer{Chrome: os.Getenv("EKIN_CHROME"), FFmpeg: os.Getenv("EKIN_FFMPEG")},
 		Stdout:    os.Stdout,
 		Stderr:    os.Stderr,
 		Transcode: true,
 	}
-	if store, err := blob.FromEnv(env.Get); err == nil {
+	if store, err := blob.FromEnv(os.Getenv); err == nil {
 		e.Library = blobFetcher{store}
 	}
-	if raw := env.Get("EKIN_TOOL_SPEC"); raw != "" {
+	if raw := os.Getenv("EKIN_TOOL_SPEC"); raw != "" {
 		if err := json.Unmarshal([]byte(raw), &e.Spec); err != nil {
 			return e, fmt.Errorf("EKIN_TOOL_SPEC: %w", err)
 		}
@@ -305,7 +303,7 @@ func Check(ctx context.Context, r Prober, dir, pagePath string, spec Spec) Repor
 	if externalRef.Match(src) {
 		fail("%s references the network; download media with ekin tool stock and use relative paths", pagePath)
 	}
-	if !loadsKit(src) {
+	if !strings.Contains(string(src), "/kit/ekin.js") {
 		fail("%s must load /kit/ekin.js and call Ekin.composition", pagePath)
 	}
 	for _, banned := range []string{"requestAnimationFrame", "setInterval", "Date.now", "performance.now"} {
@@ -601,11 +599,4 @@ func (e Env) music(ctx context.Context, duration float64) error {
 	}
 	_, _ = fmt.Fprintln(e.Stdout, msg)
 	return nil
-}
-
-// loadsKit reports whether a page loads the composition runtime, under
-// its name from before the rename (kurgu.js) too: a new revision starts
-// from the previous one's page.
-func loadsKit(src []byte) bool {
-	return bytes.Contains(src, []byte("/kit/ekin.js")) || bytes.Contains(src, []byte("/kit/kurgu.js"))
 }

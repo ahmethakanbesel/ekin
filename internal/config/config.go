@@ -4,7 +4,6 @@
 package config
 
 import (
-	"ekin/pkg/env"
 	"fmt"
 	"net"
 	"net/url"
@@ -132,7 +131,7 @@ const DefaultConcurrency = "control=1,agent=1,tts=1,render=1,extract=1,io=2"
 
 // Load reads the environment.
 func Load() (Config, error) {
-	return load(env.Get)
+	return load(os.Getenv)
 }
 
 // Defaults that the settings page reports as built in.

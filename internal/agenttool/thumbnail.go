@@ -55,7 +55,7 @@ func CheckThumbnails(ctx context.Context, r ThumbnailDrawer, dir string, want, o
 	if externalRef.Match(src) {
 		fail("%s references the network; use files in this directory", ThumbnailPage)
 	}
-	if !loadsKit(src) {
+	if !strings.Contains(string(src), "/kit/ekin.js") {
 		fail("%s must load /kit/ekin.js and call Ekin.thumbnails", ThumbnailPage)
 	}
 	raw, err := os.ReadFile(filepath.Join(dir, ThumbnailsFile)) //nolint:gosec // the agent's own file

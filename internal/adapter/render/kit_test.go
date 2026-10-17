@@ -1,7 +1,6 @@
 package render_test
 
 import (
-	"bytes"
 	"io/fs"
 	"regexp"
 	"strings"
@@ -43,17 +42,3 @@ func TestKitBundlesEveryTemplateFont(t *testing.T) {
 	}
 }
 
-// Compositions written before the rename load kurgu.js and kurgu.css.
-func TestKitServesLegacyNames(t *testing.T) {
-	kit := render.Kit()
-	for legacy, file := range map[string]string{"kurgu.js": "ekin.js", "kurgu.css": "ekin.css"} {
-		got, err := fs.ReadFile(kit, legacy)
-		if err != nil {
-			t.Fatalf("%s: %v", legacy, err)
-		}
-		want, _ := fs.ReadFile(kit, file)
-		if !bytes.Equal(got, want) || len(want) == 0 {
-			t.Errorf("%s does not serve %s", legacy, file)
-		}
-	}
-}

@@ -6,13 +6,11 @@
 <script>
 // Renders music.js offline: music.js must define
 //   window.ekinMusic = (Tone, { duration }) => { ...schedule on Tone.getTransport()... }
-// It must not call Tone.start() or use the real-time context. Scores
-// written before the rename define window.kurguMusic instead.
+// It must not call Tone.start() or use the real-time context.
 window.renderMusic = async function (duration, sampleRate) {
-  const music = window.ekinMusic || window.kurguMusic;
-  if (typeof music !== "function") throw new Error("music.js must define window.ekinMusic(Tone, { duration })");
+  if (typeof window.ekinMusic !== "function") throw new Error("music.js must define window.ekinMusic(Tone, { duration })");
   const buffer = await Tone.Offline(async ({ transport }) => {
-    await music(Tone, { duration });
+    await window.ekinMusic(Tone, { duration });
     transport.start(0);
   }, duration, 2, sampleRate);
   const audio = buffer.get();

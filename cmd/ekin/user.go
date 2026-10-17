@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"ekin/pkg/env"
 	"errors"
 	"flag"
 	"fmt"
@@ -87,7 +86,7 @@ func user(ctx context.Context, a *app.App, args []string) error {
 }
 
 func readPassword() (identitydomain.Password, error) {
-	if v, ok := env.Lookup("EKIN_PASSWORD"); ok {
+	if v, ok := os.LookupEnv("EKIN_PASSWORD"); ok {
 		return identitydomain.ParsePassword(v)
 	}
 	fd := int(os.Stdin.Fd()) //nolint:gosec // stdin's descriptor fits an int

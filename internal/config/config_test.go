@@ -167,17 +167,3 @@ func TestParseConcurrency(t *testing.T) {
 	}
 }
 
-// Hosts set up before the rename keep their KURGU_* variables.
-func TestLoadLegacyNames(t *testing.T) {
-	t.Setenv("EKIN_HTTP_ADDR", "")
-	t.Setenv("KURGU_HTTP_ADDR", "0.0.0.0:9090")
-	t.Setenv("EKIN_LOG_LEVEL", "debug")
-	t.Setenv("KURGU_LOG_LEVEL", "warn")
-	cfg, err := Load()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if cfg.HTTPAddr != "0.0.0.0:9090" || cfg.LogLevel != "debug" {
-		t.Fatalf("addr, level = %q, %q; want the KURGU_ address and the EKIN_ level", cfg.HTTPAddr, cfg.LogLevel)
-	}
-}

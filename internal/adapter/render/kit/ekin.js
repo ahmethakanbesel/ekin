@@ -62,7 +62,7 @@
       if (cur.length >= maxWords || /[.!?…:;]$/.test(w.text)) { groups.push(cur); cur = []; }
     }
     if (cur.length) groups.push(cur);
-    el.classList.add("ekin-captions", "kurgu-captions"); // kurgu-: compositions written before the rename
+    el.classList.add("ekin-captions");
     let shown = -1;
     return function update(t) {
       let gi = -1;
@@ -196,8 +196,4 @@
   }
 
   window.Ekin = { clamp, lerp, progress, ease, tween, random, timings, captions, video, scenes, composition, thumbnails };
-  // Compositions written before the product was renamed call Kurgu.* and
-  // read window.kurgu; they keep rendering unchanged.
-  window.Kurgu = window.Ekin;
-  Object.defineProperty(window, "kurgu", { get: () => window.ekin, configurable: true });
 })();

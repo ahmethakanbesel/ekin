@@ -41,23 +41,10 @@ import (
 var kitFS embed.FS
 
 // Kit is the composition runtime served at /kit/ (ekin.js, ekin.css,
-// tone.js, fonts). It also answers to kurgu.js and kurgu.css, which
-// compositions written before the product was renamed load.
+// tone.js, fonts).
 func Kit() fs.FS {
 	sub, _ := fs.Sub(kitFS, "kit")
-	return legacyKit{sub}
-}
-
-// legacyNames maps the kit's names from before the rename to its files.
-var legacyNames = map[string]string{"kurgu.js": "ekin.js", "kurgu.css": "ekin.css"}
-
-type legacyKit struct{ fs.FS }
-
-func (k legacyKit) Open(name string) (fs.File, error) {
-	if to, ok := legacyNames[name]; ok {
-		name = to
-	}
-	return k.FS.Open(name)
+	return sub
 }
 
 // Renderer holds the tools and the throttling knobs (PLAN.md §4).
@@ -571,7 +558,7 @@ func (r *Renderer) Sample(ctx context.Context, dir, pagePath string, every float
 	}
 	if _, err := chromedp.Run(tab, chromedp.Evaluate[bool](`(() => {
 		const st = document.createElement("style");
-		st.textContent = ".ekin-captions, .kurgu-captions { visibility: hidden !important; }";
+		st.textContent = ".ekin-captions { visibility: hidden !important; }";
 		document.head.appendChild(st);
 		return true;
 	})()`)); err != nil {

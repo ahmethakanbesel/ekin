@@ -5,7 +5,6 @@ import (
 	"ekin/internal/adapter/elevenlabs"
 	"ekin/internal/adapter/openseo"
 	seosvc "ekin/internal/service/seo/v1"
-	"ekin/pkg/env"
 	"fmt"
 	"log/slog"
 	"os"
@@ -271,13 +270,13 @@ func envCredentials(cfg config.Config) settingsdomain.Credentials {
 		SMTPHost: cfg.Notify.SMTPHost, SMTPPort: port, SMTPUsername: cfg.Notify.SMTPUser, SMTPPassword: cfg.Notify.SMTPPassword,
 		SMTPFrom: cfg.Notify.SMTPFrom, SMTPTLS: cfg.Notify.SMTPTLS,
 		YouTubeClientID: cfg.Publishing.YouTubeClientID, YouTubeClientSecret: cfg.Publishing.YouTubeClientSecret,
-		OpenSEOAPIKey: env.Get("EKIN_OPENSEO_API_KEY"), OpenSEOURL: env.Get("EKIN_OPENSEO_URL"),
+		OpenSEOAPIKey: os.Getenv("EKIN_OPENSEO_API_KEY"), OpenSEOURL: os.Getenv("EKIN_OPENSEO_URL"),
 		ElevenLabsAPIKey: cfg.Production.ElevenLabsKey,
 	}
-	if _, ok := env.Lookup("EKIN_DECISION_MODEL"); !ok {
+	if _, ok := os.LookupEnv("EKIN_DECISION_MODEL"); !ok {
 		c.DecisionModel = ""
 	}
-	if _, ok := env.Lookup("EKIN_SMTP_TLS"); !ok {
+	if _, ok := os.LookupEnv("EKIN_SMTP_TLS"); !ok {
 		c.SMTPTLS = ""
 	}
 	return c
