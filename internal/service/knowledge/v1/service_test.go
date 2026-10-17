@@ -17,12 +17,15 @@ import (
 	"kurgu/internal/db/dbtest"
 	jobdomain "kurgu/internal/domain/job/v1"
 	knowledgedomain "kurgu/internal/domain/knowledge/v1"
+	pipelinedomain "kurgu/internal/domain/pipeline/v1"
 	workspacedomain "kurgu/internal/domain/workspace/v1"
 	jobrepo "kurgu/internal/repository/job/v1"
 	knowledgerepo "kurgu/internal/repository/knowledge/v1"
+	pipelinerepo "kurgu/internal/repository/pipeline/v1"
 	workspacerepo "kurgu/internal/repository/workspace/v1"
 	jobsvc "kurgu/internal/service/job/v1"
 	knowledgesvc "kurgu/internal/service/knowledge/v1"
+	pipelinesvc "kurgu/internal/service/pipeline/v1"
 	"kurgu/pkg/id"
 )
 
@@ -245,5 +248,74 @@ func TestRenameDuringExtractionIsKept(t *testing.T) {
 				t.Fatalf("after extraction: %q %s", got.Title(), got.Status())
 			}
 		})
+	}
+}
+
+// racingDocuments runs race once, right after the next Get.
+type racingDocuments struct {
+	knowledgerepo.Repository
+	race func()
+}
+
+func (r *racingDocuments) Get(ctx context.Context, ws, id uuid.UUID) (*knowledgedomain.Document, error) {
+	d, err := r.Repository.Get(ctx, ws, id)
+	if race := r.race; race != nil {
+		r.race = nil
+		race()
+	}
+	return d, err
+}
+
+// A pipeline saved with a reference to a document being deleted either
+// stops the deletion or is refused: no pipeline is left pointing at a
+// deleted document.
+func TestDeletingADocumentAPipelineIsAboutToUse(t *testing.T) {
+	ctx := context.Background()
+	_, tx := dbtest.Open(t)
+	w, _ := workspacedomain.New(id.New(), "ws", time.UTC, time.Now())
+	workspaces := workspacerepo.NewSQLite(tx)
+	_ = workspaces.Create(ctx, w)
+	blobs, _ := blob.NewFS(t.TempDir())
+	jobs := jobsvc.NewService(jobrepo.NewSQLite(tx), tx)
+	docs := &racingDocuments{Repository: knowledgerepo.NewSQLite(tx)}
+	svc := knowledgesvc.NewService(docs, blobs, jobs, extract.New(), tx)
+	pipelines := pipelinesvc.NewService(pipelinerepo.NewSQLite(tx), workspaces, jobs, tx).WithDocuments(svc)
+	svc.WithUsage(pipelines)
+	f := fixture{svc: svc, jobs: jobs, blobs: blobs, ws: w.ID()}
+	d, err := svc.Upload(ctx, w.ID(), id.New(), "Notlar", "notlar.md", strings.NewReader("Kaygı üzerine."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.runExtract(t); err != nil {
+		t.Fatal(err)
+	}
+	video, _ := pipelinedomain.NewVideoSpec(pipelinedomain.FormatShort, pipelinedomain.Vertical, 45*time.Second)
+	outputs, _ := pipelinedomain.NewOutputs(&video, nil, "")
+	ref, _ := pipelinedomain.NewKnowledgeRef(d.ID(), pipelinedomain.PageRange{})
+	source, err := pipelinedomain.NewKnowledgeSource("", []pipelinedomain.KnowledgeRef{ref})
+	if err != nil {
+		t.Fatal(err)
+	}
+	def := pipelinedomain.Definition{Name: "Notlardan", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source}
+
+	created := make(chan error, 1)
+	docs.race = func() {
+		// Someone saves a pipeline using the document as it is deleted.
+		go func() { _, err := pipelines.Create(context.Background(), w.ID(), def); created <- err }()
+		select {
+		case err := <-created:
+			created <- err
+		case <-time.After(300 * time.Millisecond):
+		}
+	}
+	delErr := svc.Delete(ctx, w.ID(), d.ID())
+	createErr := <-created
+	switch {
+	case delErr == nil && createErr == nil:
+		t.Fatal("the document was deleted though a pipeline now uses it")
+	case delErr == nil && !apperror.Is(createErr, apperror.ValidationFailed):
+		t.Fatalf("pipeline using a deleted document = %v", createErr)
+	case delErr != nil && !apperror.Is(delErr, apperror.Conflict):
+		t.Fatalf("delete = %v", delErr)
 	}
 }

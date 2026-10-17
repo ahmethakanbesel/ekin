@@ -263,20 +263,27 @@ func (s *Service) Rename(ctx context.Context, workspaceID, documentID uuid.UUID,
 
 // Delete removes a document and its file, unless a pipeline uses it.
 func (s *Service) Delete(ctx context.Context, workspaceID, documentID uuid.UUID) error {
-	d, err := s.repo.Get(ctx, workspaceID, documentID)
-	if err != nil {
-		return err
-	}
-	if s.usage != nil {
-		names, err := s.usage.PipelinesUsing(ctx, workspaceID, documentID)
-		if err != nil {
+	// The usage check and the deletion are one transaction, and pipelines
+	// check their references in the transaction that saves them, so a
+	// pipeline saved meanwhile either stops the deletion or is refused.
+	var d *knowledgedomain.Document
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		var err error
+		if d, err = s.repo.Get(ctx, workspaceID, documentID); err != nil {
 			return err
 		}
-		if len(names) > 0 {
-			return apperror.New(apperror.Conflict, "used by pipeline "+strings.Join(names, ", ")+"; remove the reference first")
+		if s.usage != nil {
+			names, err := s.usage.PipelinesUsing(ctx, workspaceID, documentID)
+			if err != nil {
+				return err
+			}
+			if len(names) > 0 {
+				return apperror.New(apperror.Conflict, "used by pipeline "+strings.Join(names, ", ")+"; remove the reference first")
+			}
 		}
-	}
-	if err := s.repo.Delete(ctx, workspaceID, documentID); err != nil {
+		return s.repo.Delete(ctx, workspaceID, documentID)
+	})
+	if err != nil {
 		return err
 	}
 	return s.blobs.DeletePrefix(ctx, strings.TrimSuffix(d.BlobKey(), "/original."+string(d.Format())))

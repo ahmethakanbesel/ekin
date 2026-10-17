@@ -98,19 +98,25 @@ func (s *Service) WithClock(now func() time.Time) *Service {
 	return s
 }
 
-// Create creates a pipeline in workspaceID.
+// Create creates a pipeline in workspaceID. Its references are checked
+// in the transaction that saves it, so a document deleted meanwhile is
+// either still there or refused.
 func (s *Service) Create(ctx context.Context, workspaceID uuid.UUID, def pipelinedomain.Definition) (*pipelinedomain.Pipeline, error) {
-	if _, err := s.workspaces.Get(ctx, workspaceID); err != nil {
-		return nil, err
-	}
-	if err := s.checkDefinition(ctx, workspaceID, def); err != nil {
-		return nil, err
-	}
-	p, err := pipelinedomain.New(id.New(), workspaceID, def, s.now())
+	var p *pipelinedomain.Pipeline
+	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		if _, err := s.workspaces.Get(ctx, workspaceID); err != nil {
+			return err
+		}
+		if err := s.checkDefinition(ctx, workspaceID, def); err != nil {
+			return err
+		}
+		var err error
+		if p, err = pipelinedomain.New(id.New(), workspaceID, def, s.now()); err != nil {
+			return err
+		}
+		return s.repo.Create(ctx, p)
+	})
 	if err != nil {
-		return nil, err
-	}
-	if err := s.repo.Create(ctx, p); err != nil {
 		return nil, err
 	}
 	return p, nil
@@ -162,10 +168,10 @@ func (s *Service) Upcoming(ctx context.Context, workspaceID uuid.UUID, days int)
 // caller read; a newer stored version fails with StaleVersion instead of
 // overwriting someone else's edit.
 func (s *Service) Redefine(ctx context.Context, workspaceID, pipelineID uuid.UUID, version int64, def pipelinedomain.Definition) (*pipelinedomain.Pipeline, error) {
-	if err := s.checkDefinition(ctx, workspaceID, def); err != nil {
-		return nil, err
-	}
-	return s.change(ctx, workspaceID, pipelineID, version, func(_ context.Context, p *pipelinedomain.Pipeline, now time.Time) error {
+	return s.change(ctx, workspaceID, pipelineID, version, func(ctx context.Context, p *pipelinedomain.Pipeline, now time.Time) error {
+		if err := s.checkDefinition(ctx, workspaceID, def); err != nil {
+			return err
+		}
 		return p.Redefine(def, now)
 	})
 }
