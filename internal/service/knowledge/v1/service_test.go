@@ -251,19 +251,20 @@ func TestRenameDuringExtractionIsKept(t *testing.T) {
 	}
 }
 
-// racingDocuments runs race once, right after the next Get.
-type racingDocuments struct {
-	knowledgerepo.Repository
-	race func()
+// racingUsage answers with pipelines, then runs race once: something
+// happening right after the deletion's usage check.
+type racingUsage struct {
+	pipelines *pipelinesvc.Service
+	race      func()
 }
 
-func (r *racingDocuments) Get(ctx context.Context, ws, id uuid.UUID) (*knowledgedomain.Document, error) {
-	d, err := r.Repository.Get(ctx, ws, id)
-	if race := r.race; race != nil {
-		r.race = nil
+func (u *racingUsage) PipelinesUsing(ctx context.Context, ws, documentID uuid.UUID) ([]string, error) {
+	names, err := u.pipelines.PipelinesUsing(ctx, ws, documentID)
+	if race := u.race; race != nil {
+		u.race = nil
 		race()
 	}
-	return d, err
+	return names, err
 }
 
 // A pipeline saved with a reference to a document being deleted either
@@ -277,10 +278,10 @@ func TestDeletingADocumentAPipelineIsAboutToUse(t *testing.T) {
 	_ = workspaces.Create(ctx, w)
 	blobs, _ := blob.NewFS(t.TempDir())
 	jobs := jobsvc.NewService(jobrepo.NewSQLite(tx), tx)
-	docs := &racingDocuments{Repository: knowledgerepo.NewSQLite(tx)}
-	svc := knowledgesvc.NewService(docs, blobs, jobs, extract.New(), tx)
+	svc := knowledgesvc.NewService(knowledgerepo.NewSQLite(tx), blobs, jobs, extract.New(), tx)
 	pipelines := pipelinesvc.NewService(pipelinerepo.NewSQLite(tx), workspaces, jobs, tx).WithDocuments(svc)
-	svc.WithUsage(pipelines)
+	usage := &racingUsage{pipelines: pipelines}
+	svc.WithUsage(usage)
 	f := fixture{svc: svc, jobs: jobs, blobs: blobs, ws: w.ID()}
 	d, err := svc.Upload(ctx, w.ID(), id.New(), "Notlar", "notlar.md", strings.NewReader("Kaygı üzerine."))
 	if err != nil {
@@ -299,7 +300,7 @@ func TestDeletingADocumentAPipelineIsAboutToUse(t *testing.T) {
 	def := pipelinedomain.Definition{Name: "Notlardan", Language: pipelinedomain.Turkish, Outputs: outputs, Source: source}
 
 	created := make(chan error, 1)
-	docs.race = func() {
+	usage.race = func() {
 		// Someone saves a pipeline using the document as it is deleted.
 		go func() { _, err := pipelines.Create(context.Background(), w.ID(), def); created <- err }()
 		select {
