@@ -2,6 +2,7 @@ package render_test
 
 import (
 	"context"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -101,5 +102,42 @@ func TestProbeReportsBrokenPage(t *testing.T) {
 	joined := strings.Join(problems, "\n")
 	if !strings.Contains(joined, "boom") || !strings.Contains(joined, "request failed") {
 		t.Fatalf("problems = %v", problems)
+	}
+}
+
+func TestMusicTrack(t *testing.T) {
+	for _, bin := range []string{"ffmpeg", "ffprobe"} {
+		if _, err := exec.LookPath(bin); err != nil {
+			t.Skip("no " + bin)
+		}
+	}
+	dir := t.TempDir()
+	track := filepath.Join(dir, "track.mp3")
+	if out, err := exec.Command("ffmpeg", "-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=220:duration=3", track).CombinedOutput(); err != nil {
+		t.Fatalf("make track: %v %s", err, out)
+	}
+	r := &render.Renderer{}
+	tests := []struct {
+		name             string
+		offset, duration float64
+	}{
+		{"looped when shorter", 0, 7.5},
+		{"from an offset", 1, 1.5},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := filepath.Join(dir, strings.ReplaceAll(tt.name, " ", "-")+".wav")
+			if err := r.MusicTrack(context.Background(), track, tt.offset, tt.duration, out); err != nil {
+				t.Fatal(err)
+			}
+			raw, err := exec.Command("ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", out).Output()
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, _ := strconv.ParseFloat(strings.TrimSpace(string(raw)), 64)
+			if math.Abs(got-tt.duration) > 0.05 {
+				t.Fatalf("duration = %.3f, want %.3f", got, tt.duration)
+			}
+		})
 	}
 }

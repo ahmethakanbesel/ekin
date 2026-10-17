@@ -707,6 +707,18 @@ func (r *Renderer) Music(ctx context.Context, dir string, duration float64, out 
 	return res.Peak, nil
 }
 
+// MusicTrack cuts a library track to a video's duration in seconds: from
+// offset seconds in, looped when shorter, faded out over the last two
+// seconds, as a WAV for Mix. Timestamps are rebuilt from the sample count
+// so the cut is exact (looping an MP3 shifts them a little every pass).
+func (r *Renderer) MusicTrack(ctx context.Context, in string, offset, duration float64, out string) error {
+	fade := math.Max(0, duration-2)
+	return r.run(ctx, "-y", "-loglevel", "error", "-stream_loop", "-1",
+		"-ss", strconv.FormatFloat(offset, 'f', 3, 64), "-i", in, "-vn",
+		"-af", fmt.Sprintf("aresample=48000,asetpts=N/SR/TB,atrim=duration=%.3f,afade=t=out:st=%.3f:d=2", duration, fade),
+		"-ac", "2", out)
+}
+
 // Mix muxes narration (and music, ducked under the voice) onto a silent
 // video, normalised to -14 LUFS for YouTube. music may be empty.
 func (r *Renderer) Mix(ctx context.Context, video, narration, music string, duration float64, out string) error {
