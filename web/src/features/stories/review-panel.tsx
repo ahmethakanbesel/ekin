@@ -1,6 +1,7 @@
-import { useMemo, type ReactNode } from "react"
+import { useMemo, useSyncExternalStore, type ReactNode } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
+import { Collapsible } from "@base-ui/react/collapsible"
 import { ChevronRightIcon, Trash2Icon } from "lucide-react"
 
 import {
@@ -174,6 +175,7 @@ export function ReviewPanel({
         <>
           <Separator />
           <Section
+            name="script"
             title={m.panel.script}
             aside={
               narrator
@@ -203,6 +205,7 @@ export function ReviewPanel({
           <Separator />
           <Section
             id={HISTORY_ID}
+            name="history"
             title={m.history.title}
             aside={
               review.revisions.data
@@ -225,7 +228,7 @@ export function ReviewPanel({
       {current && artifacts ? (
         <>
           <Separator />
-          <Section title={m.panel.details}>
+          <Section name="details" title={m.panel.details}>
             <div className="grid gap-6">
               {d.kind === "video" ? (
                 <VideoDetails
@@ -241,7 +244,7 @@ export function ReviewPanel({
         </>
       ) : null}
       <Separator />
-      <Section title={m.feed.story}>
+      <Section name="story" title={m.feed.story}>
         <StoryFacts
           story={story}
           shown={d}
@@ -326,45 +329,119 @@ function scriptNotes(
 /** The History section, which the feedback sheet points to for earlier notes. */
 const HISTORY_ID = "panel-history"
 
-/** Brings the panel's History into view and moves focus to its heading. */
+/** Brings the panel's History into view, open, and moves focus to its heading. */
 export function showHistory() {
-  const el = document.getElementById(HISTORY_ID)
-  if (!el) return
-  const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  el.scrollIntoView({ block: "start", behavior: smooth ? "smooth" : "auto" })
-  el.querySelector<HTMLElement>("h2")?.focus({ preventScroll: true })
+  setCollapsed("history", false)
+  // Opened on the next render; scroll once it has its height.
+  requestAnimationFrame(() => {
+    const el = document.getElementById(HISTORY_ID)
+    if (!el) return
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)")
+      .matches
+    el.scrollIntoView({ block: "start", behavior: smooth ? "smooth" : "auto" })
+    el.querySelector<HTMLElement>("h2 button")?.focus({ preventScroll: true })
+  })
 }
 
+// The sections the reviewer has collapsed, kept from draft to draft and
+// across visits. A per-viewer convenience: storage may be unavailable.
+const COLLAPSED_KEY = "kurgu.review-panel.collapsed"
+let collapsed: ReadonlySet<string> = readCollapsed()
+const listeners = new Set<() => void>()
+
+function readCollapsed(): ReadonlySet<string> {
+  try {
+    const raw = window.localStorage.getItem(COLLAPSED_KEY)
+    const names: unknown = raw ? JSON.parse(raw) : []
+    return new Set(
+      Array.isArray(names) ? names.filter((n) => typeof n === "string") : []
+    )
+  } catch {
+    return new Set()
+  }
+}
+
+function setCollapsed(name: string, closed: boolean) {
+  if (collapsed.has(name) === closed) return
+  const next = new Set(collapsed)
+  if (closed) next.add(name)
+  else next.delete(name)
+  collapsed = next
+  try {
+    window.localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]))
+  } catch {
+    // Not remembered; the section still collapses.
+  }
+  for (const l of listeners) l()
+}
+
+function subscribeCollapsed(l: () => void) {
+  listeners.add(l)
+  return () => listeners.delete(l)
+}
+
+function useOpen(name: string | undefined): boolean {
+  const set = useSyncExternalStore(subscribeCollapsed, () => collapsed)
+  return !name || !set.has(name)
+}
+
+/**
+ * A panel section. One with a name and a title collapses from its
+ * heading; its contents stay findable with the browser's page search.
+ */
 function Section({
   id,
+  name,
   title,
   aside,
   className,
   children,
 }: {
   id?: string
+  /** Remembers whether the section is collapsed. */
+  name?: string
   title?: string
   aside?: ReactNode
   className?: string
   children: ReactNode
 }) {
+  const open = useOpen(name)
+  if (!title || !name) {
+    return (
+      <section id={id} className={cn("p-6 max-sm:px-4", className)}>
+        {title ? <h2 className="mb-4 font-semibold">{title}</h2> : null}
+        {children}
+      </section>
+    )
+  }
   return (
-    <section id={id} className={cn("p-6 max-sm:px-4", className)}>
-      {title ? (
-        <div className="mb-4 flex items-baseline justify-between gap-2">
-          <h2
-            tabIndex={id ? -1 : undefined}
-            className="font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring rounded-sm"
-          >
+    <Collapsible.Root
+      open={open}
+      onOpenChange={(next) => setCollapsed(name, !next)}
+      render={<section id={id} className="p-6 max-sm:px-4" />}
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="font-semibold">
+          <Collapsible.Trigger className="group -mx-1 flex items-center gap-1.5 rounded-sm px-1 outline-none focus-visible:ring-[3px] focus-visible:ring-ring">
             {title}
-          </h2>
-          {aside ? (
-            <span className="text-xs text-muted-foreground">{aside}</span>
-          ) : null}
-        </div>
-      ) : null}
-      {children}
-    </section>
+            <ChevronRightIcon
+              aria-hidden="true"
+              className="size-4 text-muted-foreground group-data-panel-open:rotate-90 motion-safe:transition-transform"
+            />
+          </Collapsible.Trigger>
+        </h2>
+        {aside ? (
+          <span className="text-xs text-muted-foreground">{aside}</span>
+        ) : null}
+      </div>
+      {/* Padded out so the contents' focus rings are not clipped. */}
+      <Collapsible.Panel
+        hiddenUntilFound
+        className="-mx-1 -mb-1 h-(--collapsible-panel-height) overflow-hidden px-1 pb-1 data-ending-style:h-0 data-starting-style:h-0 motion-safe:transition-[height] motion-safe:duration-200 motion-safe:ease-out"
+      >
+        <div className={cn("pt-4", className)}>{children}</div>
+      </Collapsible.Panel>
+    </Collapsible.Root>
   )
 }
 
