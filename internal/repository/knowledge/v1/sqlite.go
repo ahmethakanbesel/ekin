@@ -5,12 +5,15 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
 	"kurgu/internal/apperror"
 	"kurgu/internal/db"
 	knowledgedomain "kurgu/internal/domain/knowledge/v1"
+	"kurgu/pkg/fold"
+	"kurgu/pkg/page"
 	"kurgu/pkg/timeutil"
 )
 
@@ -68,23 +71,57 @@ func (r *SQLite) get(ctx context.Context, where string, args ...any) (*knowledge
 	return d, err
 }
 
-func (r *SQLite) List(ctx context.Context, workspaceID uuid.UUID) ([]*knowledgedomain.Document, error) {
-	rows, err := r.q.R(ctx).QueryContext(ctx,
-		`SELECT `+columns+` FROM documents WHERE workspace_id = ? ORDER BY created_at DESC, id DESC`, workspaceID.String())
+func (r *SQLite) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*knowledgedomain.Document, string, error) {
+	where := []string{"workspace_id = ?"}
+	args := []any{workspaceID.String()}
+	if len(f.Statuses) > 0 {
+		where = append(where, "status IN ("+placeholders(len(f.Statuses))+")")
+		for _, st := range f.Statuses {
+			args = append(args, string(st))
+		}
+	}
+	if len(f.Formats) > 0 {
+		where = append(where, "format IN ("+placeholders(len(f.Formats))+")")
+		for _, fm := range f.Formats {
+			args = append(args, string(fm))
+		}
+	}
+	if q := fold.String(f.Query); q != "" {
+		where = append(where, "instr(fold(title), ?) > 0")
+		args = append(args, q)
+	}
+	var after cursor
+	if ok, err := page.Decode(f.After, &after); err != nil {
+		return nil, "", apperror.Wrap(apperror.ValidationFailed, err, "invalid cursor")
+	} else if ok {
+		where = append(where, "(created_at < ? OR (created_at = ? AND id < ?))")
+		args = append(args, after.At, after.At, after.ID)
+	}
+	limit := page.Limit(f.Limit, DefaultListLimit, MaxListLimit)
+	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT `+columns+` FROM documents WHERE `+strings.Join(where, " AND ")+
+		` ORDER BY created_at DESC, id DESC LIMIT ?`, append(args, limit+1)...)
 	if err != nil {
-		return nil, fmt.Errorf("list documents: %w", err)
+		return nil, "", fmt.Errorf("list documents: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 	var out []*knowledgedomain.Document
 	for rows.Next() {
 		d, err := scan(rows)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		out = append(out, d)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, "", err
+	}
+	if len(out) <= limit {
+		return out, "", nil
+	}
+	return out[:limit], nextCursor(out[limit-1]), nil
 }
+
+func placeholders(n int) string { return strings.TrimSuffix(strings.Repeat("?,", n), ",") }
 
 func (r *SQLite) Delete(ctx context.Context, workspaceID, id uuid.UUID) error {
 	res, err := r.q.W(ctx).ExecContext(ctx, `DELETE FROM documents WHERE id = ? AND workspace_id = ?`, id.String(), workspaceID.String())

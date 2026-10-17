@@ -4,11 +4,16 @@ import (
 	"cmp"
 	"context"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
 
+	"kurgu/internal/apperror"
 	knowledgedomain "kurgu/internal/domain/knowledge/v1"
+	"kurgu/pkg/fold"
+	"kurgu/pkg/page"
+	"kurgu/pkg/timeutil"
 )
 
 // InMemory is a Repository for service tests.
@@ -68,13 +73,25 @@ func (r *InMemory) GetByID(_ context.Context, id uuid.UUID) (*knowledgedomain.Do
 	return knowledgedomain.Rehydrate(s)
 }
 
-func (r *InMemory) List(_ context.Context, workspaceID uuid.UUID) ([]*knowledgedomain.Document, error) {
+func (r *InMemory) List(_ context.Context, workspaceID uuid.UUID, f Filter) ([]*knowledgedomain.Document, string, error) {
+	var after cursor
+	hasAfter, err := page.Decode(f.After, &after)
+	if err != nil {
+		return nil, "", apperror.Wrap(apperror.ValidationFailed, err, "invalid cursor")
+	}
+	query := fold.String(f.Query)
 	r.mu.RLock()
 	var snaps []knowledgedomain.Snapshot
 	for _, s := range r.docs {
-		if s.WorkspaceID == workspaceID {
-			snaps = append(snaps, s)
+		at := timeutil.ToMillis(s.CreatedAt)
+		if s.WorkspaceID != workspaceID ||
+			len(f.Statuses) > 0 && !slices.Contains(f.Statuses, knowledgedomain.Status(s.Status)) ||
+			len(f.Formats) > 0 && !slices.Contains(f.Formats, knowledgedomain.Format(s.Format)) ||
+			query != "" && !strings.Contains(fold.String(s.Title), query) ||
+			hasAfter && (at > after.At || at == after.At && s.ID.String() >= after.ID) {
+			continue
 		}
+		snaps = append(snaps, s)
 	}
 	r.mu.RUnlock()
 	slices.SortFunc(snaps, func(a, b knowledgedomain.Snapshot) int {
@@ -84,11 +101,15 @@ func (r *InMemory) List(_ context.Context, workspaceID uuid.UUID) ([]*knowledged
 	for _, s := range snaps {
 		d, err := knowledgedomain.Rehydrate(s)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		out = append(out, d)
 	}
-	return out, nil
+	limit := page.Limit(f.Limit, DefaultListLimit, MaxListLimit)
+	if len(out) <= limit {
+		return out, "", nil
+	}
+	return out[:limit], nextCursor(out[limit-1]), nil
 }
 
 func (r *InMemory) Delete(_ context.Context, workspaceID, id uuid.UUID) error {

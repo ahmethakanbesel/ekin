@@ -222,9 +222,13 @@ func (s *Service) Get(ctx context.Context, workspaceID, documentID uuid.UUID) (*
 	return s.repo.Get(ctx, workspaceID, documentID)
 }
 
-// List returns the workspace's documents, newest first.
-func (s *Service) List(ctx context.Context, workspaceID uuid.UUID) ([]*knowledgedomain.Document, error) {
-	return s.repo.List(ctx, workspaceID)
+// Filter narrows a document listing and picks its page.
+type Filter = knowledgerepo.Filter
+
+// List returns a page of the workspace's documents, newest first, and
+// the cursor of the next page ("" after the last).
+func (s *Service) List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*knowledgedomain.Document, string, error) {
+	return s.repo.List(ctx, workspaceID, f)
 }
 
 // Rename changes a document's title.

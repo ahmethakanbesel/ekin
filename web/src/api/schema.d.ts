@@ -2317,7 +2317,16 @@ export interface operations {
     };
     listDocuments: {
         parameters: {
-            query?: never;
+            query?: {
+                status?: ("pending" | "ready" | "failed")[];
+                format?: ("pdf" | "txt" | "md" | "epub")[];
+                /** @description Keep rows whose title contains this text, compared ignoring case, accents and the Turkish dotted and dotless i. */
+                q?: components["parameters"]["Search"];
+                /** @description Documents per page; 500 when omitted. */
+                limit?: number;
+                /** @description Continue a listing after the page that returned this `nextCursor`. Keyset paging: rows added meanwhile are neither skipped nor repeated. */
+                cursor?: components["parameters"]["Cursor"];
+            };
             header?: never;
             path: {
                 workspaceId: components["parameters"]["WorkspaceId"];
@@ -2326,7 +2335,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The knowledge base, newest first. */
+            /** @description A page of the knowledge base, newest first. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2334,6 +2343,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         documents: components["schemas"]["Document"][];
+                        /** @description Pass as `cursor` for the next page; absent after the last. */
+                        nextCursor?: string;
                     };
                 };
             };

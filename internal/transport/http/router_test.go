@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"net/url"
 	"slices"
 	"strings"
 	"sync"
@@ -627,6 +628,74 @@ func TestKnowledgeBase(t *testing.T) {
 	if res.StatusCode != 400 {
 		t.Fatalf("pptx upload = %d", res.StatusCode)
 	}
+}
+
+// Listings page by cursor and filter through the query string; a cursor
+// the server did not make is a 400.
+func TestListingsPageAndFilter(t *testing.T) {
+	srv := newServer(t)
+	owner := srv.signedIn(t, "owner@example.com")
+	ws := owner.workspace("acme")
+	base := "/api/v1/workspaces/" + ws.Id.String()
+	for _, title := range []string{"Kaygı notları", "Uyku", "KAYGI ve beden"} {
+		res := owner.upload(base+"/documents", "notes.md", title, []byte("# Not"))
+		_ = res.Body.Close()
+		if res.StatusCode != 202 {
+			t.Fatalf("upload = %d", res.StatusCode)
+		}
+	}
+
+	var titles []string
+	path := base + "/documents?limit=2"
+	for range 5 {
+		var page struct {
+			Documents  []gen.Document
+			NextCursor *string
+		}
+		owner.call("GET", path, nil, 200, &page)
+		for _, d := range page.Documents {
+			titles = append(titles, d.Title)
+		}
+		if page.NextCursor == nil {
+			break
+		}
+		path = base + "/documents?limit=2&cursor=" + url.QueryEscape(*page.NextCursor)
+	}
+	if !slices.Equal(titles, []string{"KAYGI ve beden", "Uyku", "Kaygı notları"}) {
+		t.Fatalf("paged titles = %q", titles)
+	}
+
+	var found struct{ Documents []gen.Document }
+	owner.call("GET", base+"/documents?q=kaygi&status=pending&format=md", nil, 200, &found)
+	if len(found.Documents) != 2 {
+		t.Fatalf("search = %d documents", len(found.Documents))
+	}
+	owner.call("GET", base+"/documents?status=ready", nil, 200, &found)
+	if len(found.Documents) != 0 {
+		t.Fatalf("ready = %d documents", len(found.Documents))
+	}
+
+	// Each upload queued its own extraction: three requests, paged.
+	var jobs struct {
+		Jobs       []gen.Job
+		NextCursor *string
+	}
+	owner.call("GET", base+"/jobs?limit=2&kind="+knowledgesvc.KindExtract, nil, 200, &jobs)
+	if len(jobs.Jobs) != 2 || jobs.NextCursor == nil {
+		t.Fatalf("jobs page 1 = %d, next %v", len(jobs.Jobs), jobs.NextCursor)
+	}
+	next := *jobs.NextCursor
+	jobs.Jobs, jobs.NextCursor = nil, nil
+	owner.call("GET", base+"/jobs?limit=2&kind="+knowledgesvc.KindExtract+"&cursor="+url.QueryEscape(next), nil, 200, &jobs)
+	if len(jobs.Jobs) != 1 || jobs.NextCursor != nil {
+		t.Fatalf("jobs page 2 = %d, next %v", len(jobs.Jobs), jobs.NextCursor)
+	}
+
+	for _, list := range []string{"/documents", "/jobs"} {
+		owner.fail("GET", base+list+"?cursor=not-ours", nil, 400, "ValidationFailed")
+	}
+	owner.fail("GET", base+"/documents?status=lost", nil, 400, "ValidationFailed")
+	owner.fail("GET", base+"/documents?format=pptx", nil, 400, "ValidationFailed")
 }
 
 // Feedback positions keep their precision (they were float32 once and

@@ -27,7 +27,35 @@ type Handler struct {
 func New(svc *knowledgesvc.Service) *Handler { return &Handler{svc: svc} }
 
 func (h *Handler) ListDocuments(ctx context.Context, req gen.ListDocumentsRequestObject) (gen.ListDocumentsResponseObject, error) {
-	docs, err := h.svc.List(ctx, req.WorkspaceId)
+	var f knowledgesvc.Filter
+	if req.Params.Status != nil {
+		for _, raw := range *req.Params.Status {
+			st, err := knowledgedomain.ParseStatus(string(raw))
+			if err != nil {
+				return nil, err
+			}
+			f.Statuses = append(f.Statuses, st)
+		}
+	}
+	if req.Params.Format != nil {
+		for _, raw := range *req.Params.Format {
+			fm, err := knowledgedomain.ParseFormat(string(raw))
+			if err != nil {
+				return nil, err
+			}
+			f.Formats = append(f.Formats, fm)
+		}
+	}
+	if req.Params.Q != nil {
+		f.Query = *req.Params.Q
+	}
+	if req.Params.Limit != nil {
+		f.Limit = *req.Params.Limit
+	}
+	if req.Params.Cursor != nil {
+		f.After = *req.Params.Cursor
+	}
+	docs, next, err := h.svc.List(ctx, req.WorkspaceId, f)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +63,11 @@ func (h *Handler) ListDocuments(ctx context.Context, req gen.ListDocumentsReques
 	for _, d := range docs {
 		out = append(out, ToWire(d))
 	}
-	return gen.ListDocuments200JSONResponse{Documents: out}, nil
+	resp := gen.ListDocuments200JSONResponse{Documents: out}
+	if next != "" {
+		resp.NextCursor = &next
+	}
+	return resp, nil
 }
 
 // UploadDocument streams the "file" part straight into the service; the

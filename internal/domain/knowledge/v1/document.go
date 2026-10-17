@@ -80,6 +80,15 @@ const (
 	StatusFailed  Status = "failed"
 )
 
+// ParseStatus parses a document status.
+func ParseStatus(s string) (Status, error) {
+	switch st := Status(s); st {
+	case StatusPending, StatusReady, StatusFailed:
+		return st, nil
+	}
+	return "", apperror.New(apperror.ValidationFailed, "unknown document status")
+}
+
 // Document is an uploaded file and the summary of its extracted pages.
 type Document struct {
 	id          uuid.UUID
@@ -262,10 +271,8 @@ func Rehydrate(s Snapshot) (*Document, error) {
 	if err != nil {
 		return nil, err
 	}
-	status := Status(s.Status)
-	switch status {
-	case StatusPending, StatusReady, StatusFailed:
-	default:
+	status, err := ParseStatus(s.Status)
+	if err != nil {
 		return nil, apperror.New(apperror.InternalError, "unknown document status")
 	}
 	return &Document{
