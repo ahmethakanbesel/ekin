@@ -32,6 +32,7 @@ const (
 	InvitationNotFound Code = "InvitationNotFound"
 	DocumentNotFound   Code = "DocumentNotFound"
 	StoryNotFound      Code = "StoryNotFound"
+	AssetNotFound      Code = "AssetNotFound"
 
 	// EmailTaken is a second account for one email address.
 	EmailTaken Code = "EmailTaken"
@@ -68,6 +69,7 @@ var statusByCode = map[Code]int{
 	InvitationNotFound: http.StatusNotFound,
 	DocumentNotFound:   http.StatusNotFound,
 	StoryNotFound:      http.StatusNotFound,
+	AssetNotFound:      http.StatusNotFound,
 
 	EmailTaken:    http.StatusConflict,
 	AlreadyMember: http.StatusConflict,
