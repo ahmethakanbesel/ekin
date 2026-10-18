@@ -604,7 +604,6 @@ export function DraftFrame({
         ) : null}
         {controls && playback && videoRef ? (
           <PlayerCorner
-            store={playback}
             videoRef={videoRef}
             className="absolute top-3 right-3"
           />
