@@ -70,6 +70,20 @@ type Spec struct {
 	// Thumbnails is how many thumbnail variants a long video needs; 0
 	// keeps a frame of the video.
 	Thumbnails int `json:"thumbnails,omitempty"`
+	// FinalScale is the scale the final render draws the frame at (2 for
+	// 2160p from a 1080p frame); stock is fetched sharp enough for it.
+	// Below 1 counts as 1, since a preview may still render at 1080p.
+	FinalScale float64 `json:"finalScale,omitempty"`
+}
+
+// stockSides are the shortest side a stock file must have and the
+// longest side it is kept at: the frame's, at the final render's scale.
+func (s Spec) stockSides() (int, int) {
+	if s.Width <= 0 || s.Height <= 0 {
+		return 1080, 1920
+	}
+	scale := max(1, s.FinalScale)
+	return int(math.Round(float64(min(s.Width, s.Height)) * scale)), int(math.Round(float64(max(s.Width, s.Height)) * scale))
 }
 
 // Env is the tool configuration read from the environment.
@@ -494,15 +508,12 @@ func (e Env) stock(ctx context.Context, query, kind string, count int) error {
 	}
 	count = max(1, min(count, 5))
 	orientation := pexels.Orientation("portrait")
-	minSide := 1080
 	if e.Spec.Width > e.Spec.Height {
 		orientation = "landscape"
 	} else if e.Spec.Width == e.Spec.Height && e.Spec.Width > 0 {
 		orientation = "square"
 	}
-	if e.Spec.Width > 0 {
-		minSide = min(e.Spec.Width, e.Spec.Height)
-	}
+	minSide, maxSide := e.Spec.stockSides()
 	items, err := e.Pexels.Search(ctx, kind, query, orientation, count, minSide)
 	if err != nil {
 		return err
@@ -524,10 +535,6 @@ func (e Env) stock(ctx context.Context, query, kind string, count int) error {
 				return err
 			}
 			file = filepath.Join(assets, name+".webm")
-			maxSide := max(e.Spec.Width, e.Spec.Height)
-			if maxSide == 0 {
-				maxSide = 1920
-			}
 			tctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 			err := e.Renderer.Transcode(tctx, raw, file, 15, maxSide)
 			cancel()

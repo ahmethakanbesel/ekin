@@ -884,7 +884,15 @@ func (r *Renderer) Transcode(ctx context.Context, in, out string, maxSeconds flo
 	scale := fmt.Sprintf("scale='if(gt(iw,ih),min(%d,iw),-2)':'if(gt(iw,ih),-2,min(%d,ih))'", maxSide, maxSide)
 	return r.run(ctx, "-y", "-loglevel", "error", "-i", in, "-t", strconv.FormatFloat(maxSeconds, 'f', 1, 64),
 		"-an", "-vf", scale+",fps=30", "-c:v", "libvpx", "-deadline", "realtime", "-cpu-used", "8",
-		"-b:v", "3M", "-g", "15", out)
+		"-b:v", TranscodeBitrate(maxSide), "-g", "15", out)
+}
+
+// TranscodeBitrate is the bitrate of a stock clip bounded to maxSide:
+// 3 Mbit/s at 1920, growing with the pixels, so a clip kept for a 2160p
+// render is as sharp as one kept for 1080p.
+func TranscodeBitrate(maxSide int) string {
+	ratio := float64(max(maxSide, 1920)) / 1920
+	return strconv.Itoa(int(math.Round(3*ratio*ratio))) + "M"
 }
 
 // FindChrome returns the first Chrome or Chromium found, or "".

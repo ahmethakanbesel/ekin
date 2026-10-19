@@ -490,7 +490,7 @@ export const en = {
       finalQualities: {
         "720p": "720p · fastest",
         "1080p": "1080p",
-        "1440p": "1440p",
+        "1440p": "1440p · 2K",
         "2160p": "2160p · 4K, slowest",
       } as Record<string, string>,
       previewFps: "Preview frame rate",

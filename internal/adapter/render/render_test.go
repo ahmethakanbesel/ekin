@@ -189,3 +189,14 @@ func jpegSize(t *testing.T, path string) (int, int) {
 	}
 	return c.Width, c.Height
 }
+
+func TestTranscodeBitrate(t *testing.T) {
+	for _, tt := range []struct {
+		maxSide int
+		want    string
+	}{{1080, "3M"}, {1920, "3M"}, {2560, "5M"}, {3840, "12M"}} {
+		if got := render.TranscodeBitrate(tt.maxSide); got != tt.want {
+			t.Errorf("TranscodeBitrate(%d) = %s, want %s", tt.maxSide, got, tt.want)
+		}
+	}
+}

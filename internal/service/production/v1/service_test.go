@@ -1854,6 +1854,12 @@ func TestRenderQuality(t *testing.T) {
 			if got := log.fps(); !slices.Equal(got, wantFPS) {
 				t.Fatalf("rendered at %v fps, want %v", got, wantFPS)
 			}
+			// The draft fetches stock sharp enough for the final render.
+			for _, req := range f.agent.prompts {
+				if spec := toolSpec(req); spec.Width > 0 && spec.FinalScale != tt.wantRenders[len(tt.wantRenders)-1] {
+					t.Fatalf("the draft's final scale = %v, want %v", spec.FinalScale, tt.wantRenders[len(tt.wantRenders)-1])
+				}
+			}
 			st = f.story(t)
 			if d := st.Lead(); d.Status() != storydomain.StatusReady && d.Status() != storydomain.StatusPublished {
 				t.Fatalf("lead = %s: %s", d.Status(), d.Failure())

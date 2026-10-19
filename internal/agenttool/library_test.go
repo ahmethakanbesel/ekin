@@ -9,8 +9,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -301,5 +303,81 @@ func TestUsedStock(t *testing.T) {
 	got := agenttool.UsedStock(dir)
 	if len(got) != 2 || got[0].ExternalID != "11" || got[1].Kind != "photo" || got[1].ExternalID != "22" {
 		t.Fatalf("used stock = %+v", got)
+	}
+}
+
+// Stock is fetched and kept sharp enough for the final render: a 1440p
+// or 2160p final takes a larger Pexels file and keeps clips that large.
+func TestStockFollowsTheFinalScale(t *testing.T) {
+	ffmpeg, err := exec.LookPath("ffmpeg")
+	if err != nil || testing.Short() {
+		t.Skip("transcodes with ffmpeg")
+	}
+	src := filepath.Join(t.TempDir(), "uhd.mp4")
+	if out, err := exec.Command(ffmpeg, "-y", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc=size=3840x2160:rate=30:duration=0.2",
+		"-pix_fmt", "yuv420p", src).CombinedOutput(); err != nil {
+		t.Fatalf("make clip: %v: %s", err, out)
+	}
+	clip, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name               string
+		finalScale         float64
+		wantVideo, wantPic string
+		wantWidth          int
+	}{
+		{"default is 1080p", 0, "/hd", "/l", 1920},
+		{"720p keeps 1080p stock", 2.0 / 3, "/hd", "/l", 1920},
+		{"1080p", 1, "/hd", "/l", 1920},
+		{"1440p", 4.0 / 3, "/qhd", "/o", 2560},
+		{"2160p", 2, "/uhd", "/o", 3840},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var fetched []string
+			var srv *httptest.Server
+			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				switch r.URL.Path {
+				case "/videos/search":
+					_, _ = w.Write([]byte(`{"videos":[{"id":5,"url":"u","width":3840,"height":2160,"duration":10,"video_files":[
+					{"link":"` + srv.URL + `/uhd","file_type":"video/mp4","width":3840,"height":2160},
+					{"link":"` + srv.URL + `/hd","file_type":"video/mp4","width":1920,"height":1080},
+					{"link":"` + srv.URL + `/qhd","file_type":"video/mp4","width":2560,"height":1440}]}]}`))
+				case "/v1/search":
+					_, _ = w.Write([]byte(`{"photos":[{"id":6,"url":"u","width":6000,"height":4000,
+					"src":{"original":"` + srv.URL + `/o","large2x":"` + srv.URL + `/l"}}]}`))
+				case "/hd", "/qhd", "/uhd":
+					fetched = append(fetched, r.URL.Path)
+					_, _ = w.Write(clip)
+				case "/l", "/o":
+					fetched = append(fetched, r.URL.Path)
+					_, _ = w.Write([]byte("jpeg"))
+				default:
+					w.WriteHeader(404)
+				}
+			}))
+			defer srv.Close()
+			dir := workDir(t, nil)
+			e := agenttool.Env{Dir: dir, Pexels: pexels.Client{APIKey: "key", BaseURL: srv.URL},
+				Spec: agenttool.Spec{Width: 1920, Height: 1080, FinalScale: tt.finalScale}}
+			for _, kind := range []string{"video", "photo"} {
+				if out, err := run(t, e, "stock", "--query", "sea", "--type", kind); err != nil {
+					t.Fatalf("stock %s: %v: %s", kind, err, out)
+				}
+			}
+			if want := []string{tt.wantVideo, tt.wantPic}; !slices.Equal(fetched, want) {
+				t.Fatalf("fetched %v, want %v", fetched, want)
+			}
+			out, err := exec.Command("ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width",
+				"-of", "csv=p=0", filepath.Join(dir, "assets", "pexels-video-5.webm")).Output()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := strings.TrimSpace(string(out)); got != strconv.Itoa(tt.wantWidth) {
+				t.Fatalf("clip width = %s, want %d", got, tt.wantWidth)
+			}
+		})
 	}
 }

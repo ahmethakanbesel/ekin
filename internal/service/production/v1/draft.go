@@ -2,6 +2,7 @@ package production
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"embed"
 	"encoding/json"
@@ -555,6 +556,7 @@ func (s *Service) prepare(ctx context.Context, st *storydomain.Story, d *storydo
 		w, h := videoFrame(v)
 		lo, hi := durationBounds(v)
 		t.spec.Width, t.spec.Height, t.spec.MinDuration, t.spec.MaxDuration = w, h, lo, hi
+		t.spec.FinalScale = cmp.Or(st.Brief().Production.FinalQuality.Scale(), s.renderSettings(ctx).FinalScale)
 		t.spec.Long = v.Format() == pipelinedomain.FormatLong
 		if s.voices != nil {
 			var override *voicedomain.Override
