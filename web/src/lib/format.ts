@@ -32,7 +32,7 @@ export function formatBytes(n: number): string {
   return `${f.format(value)} ${units[unit]}`
 }
 
-/** Up to two initials for an avatar: "Hakan Beşel" → "HB", "acme" → "ps". */
+/** Up to two initials for an avatar: "Hakan Beşel" → "HB", "acme" → "ac". */
 export function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean)
   if (words.length === 0) return "?"

@@ -194,7 +194,7 @@ func (s *Service) QueuePreview(ctx context.Context, workspaceID uuid.UUID, langu
 	text = strings.TrimSpace(text)
 	if text == "" {
 		text = map[string]string{
-			"tr": "Merhaba. Bu ses, acme için hazırlanan videolarda kullanılacak. Kaygı ile endişe arasındaki farkı birlikte keşfedelim.",
+			"tr": "Merhaba. Bu ses, hazırladığımız videolarda kullanılacak. Kaygı ile endişe arasındaki farkı birlikte keşfedelim.",
 			"en": "Hello. This is the voice your videos will use. Let's explore the difference between worry and anxiety together.",
 		}[language]
 	}

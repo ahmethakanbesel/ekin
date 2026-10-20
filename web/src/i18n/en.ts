@@ -1813,7 +1813,7 @@ export const en = {
     previewTitle: "Preview",
     sampleLabel: "Sample text",
     samples: {
-      tr: "Merhaba. Bu ses, acme için hazırlanan videolarda kullanılacak. Kaygı ile endişe arasındaki farkı birlikte keşfedelim.",
+      tr: "Merhaba. Bu ses, hazırladığımız videolarda kullanılacak. Kaygı ile endişe arasındaki farkı birlikte keşfedelim.",
       en: "Hello. This is the voice your videos will use. Let's explore the difference between worry and anxiety together.",
     } as Record<string, string>,
     sampleHint: "Up to 400 characters; leave empty for the default. Uses the settings above, saved or not, and the saved pronunciations.",
@@ -1826,7 +1826,7 @@ export const en = {
     previewForbidden: "Viewers cannot render previews.",
     lexiconTitle: "Pronunciations",
     lexiconHint:
-      "How to say words the voice gets wrong. Captions keep the written word, and a suffix after an apostrophe keeps the entry (PHQ-9'da). For example acme → ek mi, CBT → si bi ti.",
+      "How to say words the voice gets wrong. Captions keep the written word, and a suffix after an apostrophe keeps the entry (PHQ-9'da). For example Acme → ek mi, CBT → si bi ti.",
     written: "Written",
     spoken: "Spoken",
     writtenPlaceholder: "acme",

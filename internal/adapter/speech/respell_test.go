@@ -15,7 +15,7 @@ func TestRespell(t *testing.T) {
 		{"(PHQ-9)", "(pe ha ku dokuz)"},
 		{"PHQ-9'da", "pe ha ku dokuz'da"},
 		{"PHQ-9’un,", "pe ha ku dokuz’un,"},
-		{"Acme'nın", "ek mi'nın"},
+		{"Acme'nin", "ek mi'nin"},
 		{"BDT", "be de te"},
 		{"PHQ-90", "PHQ-90"},
 		{"'PHQ-9'", "'pe ha ku dokuz'"},

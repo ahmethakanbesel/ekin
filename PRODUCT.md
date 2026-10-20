@@ -18,7 +18,7 @@ It is a tool for content-led growth, not an editor: a team grows its audience by
 
 ## Users and scene
 
-- First user: acme, a small team. Turkish first, English second.
+- First user: a small team. Turkish first, English second.
 - Primary scene: a daily review sitting. Someone sits down once or twice a day on a laptop to watch or read the drafts the agent produced, leave feedback (optionally timestamped and scoped to script, voice, visuals, music or metadata), and approve or reject. Everything else runs unattended.
 - Secondary: checking pipelines, schedules and the job queue when something is slow or failed.
 - Roles: owner, editor, viewer.

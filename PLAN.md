@@ -2,7 +2,7 @@
 
 Ekin turns ideas, knowledge-base documents and SEO opportunities into YouTube videos
 and blog articles, renders them unattended, and holds every piece for human review
-before anything is published. First user: acme. Turkish first, English second.
+before anything is published. First user: a small team. Turkish first, English second.
 
 Update this file whenever a decision below changes.
 

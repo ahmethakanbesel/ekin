@@ -109,12 +109,12 @@ func TestElevenLabsNarration(t *testing.T) {
 	}
 	// Leading silence is trimmed to 30 ms: "Hi" starts at 0.03 s and the
 	// respelled "ek mi," spans both spoken words up to its last letter
-	// (8 characters; the comma is left out).
+	// (5 characters; the comma is left out).
 	if w := tm.Words[0]; math.Abs(w.Start-0.03) > 0.011 || math.Abs(w.End-(0.03+0.1)) > 0.011 {
 		t.Fatalf("Hi = %+v", w)
 	}
-	if w := tm.Words[1]; math.Abs((w.End-w.Start)-0.4) > 0.011 {
-		t.Fatalf("acme = %+v, want 8 characters long", w)
+	if w := tm.Words[1]; math.Abs((w.End-w.Start)-0.25) > 0.011 {
+		t.Fatalf("acme = %+v, want 5 characters long", w)
 	}
 	// The second paragraph starts after the first one's sound plus the
 	// paragraph pause.

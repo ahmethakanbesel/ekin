@@ -109,7 +109,7 @@ sent along so the intonation carries over. Word timings come from ElevenLabs' ch
 timestamps.
 
 **Preview** renders a sample on a worker. The pronunciation dictionary maps a written word to
-how it should be said ("acme" → "ek mi", "CBT" → "si bi ti"), for every engine.
+how it should be said ("Acme" → "ek mi", "CBT" → "si bi ti"), for every engine.
 Captions keep the written word. Pipelines and ad-hoc requests can override the engine, voice
 and speed.
 
