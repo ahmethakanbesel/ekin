@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1.7
 
 # Web UI: built first so the Go binary can embed web/dist.
-FROM oven/bun:1.2.9 AS web
+# Platform-independent output: always built natively on the build host.
+FROM --platform=$BUILDPLATFORM oven/bun:1.2.9 AS web
 WORKDIR /src/web
 COPY web/package.json web/bun.lock ./
 RUN bun install --frozen-lockfile
@@ -9,7 +10,8 @@ COPY api/ /src/api/
 COPY web/ ./
 RUN bun run build
 
-FROM golang:1.26-bookworm AS build
+# Cross-compiles for the target platform instead of running Go under emulation.
+FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
@@ -17,8 +19,10 @@ COPY . .
 COPY --from=web /src/web/dist ./web/dist
 ARG VERSION=dev
 ARG COMMIT=none
+ARG TARGETOS
+ARG TARGETARCH
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 go build -trimpath \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
       -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
       -o /out/ekin ./cmd/ekin \
  && mkdir -p /out/data
