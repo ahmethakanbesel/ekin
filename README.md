@@ -33,25 +33,31 @@ Screenshots show a demo workspace with mock data.
 
 ## Run with Docker
 
-The `worker` image holds everything Ekin drives (Chromium, ffmpeg, poppler, uv for the
-speech models and the Claude Code CLI), so one container can run the whole app:
+Every release publishes two images for `linux/amd64` and `linux/arm64`:
+
+| Image | Holds | Runs |
+|---|---|---|
+| `ghcr.io/ahmethakanbesel/ekin` | Ekin and everything it drives: Chromium, ffmpeg, poppler, uv for the speech models, the Claude Code CLI | `ekin all` (the whole app) or `ekin worker` |
+| `ghcr.io/ahmethakanbesel/ekin-server` | The static binary alone | `ekin serve` beside separate workers |
+
+One container can run the whole app:
 
 ```sh
-git clone https://github.com/ahmethakanbesel/ekin.git && cd ekin
-docker build --target worker -t ekin .
-
 docker run -d --name ekin -p 8080:8080 -v ekin-data:/data \
   -e EKIN_HTTP_ADDR=0.0.0.0:8080 \
   -e EKIN_PUBLIC_URL=http://localhost:8080 \
   -e CLAUDE_CODE_OAUTH_TOKEN=<from `claude setup-token`> \
-  ekin all
+  ghcr.io/ahmethakanbesel/ekin:latest all
 
 docker exec -it ekin ekin user create --email you@example.com --name You
 ```
 
 Open http://localhost:8080 and sign in. **System** in the user menu shows which tools and
 integrations are ready. Pass any other setting from `deploy/.env.example` with `-e` or
-`--env-file`. Speech model weights download to the volume on first use.
+`--env-file`. Speech model weights download to the volume on first use. Pin a release
+(`ekin:1.2.0`) instead of `latest` to upgrade on your own schedule.
+
+To build the image yourself: `docker build --target worker -t ekin .` in a checkout.
 
 ### On a server
 
@@ -62,6 +68,7 @@ core and capped at half of it); adjust the limits to your host.
 
 ```sh
 cp deploy/.env.example deploy/.env   # set EKIN_PUBLIC_URL, the LITESTREAM_* bucket and your keys
+docker compose -f deploy/compose.yaml pull
 docker compose -f deploy/compose.yaml up -d
 docker compose -f deploy/compose.yaml exec serve /ekin user create --email you@example.com --name You
 ```
@@ -69,6 +76,9 @@ docker compose -f deploy/compose.yaml exec serve /ekin user create --email you@e
 Put it behind a reverse proxy with HTTPS and set `EKIN_PUBLIC_URL` to that address.
 
 ## Run from source
+
+[Releases](https://github.com/ahmethakanbesel/ekin/releases) carry prebuilt binaries for
+Linux, macOS and Windows, with the web UI built in; they need the same tools as below.
 
 Needs Go 1.26, Bun, ffmpeg, poppler (`pdftotext`), uv, Google Chrome and the Claude Code
 CLI signed in (`claude`).

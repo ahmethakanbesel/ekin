@@ -19,6 +19,14 @@ cd web && bun run lint && bun run build
   types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`.
 - One unit of work per commit; don't mix unrelated changes.
 
+## Releasing
+
+Push a version tag (`git tag v1.2.0 && git push origin v1.2.0`). The release workflow
+builds the binaries with GoReleaser, writes the changelog from the commit subjects
+(`feat`, `fix`, `perf` and `docs` get their own sections) and publishes the
+`ghcr.io/ahmethakanbesel/ekin` and `ekin-server` images. Try it locally with
+`goreleaser release --snapshot --clean`.
+
 By contributing you agree that your work is licensed under the project's
 [FSL-1.1-ALv2](LICENSE.md) license, including its grant of the Apache License 2.0
 two years after each release.
