@@ -243,7 +243,7 @@ func newProduction(cfg config.Config, settings *settingssvc.Service, hostProfile
 	}
 	pc := productionsvc.Config{
 		LibraryEnv: libraryEnv,
-		WorkRoot: p.WorkDir, EkinBin: bin, ToolEnv: toolEnv, AgentTimeout: p.AgentTimeout,
+		WorkRoot:   p.WorkDir, EkinBin: bin, ToolEnv: toolEnv, AgentTimeout: p.AgentTimeout,
 		PreviewScale: p.PreviewScale, FinalScale: p.FinalScale, PreviewFPS: p.PreviewFPS, FinalFPS: p.FinalFPS,
 		Shorts: cfg.Shorts,
 	}

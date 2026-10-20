@@ -6,7 +6,7 @@ import (
 )
 
 func TestRespell(t *testing.T) {
-	lex := map[string]string{"PHQ-9": "pe ha ku dokuz", "acme": "ek mi", " BDT ": " be de te "}
+	lex := map[string]string{"PHQ-9": "pe ha ku dokuz", "acme": "ek mi", " BDT ": " be de te "} //nolint:gocritic // padded on purpose: entries are trimmed
 	tests := []struct {
 		in, want string
 	}{

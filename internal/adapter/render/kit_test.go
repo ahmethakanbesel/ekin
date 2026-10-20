@@ -41,4 +41,3 @@ func TestKitBundlesEveryTemplateFont(t *testing.T) {
 		}
 	}
 }
-

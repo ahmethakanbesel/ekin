@@ -166,4 +166,3 @@ func TestParseConcurrency(t *testing.T) {
 		})
 	}
 }
-

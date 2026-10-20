@@ -202,10 +202,10 @@ func applyFades(data []byte, f Format, n int) {
 			i := frame*f.BlockAlign + c*size
 			switch {
 			case f.Code == formatPCM && f.BitsPerSample == 16:
-				v := int16(binary.LittleEndian.Uint16(data[i:])) //nolint:gosec // reinterpreting the sample's bits
+				v := int16(binary.LittleEndian.Uint16(data[i:]))                                    //nolint:gosec // reinterpreting the sample's bits
 				binary.LittleEndian.PutUint16(data[i:], uint16(int16(math.Round(float64(v)*gain)))) //nolint:gosec // same
 			case f.Code == formatPCM && f.BitsPerSample == 32:
-				v := int32(binary.LittleEndian.Uint32(data[i:])) //nolint:gosec // reinterpreting the sample's bits
+				v := int32(binary.LittleEndian.Uint32(data[i:]))                                    //nolint:gosec // reinterpreting the sample's bits
 				binary.LittleEndian.PutUint32(data[i:], uint32(int32(math.Round(float64(v)*gain)))) //nolint:gosec // same
 			case f.Code == formatFloat && f.BitsPerSample == 32:
 				v := math.Float32frombits(binary.LittleEndian.Uint32(data[i:]))

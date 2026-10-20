@@ -295,7 +295,7 @@ func TestUsedStock(t *testing.T) {
 	write("composition.html", `<video src="assets/pexels-video-11.webm"></video><img src="assets/pexels-photo-22.jpg"><img src="assets/library-x.jpg">`)
 	b, _ := json.Marshal([]agenttool.Credit{
 		{File: "assets/pexels-video-11.webm", Source: "Pexels", Kind: "video", ExternalID: "11"},
-		{File: "assets/pexels-photo-22.jpg", Source: "Pexels"}, // written before credits carried kind and id
+		{File: "assets/pexels-photo-22.jpg", Source: "Pexels"},                                   // written before credits carried kind and id
 		{File: "assets/pexels-video-33.webm", Source: "Pexels", Kind: "video", ExternalID: "33"}, // downloaded, unused
 		{File: "assets/library-x.jpg", Source: "Library", Kind: "photo", Library: "x"},
 	})

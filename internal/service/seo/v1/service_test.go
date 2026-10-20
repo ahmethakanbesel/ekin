@@ -45,7 +45,7 @@ func (f *fakeResearch) Whoami(context.Context) (openseo.Account, error) {
 func (f *fakeResearch) Projects(context.Context) ([]openseo.Project, error) {
 	return []openseo.Project{{ID: "p1", Name: "acme", Domain: "example.com", LocationCode: 2792, LanguageCode: "tr"}}, nil
 }
-func (f *fakeResearch) ResearchKeywords(_ context.Context, projectID string, seeds []string, m openseo.Market) ([]openseo.SeedResult, error) {
+func (f *fakeResearch) ResearchKeywords(_ context.Context, _ string, seeds []string, m openseo.Market) ([]openseo.SeedResult, error) {
 	f.seeds, f.market = seeds, m
 	n := func(v int) *int { return &v }
 	return []openseo.SeedResult{

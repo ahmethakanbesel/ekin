@@ -2,8 +2,8 @@ package pipeline_test
 
 import (
 	"context"
-	"reflect"
 	"encoding/json"
+	"reflect"
 	"sync"
 	"testing"
 	"time"

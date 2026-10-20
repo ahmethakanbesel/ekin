@@ -9,7 +9,7 @@ import (
 func TestPick(t *testing.T) {
 	cands := []seodomain.Candidate{
 		{Keyword: "kaygı bozukluğu belirtileri", Volume: 5400, Difficulty: 28, Intent: "informational"},
-		{Keyword: "acme giriş", Volume: 900, Difficulty: 5, Intent: "navigational"},                   // brand
+		{Keyword: "acme giriş", Volume: 900, Difficulty: 5, Intent: "navigational"},                      // brand
 		{Keyword: "Kaygı  Bozukluğu belirtileri", Volume: 5400, Difficulty: 28, Intent: "informational"}, // duplicate
 		{Keyword: "belirtileri kaygı bozukluğu", Volume: 100, Difficulty: 10, Intent: "informational"},   // same words
 		{Keyword: "terapist fiyatları", Volume: 9900, Difficulty: 20, Intent: "transactional"},
