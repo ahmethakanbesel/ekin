@@ -1,0 +1,72 @@
+version: 2
+project_name: ekin
+
+before:
+  hooks:
+    # The binary embeds the web UI from web/dist.
+    - sh -c "cd web && bun install --frozen-lockfile && bun run build"
+
+builds:
+  - main: ./cmd/ekin
+    binary: ekin
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }} -X main.commit={{ .ShortCommit }}
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE.md
+      - README.md
+      # The worker runs these for narration (EKIN_SPEECH_DIR).
+      - tools/speech/*
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  abbrev: 7
+  groups:
+    - title: Features
+      regexp: '^feat:'
+      order: 0
+    - title: Bug fixes
+      regexp: '^fix:'
+      order: 1
+    - title: Performance
+      regexp: '^perf:'
+      order: 2
+    - title: Documentation
+      regexp: '^docs:'
+      order: 3
+    - title: Other changes
+      order: 999
+  filters:
+    exclude:
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - '^style:'
+
+release:
+  prerelease: auto
+  footer: |
+    ## Docker images
+
+    ```sh
+    docker pull ghcr.io/ahmethakanbesel/ekin:{{ .Version }}         # everything: API, web UI and worker
+    docker pull ghcr.io/ahmethakanbesel/ekin-server:{{ .Version }}  # API and web UI only
+    ```
