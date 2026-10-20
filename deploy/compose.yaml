@@ -5,8 +5,11 @@
 # EKIN_PUBLIC_URL to it. Create the first account once deployed:
 #   docker compose exec serve /ekin user create --email you@example.com --name You
 
+# Images come from GitHub's registry (a release tag such as 1.2.0, or latest);
+# `docker compose build` builds them from this checkout instead.
 x-ekin: &ekin
-  image: ekin:${EKIN_VERSION:-latest}
+  image: ghcr.io/ahmethakanbesel/ekin-server:${EKIN_VERSION:-latest}
+  pull_policy: missing
   build:
     context: ..
     dockerfile: Dockerfile
@@ -41,7 +44,7 @@ services:
 
   worker:
     <<: *ekin
-    image: ekin-worker:${EKIN_VERSION:-latest}
+    image: ghcr.io/ahmethakanbesel/ekin:${EKIN_VERSION:-latest}
     build:
       context: ..
       dockerfile: Dockerfile
