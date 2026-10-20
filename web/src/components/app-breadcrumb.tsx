@@ -19,6 +19,7 @@ const sections = {
   stories: { to: "/w/$workspaceId/stories", label: m.nav.review },
   pipelines: { to: "/w/$workspaceId/pipelines", label: m.nav.pipelines },
   knowledge: { to: "/w/$workspaceId/knowledge", label: m.nav.knowledge },
+  library: { to: "/w/$workspaceId/library", label: m.nav.library },
   seo: { to: "/w/$workspaceId/seo", label: m.nav.seo },
   templates: { to: "/w/$workspaceId/templates", label: m.nav.templates },
   jobs: { to: "/w/$workspaceId/jobs", label: m.nav.jobs },
