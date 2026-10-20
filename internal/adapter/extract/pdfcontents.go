@@ -13,7 +13,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	knowledgedomain "ekin/internal/domain/knowledge/v1"
+	knowledgedomain "github.com/ahmethakanbesel/ekin/internal/domain/knowledge/v1"
 )
 
 // pdfContents builds a PDF's table of contents from its bookmarks and

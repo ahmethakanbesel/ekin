@@ -18,13 +18,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/blob"
-	"ekin/internal/db"
-	jobdomain "ekin/internal/domain/job/v1"
-	librarydomain "ekin/internal/domain/library/v1"
-	libraryrepo "ekin/internal/repository/library/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/blob"
+	"github.com/ahmethakanbesel/ekin/internal/db"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
+	libraryrepo "github.com/ahmethakanbesel/ekin/internal/repository/library/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 // KindIngest is the job kind that processes an uploaded file.

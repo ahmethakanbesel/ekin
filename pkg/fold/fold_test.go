@@ -3,7 +3,7 @@ package fold_test
 import (
 	"testing"
 
-	"ekin/pkg/fold"
+	"github.com/ahmethakanbesel/ekin/pkg/fold"
 )
 
 func TestString(t *testing.T) {

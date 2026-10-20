@@ -14,14 +14,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/adapter/elevenlabs"
-	"ekin/internal/adapter/speech"
-	"ekin/internal/apperror"
-	"ekin/internal/blob"
-	jobdomain "ekin/internal/domain/job/v1"
-	voicedomain "ekin/internal/domain/voice/v1"
-	settingsrepo "ekin/internal/repository/settings/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/elevenlabs"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/speech"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/blob"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	voicedomain "github.com/ahmethakanbesel/ekin/internal/domain/voice/v1"
+	settingsrepo "github.com/ahmethakanbesel/ekin/internal/repository/settings/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 // KindPreview renders a short voice sample.

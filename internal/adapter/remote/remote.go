@@ -19,12 +19,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	jobdomain "ekin/internal/domain/job/v1"
-	settingsdomain "ekin/internal/domain/settings/v1"
-	productionsvc "ekin/internal/service/production/v1"
-	workerapi "ekin/internal/transport/http/worker"
-	"ekin/pkg/archive"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	settingsdomain "github.com/ahmethakanbesel/ekin/internal/domain/settings/v1"
+	productionsvc "github.com/ahmethakanbesel/ekin/internal/service/production/v1"
+	workerapi "github.com/ahmethakanbesel/ekin/internal/transport/http/worker"
+	"github.com/ahmethakanbesel/ekin/pkg/archive"
 )
 
 // Client talks to one server.

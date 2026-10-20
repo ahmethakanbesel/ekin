@@ -13,8 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"ekin/internal/adapter/cpulimit"
-	"ekin/pkg/broadcast"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/cpulimit"
+	"github.com/ahmethakanbesel/ekin/pkg/broadcast"
 )
 
 // niceOf reads a process's nice value with ps.

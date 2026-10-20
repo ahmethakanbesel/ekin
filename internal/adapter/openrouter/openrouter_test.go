@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"ekin/internal/adapter/openrouter"
-	storydomain "ekin/internal/domain/story/v1"
-	storyrepo "ekin/internal/repository/story/v1"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/openrouter"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	storyrepo "github.com/ahmethakanbesel/ekin/internal/repository/story/v1"
 )
 
 func TestDedupe(t *testing.T) {

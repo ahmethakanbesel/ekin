@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"ekin/internal/adapter/extract"
-	knowledgedomain "ekin/internal/domain/knowledge/v1"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/extract"
+	knowledgedomain "github.com/ahmethakanbesel/ekin/internal/domain/knowledge/v1"
 )
 
 func TestPDF(t *testing.T) {

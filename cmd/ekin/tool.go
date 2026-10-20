@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 
-	"ekin/internal/agenttool"
+	"github.com/ahmethakanbesel/ekin/internal/agenttool"
 )
 
 // tool runs `ekin tool ...`, the commands the authoring agent may call.

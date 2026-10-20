@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	settingsdomain "ekin/internal/domain/settings/v1"
-	jobsvc "ekin/internal/service/job/v1"
-	"ekin/pkg/broadcast"
+	settingsdomain "github.com/ahmethakanbesel/ekin/internal/domain/settings/v1"
+	jobsvc "github.com/ahmethakanbesel/ekin/internal/service/job/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/broadcast"
 )
 
 // ProfileWatcher keeps a remote worker's host profile in step with the

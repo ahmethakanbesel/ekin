@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"ekin/internal/db/dbtest"
+	"github.com/ahmethakanbesel/ekin/internal/db/dbtest"
 )
 
 func TestWithinTx(t *testing.T) {

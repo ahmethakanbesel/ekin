@@ -3,7 +3,7 @@ package pipeline
 import (
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
 )
 
 // TemplateChoice is which house style a pipeline's or an ad-hoc

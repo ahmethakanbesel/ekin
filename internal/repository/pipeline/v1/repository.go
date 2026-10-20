@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
 )
 
 // Repository persists Pipeline aggregates. Every method except ListDue is

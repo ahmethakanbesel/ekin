@@ -8,16 +8,16 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db/dbtest"
-	identitydomain "ekin/internal/domain/identity/v1"
-	workspacedomain "ekin/internal/domain/workspace/v1"
-	identityrepo "ekin/internal/repository/identity/v1"
-	workspacerepo "ekin/internal/repository/workspace/v1"
-	identitysvc "ekin/internal/service/identity/v1"
-	workspacesvc "ekin/internal/service/workspace/v1"
-	"ekin/pkg/id"
-	"ekin/pkg/password"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db/dbtest"
+	identitydomain "github.com/ahmethakanbesel/ekin/internal/domain/identity/v1"
+	workspacedomain "github.com/ahmethakanbesel/ekin/internal/domain/workspace/v1"
+	identityrepo "github.com/ahmethakanbesel/ekin/internal/repository/identity/v1"
+	workspacerepo "github.com/ahmethakanbesel/ekin/internal/repository/workspace/v1"
+	identitysvc "github.com/ahmethakanbesel/ekin/internal/service/identity/v1"
+	workspacesvc "github.com/ahmethakanbesel/ekin/internal/service/workspace/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/pkg/password"
 )
 
 var t0 = time.Date(2026, 10, 13, 9, 0, 0, 0, time.UTC)

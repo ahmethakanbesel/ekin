@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"ekin/internal/adapter/openseo"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/openseo"
 )
 
 // fakeMCP answers like OpenSEO's stateless endpoint.

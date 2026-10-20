@@ -2,7 +2,7 @@
 // memberships in workspaces and the invitations that create memberships.
 package identity
 
-import "ekin/internal/apperror"
+import "github.com/ahmethakanbesel/ekin/internal/apperror"
 
 // Role is a member's role in one workspace.
 type Role string

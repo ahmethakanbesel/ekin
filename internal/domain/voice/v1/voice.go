@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
 )
 
 // Engine IDs.

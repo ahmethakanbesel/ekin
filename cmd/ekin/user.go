@@ -12,8 +12,8 @@ import (
 
 	"golang.org/x/term"
 
-	"ekin/internal/app"
-	identitydomain "ekin/internal/domain/identity/v1"
+	"github.com/ahmethakanbesel/ekin/internal/app"
+	identitydomain "github.com/ahmethakanbesel/ekin/internal/domain/identity/v1"
 )
 
 const userUsage = `usage:

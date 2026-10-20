@@ -12,16 +12,16 @@ import (
 	"testing"
 	"time"
 
-	"ekin/internal/agenttool"
-	"ekin/internal/apperror"
-	"ekin/internal/blob"
-	librarydomain "ekin/internal/domain/library/v1"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	storydomain "ekin/internal/domain/story/v1"
-	libraryrepo "ekin/internal/repository/library/v1"
-	librarysvc "ekin/internal/service/library/v1"
-	production "ekin/internal/service/production/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/agenttool"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/blob"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	libraryrepo "github.com/ahmethakanbesel/ekin/internal/repository/library/v1"
+	librarysvc "github.com/ahmethakanbesel/ekin/internal/service/library/v1"
+	production "github.com/ahmethakanbesel/ekin/internal/service/production/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 // opusProcessor "ingests" any upload as a minute of Opus.

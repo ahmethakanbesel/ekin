@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"ekin/internal/adapter/render"
-	"ekin/internal/agenttool"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/render"
+	"github.com/ahmethakanbesel/ekin/internal/agenttool"
 )
 
 // drawer pretends to draw a thumbnail page: each variant shows text[n]

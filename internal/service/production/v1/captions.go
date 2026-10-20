@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 
-	"ekin/internal/apperror"
-	storydomain "ekin/internal/domain/story/v1"
-	"ekin/pkg/archive"
-	"ekin/pkg/caption"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/archive"
+	"github.com/ahmethakanbesel/ekin/pkg/caption"
 )
 
 // maxTimingsBytes bounds the narration timings read for captions: an

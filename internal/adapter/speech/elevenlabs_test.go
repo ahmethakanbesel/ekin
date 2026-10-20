@@ -14,8 +14,8 @@ import (
 	"sync"
 	"testing"
 
-	"ekin/internal/adapter/elevenlabs"
-	"ekin/internal/adapter/speech"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/elevenlabs"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/speech"
 )
 
 // The fake's sample rate, lead-in and seconds per character. Package

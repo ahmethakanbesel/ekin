@@ -1,6 +1,6 @@
 package library
 
-import "ekin/internal/apperror"
+import "github.com/ahmethakanbesel/ekin/internal/apperror"
 
 // Mode is where a draft's media of one kind comes from.
 type Mode string

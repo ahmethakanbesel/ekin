@@ -8,11 +8,11 @@ import (
 	"io"
 	"strings"
 
-	"ekin/internal/apperror"
-	knowledgedomain "ekin/internal/domain/knowledge/v1"
-	"ekin/internal/gen"
-	knowledgesvc "ekin/internal/service/knowledge/v1"
-	"ekin/internal/transport/http/principal"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	knowledgedomain "github.com/ahmethakanbesel/ekin/internal/domain/knowledge/v1"
+	"github.com/ahmethakanbesel/ekin/internal/gen"
+	knowledgesvc "github.com/ahmethakanbesel/ekin/internal/service/knowledge/v1"
+	"github.com/ahmethakanbesel/ekin/internal/transport/http/principal"
 )
 
 // maxPagesPerCall bounds one pages listing.

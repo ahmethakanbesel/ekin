@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"ekin/internal/adapter/speech"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/speech"
 )
 
 // fakeUV stands in for `uv run --script`: it writes the timings.json a

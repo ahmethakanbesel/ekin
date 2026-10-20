@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	storydomain "ekin/internal/domain/story/v1"
-	"ekin/pkg/page"
-	"ekin/pkg/timeutil"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/page"
+	"github.com/ahmethakanbesel/ekin/pkg/timeutil"
 )
 
 type revKey struct {

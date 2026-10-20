@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	knowledgedomain "ekin/internal/domain/knowledge/v1"
+	knowledgedomain "github.com/ahmethakanbesel/ekin/internal/domain/knowledge/v1"
 )
 
 // The tail of `pdftohtml -xml -i -stdout -f 1 -l 1` on a book with

@@ -5,11 +5,11 @@ package handler
 import (
 	"context"
 
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	templatedomain "ekin/internal/domain/template/v1"
-	"ekin/internal/gen"
-	templatesvc "ekin/internal/service/template/v1"
-	jobhandler "ekin/internal/transport/http/job/v1"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	templatedomain "github.com/ahmethakanbesel/ekin/internal/domain/template/v1"
+	"github.com/ahmethakanbesel/ekin/internal/gen"
+	templatesvc "github.com/ahmethakanbesel/ekin/internal/service/template/v1"
+	jobhandler "github.com/ahmethakanbesel/ekin/internal/transport/http/job/v1"
 )
 
 // Handler serves templates.

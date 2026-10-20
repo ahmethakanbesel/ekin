@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"ekin/internal/adapter/render"
-	storydomain "ekin/internal/domain/story/v1"
-	"ekin/pkg/fold"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/render"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/fold"
 )
 
 // The thumbnail contract (docs/thumbnails.md): one static page draws

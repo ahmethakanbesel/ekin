@@ -3,7 +3,7 @@ package seo_test
 import (
 	"testing"
 
-	seodomain "ekin/internal/domain/seo/v1"
+	seodomain "github.com/ahmethakanbesel/ekin/internal/domain/seo/v1"
 )
 
 func TestPick(t *testing.T) {

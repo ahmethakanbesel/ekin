@@ -5,7 +5,7 @@ import (
 	"slices"
 	"time"
 
-	"ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
 )
 
 // Language is the language a pipeline writes in.

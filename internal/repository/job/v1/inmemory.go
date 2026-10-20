@@ -9,10 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	jobdomain "ekin/internal/domain/job/v1"
-	"ekin/pkg/page"
-	"ekin/pkg/timeutil"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/page"
+	"github.com/ahmethakanbesel/ekin/pkg/timeutil"
 )
 
 // InMemory is a Repository for service tests.

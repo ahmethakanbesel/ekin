@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"ekin/pkg/wav"
+	"github.com/ahmethakanbesel/ekin/pkg/wav"
 )
 
 // A short cut from a long video speaks a slice of the long video's

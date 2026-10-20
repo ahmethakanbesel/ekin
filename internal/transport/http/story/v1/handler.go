@@ -4,20 +4,20 @@ package handler
 
 import (
 	"context"
-	voicehandler "ekin/internal/transport/http/voice/v1"
+	voicehandler "github.com/ahmethakanbesel/ekin/internal/transport/http/voice/v1"
 	"time"
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	storydomain "ekin/internal/domain/story/v1"
-	"ekin/internal/gen"
-	notifysvc "ekin/internal/service/notify/v1"
-	productionsvc "ekin/internal/service/production/v1"
-	jobhandler "ekin/internal/transport/http/job/v1"
-	pipelinehandler "ekin/internal/transport/http/pipeline/v1"
-	"ekin/internal/transport/http/principal"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	"github.com/ahmethakanbesel/ekin/internal/gen"
+	notifysvc "github.com/ahmethakanbesel/ekin/internal/service/notify/v1"
+	productionsvc "github.com/ahmethakanbesel/ekin/internal/service/production/v1"
+	jobhandler "github.com/ahmethakanbesel/ekin/internal/transport/http/job/v1"
+	pipelinehandler "github.com/ahmethakanbesel/ekin/internal/transport/http/pipeline/v1"
+	"github.com/ahmethakanbesel/ekin/internal/transport/http/principal"
 )
 
 // Feed lists a workspace's notifications (the notify service).

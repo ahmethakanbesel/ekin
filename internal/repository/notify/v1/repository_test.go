@@ -8,12 +8,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db/dbtest"
-	workspacedomain "ekin/internal/domain/workspace/v1"
-	notifyrepo "ekin/internal/repository/notify/v1"
-	workspacerepo "ekin/internal/repository/workspace/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db/dbtest"
+	workspacedomain "github.com/ahmethakanbesel/ekin/internal/domain/workspace/v1"
+	notifyrepo "github.com/ahmethakanbesel/ekin/internal/repository/notify/v1"
+	workspacerepo "github.com/ahmethakanbesel/ekin/internal/repository/workspace/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 var now = time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)

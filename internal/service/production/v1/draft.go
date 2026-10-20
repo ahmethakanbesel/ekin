@@ -18,16 +18,16 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/adapter/claude"
-	"ekin/internal/agenttool"
-	"ekin/internal/apperror"
-	jobdomain "ekin/internal/domain/job/v1"
-	librarydomain "ekin/internal/domain/library/v1"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	storydomain "ekin/internal/domain/story/v1"
-	voicedomain "ekin/internal/domain/voice/v1"
-	"ekin/pkg/archive"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/claude"
+	"github.com/ahmethakanbesel/ekin/internal/agenttool"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	voicedomain "github.com/ahmethakanbesel/ekin/internal/domain/voice/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/archive"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 //go:embed prompts/*.md

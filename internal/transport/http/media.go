@@ -10,13 +10,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	identitydomain "ekin/internal/domain/identity/v1"
-	librarydomain "ekin/internal/domain/library/v1"
-	identitysvc "ekin/internal/service/identity/v1"
-	librarysvc "ekin/internal/service/library/v1"
-	productionsvc "ekin/internal/service/production/v1"
-	"ekin/internal/transport/http/principal"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	identitydomain "github.com/ahmethakanbesel/ekin/internal/domain/identity/v1"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
+	identitysvc "github.com/ahmethakanbesel/ekin/internal/service/identity/v1"
+	librarysvc "github.com/ahmethakanbesel/ekin/internal/service/library/v1"
+	productionsvc "github.com/ahmethakanbesel/ekin/internal/service/production/v1"
+	"github.com/ahmethakanbesel/ekin/internal/transport/http/principal"
 )
 
 // artifactTypes are the artifact names served and their media types.

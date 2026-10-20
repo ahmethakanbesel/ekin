@@ -6,12 +6,12 @@ import (
 	"context"
 	"time"
 
-	"ekin/internal/apperror"
-	jobdomain "ekin/internal/domain/job/v1"
-	settingsdomain "ekin/internal/domain/settings/v1"
-	"ekin/internal/gen"
-	settingssvc "ekin/internal/service/settings/v1"
-	"ekin/internal/transport/http/principal"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	settingsdomain "github.com/ahmethakanbesel/ekin/internal/domain/settings/v1"
+	"github.com/ahmethakanbesel/ekin/internal/gen"
+	settingssvc "github.com/ahmethakanbesel/ekin/internal/service/settings/v1"
+	"github.com/ahmethakanbesel/ekin/internal/transport/http/principal"
 )
 
 // Check is one capability check.

@@ -13,9 +13,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db"
-	"ekin/pkg/timeutil"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db"
+	"github.com/ahmethakanbesel/ekin/pkg/timeutil"
 )
 
 // Repository stores JSON documents by key.

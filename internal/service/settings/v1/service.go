@@ -13,13 +13,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db"
-	settingsdomain "ekin/internal/domain/settings/v1"
-	settingsrepo "ekin/internal/repository/settings/v1"
-	jobsvc "ekin/internal/service/job/v1"
-	"ekin/pkg/broadcast"
-	"ekin/pkg/secretbox"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db"
+	settingsdomain "github.com/ahmethakanbesel/ekin/internal/domain/settings/v1"
+	settingsrepo "github.com/ahmethakanbesel/ekin/internal/repository/settings/v1"
+	jobsvc "github.com/ahmethakanbesel/ekin/internal/service/job/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/broadcast"
+	"github.com/ahmethakanbesel/ekin/pkg/secretbox"
 )
 
 // cacheFor is how long a worker trusts a profile it read; edits apply

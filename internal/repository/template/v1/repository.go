@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db"
-	templatedomain "ekin/internal/domain/template/v1"
-	"ekin/pkg/timeutil"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db"
+	templatedomain "github.com/ahmethakanbesel/ekin/internal/domain/template/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/timeutil"
 )
 
 // Repository stores workspace templates.

@@ -4,8 +4,8 @@ import (
 	"regexp"
 	"strings"
 
-	"ekin/internal/apperror"
-	librarydomain "ekin/internal/domain/library/v1"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
 )
 
 // Production is how stories are made rather than what they are. It is

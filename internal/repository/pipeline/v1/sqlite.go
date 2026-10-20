@@ -10,11 +10,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	voicedomain "ekin/internal/domain/voice/v1"
-	"ekin/pkg/timeutil"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	voicedomain "github.com/ahmethakanbesel/ekin/internal/domain/voice/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/timeutil"
 )
 
 // SQLite is the production Repository.

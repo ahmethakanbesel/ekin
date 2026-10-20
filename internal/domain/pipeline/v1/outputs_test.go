@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	pipeline "ekin/internal/domain/pipeline/v1"
+	pipeline "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
 )
 
 func TestNewVideoSpec(t *testing.T) {

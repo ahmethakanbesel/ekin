@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	identity "ekin/internal/domain/identity/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	identity "github.com/ahmethakanbesel/ekin/internal/domain/identity/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 var now = time.Date(2026, 10, 13, 9, 0, 0, 0, time.UTC)

@@ -11,12 +11,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	settingsdomain "ekin/internal/domain/settings/v1"
-	storydomain "ekin/internal/domain/story/v1"
-	settingsrepo "ekin/internal/repository/settings/v1"
-	settingssvc "ekin/internal/service/settings/v1"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	settingsdomain "github.com/ahmethakanbesel/ekin/internal/domain/settings/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	settingsrepo "github.com/ahmethakanbesel/ekin/internal/repository/settings/v1"
+	settingssvc "github.com/ahmethakanbesel/ekin/internal/service/settings/v1"
 )
 
 // Settings is the part of the settings service the server's values come

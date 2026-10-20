@@ -21,7 +21,7 @@ import (
 
 	"golang.org/x/net/html"
 
-	knowledgedomain "ekin/internal/domain/knowledge/v1"
+	knowledgedomain "github.com/ahmethakanbesel/ekin/internal/domain/knowledge/v1"
 )
 
 // Extractor runs the tools. PDFToText and PDFToHTML are the poppler

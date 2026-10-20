@@ -6,7 +6,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
 )
 
 // Schedule limits.

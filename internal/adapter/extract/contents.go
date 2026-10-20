@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/net/html"
 
-	knowledgedomain "ekin/internal/domain/knowledge/v1"
+	knowledgedomain "github.com/ahmethakanbesel/ekin/internal/domain/knowledge/v1"
 )
 
 // epubContents reads the EPUB 3 navigation document, or else the EPUB 2

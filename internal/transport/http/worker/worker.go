@@ -24,13 +24,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	jobdomain "ekin/internal/domain/job/v1"
-	settingsdomain "ekin/internal/domain/settings/v1"
-	storydomain "ekin/internal/domain/story/v1"
-	jobsvc "ekin/internal/service/job/v1"
-	productionsvc "ekin/internal/service/production/v1"
-	"ekin/pkg/archive"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	settingsdomain "github.com/ahmethakanbesel/ekin/internal/domain/settings/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	jobsvc "github.com/ahmethakanbesel/ekin/internal/service/job/v1"
+	productionsvc "github.com/ahmethakanbesel/ekin/internal/service/production/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/archive"
 )
 
 // MaxUpload bounds a finish upload (a long final render).

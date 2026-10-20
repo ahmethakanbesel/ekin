@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
 )
 
 // Credentials are the instance's API keys and service settings. Each

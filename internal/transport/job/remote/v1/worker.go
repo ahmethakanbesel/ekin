@@ -6,10 +6,10 @@ import (
 	"context"
 	"os"
 
-	"ekin/internal/adapter/remote"
-	jobdomain "ekin/internal/domain/job/v1"
-	jobsvc "ekin/internal/service/job/v1"
-	productionsvc "ekin/internal/service/production/v1"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/remote"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	jobsvc "github.com/ahmethakanbesel/ekin/internal/service/job/v1"
+	productionsvc "github.com/ahmethakanbesel/ekin/internal/service/production/v1"
 )
 
 // Register adds the remote draft and render handlers to r. prod needs

@@ -10,8 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	job "ekin/internal/domain/job/v1"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	job "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
 )
 
 var t0 = time.Date(2026, 10, 13, 23, 0, 0, 0, time.UTC)

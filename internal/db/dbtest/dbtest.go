@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"ekin/internal/db"
+	"github.com/ahmethakanbesel/ekin/internal/db"
 )
 
 // Open returns a migrated database and its TxManager, closed at cleanup.

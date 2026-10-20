@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 
-	jobdomain "ekin/internal/domain/job/v1"
-	jobsvc "ekin/internal/service/job/v1"
-	templatesvc "ekin/internal/service/template/v1"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	jobsvc "github.com/ahmethakanbesel/ekin/internal/service/job/v1"
+	templatesvc "github.com/ahmethakanbesel/ekin/internal/service/template/v1"
 )
 
 // Register adds the template handlers to r.

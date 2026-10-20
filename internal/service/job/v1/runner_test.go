@@ -11,15 +11,15 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db/dbtest"
-	jobdomain "ekin/internal/domain/job/v1"
-	workspacedomain "ekin/internal/domain/workspace/v1"
-	jobrepo "ekin/internal/repository/job/v1"
-	workspacerepo "ekin/internal/repository/workspace/v1"
-	jobsvc "ekin/internal/service/job/v1"
-	"ekin/pkg/broadcast"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db/dbtest"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	workspacedomain "github.com/ahmethakanbesel/ekin/internal/domain/workspace/v1"
+	jobrepo "github.com/ahmethakanbesel/ekin/internal/repository/job/v1"
+	workspacerepo "github.com/ahmethakanbesel/ekin/internal/repository/workspace/v1"
+	jobsvc "github.com/ahmethakanbesel/ekin/internal/service/job/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/broadcast"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 type fixture struct {

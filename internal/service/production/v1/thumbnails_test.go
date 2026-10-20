@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"ekin/internal/apperror"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	storydomain "ekin/internal/domain/story/v1"
-	production "ekin/internal/service/production/v1"
-	"ekin/pkg/archive"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	production "github.com/ahmethakanbesel/ekin/internal/service/production/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/archive"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 // draftLongVideo queues an ad-hoc long video with production settings p and

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"ekin/internal/adapter/render"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/render"
 )
 
 func needTools(t *testing.T) {

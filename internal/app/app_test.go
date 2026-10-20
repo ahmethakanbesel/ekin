@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"ekin/internal/app"
-	"ekin/internal/config"
-	identitydomain "ekin/internal/domain/identity/v1"
+	"github.com/ahmethakanbesel/ekin/internal/app"
+	"github.com/ahmethakanbesel/ekin/internal/config"
+	identitydomain "github.com/ahmethakanbesel/ekin/internal/domain/identity/v1"
 )
 
 // Every API operation is wired to a service: a missing dependency in the

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"ekin/internal/adapter/youtube"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/youtube"
 )
 
 func TestOAuthAndUpload(t *testing.T) {

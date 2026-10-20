@@ -11,11 +11,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	voicedomain "ekin/internal/domain/voice/v1"
-	"ekin/pkg/fold"
-	"ekin/pkg/timeutil"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	voicedomain "github.com/ahmethakanbesel/ekin/internal/domain/voice/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/fold"
+	"github.com/ahmethakanbesel/ekin/pkg/timeutil"
 )
 
 // Origin says what created a story.

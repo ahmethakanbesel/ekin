@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/gen"
-	defaultssvc "ekin/internal/service/defaults/v1"
-	pipelinehandler "ekin/internal/transport/http/pipeline/v1"
-	"ekin/internal/transport/http/principal"
+	"github.com/ahmethakanbesel/ekin/internal/gen"
+	defaultssvc "github.com/ahmethakanbesel/ekin/internal/service/defaults/v1"
+	pipelinehandler "github.com/ahmethakanbesel/ekin/internal/transport/http/pipeline/v1"
+	"github.com/ahmethakanbesel/ekin/internal/transport/http/principal"
 )
 
 // Handler serves a workspace's production defaults.

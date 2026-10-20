@@ -21,11 +21,11 @@ import (
 	"strings"
 	"time"
 
-	"ekin/internal/adapter/pexels"
-	"ekin/internal/adapter/render"
-	"ekin/internal/adapter/speech"
-	"ekin/internal/blob"
-	librarydomain "ekin/internal/domain/library/v1"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/pexels"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/render"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/speech"
+	"github.com/ahmethakanbesel/ekin/internal/blob"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
 )
 
 // blobFetcher fetches library files straight from the blob store, on the

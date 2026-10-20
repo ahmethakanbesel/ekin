@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"ekin/internal/adapter/elevenlabs"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/elevenlabs"
 )
 
 func TestClient(t *testing.T) {

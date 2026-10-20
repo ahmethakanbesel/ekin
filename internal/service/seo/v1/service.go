@@ -13,14 +13,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/adapter/claude"
-	"ekin/internal/adapter/openseo"
-	"ekin/internal/apperror"
-	jobdomain "ekin/internal/domain/job/v1"
-	seodomain "ekin/internal/domain/seo/v1"
-	seorepo "ekin/internal/repository/seo/v1"
-	settingsrepo "ekin/internal/repository/settings/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/claude"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/openseo"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	seodomain "github.com/ahmethakanbesel/ekin/internal/domain/seo/v1"
+	seorepo "github.com/ahmethakanbesel/ekin/internal/repository/seo/v1"
+	settingsrepo "github.com/ahmethakanbesel/ekin/internal/repository/settings/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 // KindRefresh is the job that asks OpenSEO for new opportunities.

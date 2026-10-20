@@ -9,15 +9,15 @@ import (
 	"testing"
 	"time"
 
-	"ekin/internal/adapter/remote"
-	"ekin/internal/apperror"
-	"ekin/internal/db/dbtest"
-	jobdomain "ekin/internal/domain/job/v1"
-	settingsdomain "ekin/internal/domain/settings/v1"
-	settingsrepo "ekin/internal/repository/settings/v1"
-	settingssvc "ekin/internal/service/settings/v1"
-	workerapi "ekin/internal/transport/http/worker"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/remote"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db/dbtest"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	settingsdomain "github.com/ahmethakanbesel/ekin/internal/domain/settings/v1"
+	settingsrepo "github.com/ahmethakanbesel/ekin/internal/repository/settings/v1"
+	settingssvc "github.com/ahmethakanbesel/ekin/internal/service/settings/v1"
+	workerapi "github.com/ahmethakanbesel/ekin/internal/transport/http/worker"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 // A remote worker keeps its own profile until an admin saves one of

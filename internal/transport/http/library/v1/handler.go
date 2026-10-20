@@ -11,13 +11,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	librarydomain "ekin/internal/domain/library/v1"
-	storydomain "ekin/internal/domain/story/v1"
-	"ekin/internal/gen"
-	librarysvc "ekin/internal/service/library/v1"
-	productionsvc "ekin/internal/service/production/v1"
-	"ekin/internal/transport/http/principal"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	"github.com/ahmethakanbesel/ekin/internal/gen"
+	librarysvc "github.com/ahmethakanbesel/ekin/internal/service/library/v1"
+	productionsvc "github.com/ahmethakanbesel/ekin/internal/service/production/v1"
+	"github.com/ahmethakanbesel/ekin/internal/transport/http/principal"
 )
 
 // maxDetailsBytes bounds the details part of an upload.

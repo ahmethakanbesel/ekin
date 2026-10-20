@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"ekin/internal/adapter/render"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/render"
 )
 
 // Sampler renders small frames with the captions hidden

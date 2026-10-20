@@ -13,10 +13,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db"
-	"ekin/pkg/page"
-	"ekin/pkg/timeutil"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db"
+	"github.com/ahmethakanbesel/ekin/pkg/page"
+	"github.com/ahmethakanbesel/ekin/pkg/timeutil"
 )
 
 // Notification is one feed entry.

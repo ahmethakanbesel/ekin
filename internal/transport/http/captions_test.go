@@ -14,11 +14,11 @@ import (
 
 	"github.com/google/uuid"
 
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	storydomain "ekin/internal/domain/story/v1"
-	"ekin/internal/gen"
-	"ekin/pkg/archive"
-	"ekin/pkg/id"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	"github.com/ahmethakanbesel/ekin/internal/gen"
+	"github.com/ahmethakanbesel/ekin/pkg/archive"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 // narratedVideo stores a story in ws whose video has one revision with

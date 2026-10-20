@@ -15,17 +15,17 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/adapter/github"
-	"ekin/internal/adapter/youtube"
-	"ekin/internal/apperror"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	publishingdomain "ekin/internal/domain/publishing/v1"
-	storydomain "ekin/internal/domain/story/v1"
-	publishingrepo "ekin/internal/repository/publishing/v1"
-	productionsvc "ekin/internal/service/production/v1"
-	publishingsvc "ekin/internal/service/publishing/v1"
-	"ekin/pkg/id"
-	"ekin/pkg/secretbox"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/github"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/youtube"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	publishingdomain "github.com/ahmethakanbesel/ekin/internal/domain/publishing/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	publishingrepo "github.com/ahmethakanbesel/ekin/internal/repository/publishing/v1"
+	productionsvc "github.com/ahmethakanbesel/ekin/internal/service/production/v1"
+	publishingsvc "github.com/ahmethakanbesel/ekin/internal/service/publishing/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/pkg/secretbox"
 )
 
 // fakeGoogle answers like Google's OAuth and YouTube APIs. It records

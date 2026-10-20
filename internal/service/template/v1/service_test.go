@@ -9,19 +9,19 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/adapter/claude"
-	"ekin/internal/apperror"
-	"ekin/internal/db/dbtest"
-	jobdomain "ekin/internal/domain/job/v1"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	templatedomain "ekin/internal/domain/template/v1"
-	workspacedomain "ekin/internal/domain/workspace/v1"
-	jobrepo "ekin/internal/repository/job/v1"
-	templaterepo "ekin/internal/repository/template/v1"
-	workspacerepo "ekin/internal/repository/workspace/v1"
-	jobsvc "ekin/internal/service/job/v1"
-	templatesvc "ekin/internal/service/template/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/claude"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db/dbtest"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	templatedomain "github.com/ahmethakanbesel/ekin/internal/domain/template/v1"
+	workspacedomain "github.com/ahmethakanbesel/ekin/internal/domain/workspace/v1"
+	jobrepo "github.com/ahmethakanbesel/ekin/internal/repository/job/v1"
+	templaterepo "github.com/ahmethakanbesel/ekin/internal/repository/template/v1"
+	workspacerepo "github.com/ahmethakanbesel/ekin/internal/repository/workspace/v1"
+	jobsvc "github.com/ahmethakanbesel/ekin/internal/service/job/v1"
+	templatesvc "github.com/ahmethakanbesel/ekin/internal/service/template/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 type agent struct{ prompt *string }

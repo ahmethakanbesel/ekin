@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"ekin/pkg/wav"
+	"github.com/ahmethakanbesel/ekin/pkg/wav"
 )
 
 // file builds a WAV whose frame i holds sample(i) in every channel,

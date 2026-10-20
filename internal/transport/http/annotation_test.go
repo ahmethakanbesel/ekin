@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"ekin/internal/gen"
+	"github.com/ahmethakanbesel/ekin/internal/gen"
 )
 
 func TestAnnotationAPI(t *testing.T) {

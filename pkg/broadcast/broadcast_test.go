@@ -3,7 +3,7 @@ package broadcast_test
 import (
 	"testing"
 
-	"ekin/pkg/broadcast"
+	"github.com/ahmethakanbesel/ekin/pkg/broadcast"
 )
 
 func TestSignal(t *testing.T) {

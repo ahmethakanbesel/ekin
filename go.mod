@@ -1,4 +1,4 @@
-module ekin
+module github.com/ahmethakanbesel/ekin
 
 go 1.26.0
 

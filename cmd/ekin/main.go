@@ -19,9 +19,9 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"ekin/internal/app"
-	"ekin/internal/config"
-	"ekin/internal/db"
+	"github.com/ahmethakanbesel/ekin/internal/app"
+	"github.com/ahmethakanbesel/ekin/internal/config"
+	"github.com/ahmethakanbesel/ekin/internal/db"
 )
 
 var (

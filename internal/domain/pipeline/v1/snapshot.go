@@ -5,9 +5,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	voicedomain "ekin/internal/domain/voice/v1"
-	"ekin/pkg/timeutil"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	voicedomain "github.com/ahmethakanbesel/ekin/internal/domain/voice/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/timeutil"
 )
 
 // Snapshot is the persisted form of a Pipeline. Only repositories build

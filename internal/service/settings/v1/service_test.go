@@ -8,14 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db/dbtest"
-	jobdomain "ekin/internal/domain/job/v1"
-	settingsdomain "ekin/internal/domain/settings/v1"
-	settingsrepo "ekin/internal/repository/settings/v1"
-	settingssvc "ekin/internal/service/settings/v1"
-	"ekin/pkg/id"
-	"ekin/pkg/secretbox"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db/dbtest"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	settingsdomain "github.com/ahmethakanbesel/ekin/internal/domain/settings/v1"
+	settingsrepo "github.com/ahmethakanbesel/ekin/internal/repository/settings/v1"
+	settingssvc "github.com/ahmethakanbesel/ekin/internal/service/settings/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/pkg/secretbox"
 )
 
 func defaults() settingsdomain.Profile {

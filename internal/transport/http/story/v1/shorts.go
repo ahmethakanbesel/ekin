@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	storydomain "ekin/internal/domain/story/v1"
-	"ekin/internal/gen"
-	jobhandler "ekin/internal/transport/http/job/v1"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	"github.com/ahmethakanbesel/ekin/internal/gen"
+	jobhandler "github.com/ahmethakanbesel/ekin/internal/transport/http/job/v1"
 )
 
 func (h *Handler) ListMoments(ctx context.Context, req gen.ListMomentsRequestObject) (gen.ListMomentsResponseObject, error) {

@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	jobdomain "ekin/internal/domain/job/v1"
-	librarydomain "ekin/internal/domain/library/v1"
-	"ekin/internal/gen"
-	librarysvc "ekin/internal/service/library/v1"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
+	"github.com/ahmethakanbesel/ekin/internal/gen"
+	librarysvc "github.com/ahmethakanbesel/ekin/internal/service/library/v1"
 )
 
 // fakeProcessor "ingests" a photo by copying it as main.jpg with a

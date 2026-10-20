@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
-	jobdomain "ekin/internal/domain/job/v1"
-	handler "ekin/internal/transport/http/job/v1"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	handler "github.com/ahmethakanbesel/ekin/internal/transport/http/job/v1"
 )
 
 func TestToWireReadsTheSubject(t *testing.T) {

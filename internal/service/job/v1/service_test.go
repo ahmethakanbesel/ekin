@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"ekin/internal/apperror"
-	jobdomain "ekin/internal/domain/job/v1"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
 )
 
 // OnEnded hears about every job that ends without succeeding, inside the

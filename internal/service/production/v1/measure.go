@@ -9,8 +9,8 @@ import (
 	"time"
 	"unicode"
 
-	storydomain "ekin/internal/domain/story/v1"
-	"ekin/pkg/mp4"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/mp4"
 )
 
 // markdownNoise is what a reader never sees: link targets, images and

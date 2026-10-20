@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"ekin/internal/adapter/render"
-	"ekin/internal/agenttool"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/render"
+	"github.com/ahmethakanbesel/ekin/internal/agenttool"
 )
 
 // prober stands in for Chrome: every composition loads with meta.

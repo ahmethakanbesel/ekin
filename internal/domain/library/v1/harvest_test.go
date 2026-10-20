@@ -6,9 +6,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	library "ekin/internal/domain/library/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	library "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 func harvest() library.Harvest {

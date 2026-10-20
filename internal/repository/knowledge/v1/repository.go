@@ -6,9 +6,9 @@ import (
 
 	"github.com/google/uuid"
 
-	knowledgedomain "ekin/internal/domain/knowledge/v1"
-	"ekin/pkg/page"
-	"ekin/pkg/timeutil"
+	knowledgedomain "github.com/ahmethakanbesel/ekin/internal/domain/knowledge/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/page"
+	"github.com/ahmethakanbesel/ekin/pkg/timeutil"
 )
 
 // Filter narrows a document listing and picks its page.

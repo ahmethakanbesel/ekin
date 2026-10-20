@@ -16,14 +16,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/adapter/render"
-	"ekin/internal/agenttool"
-	"ekin/internal/apperror"
-	jobdomain "ekin/internal/domain/job/v1"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	storydomain "ekin/internal/domain/story/v1"
-	storyrepo "ekin/internal/repository/story/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/render"
+	"github.com/ahmethakanbesel/ekin/internal/agenttool"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	storyrepo "github.com/ahmethakanbesel/ekin/internal/repository/story/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 // RenderTask is a render job: with the working directory it is

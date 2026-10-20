@@ -16,9 +16,9 @@ import (
 	"strings"
 	"testing"
 
-	"ekin/internal/adapter/pexels"
-	"ekin/internal/agenttool"
-	librarydomain "ekin/internal/domain/library/v1"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/pexels"
+	"github.com/ahmethakanbesel/ekin/internal/agenttool"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
 )
 
 // fetcher "downloads" a key by writing its name.

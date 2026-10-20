@@ -8,18 +8,18 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db/dbtest"
-	librarydomain "ekin/internal/domain/library/v1"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	settingsdomain "ekin/internal/domain/settings/v1"
-	storydomain "ekin/internal/domain/story/v1"
-	templatedomain "ekin/internal/domain/template/v1"
-	settingsrepo "ekin/internal/repository/settings/v1"
-	defaultssvc "ekin/internal/service/defaults/v1"
-	settingssvc "ekin/internal/service/settings/v1"
-	"ekin/pkg/id"
-	"ekin/pkg/secretbox"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db/dbtest"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	settingsdomain "github.com/ahmethakanbesel/ekin/internal/domain/settings/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	templatedomain "github.com/ahmethakanbesel/ekin/internal/domain/template/v1"
+	settingsrepo "github.com/ahmethakanbesel/ekin/internal/repository/settings/v1"
+	defaultssvc "github.com/ahmethakanbesel/ekin/internal/service/defaults/v1"
+	settingssvc "github.com/ahmethakanbesel/ekin/internal/service/settings/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/pkg/secretbox"
 )
 
 func TestGetAndPut(t *testing.T) {

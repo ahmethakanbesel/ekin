@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	jobdomain "ekin/internal/domain/job/v1"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
 )
 
 // Filter narrows List and picks its page. A request (a trace) is kept

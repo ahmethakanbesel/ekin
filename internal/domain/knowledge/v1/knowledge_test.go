@@ -6,9 +6,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"ekin/internal/apperror"
-	knowledge "ekin/internal/domain/knowledge/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	knowledge "github.com/ahmethakanbesel/ekin/internal/domain/knowledge/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 var now = time.Date(2026, 10, 13, 9, 0, 0, 0, time.UTC)

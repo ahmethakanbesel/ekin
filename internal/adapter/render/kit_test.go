@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"ekin/internal/adapter/render"
-	templatedomain "ekin/internal/domain/template/v1"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/render"
+	templatedomain "github.com/ahmethakanbesel/ekin/internal/domain/template/v1"
 )
 
 // Every font a template may pick must be bundled, with both the latin

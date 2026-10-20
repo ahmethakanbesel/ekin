@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	story "ekin/internal/domain/story/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	story "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 func sec(s float64) time.Duration { return time.Duration(s * float64(time.Second)) }

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"testing"
 
-	"ekin/internal/adapter/smtp"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/smtp"
 )
 
 // fakeServer speaks just enough SMTP to accept one message.

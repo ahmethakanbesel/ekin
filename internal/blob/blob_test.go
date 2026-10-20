@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"ekin/internal/blob"
+	"github.com/ahmethakanbesel/ekin/internal/blob"
 )
 
 func TestFS(t *testing.T) {

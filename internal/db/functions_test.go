@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"ekin/internal/db/dbtest"
+	"github.com/ahmethakanbesel/ekin/internal/db/dbtest"
 )
 
 func TestFoldFunction(t *testing.T) {

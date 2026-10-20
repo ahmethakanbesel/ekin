@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"ekin/internal/agenttool"
-	"ekin/internal/apperror"
-	storydomain "ekin/internal/domain/story/v1"
-	"ekin/pkg/archive"
-	"ekin/pkg/wav"
+	"github.com/ahmethakanbesel/ekin/internal/agenttool"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/archive"
+	"github.com/ahmethakanbesel/ekin/pkg/wav"
 )
 
 // A short cut from a long video speaks a slice of the long video's

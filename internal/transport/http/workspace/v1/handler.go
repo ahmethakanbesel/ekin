@@ -5,11 +5,11 @@ package handler
 import (
 	"context"
 
-	identitydomain "ekin/internal/domain/identity/v1"
-	workspacedomain "ekin/internal/domain/workspace/v1"
-	"ekin/internal/gen"
-	workspacesvc "ekin/internal/service/workspace/v1"
-	"ekin/internal/transport/http/principal"
+	identitydomain "github.com/ahmethakanbesel/ekin/internal/domain/identity/v1"
+	workspacedomain "github.com/ahmethakanbesel/ekin/internal/domain/workspace/v1"
+	"github.com/ahmethakanbesel/ekin/internal/gen"
+	workspacesvc "github.com/ahmethakanbesel/ekin/internal/service/workspace/v1"
+	"github.com/ahmethakanbesel/ekin/internal/transport/http/principal"
 )
 
 // Handler serves workspaces.

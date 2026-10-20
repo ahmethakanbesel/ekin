@@ -6,11 +6,11 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	identitydomain "ekin/internal/domain/identity/v1"
-	"ekin/internal/gen"
-	identitysvc "ekin/internal/service/identity/v1"
-	"ekin/internal/transport/http/principal"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	identitydomain "github.com/ahmethakanbesel/ekin/internal/domain/identity/v1"
+	"github.com/ahmethakanbesel/ekin/internal/gen"
+	identitysvc "github.com/ahmethakanbesel/ekin/internal/service/identity/v1"
+	"github.com/ahmethakanbesel/ekin/internal/transport/http/principal"
 )
 
 // workspaceActions maps every operation under /workspaces/{workspaceId}

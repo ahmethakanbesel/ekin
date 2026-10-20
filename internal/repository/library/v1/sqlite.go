@@ -11,12 +11,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db"
-	librarydomain "ekin/internal/domain/library/v1"
-	"ekin/pkg/fold"
-	"ekin/pkg/page"
-	"ekin/pkg/timeutil"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/fold"
+	"github.com/ahmethakanbesel/ekin/pkg/page"
+	"github.com/ahmethakanbesel/ekin/pkg/timeutil"
 )
 
 // SQLite is the production Repository.

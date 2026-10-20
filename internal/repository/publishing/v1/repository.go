@@ -11,10 +11,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db"
-	publishingdomain "ekin/internal/domain/publishing/v1"
-	"ekin/pkg/timeutil"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db"
+	publishingdomain "github.com/ahmethakanbesel/ekin/internal/domain/publishing/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/timeutil"
 )
 
 // Repository stores one channel and one blog target per workspace.

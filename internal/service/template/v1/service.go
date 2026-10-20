@@ -19,14 +19,14 @@ import (
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 
-	"ekin/internal/adapter/claude"
-	"ekin/internal/apperror"
-	jobdomain "ekin/internal/domain/job/v1"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	storydomain "ekin/internal/domain/story/v1"
-	templatedomain "ekin/internal/domain/template/v1"
-	templaterepo "ekin/internal/repository/template/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/claude"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	templatedomain "github.com/ahmethakanbesel/ekin/internal/domain/template/v1"
+	templaterepo "github.com/ahmethakanbesel/ekin/internal/repository/template/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 // KindGenerate is the job that drafts a template from a channel.

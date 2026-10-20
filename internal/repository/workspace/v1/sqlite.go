@@ -8,10 +8,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db"
-	workspacedomain "ekin/internal/domain/workspace/v1"
-	"ekin/pkg/timeutil"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db"
+	workspacedomain "github.com/ahmethakanbesel/ekin/internal/domain/workspace/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/timeutil"
 )
 
 // SQLite is the production Repository.

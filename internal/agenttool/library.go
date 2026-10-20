@@ -14,8 +14,8 @@ import (
 	"slices"
 	"strings"
 
-	librarydomain "ekin/internal/domain/library/v1"
-	"ekin/pkg/fold"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/fold"
 )
 
 // CatalogPath is where a draft's library catalog lies in its working

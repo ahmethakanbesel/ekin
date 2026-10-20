@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"ekin/pkg/password"
+	"github.com/ahmethakanbesel/ekin/pkg/password"
 )
 
 var cheap = password.Params{Memory: 64, Time: 1, Threads: 1}

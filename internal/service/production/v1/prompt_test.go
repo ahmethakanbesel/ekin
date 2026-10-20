@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	storydomain "ekin/internal/domain/story/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
 )
 
 // Every note of a round reaches the agent, resumed or not.

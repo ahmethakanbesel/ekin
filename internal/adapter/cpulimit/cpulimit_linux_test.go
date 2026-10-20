@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"ekin/internal/adapter/cpulimit"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/cpulimit"
 )
 
 // cpuSeconds reads a process's user+system time.

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	librarydomain "ekin/internal/domain/library/v1"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
 )
 
 func TestPromptsNameEachMediaSource(t *testing.T) {

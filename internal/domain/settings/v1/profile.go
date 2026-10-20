@@ -9,9 +9,9 @@ import (
 	"slices"
 	"time"
 
-	"ekin/internal/apperror"
-	jobdomain "ekin/internal/domain/job/v1"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
 )
 
 // Profile is a host profile.

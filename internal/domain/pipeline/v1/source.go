@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
 )
 
 // SourceKind is where a pipeline gets its ideas and material.

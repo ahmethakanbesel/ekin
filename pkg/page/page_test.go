@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"ekin/pkg/page"
+	"github.com/ahmethakanbesel/ekin/pkg/page"
 )
 
 type key struct {

@@ -11,12 +11,12 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db"
-	identitydomain "ekin/internal/domain/identity/v1"
-	identityrepo "ekin/internal/repository/identity/v1"
-	workspacerepo "ekin/internal/repository/workspace/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db"
+	identitydomain "github.com/ahmethakanbesel/ekin/internal/domain/identity/v1"
+	identityrepo "github.com/ahmethakanbesel/ekin/internal/repository/identity/v1"
+	workspacerepo "github.com/ahmethakanbesel/ekin/internal/repository/workspace/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 const (

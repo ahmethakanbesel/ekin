@@ -14,9 +14,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	storydomain "ekin/internal/domain/story/v1"
-	"ekin/pkg/archive"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/archive"
 )
 
 // Files a reviewer can edit in place, relative to the work dir.

@@ -6,9 +6,9 @@ import (
 	"context"
 	"encoding/json"
 
-	jobdomain "ekin/internal/domain/job/v1"
-	"ekin/internal/gen"
-	jobsvc "ekin/internal/service/job/v1"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	"github.com/ahmethakanbesel/ekin/internal/gen"
+	jobsvc "github.com/ahmethakanbesel/ekin/internal/service/job/v1"
 )
 
 // Handler serves jobs.

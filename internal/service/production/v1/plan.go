@@ -13,18 +13,18 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/adapter/claude"
-	"ekin/internal/apperror"
-	jobdomain "ekin/internal/domain/job/v1"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	seodomain "ekin/internal/domain/seo/v1"
-	storydomain "ekin/internal/domain/story/v1"
-	voicedomain "ekin/internal/domain/voice/v1"
-	storyrepo "ekin/internal/repository/story/v1"
-	defaultssvc "ekin/internal/service/defaults/v1"
-	knowledgesvc "ekin/internal/service/knowledge/v1"
-	pipelinesvc "ekin/internal/service/pipeline/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/claude"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	seodomain "github.com/ahmethakanbesel/ekin/internal/domain/seo/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	voicedomain "github.com/ahmethakanbesel/ekin/internal/domain/voice/v1"
+	storyrepo "github.com/ahmethakanbesel/ekin/internal/repository/story/v1"
+	defaultssvc "github.com/ahmethakanbesel/ekin/internal/service/defaults/v1"
+	knowledgesvc "github.com/ahmethakanbesel/ekin/internal/service/knowledge/v1"
+	pipelinesvc "github.com/ahmethakanbesel/ekin/internal/service/pipeline/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 const (

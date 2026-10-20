@@ -10,10 +10,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/db"
-	jobdomain "ekin/internal/domain/job/v1"
-	jobrepo "ekin/internal/repository/job/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/db"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	jobrepo "github.com/ahmethakanbesel/ekin/internal/repository/job/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 // abandonedSweepLimit bounds one sweep; the next sweep takes the rest.

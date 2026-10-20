@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"ekin/internal/apperror"
-	identitydomain "ekin/internal/domain/identity/v1"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	identitydomain "github.com/ahmethakanbesel/ekin/internal/domain/identity/v1"
 )
 
 // CookieName is the session cookie (api/openapi.yaml securitySchemes).

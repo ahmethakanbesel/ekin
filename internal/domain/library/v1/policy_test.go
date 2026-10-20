@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"ekin/internal/apperror"
-	library "ekin/internal/domain/library/v1"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	library "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
 )
 
 func TestParseMode(t *testing.T) {

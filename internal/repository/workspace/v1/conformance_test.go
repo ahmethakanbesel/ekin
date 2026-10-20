@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db/dbtest"
-	workspacedomain "ekin/internal/domain/workspace/v1"
-	workspacerepo "ekin/internal/repository/workspace/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db/dbtest"
+	workspacedomain "github.com/ahmethakanbesel/ekin/internal/domain/workspace/v1"
+	workspacerepo "github.com/ahmethakanbesel/ekin/internal/repository/workspace/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 func TestConformance(t *testing.T) {

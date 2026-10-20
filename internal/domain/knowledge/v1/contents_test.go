@@ -6,7 +6,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	knowledge "ekin/internal/domain/knowledge/v1"
+	knowledge "github.com/ahmethakanbesel/ekin/internal/domain/knowledge/v1"
 )
 
 func TestNormalizeHeadings(t *testing.T) {

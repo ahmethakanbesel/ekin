@@ -19,15 +19,15 @@ import (
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 
-	"ekin/internal/adapter/github"
-	"ekin/internal/adapter/youtube"
-	"ekin/internal/apperror"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	publishingdomain "ekin/internal/domain/publishing/v1"
-	storydomain "ekin/internal/domain/story/v1"
-	publishingrepo "ekin/internal/repository/publishing/v1"
-	productionsvc "ekin/internal/service/production/v1"
-	"ekin/pkg/secretbox"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/github"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/youtube"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	publishingdomain "github.com/ahmethakanbesel/ekin/internal/domain/publishing/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	publishingrepo "github.com/ahmethakanbesel/ekin/internal/repository/publishing/v1"
+	productionsvc "github.com/ahmethakanbesel/ekin/internal/service/production/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/secretbox"
 )
 
 // stateTTL bounds how long an OAuth round trip may take.

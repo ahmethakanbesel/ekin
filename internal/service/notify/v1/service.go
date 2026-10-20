@@ -14,9 +14,9 @@ import (
 
 	"github.com/google/uuid"
 
-	notifyrepo "ekin/internal/repository/notify/v1"
-	productionsvc "ekin/internal/service/production/v1"
-	"ekin/pkg/id"
+	notifyrepo "github.com/ahmethakanbesel/ekin/internal/repository/notify/v1"
+	productionsvc "github.com/ahmethakanbesel/ekin/internal/service/production/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 // Recipient is someone who gets digests.

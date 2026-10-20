@@ -1,17 +1,17 @@
 package handler
 
 import (
-	voicehandler "ekin/internal/transport/http/voice/v1"
+	voicehandler "github.com/ahmethakanbesel/ekin/internal/transport/http/voice/v1"
 
 	"github.com/google/uuid"
 
 	"time"
 
-	"ekin/internal/apperror"
-	librarydomain "ekin/internal/domain/library/v1"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	workspacedomain "ekin/internal/domain/workspace/v1"
-	"ekin/internal/gen"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	workspacedomain "github.com/ahmethakanbesel/ekin/internal/domain/workspace/v1"
+	"github.com/ahmethakanbesel/ekin/internal/gen"
 )
 
 // parseDefinition turns the wire definition into domain values once; the

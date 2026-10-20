@@ -5,9 +5,9 @@ package handler
 import (
 	"context"
 
-	"ekin/internal/gen"
-	pipelinesvc "ekin/internal/service/pipeline/v1"
-	jobhandler "ekin/internal/transport/http/job/v1"
+	"github.com/ahmethakanbesel/ekin/internal/gen"
+	pipelinesvc "github.com/ahmethakanbesel/ekin/internal/service/pipeline/v1"
+	jobhandler "github.com/ahmethakanbesel/ekin/internal/transport/http/job/v1"
 )
 
 // Handler serves pipelines.

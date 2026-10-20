@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	storydomain "ekin/internal/domain/story/v1"
-	storyrepo "ekin/internal/repository/story/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	storyrepo "github.com/ahmethakanbesel/ekin/internal/repository/story/v1"
 )
 
 // Client calls the chat completions API.

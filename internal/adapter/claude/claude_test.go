@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"ekin/internal/adapter/claude"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/claude"
 )
 
 // fake writes a shell script that records its arguments and prints out.

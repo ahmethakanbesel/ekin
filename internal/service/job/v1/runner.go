@@ -12,8 +12,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	jobdomain "ekin/internal/domain/job/v1"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
 )
 
 // Handler does the work of one job. Returning an error retries the job

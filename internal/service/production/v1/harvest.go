@@ -16,13 +16,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/agenttool"
-	"ekin/internal/apperror"
-	jobdomain "ekin/internal/domain/job/v1"
-	librarydomain "ekin/internal/domain/library/v1"
-	storydomain "ekin/internal/domain/story/v1"
-	librarysvc "ekin/internal/service/library/v1"
-	"ekin/pkg/archive"
+	"github.com/ahmethakanbesel/ekin/internal/agenttool"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
+	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
+	librarysvc "github.com/ahmethakanbesel/ekin/internal/service/library/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/archive"
 )
 
 // KindHarvest saves what a video revision used to the library, for the

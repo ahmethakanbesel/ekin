@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"ekin/internal/adapter/media"
-	librarydomain "ekin/internal/domain/library/v1"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/media"
+	librarydomain "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
 )
 
 func need(t *testing.T) {

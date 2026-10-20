@@ -8,13 +8,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db/dbtest"
-	seodomain "ekin/internal/domain/seo/v1"
-	workspacedomain "ekin/internal/domain/workspace/v1"
-	seorepo "ekin/internal/repository/seo/v1"
-	workspacerepo "ekin/internal/repository/workspace/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db/dbtest"
+	seodomain "github.com/ahmethakanbesel/ekin/internal/domain/seo/v1"
+	workspacedomain "github.com/ahmethakanbesel/ekin/internal/domain/workspace/v1"
+	seorepo "github.com/ahmethakanbesel/ekin/internal/repository/seo/v1"
+	workspacerepo "github.com/ahmethakanbesel/ekin/internal/repository/workspace/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 var now = time.Date(2026, 10, 17, 9, 0, 0, 0, time.UTC)

@@ -10,17 +10,17 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db/dbtest"
-	jobdomain "ekin/internal/domain/job/v1"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	workspacedomain "ekin/internal/domain/workspace/v1"
-	jobrepo "ekin/internal/repository/job/v1"
-	pipelinerepo "ekin/internal/repository/pipeline/v1"
-	workspacerepo "ekin/internal/repository/workspace/v1"
-	jobsvc "ekin/internal/service/job/v1"
-	pipelinesvc "ekin/internal/service/pipeline/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db/dbtest"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	workspacedomain "github.com/ahmethakanbesel/ekin/internal/domain/workspace/v1"
+	jobrepo "github.com/ahmethakanbesel/ekin/internal/repository/job/v1"
+	pipelinerepo "github.com/ahmethakanbesel/ekin/internal/repository/pipeline/v1"
+	workspacerepo "github.com/ahmethakanbesel/ekin/internal/repository/workspace/v1"
+	jobsvc "github.com/ahmethakanbesel/ekin/internal/service/job/v1"
+	pipelinesvc "github.com/ahmethakanbesel/ekin/internal/service/pipeline/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 // t0 is 2026-10-13 10:00 Istanbul; the nightly slot is 23:00 UTC.

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	jobdomain "ekin/internal/domain/job/v1"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
 )
 
 func vars(m map[string]string) func(string) string {

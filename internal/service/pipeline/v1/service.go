@@ -11,14 +11,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/db"
-	jobdomain "ekin/internal/domain/job/v1"
-	pipelinedomain "ekin/internal/domain/pipeline/v1"
-	voicedomain "ekin/internal/domain/voice/v1"
-	pipelinerepo "ekin/internal/repository/pipeline/v1"
-	workspacerepo "ekin/internal/repository/workspace/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/db"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	pipelinedomain "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
+	voicedomain "github.com/ahmethakanbesel/ekin/internal/domain/voice/v1"
+	pipelinerepo "github.com/ahmethakanbesel/ekin/internal/repository/pipeline/v1"
+	workspacerepo "github.com/ahmethakanbesel/ekin/internal/repository/workspace/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 // KindRun is the job kind of a pipeline run.

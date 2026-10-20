@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 
-	jobdomain "ekin/internal/domain/job/v1"
-	jobsvc "ekin/internal/service/job/v1"
-	seosvc "ekin/internal/service/seo/v1"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	jobsvc "github.com/ahmethakanbesel/ekin/internal/service/job/v1"
+	seosvc "github.com/ahmethakanbesel/ekin/internal/service/seo/v1"
 )
 
 // Register adds the SEO handlers to r.

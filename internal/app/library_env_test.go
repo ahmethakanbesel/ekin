@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"ekin/internal/config"
+	"github.com/ahmethakanbesel/ekin/internal/config"
 )
 
 // The tool runs in a draft's work dir, so a relative blob directory must

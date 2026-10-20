@@ -18,13 +18,13 @@ import (
 
 	"github.com/google/uuid"
 
-	"ekin/internal/apperror"
-	"ekin/internal/blob"
-	"ekin/internal/db"
-	jobdomain "ekin/internal/domain/job/v1"
-	knowledgedomain "ekin/internal/domain/knowledge/v1"
-	knowledgerepo "ekin/internal/repository/knowledge/v1"
-	"ekin/pkg/id"
+	"github.com/ahmethakanbesel/ekin/internal/apperror"
+	"github.com/ahmethakanbesel/ekin/internal/blob"
+	"github.com/ahmethakanbesel/ekin/internal/db"
+	jobdomain "github.com/ahmethakanbesel/ekin/internal/domain/job/v1"
+	knowledgedomain "github.com/ahmethakanbesel/ekin/internal/domain/knowledge/v1"
+	knowledgerepo "github.com/ahmethakanbesel/ekin/internal/repository/knowledge/v1"
+	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
 // KindExtract is the job kind that extracts a document's pages.

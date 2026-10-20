@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	library "ekin/internal/domain/library/v1"
-	pipeline "ekin/internal/domain/pipeline/v1"
+	library "github.com/ahmethakanbesel/ekin/internal/domain/library/v1"
+	pipeline "github.com/ahmethakanbesel/ekin/internal/domain/pipeline/v1"
 )
 
 func TestNewAgent(t *testing.T) {

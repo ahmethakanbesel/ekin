@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"ekin/internal/adapter/claude"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/claude"
 )
 
 // reviewSchema is the editor's structured answer.

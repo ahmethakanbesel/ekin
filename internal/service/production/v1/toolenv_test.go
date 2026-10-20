@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"ekin/internal/agenttool"
+	"github.com/ahmethakanbesel/ekin/internal/agenttool"
 )
 
 // The agent's shell runs in the deliverable's own directory, so the
