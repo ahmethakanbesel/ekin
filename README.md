@@ -6,6 +6,8 @@ then holds every piece for a person to review before anything is published.
 
 Videos and articles can be written in English or Turkish.
 
+![Reviewing a video: the preview player, its timed script with reviewer notes, and approve, request changes or reject](docs/screenshots/review-video.webp)
+
 ## What it does
 
 Pipelines (cron or on demand) and ad-hoc requests turn a brief, knowledge-base pages or
@@ -15,6 +17,19 @@ animated HTML composition, narrates it with Kokoro (English), okur-tts or EMA Li
 Chrome. Every deliverable waits in **Review**: request changes (pinned to a moment in the
 video) and the agent revises in the same session; approve and it renders at 1080p and
 publishes to YouTube, or commits the article (and its translation) to your site.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Review inbox with stories in every state](docs/screenshots/stories.webp) | ![Thumbnail variants beside the video, at full and feed size](docs/screenshots/review-thumbnails.webp) |
+| **Review**: every story the agent produced, by status | **Thumbnails**: pick, reword or redraw the variants |
+| ![An article in review with its history and story details](docs/screenshots/review-article.webp) | ![Pipelines with their schedules and the coming week](docs/screenshots/pipelines.webp) |
+| **Articles** are reviewed the same way as videos | **Pipelines** run on a schedule or on demand |
+| ![Jobs grouped by the request that started them](docs/screenshots/jobs.webp) | ![SEO keyword opportunities ranked by score](docs/screenshots/seo.webp) |
+| **Jobs**: where the time went, step by step | **SEO**: keyword opportunities feed SEO pipelines |
+
+Screenshots show a demo workspace with mock data.
 
 ## Run with Docker
 
