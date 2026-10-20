@@ -1,7 +1,7 @@
 ---
 name: Friendly psychology
 description: Soft pastels, rounded characters and gentle "signs you…" lists with a supportive tone.
-inspiration: Psych2Go-style psychology animations
+inspiration: Friendly animated psychology explainers
 kinds: [video]
 palette: ["#FDE2E4", "#CDE7F0", "#FFF1C1", "#B8E0D2", "#6C5B7B", "#355C7D"]
 headingFont: Nunito

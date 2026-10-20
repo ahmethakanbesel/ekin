@@ -1,7 +1,7 @@
 ---
 name: Cosmic flat explainer
 description: Bold flat-vector worlds on deep night blues; big-picture science told calmly.
-inspiration: Kurzgesagt-style flat vector explainers
+inspiration: Flat-vector science explainers
 kinds: [video]
 palette: ["#0B1D3A", "#19325C", "#F2A541", "#F25C54", "#7BDFF2", "#B2F7EF", "#FFFFFF"]
 headingFont: Nunito

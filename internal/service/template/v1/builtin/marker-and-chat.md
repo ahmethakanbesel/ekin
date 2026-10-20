@@ -1,7 +1,7 @@
 ---
 name: Marker and chat
 description: Cream paper, a soft serif with a lime marker swipe, chat bubbles over warm photos and app windows; friendly product storytelling.
-inspiration: Spacefast, the publishing layer for agents (spacefast.com)
+inspiration: Product sites for developer tools
 kinds: [video, article]
 palette: ["#F7F5EF", "#0C0C0C", "#D4F25A", "#0A84FF", "#E9E9EB", "#FFFFFF", "#6E6E73", "#FF5F57"]
 headingFont: Fraunces

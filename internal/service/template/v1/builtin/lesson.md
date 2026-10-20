@@ -1,7 +1,7 @@
 ---
 name: Story lesson
 description: A short animated lesson told through a relatable scenario, soft colours and simple figures.
-inspiration: TED-Ed-style animated lessons
+inspiration: Animated classroom lessons
 kinds: [video]
 palette: ["#2E3A59", "#F4D6A0", "#E07A5F", "#81B29A", "#F2CC8F", "#FAF3E0"]
 headingFont: Lora

@@ -1,7 +1,7 @@
 ---
 name: Field engraving
 description: Olive and sage brand boards, stippled engravings and mono spec labels; grounded, unhurried and built to last.
-inspiration: Arc Studio's identity for Anything, an insurance brand for the people who build things
+inspiration: Engraved field-guide illustration for a builders' insurance brand
 kinds: [video, article]
 palette: ["#5A5E4B", "#1E1E1C", "#7E8670", "#DCE3DC", "#B9C1CB", "#C5C890", "#5DAF78", "#F2EFE7"]
 headingFont: Inter

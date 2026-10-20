@@ -1,7 +1,7 @@
 ---
 name: Minimal icon explainer
 description: White canvas, flat icons and stick figures, quick numbered points with dry wit.
-inspiration: CGP Grey-style minimalist explainers
+inspiration: Minimalist icon-driven explainers
 kinds: [video]
 palette: ["#FFFFFF", "#222222", "#E63946", "#1D3557", "#A8DADC", "#F1FAEE"]
 headingFont: Oswald

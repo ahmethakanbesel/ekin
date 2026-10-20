@@ -1,7 +1,7 @@
 ---
 name: Map journalism
 description: Investigative storytelling on animated maps, notebook collages and hand-drawn annotations.
-inspiration: Johnny Harris- and Wendover-style map explainers
+inspiration: Map-led geography and logistics explainers
 kinds: [video]
 palette: ["#EFE6D2", "#2B2B2B", "#C0392B", "#2E86AB", "#F6C85F", "#7A9E7E"]
 headingFont: Oswald

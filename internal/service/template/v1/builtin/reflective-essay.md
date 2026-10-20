@@ -1,7 +1,7 @@
 ---
 name: Reflective essay
 description: Painterly warmth, serif titles and a slow, philosophical voice about inner life.
-inspiration: The School of Life-style reflective essays
+inspiration: Reflective video essays on everyday life
 kinds: [video, article]
 palette: ["#F4EDE1", "#3E3A36", "#B5835A", "#6B8F71", "#C9A66B", "#8C5E58"]
 headingFont: Lora

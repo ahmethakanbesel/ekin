@@ -1,7 +1,7 @@
 ---
 name: Editorial explainer
 description: Newsroom-style explainers with paper textures, highlighted documents and charts that draw themselves.
-inspiration: Vox-style video journalism
+inspiration: Newsroom video journalism
 kinds: [video]
 palette: ["#F7F3EA", "#1A1A1A", "#FFE14D", "#E63946", "#457B9D", "#A8A29E"]
 headingFont: Lora

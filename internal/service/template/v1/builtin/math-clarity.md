@@ -1,7 +1,7 @@
 ---
 name: Precise diagrams
 description: Dark canvas, exact vector diagrams that morph step by step, colour-coded ideas.
-inspiration: 3Blue1Brown-style visual explanations
+inspiration: Animated visual math explanations
 kinds: [video]
 palette: ["#0E0E10", "#1C1C22", "#58C4DD", "#CD853F", "#F4D35E", "#FC6255", "#FFFFFF"]
 headingFont: Lora

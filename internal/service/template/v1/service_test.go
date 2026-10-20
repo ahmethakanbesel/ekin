@@ -52,8 +52,12 @@ func TestTemplates(t *testing.T) {
 		if b.Source != templatedomain.SourceBuiltin {
 			t.Fatalf("bad built-in %+v", b.Name)
 		}
-		if strings.Contains(strings.ToLower(b.Name), "kurzgesagt") || strings.Contains(strings.ToLower(b.Name), "vox") {
-			t.Fatalf("built-in named after a channel: %s", b.Name)
+		text := strings.ToLower(strings.Join([]string{b.Name, b.Description, b.Inspiration, b.Guide}, "\n"))
+		for _, name := range []string{"kurzgesagt", "vox-", "vox ", "psych2go", "ted-ed", "johnny harris", "wendover",
+			"3blue1brown", "cgp grey", "school of life", "arc studio", "spacefast", "orchid"} {
+			if strings.Contains(text, name) {
+				t.Fatalf("built-in %q names a real channel or brand: %q", b.Name, name)
+			}
 		}
 	}
 	cosmic := find(t, all, "Cosmic flat explainer")

@@ -1988,7 +1988,7 @@ export const en = {
       description:
         "The agent researches the channel on the web and writes a style guide that describes its look without copying it. It appears here in a few minutes.",
       channel: "Channel name or URL",
-      channelPlaceholder: "e.g. Kurzgesagt or https://www.youtube.com/@kurzgesagt",
+      channelPlaceholder: "A channel name or https://www.youtube.com/@handle",
       channelRequired: "Enter a channel name or URL.",
       channelTooLong: "At most 300 characters.",
       notes: "Notes (optional)",
