@@ -11,3 +11,6 @@ web/dist/*
 
 # Deployment secrets
 deploy/.env
+
+# Local design-tool state
+.impeccable/
