@@ -144,7 +144,7 @@ func profileToWire(p seodomain.Profile) gen.SEOProfile {
 	}
 	maxDifficulty, minVolume := p.Difficulty(), p.MinVolume
 	return gen.SEOProfile{
-		Domain: p.Domain, Country: p.Country, Language: gen.Language(cmp.Or(p.Language, "tr")), Topics: p.Topics,
+		Domain: p.Domain, Country: p.Country, Language: gen.Language(cmp.Or(p.Language, "en")), Topics: p.Topics,
 		ProjectId: &p.ProjectID, Seeds: &seeds, Competitors: &competitors, MaxDifficulty: &maxDifficulty, MinVolume: &minVolume,
 		EstimatedCredits: &est,
 	}

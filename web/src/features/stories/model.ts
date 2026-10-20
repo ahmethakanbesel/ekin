@@ -167,7 +167,7 @@ export function defaultRequestValues(): RequestFormValues {
   return {
     idea: "",
     count: "1",
-    language: "tr",
+    language: "en",
     ...defaultOutputs(),
     style: "",
     refs: [],

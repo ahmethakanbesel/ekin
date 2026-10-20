@@ -37,7 +37,7 @@ import {
   normalizeDomain,
 } from "./openseo"
 
-export const LANGUAGES: Language[] = ["tr", "en"]
+export const LANGUAGES: Language[] = ["en", "tr"]
 export const languageItems = LANGUAGES.map((l) => ({
   value: l,
   label: m.values.language[l],

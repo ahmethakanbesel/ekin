@@ -232,7 +232,7 @@ func (e Env) tts(ctx context.Context, textFile string) error {
 	}
 	lang := e.Spec.Language
 	if lang == "" {
-		lang = "tr"
+		lang = "en"
 	}
 	raw, err := os.ReadFile(e.path(textFile))
 	if err != nil {

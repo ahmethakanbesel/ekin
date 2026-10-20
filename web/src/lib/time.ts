@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 
 import { m } from "@/i18n"
 
-export const DEFAULT_TIMEZONE = "Europe/Istanbul"
+const DEFAULT_TIMEZONE = "UTC"
 
 let cachedZones: string[] | undefined
 

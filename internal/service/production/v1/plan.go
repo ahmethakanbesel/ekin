@@ -621,10 +621,10 @@ func (s *Service) askIdeas(ctx context.Context, req ideaRequest, count int, avoi
 }
 
 func languageName(l pipelinedomain.Language) string {
-	if l == pipelinedomain.English {
-		return "English"
+	if l == pipelinedomain.Turkish {
+		return "Turkish"
 	}
-	return "Turkish"
+	return "English"
 }
 
 func describeOutputs(o pipelinedomain.Outputs) string {

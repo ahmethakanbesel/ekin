@@ -89,15 +89,15 @@ type Options struct {
 
 // scripts maps a language's local engines to their scripts.
 var scripts = map[string]map[string]string{
-	"tr": {EngineOkur: "okur_say.py", EngineEMA: "ema_say.py"},
 	"en": {EngineKokoro: "kokoro_say.py"},
+	"tr": {EngineOkur: "okur_say.py", EngineEMA: "ema_say.py"},
 }
 
 // defaultEngine is each language's engine when none is chosen.
-var defaultEngine = map[string]string{"tr": EngineOkur, "en": EngineKokoro}
+var defaultEngine = map[string]string{"en": EngineKokoro, "tr": EngineOkur}
 
 // Say synthesises the text in textFile into outDir/speech.wav and
-// outDir/timings.json. lang is "tr" or "en".
+// outDir/timings.json. lang is "en" or "tr".
 func (s *Synth) Say(ctx context.Context, lang, textFile, outDir string, o Options) (Timings, error) {
 	engine := o.Engine
 	if engine == "" {

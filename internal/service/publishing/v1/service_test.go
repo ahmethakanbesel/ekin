@@ -184,7 +184,7 @@ func TestArticleToLocalCheckout(t *testing.T) {
 	ws := id.New()
 	dir := t.TempDir()
 	if _, err := svc.SaveBlog(ctx, ws, publishingsvc.BlogInput{BlogTarget: publishingdomain.BlogTarget{
-		Kind: publishingdomain.BlogDir, Dir: dir, ContentDir: "marketing/src/content/blog", SiteURL: "https://example.com", Author: "acme ekibi",
+		Kind: publishingdomain.BlogDir, Dir: dir, ContentDir: "marketing/src/content/blog", SiteURL: "https://example.com", Author: "acme ekibi", DefaultLocale: "tr",
 	}}); err != nil {
 		t.Fatal(err)
 	}

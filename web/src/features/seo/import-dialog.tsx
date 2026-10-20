@@ -58,7 +58,7 @@ function ImportForm({ onDone }: { onDone: () => void }) {
   const [text, setText] = useState("")
   const [chosen, setChosen] = useState<Language | null>(null)
   const [submitted, setSubmitted] = useState(false)
-  const language: Language = chosen ?? profile.data?.language ?? "tr"
+  const language: Language = chosen ?? profile.data?.language ?? "en"
   const parsed = useMemo(() => parseKeywords(text), [text])
   const count = parsed.items.length
   const empty = submitted && count === 0

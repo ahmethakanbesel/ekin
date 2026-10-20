@@ -71,13 +71,13 @@ func (w *Workspace) Location() *time.Location { return w.location }
 func (w *Workspace) CreatedAt() time.Time     { return w.createdAt }
 func (w *Workspace) UpdatedAt() time.Time     { return w.updatedAt }
 
-// ParseTimezone parses an IANA timezone name such as "Europe/Istanbul".
+// ParseTimezone parses an IANA timezone name such as "Europe/London".
 // "Local" and the empty string are rejected: a stored schedule must not
 // change meaning with the host it happens to run on.
 func ParseTimezone(name string) (*time.Location, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || name == "Local" {
-		return nil, apperror.New(apperror.ValidationFailed, "timezone must be an IANA name such as Europe/Istanbul")
+		return nil, apperror.New(apperror.ValidationFailed, "timezone must be an IANA name such as Europe/London")
 	}
 	loc, err := time.LoadLocation(name)
 	if err != nil {

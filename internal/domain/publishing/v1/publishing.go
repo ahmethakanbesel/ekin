@@ -78,7 +78,7 @@ type BlogTarget struct {
 	PublicDir   string // e.g. marketing/public/blog; images go to <PublicDir>/<slug>/
 	SiteURL     string // e.g. https://example.com
 	// PathTemplate builds a post's URL path: {locale} is "" for the
-	// default locale and "en/" otherwise, {slug} the slug.
+	// default locale and "<locale>/" otherwise, {slug} the slug.
 	PathTemplate  string
 	DefaultLocale string
 	Author        string
@@ -126,7 +126,7 @@ func (b *BlogTarget) Validate() error {
 		return fail("the URL template must contain {slug}")
 	}
 	if b.DefaultLocale == "" {
-		b.DefaultLocale = "tr"
+		b.DefaultLocale = "en"
 	}
 	if b.SiteURL != "" && !strings.HasPrefix(b.SiteURL, "https://") && !strings.HasPrefix(b.SiteURL, "http://") {
 		return fail("site URL must start with https://")

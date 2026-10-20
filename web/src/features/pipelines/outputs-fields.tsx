@@ -51,7 +51,7 @@ export const OutputsFields = withFieldGroup({
   defaultValues: defaultOutputs(),
   props: {
     /** The content language; an article is never translated into it. */
-    language: "tr" as Language,
+    language: "en" as Language,
     readOnly: false,
     /** Whether the host form was submitted, so untouched errors show too. */
     submitted: false,

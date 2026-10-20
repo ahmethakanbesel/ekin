@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input"
 import { Banner } from "@/components/page"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
-import { DEFAULT_TIMEZONE } from "@/lib/time"
+import { browserTimezone } from "@/lib/time"
 import { useCreateWorkspace } from "@/queries/workspaces"
 import { workspaceNameError } from "./validation"
 
@@ -42,7 +42,7 @@ function CreateWorkspaceForm({ onDone }: { onDone: () => void }) {
   const create = useCreateWorkspace()
   const navigate = useNavigate()
   const form = useForm({
-    defaultValues: { name: "", timezone: DEFAULT_TIMEZONE },
+    defaultValues: { name: "", timezone: browserTimezone() },
     onSubmit: async ({ value }) => {
       try {
         const ws = await create.mutateAsync({ name: value.name.trim(), timezone: value.timezone })

@@ -180,7 +180,7 @@ func (s *Service) Profile(ctx context.Context, workspaceID uuid.UUID) (seodomain
 	var p seodomain.Profile
 	err := s.settings.Get(ctx, "seo:"+workspaceID.String(), &p)
 	if apperror.Is(err, apperror.NotFound) {
-		return seodomain.Profile{Country: "TR", Language: "tr"}, nil
+		return seodomain.Profile{Country: "US", Language: "en"}, nil
 	}
 	return p, err
 }

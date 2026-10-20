@@ -50,7 +50,7 @@ type issue struct {
 	Fix     string `json:"fix"`
 }
 
-var languageNames = map[string]string{"tr": "Turkish", "en": "English"}
+var languageNames = map[string]string{"en": "English", "tr": "Turkish"}
 
 // selfReview runs up to task.SelfReview rounds: a fresh agent that only
 // reads reviews the draft, and the author fixes what it reports (then

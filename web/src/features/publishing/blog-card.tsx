@@ -37,7 +37,7 @@ type Kind = BlogInput["kind"]
 const KINDS: Kind[] = ["github", "dir"]
 
 export const DEFAULT_PATH_TEMPLATE = "/{locale}blog/{slug}/"
-const DEFAULT_LOCALE = "tr"
+const DEFAULT_LOCALE = "en"
 
 type Values = {
   kind: Kind

@@ -2093,7 +2093,7 @@ export interface components {
             contentDir: string;
             publicDir: string;
             siteUrl: string;
-            /** @description {locale} is empty for the default locale, otherwise 'en/' */
+            /** @description {locale} is empty for the default locale, otherwise the post's locale and a slash (e.g. 'tr/') */
             pathTemplate: string;
             defaultLocale: string;
             author: string;
@@ -2338,7 +2338,7 @@ export interface components {
         };
         WorkspaceInput: {
             name: string;
-            /** @description IANA timezone name, e.g. Europe/Istanbul. */
+            /** @description IANA timezone name, e.g. Europe/London. */
             timezone: string;
         };
         WorkspacePatch: {

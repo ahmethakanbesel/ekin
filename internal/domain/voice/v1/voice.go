@@ -77,14 +77,14 @@ const ElevenLabsDefaultVoice = "JBFqnCBsd6RMkjVDRZzb"
 // Catalog lists the engines Ekin ships, by language. The first engine of
 // a language is its default.
 var Catalog = []Engine{
+	{ID: EngineKokoro, Language: "en", Name: "Kokoro-82M", Voices: kokoroVoices(), MinSpeed: 0.5, MaxSpeed: 2, HasQuality: true, DefaultVoice: "af_heart"},
+	{ID: EngineElevenLabs, Language: "en", Name: "ElevenLabs", MinSpeed: 0.7, MaxSpeed: 1.2, HasSeed: true, Cloud: true,
+		DefaultVoice: ElevenLabsDefaultVoice},
 	{ID: EngineOkur, Language: "tr", Name: "okur-tts", Voices: []Voice{{ID: "okur", Label: "Okur (Turkish)", Accent: "tr", Gender: "female"}},
 		MinSpeed: 0.5, MaxSpeed: 2, HasSeed: true, DefaultVoice: "okur"},
 	{ID: EngineEMA, Language: "tr", Name: "EMA Lightning", Voices: []Voice{{ID: "ema", Label: "EMA (Turkish)", Accent: "tr", Gender: "male"}},
 		MinSpeed: 0.5, MaxSpeed: 2, HasSeed: true, DefaultVoice: "ema"},
 	{ID: EngineElevenLabs, Language: "tr", Name: "ElevenLabs", MinSpeed: 0.7, MaxSpeed: 1.2, HasSeed: true, Cloud: true,
-		DefaultVoice: ElevenLabsDefaultVoice},
-	{ID: EngineKokoro, Language: "en", Name: "Kokoro-82M", Voices: kokoroVoices(), MinSpeed: 0.5, MaxSpeed: 2, HasQuality: true, DefaultVoice: "af_heart"},
-	{ID: EngineElevenLabs, Language: "en", Name: "ElevenLabs", MinSpeed: 0.7, MaxSpeed: 1.2, HasSeed: true, Cloud: true,
 		DefaultVoice: ElevenLabsDefaultVoice},
 }
 
@@ -191,7 +191,7 @@ const MaxLexicon = 500
 // Defaults are the settings before a workspace changes anything.
 func Defaults() Settings {
 	return Settings{
-		Languages: map[string]Config{"tr": DefaultConfig("tr", ""), "en": DefaultConfig("en", "")},
+		Languages: map[string]Config{"en": DefaultConfig("en", ""), "tr": DefaultConfig("tr", "")},
 		Lexicon:   map[string]map[string]string{},
 	}
 }

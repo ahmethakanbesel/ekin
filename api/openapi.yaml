@@ -3297,7 +3297,7 @@ components:
         contentDir: { type: string, description: "e.g. marketing/src/content/blog" }
         publicDir: { type: string }
         siteUrl: { type: string }
-        pathTemplate: { type: string, description: "{locale} is empty for the default locale, otherwise 'en/'" }
+        pathTemplate: { type: string, description: "{locale} is empty for the default locale, otherwise the post's locale and a slash (e.g. 'tr/')" }
         defaultLocale: { type: string }
         author: { type: string }
         draft: { type: boolean, description: Publish with draft true for a last manual pass. }
@@ -3608,7 +3608,7 @@ components:
         name: { type: string, maxLength: 80 }
         timezone:
           type: string
-          description: IANA timezone name, e.g. Europe/Istanbul.
+          description: IANA timezone name, e.g. Europe/London.
 
     WorkspacePatch:
       type: object

@@ -20,7 +20,7 @@ import { m } from "@/i18n"
 // enabled ones are sent. Numeric inputs are kept as strings so a field
 // can be momentarily empty while typing.
 
-export const LANGUAGES: Language[] = ["tr", "en"]
+export const LANGUAGES: Language[] = ["en", "tr"]
 export type VideoFormat = Schemas["VideoSpec"]["format"]
 export type Orientation = Schemas["VideoSpec"]["orientation"]
 export type Lead = Schemas["DeliverableKind"]
@@ -169,7 +169,7 @@ export function defaultOutputs(): OutputsValues {
 export function defaultValues(workspaceTimezone: string): PipelineFormValues {
   return {
     name: "",
-    language: "tr",
+    language: "en",
     ...defaultOutputs(),
     source: { kind: "prompt", instructions: "", refs: [] },
     scheduled: false,
