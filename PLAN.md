@@ -2,7 +2,7 @@
 
 Ekin turns ideas, knowledge-base documents and SEO opportunities into YouTube videos
 and blog articles, renders them unattended, and holds every piece for human review
-before anything is published. First user: a small team. Turkish first, English second.
+before anything is published. For small teams anywhere; content in English or Turkish.
 
 Update this file whenever a decision below changes.
 
@@ -12,7 +12,8 @@ Update this file whenever a decision below changes.
   - Output is a video, an article, or both. Both is optional, never required.
   - When a pipeline produces both, one is the **lead** and the other is derived from it
     (video → article that embeds and expands it; article → one or more shorts cut from it).
-  - Language per pipeline: `tr` or `en`. Articles may be translated (tr → en) for parity.
+  - Language per pipeline: `en` (the default) or `tr`. Articles may be translated into the
+    other language for parity.
   - Source strategy per pipeline: a **prompt** (system-prompt-like brief), the
     **knowledge base** (referenced documents and page ranges), or **SEO opportunities**
     (OpenSEO, later).
@@ -63,7 +64,7 @@ Update this file whenever a decision below changes.
 | Authoring agent | Claude Code headless (`claude -p`) behind an `Agent` port with an explicit tool allow-list: file tools plus `Bash(ekin tool:*)`. The agent's tools (`tts`, `frame`, `check`, `stock`, `music`) are `ekin tool` subcommands rather than an MCP server — simpler, and the same binary on every host. Host settings, plugins and MCP servers are off except for the agent-based OpenSEO refresh (used only without an API key). |
 | Decision model | OpenRouter `typesafe/jev-1.13` for typed decisions only: the duplicate-idea verdict for titles that are similar but not identical (trigram score 0.35–0.6). Ideas themselves come from Claude Code with a JSON schema. |
 | Render engine | **Vanilla** (docs/benchmarks/render.md): `composition.html` + `window.ekin.renderAt(t)` driven by Go chromedp, frames piped to ffmpeg. `HeadlessExperimental.beginFrame` in chrome-headless-shell on Linux (3–13× faster on 0.5–1 vCPU), screenshots on macOS. Remotion: licence cost; Revideo: canvas-only, broken with ffmpeg 8. |
-| TTS | `Speech` port. Turkish: okur-tts (with word timings from its duration predictor). English: Kokoro-82M (timestamped ONNX). |
+| TTS | `Speech` port. English: Kokoro-82M (timestamped ONNX). Turkish: okur-tts (with word timings from its duration predictor). |
 | Music | `Music` port. MVP: procedural — the agent writes a Tone.js score rendered offline in Chromium. Paid API (Lyria) may follow. Or a library track (`music.json`), cut to length and faded out. |
 | Stock media | Pexels video and photos (no audio); clips are transcoded to short VP8 WebM so the composition can seek them frame by frame. Or library items, through `ekin tool library`. |
 | Blog | Markdown with the site's frontmatter committed to `marketing/src/content/blog/{tr,en}` in one commit through the GitHub Git Data API, or written into a local checkout. Video embeds become privacy-enhanced iframes. No CMS migration. |

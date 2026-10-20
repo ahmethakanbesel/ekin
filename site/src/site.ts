@@ -69,7 +69,7 @@ export interface Fact {
 
 export const facts: Fact[] = [
   {
-    title: "Turkish first, English too",
+    title: "English and Turkish",
     text: "Scripts, narration and on-screen words are written for the language, not translated after the fact.",
   },
   {

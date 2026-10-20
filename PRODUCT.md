@@ -18,14 +18,14 @@ It is a tool for content-led growth, not an editor: a team grows its audience by
 
 ## Users and scene
 
-- First user: a small team. Turkish first, English second.
+- Users: small teams anywhere. Content in English (the default) or Turkish.
 - Primary scene: a daily review sitting. Someone sits down once or twice a day on a laptop to watch or read the drafts the agent produced, leave feedback (optionally timestamped and scoped to script, voice, visuals, music or metadata), and approve or reject. Everything else runs unattended.
 - Secondary: checking pipelines, schedules and the job queue when something is slow or failed.
 - Roles: owner, editor, viewer.
 
 ## Core objects and workflow
 
-- Pipeline: produces stories on a cron schedule or on demand; output video, article or both (one lead, the other derived); language tr or en; source is a prompt, knowledge-base references, or SEO opportunities.
+- Pipeline: produces stories on a cron schedule or on demand; output video, article or both (one lead, the other derived); language en or tr; source is a prompt, knowledge-base references, or SEO opportunities.
 - Story: owns deliverables (video / article; lead, derived or translation), each with revisions. Statuses: waiting, queued, drafting, rendering, review, finalizing, ready, publishing, published, rejected, failed.
 - Review: every deliverable waits in review; feedback sends it back to the agent for another revision.
 - Jobs: background work grouped by the request that started it (agent, tts, render, extract, io queues), with throttle controls and a global pause.
@@ -37,5 +37,5 @@ Plain, specific, calm. Says exactly what the agent is doing and what the person 
 
 ## Constraints
 
-- UI copy is English in the current catalogue; content is often Turkish.
+- UI copy is English in the current catalogue; content is English or Turkish.
 - No invented metrics, customers or claims.
