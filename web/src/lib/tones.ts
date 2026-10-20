@@ -84,6 +84,8 @@ export const phaseQueue = {
   final: "render",
   publish: "io",
   extract: "extract",
+  ingest: "extract",
+  harvest: "io",
   seo: "agent",
   template: "agent",
   voice: "tts",

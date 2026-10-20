@@ -1622,6 +1622,8 @@ export const en = {
       final: "Final render",
       publish: "Publishing",
       extract: "Text extraction",
+      ingest: "Library import",
+      harvest: "Saving to library",
       seo: "SEO refresh",
       template: "Template",
       voice: "Voice preview",

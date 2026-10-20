@@ -39,6 +39,6 @@ export const QUEUE_KINDS: Record<Queue, string[]> = {
   agent: ["deliverable.draft", "seo.refresh", "template.generate"],
   tts: ["voice.preview"],
   render: ["deliverable.render"],
-  extract: ["knowledge.extract"],
-  io: ["deliverable.publish"],
+  extract: ["knowledge.extract", "library.ingest"],
+  io: ["deliverable.publish", "library.harvest"],
 }

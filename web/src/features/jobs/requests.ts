@@ -8,6 +8,8 @@ export type Phase =
   | "final"
   | "publish"
   | "extract"
+  | "ingest"
+  | "harvest"
   | "seo"
   | "template"
   | "voice"
@@ -23,6 +25,8 @@ export const PHASES: Phase[] = [
   "final",
   "publish",
   "extract",
+  "ingest",
+  "harvest",
   "seo",
   "template",
   "voice",
@@ -43,6 +47,10 @@ export function phaseOf(job: Job): Phase {
       return "publish"
     case "knowledge.extract":
       return "extract"
+    case "library.ingest":
+      return "ingest"
+    case "library.harvest":
+      return "harvest"
     case "seo.refresh":
       return "seo"
     case "template.generate":
