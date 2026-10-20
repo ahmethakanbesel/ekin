@@ -161,3 +161,9 @@ Sessions are HttpOnly cookies (30 days idle, 90 days at most).
 origin for writes, and an https URL marks the cookie Secure.
 `ekin user reset-password` recovers a locked-out account and signs it out
 everywhere.
+
+## License
+
+Ekin is free software under the [GNU Affero General Public License v3.0](LICENSE) or
+any later version. If you run a modified Ekin as a service other people use, the AGPL
+asks you to offer them its source.
