@@ -31,16 +31,24 @@ publishes to YouTube, or commits the article (and its translation) to your site.
 
 Screenshots show a demo workspace with mock data.
 
-## Run with Docker
+## Install
 
-Every release publishes two images for `linux/amd64` and `linux/arm64`:
+Every [release](https://github.com/ahmethakanbesel/ekin/releases) ships Docker images and
+prebuilt binaries. Docker is the easiest way in: the image already holds every tool Ekin
+drives. Either way the authoring agent needs Claude Code access: a token from
+`claude setup-token`, or the Claude Code CLI signed in on the machine.
+
+### Docker
+
+Two images are published for `linux/amd64` and `linux/arm64`, tagged with the release
+version (`0.1.0`), its minor line (`0.1`) and `latest`:
 
 | Image | Holds | Runs |
 |---|---|---|
-| `ghcr.io/ahmethakanbesel/ekin` | Ekin and everything it drives: Chromium, ffmpeg, poppler, uv for the speech models, the Claude Code CLI | `ekin all` (the whole app) or `ekin worker` |
-| `ghcr.io/ahmethakanbesel/ekin-server` | The static binary alone | `ekin serve` beside separate workers |
+| `ghcr.io/ahmethakanbesel/ekin` | Ekin and everything it drives: Chromium, ffmpeg, poppler, uv for the speech models, the Claude Code CLI | `all` (the whole app) or `worker` |
+| `ghcr.io/ahmethakanbesel/ekin-server` | The static binary alone | `serve`, beside separate workers |
 
-One container can run the whole app:
+Run the whole app in one container:
 
 ```sh
 docker run -d --name ekin -p 8080:8080 -v ekin-data:/data \
@@ -52,22 +60,69 @@ docker run -d --name ekin -p 8080:8080 -v ekin-data:/data \
 docker exec -it ekin ekin user create --email you@example.com --name You
 ```
 
-Open http://localhost:8080 and sign in. **System** in the user menu shows which tools and
-integrations are ready. Pass any other setting from `deploy/.env.example` with `-e` or
-`--env-file`. Speech model weights download to the volume on first use. Pin a release
-(`ekin:1.2.0`) instead of `latest` to upgrade on your own schedule.
+Open http://localhost:8080 and sign in with that account. **System** in the user menu
+shows which tools and integrations are ready. Pass any other setting from
+`deploy/.env.example` with `-e` or `--env-file`. Everything Ekin keeps (the database,
+uploads, renders and the speech model weights, downloaded on first use) lives in the
+`ekin-data` volume.
 
-To build the image yourself: `docker build --target worker -t ekin .` in a checkout.
+The same with Docker Compose, in a `compose.yaml` of your own:
+
+```yaml
+services:
+  ekin:
+    image: ghcr.io/ahmethakanbesel/ekin:0.1.0
+    command: ["all"]
+    restart: unless-stopped
+    ports: ["8080:8080"]
+    volumes: ["ekin-data:/data"]
+    environment:
+      EKIN_HTTP_ADDR: 0.0.0.0:8080
+      EKIN_PUBLIC_URL: http://localhost:8080
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN}
+
+volumes:
+  ekin-data:
+```
+
+```sh
+CLAUDE_CODE_OAUTH_TOKEN=... docker compose up -d
+docker compose exec ekin ekin user create --email you@example.com --name You
+```
+
+### Release binary
+
+Each release has archives for Linux, macOS and Windows (`amd64` and `arm64`; `.zip` on
+Windows) with the web UI built in, plus `checksums.txt`. The archive holds `ekin` and the speech scripts in
+`tools/speech`, which the worker runs; keep them side by side and start Ekin from that
+folder (or point `EKIN_SPEECH_DIR` at them).
+
+```sh
+VERSION=0.1.0 OS=linux ARCH=amd64          # or OS=darwin, ARCH=arm64
+BASE=https://github.com/ahmethakanbesel/ekin/releases/download/v$VERSION
+curl -LO $BASE/ekin_${VERSION}_${OS}_${ARCH}.tar.gz -LO $BASE/checksums.txt
+sha256sum --check --ignore-missing checksums.txt   # macOS: shasum -a 256 --check --ignore-missing checksums.txt
+tar xzf ekin_${VERSION}_${OS}_${ARCH}.tar.gz
+
+./ekin user create --email you@example.com --name You   # prompts for a password
+./ekin all                                              # http://localhost:8080
+```
+
+The binary itself has no dependencies, but its worker drives other programs, which must
+be on the `PATH`: Google Chrome or Chromium, ffmpeg, poppler (`pdftotext`), uv (for the
+speech models) and the Claude Code CLI, signed in. Data goes to `./data` unless
+`EKIN_DATA_DIR` says otherwise.
 
 ### On a server
 
-`deploy/compose.yaml` runs the API (a small distroless image) and the worker as separate
+`deploy/compose.yaml` runs the API (`ekin-server`) and the worker (`ekin`) as separate
 services, with Litestream replicating the database to S3-compatible storage and restoring
 it onto an empty volume. It is tuned for a small shared VPS (the worker is pinned to one
 core and capped at half of it); adjust the limits to your host.
 
 ```sh
-cp deploy/.env.example deploy/.env   # set EKIN_PUBLIC_URL, the LITESTREAM_* bucket and your keys
+git clone https://github.com/ahmethakanbesel/ekin.git && cd ekin
+cp deploy/.env.example deploy/.env   # set EKIN_PUBLIC_URL, EKIN_VERSION, the LITESTREAM_* bucket and your keys
 docker compose -f deploy/compose.yaml pull
 docker compose -f deploy/compose.yaml up -d
 docker compose -f deploy/compose.yaml exec serve /ekin user create --email you@example.com --name You
@@ -75,10 +130,20 @@ docker compose -f deploy/compose.yaml exec serve /ekin user create --email you@e
 
 Put it behind a reverse proxy with HTTPS and set `EKIN_PUBLIC_URL` to that address.
 
-## Run from source
+### Upgrading
 
-[Releases](https://github.com/ahmethakanbesel/ekin/releases) carry prebuilt binaries for
-Linux, macOS and Windows, with the web UI built in; they need the same tools as below.
+The database schema migrates itself when Ekin starts, and data stays in its volume or
+data folder, so an upgrade is a new image or binary and a restart. Read the release notes
+first; pin a version (`ekin:0.1.0`, or `EKIN_VERSION` for `deploy/compose.yaml`) rather
+than `latest` to upgrade on your own schedule.
+
+| Installed with | Upgrade |
+|---|---|
+| `docker run` | `docker pull ghcr.io/ahmethakanbesel/ekin:latest`, then `docker rm -f ekin` and the same `docker run` again |
+| Docker Compose | Change the tag, then `docker compose pull && docker compose up -d` |
+| Release binary | Stop Ekin, replace `ekin` and `tools/speech` with the new archive's, start it again |
+
+## Build from source
 
 Needs Go 1.26, Bun, ffmpeg, poppler (`pdftotext`), uv, Google Chrome and the Claude Code
 CLI signed in (`claude`).
@@ -92,9 +157,10 @@ make lint         # golangci-lint, including the layer-boundary rules
 make generate     # regenerate the Go server and TS client from api/openapi.yaml
 ```
 
-Data lives in `./data` (`EKIN_DATA_DIR`). Configuration is `EKIN_*`
-environment variables; see `internal/config/config.go` for every setting and
-its default.
+`docker build --target worker -t ekin .` builds the full image from a checkout.
+
+Configuration is `EKIN_*` environment variables; see `internal/config/config.go` for
+every setting and its default.
 
 ## Processes
 
