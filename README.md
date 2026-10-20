@@ -1,26 +1,66 @@
 # Ekin
 
-Unattended video and article production with human review. See `PLAN.md` for
-the product and `CONVENTIONS.md` before writing code.
+Ekin is a self-hosted studio that turns ideas, your own documents and SEO keywords
+into YouTube videos and blog articles. It writes, narrates and renders them unattended,
+then holds every piece for a person to review before anything is published.
+
+Videos and articles can be written in English or Turkish.
 
 ## What it does
 
 Pipelines (cron or on demand) and ad-hoc requests turn a brief, knowledge-base pages or
 SEO keywords into stories. For each story Claude Code (headless) writes the script and an
-animated HTML composition, narrates it with okur-tts or EMA Lightning (Turkish), Kokoro
-(English) or ElevenLabs (either),
-scores it with Tone.js, and Ekin renders it in headless Chrome. Every deliverable waits
-in **Review**: request changes (pinned to a moment in the video) and the agent revises in
-the same session; approve and it renders at 1080p and publishes to YouTube, or commits
-the article (and its translation) to the marketing site.
+animated HTML composition, narrates it with Kokoro (English), okur-tts or EMA Lightning
+(Turkish) or ElevenLabs (either), scores it with Tone.js, and Ekin renders it in headless
+Chrome. Every deliverable waits in **Review**: request changes (pinned to a moment in the
+video) and the agent revises in the same session; approve and it renders at 1080p and
+publishes to YouTube, or commits the article (and its translation) to your site.
 
-## Run on a laptop
+## Run with Docker
+
+The `worker` image holds everything Ekin drives (Chromium, ffmpeg, poppler, uv for the
+speech models and the Claude Code CLI), so one container can run the whole app:
+
+```sh
+git clone https://github.com/ahmethakanbesel/ekin.git && cd ekin
+docker build --target worker -t ekin .
+
+docker run -d --name ekin -p 8080:8080 -v ekin-data:/data \
+  -e EKIN_HTTP_ADDR=0.0.0.0:8080 \
+  -e EKIN_PUBLIC_URL=http://localhost:8080 \
+  -e CLAUDE_CODE_OAUTH_TOKEN=<from `claude setup-token`> \
+  ekin all
+
+docker exec -it ekin ekin user create --email you@example.com --name You
+```
+
+Open http://localhost:8080 and sign in. **System** in the user menu shows which tools and
+integrations are ready. Pass any other setting from `deploy/.env.example` with `-e` or
+`--env-file`. Speech model weights download to the volume on first use.
+
+### On a server
+
+`deploy/compose.yaml` runs the API (a small distroless image) and the worker as separate
+services, with Litestream replicating the database to S3-compatible storage and restoring
+it onto an empty volume. It is tuned for a small shared VPS (the worker is pinned to one
+core and capped at half of it); adjust the limits to your host.
+
+```sh
+cp deploy/.env.example deploy/.env   # set EKIN_PUBLIC_URL, the LITESTREAM_* bucket and your keys
+docker compose -f deploy/compose.yaml up -d
+docker compose -f deploy/compose.yaml exec serve /ekin user create --email you@example.com --name You
+```
+
+Put it behind a reverse proxy with HTTPS and set `EKIN_PUBLIC_URL` to that address.
+
+## Run from source
 
 Needs Go 1.26, Bun, ffmpeg, poppler (`pdftotext`), uv, Google Chrome and the Claude Code
 CLI signed in (`claude`).
 
 ```sh
-ekin user create --email you@example.com --name You   # first account (admin); prompts for a password
+make build                                                  # web UI + bin/ekin
+bin/ekin user create --email you@example.com --name You    # first account (admin); prompts for a password
 make run          # API, web UI, scheduler and worker in one process on :8080
 make test         # go test -race ./...
 make lint         # golangci-lint, including the layer-boundary rules
@@ -96,10 +136,10 @@ speed, sentence and paragraph pauses.
 
 | Engine | Language | Runs | Options |
 |---|---|---|---|
+| Kokoro (default) | English | on the worker (CPU) | 28 American and British voices; model quality fp32 / fp16 / int8 |
 | okur-tts (default) | Turkish | on the worker (CPU) | seed: each seed gives a different take of the same script |
 | EMA Lightning | Turkish | on the worker (CPU), about 15× faster than real time | seed |
-| Kokoro (default) | English | on the worker (CPU) | 28 American and British voices; model quality fp32 / fp16 / int8 |
-| ElevenLabs | Turkish, English | ElevenLabs API, billed per character | the account's voices, model, stability, similarity, style, speaker boost, seed |
+| ElevenLabs | English, Turkish | ElevenLabs API, billed per character | the account's voices, model, stability, similarity, style, speaker boost, seed |
 
 ElevenLabs needs an API key (System → Credentials or `EKIN_ELEVENLABS_API_KEY`); without one
 it cannot be saved or previewed. The narration text is sent to ElevenLabs, and every take is
@@ -161,6 +201,11 @@ Sessions are HttpOnly cookies (30 days idle, 90 days at most).
 origin for writes, and an https URL marks the cookie Secure.
 `ekin user reset-password` recovers a locked-out account and signs it out
 everywhere.
+
+## Contributing
+
+See `CONTRIBUTING.md`. `PLAN.md` describes the product and its decisions;
+`CONVENTIONS.md` the code.
 
 ## License
 
