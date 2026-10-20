@@ -20,4 +20,5 @@ cd web && bun run lint && bun run build
 - One unit of work per commit; don't mix unrelated changes.
 
 By contributing you agree that your work is licensed under the project's
-[AGPL-3.0-or-later](LICENSE) license.
+[FSL-1.1-ALv2](LICENSE.md) license, including its grant of the Apache License 2.0
+two years after each release.

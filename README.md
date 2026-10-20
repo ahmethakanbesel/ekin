@@ -224,6 +224,8 @@ See `CONTRIBUTING.md`. `PLAN.md` describes the product and its decisions;
 
 ## License
 
-Ekin is free software under the [GNU Affero General Public License v3.0](LICENSE) or
-any later version. If you run a modified Ekin as a service other people use, the AGPL
-asks you to offer them its source.
+Ekin is source-available under the [Functional Source License, Version 1.1, ALv2 Future
+License](LICENSE.md) (FSL-1.1-ALv2). You may use, modify and self-host it for any purpose,
+including commercially for your own content, except offering it to others as a commercial
+product or service that competes with Ekin, such as paid hosting. Each release becomes
+available under the Apache License 2.0 two years after it is published.
