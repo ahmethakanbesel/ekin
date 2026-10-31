@@ -24,6 +24,7 @@ import (
 	defaultssvc "github.com/ahmethakanbesel/ekin/internal/service/defaults/v1"
 	knowledgesvc "github.com/ahmethakanbesel/ekin/internal/service/knowledge/v1"
 	pipelinesvc "github.com/ahmethakanbesel/ekin/internal/service/pipeline/v1"
+	visibilitysvc "github.com/ahmethakanbesel/ekin/internal/service/visibility/v1"
 	"github.com/ahmethakanbesel/ekin/pkg/id"
 )
 
@@ -259,7 +260,23 @@ func (s *Service) PlanRun(ctx context.Context, run pipelinesvc.RunPayload) error
 	var (
 		windows [][]storydomain.Ref
 		opps    []seodomain.Opportunity
+		gaps    []visibilitysvc.Gap
 	)
+	if src.Kind() == pipelinedomain.SourceVisibility {
+		if s.visibility == nil {
+			return jobdomain.Permanent(errors.New("AI visibility is not available on this server"))
+		}
+		if gaps, err = s.visibility.Gaps(ctx, p.WorkspaceID(), run.Count); err != nil {
+			return err
+		}
+		if len(gaps) == 0 {
+			return jobdomain.Permanent(errors.New("no visibility gaps: the latest check named the brand for every prompt, or the gaps are covered already"))
+		}
+		for _, g := range gaps {
+			req.Windows = append(req.Windows, describeGap(g))
+		}
+		req.Count = len(gaps)
+	}
 	if src.Kind() == pipelinedomain.SourceSEO {
 		if s.seo == nil {
 			return jobdomain.Permanent(errors.New("SEO opportunities are not available on this server"))
@@ -306,6 +323,9 @@ func (s *Service) PlanRun(ctx context.Context, run pipelinesvc.RunPayload) error
 		}
 		if idea.Window >= 0 && idea.Window < len(opps) {
 			brief.Keyword, brief.OpportunityID = opps[idea.Window].Keyword, opps[idea.Window].ID
+		}
+		if idea.Window >= 0 && idea.Window < len(gaps) {
+			brief.PromptID, brief.Prompt = gaps[idea.Window].Prompt.ID, gaps[idea.Window].Prompt.Text
 		}
 		plans = append(plans, storydomain.Plan{
 			WorkspaceID: p.WorkspaceID(), PipelineID: p.ID(), Origin: origin, Language: p.Language(),
@@ -363,6 +383,11 @@ func (s *Service) createStories(ctx context.Context, plans []storydomain.Plan, l
 			}
 			if err := s.stories.Create(ctx, st); err != nil {
 				return err
+			}
+			if pid := plan.Brief.PromptID; pid != uuid.Nil && s.visibility != nil {
+				if err := s.visibility.Cover(ctx, plan.WorkspaceID, pid, st.ID()); err != nil {
+					return err
+				}
 			}
 			if err := s.enqueueStep(ctx, st, st.Lead()); err != nil {
 				return err

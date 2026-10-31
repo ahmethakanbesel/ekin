@@ -27,6 +27,10 @@ const (
 	// audit findings, one rule at a time; instructions are optional
 	// guidance. It makes changes only.
 	SourceFindings SourceKind = "findings"
+	// SourceVisibility means each idea answers a buyer prompt that AI
+	// assistants answered without naming the brand in the latest check;
+	// instructions set the brief.
+	SourceVisibility SourceKind = "visibility"
 )
 
 // Source limits.
@@ -153,6 +157,19 @@ func NewFindingsSource(instructions string) (Source, error) {
 		return Source{}, err
 	}
 	return Source{kind: SourceFindings, instructions: instructions}, nil
+}
+
+// NewVisibilitySource returns a source that covers visibility gaps.
+// Instructions are required: they say what the content is for.
+func NewVisibilitySource(instructions string) (Source, error) {
+	instructions, err := parseInstructions(instructions)
+	if err != nil {
+		return Source{}, err
+	}
+	if instructions == "" {
+		return Source{}, apperror.New(apperror.ValidationFailed, "a visibility source needs instructions describing the content")
+	}
+	return Source{kind: SourceVisibility, instructions: instructions}, nil
 }
 
 func (s Source) Kind() SourceKind     { return s.kind }

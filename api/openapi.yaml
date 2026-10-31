@@ -4286,13 +4286,14 @@ components:
       properties:
         kind:
           type: string
-          enum: [prompt, knowledge, seo, findings]
+          enum: [prompt, knowledge, seo, findings, visibility]
           description: >
             prompt: ideas from the instructions. knowledge: ideas and facts from
             the referenced pages. seo: each idea targets one open keyword
             opportunity from the workspace's pool. findings: each change fixes
             the open site findings of the most severe rule left (change
-            output only).
+            output only). visibility: each idea answers a buyer prompt that AI
+            assistants answered without naming the brand in the latest check.
         instructions:
           type: string
           maxLength: 20000

@@ -2827,10 +2827,10 @@ export interface components {
         };
         Source: {
             /**
-             * @description prompt: ideas from the instructions. knowledge: ideas and facts from the referenced pages. seo: each idea targets one open keyword opportunity from the workspace's pool. findings: each change fixes the open site findings of the most severe rule left (change output only).
+             * @description prompt: ideas from the instructions. knowledge: ideas and facts from the referenced pages. seo: each idea targets one open keyword opportunity from the workspace's pool. findings: each change fixes the open site findings of the most severe rule left (change output only). visibility: each idea answers a buyer prompt that AI assistants answered without naming the brand in the latest check.
              * @enum {string}
              */
-            kind: "prompt" | "knowledge" | "seo" | "findings";
+            kind: "prompt" | "knowledge" | "seo" | "findings" | "visibility";
             /** @description Required for prompt sources, where it acts as the system prompt; optional guidance for knowledge sources. */
             instructions: string;
             refs?: components["schemas"]["KnowledgeRef"][];

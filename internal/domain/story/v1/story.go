@@ -118,6 +118,10 @@ type Brief struct {
 	// settings over the workspace defaults, resolved at planning. What is
 	// still unset takes the server's values when used.
 	Production pipelinedomain.Production `json:"production,omitzero"`
+	// PromptID and Prompt are the buyer prompt a visibility-sourced story
+	// answers, which AI assistants answered without naming the brand.
+	PromptID uuid.UUID `json:"promptId,omitempty"`
+	Prompt   string    `json:"prompt,omitempty"`
 	// Findings are the site audit findings a change sets out to fix,
 	// copied at planning; the next crawl tells whether it did.
 	Findings []Finding `json:"findings,omitempty"`

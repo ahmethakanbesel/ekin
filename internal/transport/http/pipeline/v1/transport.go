@@ -132,13 +132,18 @@ func parseSource(in gen.Source) (pipelinedomain.Source, error) {
 			return pipelinedomain.Source{}, apperror.New(apperror.ValidationFailed, "an SEO source takes no document references")
 		}
 		return pipelinedomain.NewSEOSource(in.Instructions)
+	case pipelinedomain.SourceVisibility:
+		if in.Refs != nil && len(*in.Refs) > 0 {
+			return pipelinedomain.Source{}, apperror.New(apperror.ValidationFailed, "a visibility source takes no document references")
+		}
+		return pipelinedomain.NewVisibilitySource(in.Instructions)
 	case pipelinedomain.SourceFindings:
 		if in.Refs != nil && len(*in.Refs) > 0 {
 			return pipelinedomain.Source{}, apperror.New(apperror.ValidationFailed, "a findings source takes no document references")
 		}
 		return pipelinedomain.NewFindingsSource(in.Instructions)
 	}
-	return pipelinedomain.Source{}, apperror.New(apperror.ValidationFailed, "source kind must be prompt, knowledge, seo or findings")
+	return pipelinedomain.Source{}, apperror.New(apperror.ValidationFailed, "source kind must be prompt, knowledge, seo, findings or visibility")
 }
 
 func toWire(p *pipelinedomain.Pipeline) gen.Pipeline {

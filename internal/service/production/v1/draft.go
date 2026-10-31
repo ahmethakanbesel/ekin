@@ -807,6 +807,9 @@ func (s *Service) brief(st *storydomain.Story, d *storydomain.Deliverable, t tas
 	if len(idea.Keywords) > 0 {
 		fmt.Fprintf(&b, "\nKeywords: %s\n", strings.Join(idea.Keywords, ", "))
 	}
+	if q := st.Brief().Prompt; q != "" {
+		fmt.Fprintf(&b, "\n**Buyers ask AI assistants:** %q. Today the answers do not name us. Answer that question directly, early and better than the sources assistants cite now, so the piece is what they quote and link to.\n", q)
+	}
 	if kw := st.Brief().Keyword; kw != "" {
 		fmt.Fprintf(&b, "\n**Target search keyword:** %q. Use it naturally in the title, in the first sentence, and in the description; answer exactly what someone searching it wants to know.\n", kw)
 	}

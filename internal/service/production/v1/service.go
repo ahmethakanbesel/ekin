@@ -209,6 +209,7 @@ type Service struct {
 	defaults   Defaults
 	sites      Sites
 	repos      Repositories
+	visibility Visibility
 	publishers map[pipelinedomain.Kind]Publisher
 	log        *slog.Logger
 	now        func() time.Time
@@ -238,7 +239,9 @@ type Deps struct {
 	// are refused.
 	Sites Sites
 	Repos Repositories
-	Log   *slog.Logger
+	// Visibility is optional: without it visibility pipelines are refused.
+	Visibility Visibility
+	Log        *slog.Logger
 }
 
 // NewService returns a Service.
@@ -272,7 +275,7 @@ func NewService(cfg Config, d Deps) *Service {
 	return &Service{
 		cfg: cfg, stories: d.Stories, pipelines: d.Pipelines, knowledge: d.Knowledge, jobs: d.Jobs, tx: d.Tx,
 		blobs: d.Blobs, agent: d.Agent, renderer: d.Renderer, notifier: notifier, dedupe: d.Dedupe, seo: d.SEO, templates: d.Templates, voices: d.Voices,
-		library: d.Library, defaults: d.Defaults, sites: d.Sites, repos: d.Repos, publishers: map[pipelinedomain.Kind]Publisher{}, log: log, now: time.Now,
+		library: d.Library, defaults: d.Defaults, sites: d.Sites, repos: d.Repos, visibility: d.Visibility, publishers: map[pipelinedomain.Kind]Publisher{}, log: log, now: time.Now,
 	}
 }
 
