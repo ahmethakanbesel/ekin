@@ -167,7 +167,7 @@ func untarRepo(r io.Reader, dest string) error {
 				return err
 			}
 		case tar.TypeSymlink:
-			link := path.Clean(path.Join(path.Dir(rel), h.Linkname))
+			link := path.Clean(path.Join(path.Dir(rel), h.Linkname)) //nolint:gosec // links leaving dest are skipped below
 			if path.IsAbs(h.Linkname) || strings.HasPrefix(link, "../") || link == ".." {
 				continue // a link out of the repository is left out
 			}
@@ -182,7 +182,7 @@ func untarRepo(r io.Reader, dest string) error {
 // copyCheckout copies a local checkout's files as git sees them (tracked
 // and untracked, without ignored ones) into dest.
 func copyCheckout(ctx context.Context, dir, dest string) error {
-	cmd := exec.CommandContext(ctx, "git", "-C", dir, "ls-files", "-co", "--exclude-standard", "-z")
+	cmd := exec.CommandContext(ctx, "git", "-C", dir, "ls-files", "-co", "--exclude-standard", "-z") //nolint:gosec // the configured checkout
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + dir, "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null"}
 	out, err := cmd.Output()
 	if err != nil {

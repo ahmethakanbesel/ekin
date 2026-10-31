@@ -199,8 +199,7 @@ func TestChangeFromFindingsToPublication(t *testing.T) {
 		t.Fatalf("the other host found about.html as %q after %d copies", seen, *cf.snapshots)
 	}
 
-	got, err = cf.svc.Approve(ctx, cf.ws, st.ID(), d.ID(), id.New())
-	if err != nil {
+	if _, err := cf.svc.Approve(ctx, cf.ws, st.ID(), d.ID(), id.New()); err != nil {
 		t.Fatal(err)
 	}
 	cf.drainOn(t, cf.svc)

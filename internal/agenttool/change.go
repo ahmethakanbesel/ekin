@@ -82,7 +82,7 @@ type ChangedFile struct {
 func git(ctx context.Context, repo string, extraEnv []string, stdin io.Reader, args ...string) ([]byte, error) {
 	base := []string{"-c", "core.hooksPath=/dev/null", "-c", "core.autocrlf=false", "-c", "commit.gpgsign=false",
 		"-c", "user.name=Ekin", "-c", "user.email=ekin@localhost", "-c", "core.quotepath=false"}
-	cmd := exec.CommandContext(ctx, "git", append(base, args...)...)
+	cmd := exec.CommandContext(ctx, "git", append(base, args...)...) //nolint:gosec // git with Ekin's own arguments
 	cmd.Dir = repo
 	cmd.Env = append([]string{"PATH=" + os.Getenv("PATH"), "HOME=" + repo, "GIT_CONFIG_NOSYSTEM=1",
 		"GIT_CONFIG_GLOBAL=/dev/null", "GIT_TERMINAL_PROMPT=0", "LC_ALL=C"}, extraEnv...)
@@ -275,7 +275,9 @@ func RunBuild(ctx context.Context, dir string, spec BuildSpec) (BuildResult, err
 	}
 	bctx, cancel := context.WithTimeout(ctx, spec.timeout())
 	defer cancel()
-	cmd := exec.CommandContext(bctx, "/bin/sh", "-c", spec.Command)
+	// The site's build command, as an owner set it in the site settings:
+	// running it is the point, in a scrubbed environment.
+	cmd := exec.CommandContext(bctx, "/bin/sh", "-c", spec.Command) //nolint:gosec // see above
 	cmd.Dir = repo
 	// Only what a build needs: never the agent's credentials or Ekin's
 	// settings.

@@ -208,7 +208,7 @@ func (c *Client) Tarball(ctx context.Context, token, repo, ref string) (io.ReadC
 	// GitHub redirects to a signed download URL on another host; Go
 	// drops the Authorization header across hosts, which that URL
 	// does not need.
-	res, err := hc.Do(req)
+	res, err := hc.Do(req) //nolint:gosec // the configured GitHub API, then its signed download URL
 	if err != nil {
 		return nil, fmt.Errorf("github: GET %s: %w", path, err)
 	}
