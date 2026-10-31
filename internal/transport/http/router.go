@@ -31,6 +31,7 @@ import (
 	seosvc "github.com/ahmethakanbesel/ekin/internal/service/seo/v1"
 	sitesvc "github.com/ahmethakanbesel/ekin/internal/service/site/v1"
 	templatesvc "github.com/ahmethakanbesel/ekin/internal/service/template/v1"
+	visibilitysvc "github.com/ahmethakanbesel/ekin/internal/service/visibility/v1"
 	voicesvc "github.com/ahmethakanbesel/ekin/internal/service/voice/v1"
 	workspacesvc "github.com/ahmethakanbesel/ekin/internal/service/workspace/v1"
 	analyticshandler "github.com/ahmethakanbesel/ekin/internal/transport/http/analytics/v1"
@@ -47,6 +48,7 @@ import (
 	storyhandler "github.com/ahmethakanbesel/ekin/internal/transport/http/story/v1"
 	systemhandler "github.com/ahmethakanbesel/ekin/internal/transport/http/system/v1"
 	templatehandler "github.com/ahmethakanbesel/ekin/internal/transport/http/template/v1"
+	visibilityhandler "github.com/ahmethakanbesel/ekin/internal/transport/http/visibility/v1"
 	voicehandler "github.com/ahmethakanbesel/ekin/internal/transport/http/voice/v1"
 	workerapi "github.com/ahmethakanbesel/ekin/internal/transport/http/worker"
 	workspacehandler "github.com/ahmethakanbesel/ekin/internal/transport/http/workspace/v1"
@@ -79,6 +81,7 @@ type Deps struct {
 	SEO        *seosvc.Service
 	Site       *sitesvc.Service
 	Analytics  *analyticssvc.Service
+	Visibility *visibilitysvc.Service
 	Templates  *templatesvc.Service
 	Voices     *voicesvc.Service
 	Defaults   *defaultssvc.Service
@@ -109,6 +112,7 @@ type (
 	seo        = seohandler.Handler
 	sites      = sitehandler.Handler
 	searches   = analyticshandler.Handler
+	visibility = visibilityhandler.Handler
 	templates  = templatehandler.Handler
 	voices     = voicehandler.Handler
 	defaults   = defaultshandler.Handler
@@ -128,6 +132,7 @@ type server struct {
 	*seo
 	*sites
 	*searches
+	*visibility
 	*templates
 	*voices
 	*defaults
@@ -168,6 +173,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		seo:        seohandler.New(d.SEO),
 		sites:      sitehandler.New(d.Site),
 		searches:   analyticshandler.New(d.Analytics, d.Production),
+		visibility: visibilityhandler.New(d.Visibility),
 		templates:  templatehandler.New(d.Templates),
 		voices:     voicehandler.New(d.Voices),
 		defaults:   defaultshandler.New(d.Defaults),

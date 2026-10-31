@@ -20,6 +20,7 @@ import (
 	"github.com/ahmethakanbesel/ekin/internal/adapter/extract"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/github"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/media"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/openrouter"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/render"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/searchconsole"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/speech"
@@ -41,6 +42,7 @@ import (
 	siterepo "github.com/ahmethakanbesel/ekin/internal/repository/site/v1"
 	storyrepo "github.com/ahmethakanbesel/ekin/internal/repository/story/v1"
 	templaterepo "github.com/ahmethakanbesel/ekin/internal/repository/template/v1"
+	visibilityrepo "github.com/ahmethakanbesel/ekin/internal/repository/visibility/v1"
 	workspacerepo "github.com/ahmethakanbesel/ekin/internal/repository/workspace/v1"
 	analyticssvc "github.com/ahmethakanbesel/ekin/internal/service/analytics/v1"
 	defaultssvc "github.com/ahmethakanbesel/ekin/internal/service/defaults/v1"
@@ -56,6 +58,7 @@ import (
 	settingssvc "github.com/ahmethakanbesel/ekin/internal/service/settings/v1"
 	sitesvc "github.com/ahmethakanbesel/ekin/internal/service/site/v1"
 	templatesvc "github.com/ahmethakanbesel/ekin/internal/service/template/v1"
+	visibilitysvc "github.com/ahmethakanbesel/ekin/internal/service/visibility/v1"
 	voicesvc "github.com/ahmethakanbesel/ekin/internal/service/voice/v1"
 	workspacesvc "github.com/ahmethakanbesel/ekin/internal/service/workspace/v1"
 	httptransport "github.com/ahmethakanbesel/ekin/internal/transport/http"
@@ -67,6 +70,7 @@ import (
 	seoworker "github.com/ahmethakanbesel/ekin/internal/transport/job/seo/v1"
 	siteworker "github.com/ahmethakanbesel/ekin/internal/transport/job/site/v1"
 	templateworker "github.com/ahmethakanbesel/ekin/internal/transport/job/template/v1"
+	visibilityworker "github.com/ahmethakanbesel/ekin/internal/transport/job/visibility/v1"
 	voiceworker "github.com/ahmethakanbesel/ekin/internal/transport/job/voice/v1"
 	"github.com/ahmethakanbesel/ekin/internal/transport/schedule"
 	"github.com/ahmethakanbesel/ekin/pkg/password"
@@ -95,6 +99,7 @@ type App struct {
 	seo        *seosvc.Service
 	site       *sitesvc.Service
 	analytics  *analyticssvc.Service
+	visibility *visibilitysvc.Service
 	templates  *templatesvc.Service
 	voices     *voicesvc.Service
 	defaults   *defaultssvc.Service
@@ -165,6 +170,26 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		},
 		Log: log.With(slog.String("component", "analytics")),
 	})
+	visibility := visibilitysvc.NewService(visibilitysvc.Deps{
+		Repo: visibilityrepo.NewSQLite(tx), Tx: tx, Jobs: jobs, Agent: agent, WorkDir: cfg.Production.WorkDir,
+		Asker: func(ctx context.Context) visibilitysvc.Asker {
+			return &openrouter.Client{APIKey: settings.Credentials(ctx).OpenRouterAPIKey}
+		},
+		Known: func(ctx context.Context, ws uuid.UUID) visibilitysvc.Context {
+			var k visibilitysvc.Context
+			if s, err := site.ChangeSite(ctx, ws); err == nil {
+				k.Domain = s.URL
+			}
+			if p, err := seo.Profile(ctx, ws); err == nil {
+				if k.Domain == "" {
+					k.Domain = p.Domain
+				}
+				k.Competitors, k.Topics, k.Language = p.Competitors, p.Topics, p.Language
+			}
+			return k
+		},
+		Log: log.With(slog.String("component", "visibility")),
+	})
 	p := cfg.Production
 	elevenLabsKey := func(ctx context.Context) string { return settings.Credentials(ctx).ElevenLabsAPIKey }
 	voices := voicesvc.NewService(settingsrepo.NewSQLite(tx), jobs,
@@ -180,13 +205,14 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		Templates: templates,
 		Voices:    voices,
 		Stories:   storyrepo.NewSQLite(tx), Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs,
-		Notifier: notify,
-		Library:  library,
-		Agent:    agent,
-		Dedupe:   dynamicDedupe{settings},
-		Sites:    site,
-		Repos:    publishing.Repositories(),
-		Log:      log.With(slog.String("component", "production")),
+		Notifier:   notify,
+		Library:    library,
+		Agent:      agent,
+		Dedupe:     dynamicDedupe{settings},
+		Sites:      site,
+		Repos:      publishing.Repositories(),
+		Visibility: visibility,
+		Log:        log.With(slog.String("component", "production")),
 	})
 	if err != nil {
 		_ = d.Close()
@@ -211,6 +237,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		seo:        seo,
 		site:       site,
 		analytics:  analytics,
+		visibility: visibility,
 		templates:  templates,
 		voices:     voices,
 		defaults:   defaults,
@@ -353,6 +380,7 @@ func (a *App) Router() (http.Handler, error) {
 		SEO:         a.seo,
 		Site:        a.site,
 		Analytics:   a.analytics,
+		Visibility:  a.visibility,
 		Templates:   a.templates,
 		Voices:      a.voices,
 		Defaults:    a.defaults,
@@ -382,6 +410,7 @@ func (a *App) Serve(ctx context.Context) error {
 	go schedule.Run(ctx, a.pipelines, a.cfg.SchedulerTick, a.log.With(slog.String("component", "scheduler")))
 	go schedule.Run(ctx, a.site, a.cfg.SchedulerTick, a.log.With(slog.String("component", "site-scheduler")))
 	go schedule.Run(ctx, a.analytics, a.cfg.SchedulerTick, a.log.With(slog.String("component", "search-scheduler")))
+	go schedule.Run(ctx, a.visibility, a.cfg.SchedulerTick, a.log.With(slog.String("component", "visibility-scheduler")))
 	go a.sweep(ctx)
 	go a.flushNotifications(ctx)
 	go a.watchMerges(ctx)
@@ -459,6 +488,7 @@ func (a *App) Work(ctx context.Context) error {
 	seoworker.Register(runner, a.seo)
 	siteworker.Register(runner, a.site)
 	analyticsworker.Register(runner, a.analytics)
+	visibilityworker.Register(runner, a.visibility)
 	templateworker.Register(runner, a.templates)
 	voiceworker.Register(runner, a.voices)
 	limiter := &cpulimit.Limiter{

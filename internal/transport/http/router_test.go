@@ -41,6 +41,7 @@ import (
 	siterepo "github.com/ahmethakanbesel/ekin/internal/repository/site/v1"
 	storyrepo "github.com/ahmethakanbesel/ekin/internal/repository/story/v1"
 	templaterepo "github.com/ahmethakanbesel/ekin/internal/repository/template/v1"
+	visibilityrepo "github.com/ahmethakanbesel/ekin/internal/repository/visibility/v1"
 	workspacerepo "github.com/ahmethakanbesel/ekin/internal/repository/workspace/v1"
 	analyticssvc "github.com/ahmethakanbesel/ekin/internal/service/analytics/v1"
 	defaultssvc "github.com/ahmethakanbesel/ekin/internal/service/defaults/v1"
@@ -54,6 +55,7 @@ import (
 	settingssvc "github.com/ahmethakanbesel/ekin/internal/service/settings/v1"
 	sitesvc "github.com/ahmethakanbesel/ekin/internal/service/site/v1"
 	templatesvc "github.com/ahmethakanbesel/ekin/internal/service/template/v1"
+	visibilitysvc "github.com/ahmethakanbesel/ekin/internal/service/visibility/v1"
 	workspacesvc "github.com/ahmethakanbesel/ekin/internal/service/workspace/v1"
 	httptransport "github.com/ahmethakanbesel/ekin/internal/transport/http"
 	systemhandler "github.com/ahmethakanbesel/ekin/internal/transport/http/system/v1"
@@ -65,15 +67,16 @@ const publicURL = "https://ekin.example.com"
 
 type server struct {
 	*httptest.Server
-	identity  *identitysvc.Service
-	knowledge *knowledgesvc.Service
-	library   *librarysvc.Service
-	jobs      *jobsvc.Service
-	stories   storyrepo.Repository
-	blobs     blob.Store
-	site      *sitesvc.Service
-	analytics *analyticssvc.Service
-	logs      *syncBuffer
+	identity   *identitysvc.Service
+	knowledge  *knowledgesvc.Service
+	library    *librarysvc.Service
+	jobs       *jobsvc.Service
+	stories    storyrepo.Repository
+	blobs      blob.Store
+	site       *sitesvc.Service
+	analytics  *analyticssvc.Service
+	visibility *visibilitysvc.Service
+	logs       *syncBuffer
 }
 
 type syncBuffer struct {
@@ -124,10 +127,15 @@ func newServer(t *testing.T) *server {
 		Repo: analyticsrepo.NewSQLite(tx), Tx: tx, Box: box, Jobs: jobs,
 		Google: func(context.Context) analyticssvc.Google { return fakeSearchConsole{} },
 	})
+	visibility := visibilitysvc.NewService(visibilitysvc.Deps{
+		Repo: visibilityrepo.NewSQLite(tx), Tx: tx, Jobs: jobs,
+		Asker: func(context.Context) visibilitysvc.Asker { return fakeModels{} },
+	})
 	router, err := httptransport.NewRouter(httptransport.Deps{
 		Production: production,
 		Site:       site,
 		Analytics:  analytics,
+		Visibility: visibility,
 		Templates:  templates,
 		System:     systemhandler.New(settings, "default", "test", nil),
 		Identity:   identity,
@@ -148,7 +156,7 @@ func newServer(t *testing.T) *server {
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)
 	return &server{Server: srv, identity: identity, knowledge: knowledge, library: library, jobs: jobs, stories: stories, blobs: blobs,
-		site: site, analytics: analytics, logs: logs}
+		site: site, analytics: analytics, visibility: visibility, logs: logs}
 }
 
 // client is a browser: it keeps cookies.

@@ -673,6 +673,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspaceId}/visibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getVisibility"];
+        put: operations["saveVisibility"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/visibility/prompts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["addVisibilityPrompt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/visibility/prompts/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Queues the agent to draft prompts from the brand, competitors and the SEO profile's topics. */
+        post: operations["draftVisibilityPrompts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/visibility/prompts/{promptId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                promptId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description Removes the prompt and what was read from its answers. */
+        delete: operations["deleteVisibilityPrompt"];
+        options?: never;
+        head?: never;
+        patch: operations["updateVisibilityPrompt"];
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/visibility/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Asks every active prompt of every model; refused when it would pass this month's call cap. */
+        post: operations["startVisibilityRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/visibility/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getVisibilityReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/oauth/searchconsole/callback": {
         parameters: {
             query?: never;
@@ -2064,6 +2176,117 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        VisibilityBrand: {
+            name: string;
+            aliases?: string[];
+            /** @description e.g. example.com */
+            domain?: string;
+        };
+        VisibilitySettings: {
+            brand: components["schemas"]["VisibilityBrand"];
+            competitors: components["schemas"]["VisibilityBrand"][];
+            /** @description OpenRouter model ids; ":online" makes a model search the web. */
+            models: string[];
+            /** @enum {string} */
+            schedule?: "off" | "weekly" | "daily";
+            /** @description Calls (prompt × model) a calendar month may make. */
+            monthlyCap?: number;
+        };
+        VisibilityPrompt: {
+            /** Format: uuid */
+            id: string;
+            text: string;
+            /** @enum {string} */
+            source: "person" | "agent";
+            active: boolean;
+            /**
+             * Format: uuid
+             * @description The story made to answer it.
+             */
+            coveredBy?: string;
+            /** Format: date-time */
+            coveredAt?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        VisibilityRun: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "queued" | "running" | "done" | "failed" | "capped";
+            trigger: string;
+            planned: number;
+            done: number;
+            failed: number;
+            /** @description US dollars OpenRouter billed. */
+            cost: number;
+            failure?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+        };
+        VisibilityOverview: {
+            /** @description The server has an OpenRouter key. */
+            ready: boolean;
+            settings?: components["schemas"]["VisibilitySettings"];
+            /** Format: date-time */
+            nextRunAt?: string;
+            suggested: components["schemas"]["VisibilitySettings"];
+            prompts: components["schemas"]["VisibilityPrompt"][];
+            runs: components["schemas"]["VisibilityRun"][];
+            estimate: {
+                prompts: number;
+                models: number;
+                calls: number;
+                /** @description Calls made this month. */
+                used: number;
+                cap: number;
+            };
+        };
+        VisibilityAnswer: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            promptId: string;
+            model: string;
+            /** @description Empty after 90 days. */
+            text: string;
+            citations: string[];
+            mentioned: boolean;
+            /** @description The brand's rank among the brands named; 0 when not named. */
+            position: number;
+            cited: boolean;
+            competitors: string[];
+            competitorsCited: string[];
+            error?: string;
+        };
+        VisibilityReport: {
+            run?: components["schemas"]["VisibilityRun"];
+            models: components["schemas"]["VisibilityModel"][];
+            voices: components["schemas"]["VisibilityVoice"][];
+            domains: components["schemas"]["VisibilityDomain"][];
+            answers: components["schemas"]["VisibilityAnswer"][];
+        };
+        VisibilityModel: {
+            model: string;
+            answers: number;
+            mentioned: number;
+            cited: number;
+            avgPosition: number;
+        };
+        VisibilityVoice: {
+            name: string;
+            mentions: number;
+            cited: number;
+            own: boolean;
+        };
+        VisibilityDomain: {
+            domain: string;
+            count: number;
         };
         SearchConsole: {
             /** @description The server has Google OAuth credentials. */
@@ -4404,6 +4627,216 @@ export interface operations {
                     "application/json": {
                         pages: components["schemas"]["PageSearch"][];
                     };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings, prompts, recent runs and what the next run costs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibilityOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    saveVisibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisibilitySettings"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibilityOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    addVisibilityPrompt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    text: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Added. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibilityPrompt"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    draftVisibilityPrompts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    count: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteVisibilityPrompt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                promptId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateVisibilityPrompt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                promptId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    text?: string;
+                    active?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibilityPrompt"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    startVisibilityRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibilityRun"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getVisibilityReport: {
+        parameters: {
+            query?: {
+                /** @description A run; the latest finished one when absent. */
+                runId?: string;
+            };
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The run read as a whole; empty before the first finished run. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisibilityReport"];
                 };
             };
             default: components["responses"]["Error"];

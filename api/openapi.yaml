@@ -1135,6 +1135,148 @@ paths:
                     items: { $ref: "#/components/schemas/PageSearch" }
         default: { $ref: "#/components/responses/Error" }
 
+  /workspaces/{workspaceId}/visibility:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: getVisibility
+      tags: [visibility]
+      responses:
+        "200":
+          description: Settings, prompts, recent runs and what the next run costs.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VisibilityOverview" }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      operationId: saveVisibility
+      tags: [visibility]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VisibilitySettings" }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VisibilityOverview" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/visibility/prompts:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    post:
+      operationId: addVisibilityPrompt
+      tags: [visibility]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, maxLength: 500 }
+      responses:
+        "201":
+          description: Added.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VisibilityPrompt" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/visibility/prompts/draft:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    post:
+      operationId: draftVisibilityPrompts
+      tags: [visibility]
+      description: Queues the agent to draft prompts from the brand, competitors and the SEO profile's topics.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [count]
+              properties:
+                count: { type: integer, minimum: 1, maximum: 20 }
+      responses:
+        "202":
+          description: Queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/visibility/prompts/{promptId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - name: promptId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      operationId: updateVisibilityPrompt
+      tags: [visibility]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text: { type: string, maxLength: 500 }
+                active: { type: boolean }
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VisibilityPrompt" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteVisibilityPrompt
+      tags: [visibility]
+      description: Removes the prompt and what was read from its answers.
+      responses:
+        "204":
+          description: Removed.
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/visibility/runs:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    post:
+      operationId: startVisibilityRun
+      tags: [visibility]
+      description: Asks every active prompt of every model; refused when it would pass this month's call cap.
+      responses:
+        "201":
+          description: Queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VisibilityRun" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/visibility/report:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: getVisibilityReport
+      tags: [visibility]
+      parameters:
+        - { name: runId, in: query, schema: { type: string, format: uuid }, description: "A run; the latest finished one when absent." }
+      responses:
+        "200":
+          description: The run read as a whole; empty before the first finished run.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VisibilityReport" }
+        default: { $ref: "#/components/responses/Error" }
+
   /oauth/searchconsole/callback:
     get:
       operationId: searchConsoleCallback
@@ -3241,6 +3383,129 @@ components:
           items: { $ref: "#/components/schemas/Deliverable" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    VisibilityBrand:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 80 }
+        aliases: { type: array, items: { type: string } }
+        domain: { type: string, description: "e.g. example.com" }
+
+    VisibilitySettings:
+      type: object
+      required: [brand, competitors, models]
+      properties:
+        brand: { $ref: "#/components/schemas/VisibilityBrand" }
+        competitors: { type: array, maxItems: 10, items: { $ref: "#/components/schemas/VisibilityBrand" } }
+        models:
+          type: array
+          minItems: 1
+          maxItems: 6
+          items: { type: string }
+          description: OpenRouter model ids; ":online" makes a model search the web.
+        schedule: { type: string, enum: [off, weekly, daily] }
+        monthlyCap: { type: integer, minimum: 1, maximum: 20000, description: Calls (prompt × model) a calendar month may make. }
+
+    VisibilityPrompt:
+      type: object
+      required: [id, text, source, active, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        text: { type: string }
+        source: { type: string, enum: [person, agent] }
+        active: { type: boolean }
+        coveredBy: { type: string, format: uuid, description: The story made to answer it. }
+        coveredAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    VisibilityRun:
+      type: object
+      required: [id, status, trigger, planned, done, failed, cost, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [queued, running, done, failed, capped] }
+        trigger: { type: string }
+        planned: { type: integer }
+        done: { type: integer }
+        failed: { type: integer }
+        cost: { type: number, description: US dollars OpenRouter billed. }
+        failure: { type: string }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+
+    VisibilityOverview:
+      type: object
+      required: [ready, suggested, prompts, runs, estimate]
+      properties:
+        ready: { type: boolean, description: The server has an OpenRouter key. }
+        settings: { $ref: "#/components/schemas/VisibilitySettings" }
+        nextRunAt: { type: string, format: date-time }
+        suggested: { $ref: "#/components/schemas/VisibilitySettings" }
+        prompts: { type: array, items: { $ref: "#/components/schemas/VisibilityPrompt" } }
+        runs: { type: array, items: { $ref: "#/components/schemas/VisibilityRun" } }
+        estimate:
+          type: object
+          required: [prompts, models, calls, used, cap]
+          properties:
+            prompts: { type: integer }
+            models: { type: integer }
+            calls: { type: integer }
+            used: { type: integer, description: Calls made this month. }
+            cap: { type: integer }
+
+    VisibilityAnswer:
+      type: object
+      required: [id, promptId, model, text, citations, mentioned, position, cited, competitors, competitorsCited]
+      properties:
+        id: { type: string, format: uuid }
+        promptId: { type: string, format: uuid }
+        model: { type: string }
+        text: { type: string, description: Empty after 90 days. }
+        citations: { type: array, items: { type: string } }
+        mentioned: { type: boolean }
+        position: { type: integer, description: The brand's rank among the brands named; 0 when not named. }
+        cited: { type: boolean }
+        competitors: { type: array, items: { type: string } }
+        competitorsCited: { type: array, items: { type: string } }
+        error: { type: string }
+
+    VisibilityReport:
+      type: object
+      required: [models, voices, domains, answers]
+      properties:
+        run: { $ref: "#/components/schemas/VisibilityRun" }
+        models: { type: array, items: { $ref: "#/components/schemas/VisibilityModel" } }
+        voices: { type: array, items: { $ref: "#/components/schemas/VisibilityVoice" } }
+        domains: { type: array, items: { $ref: "#/components/schemas/VisibilityDomain" } }
+        answers: { type: array, items: { $ref: "#/components/schemas/VisibilityAnswer" } }
+
+    VisibilityModel:
+      type: object
+      required: [model, answers, mentioned, cited, avgPosition]
+      properties:
+        model: { type: string }
+        answers: { type: integer }
+        mentioned: { type: integer }
+        cited: { type: integer }
+        avgPosition: { type: number }
+
+    VisibilityVoice:
+      type: object
+      required: [name, mentions, cited, own]
+      properties:
+        name: { type: string }
+        mentions: { type: integer }
+        cited: { type: integer }
+        own: { type: boolean }
+
+    VisibilityDomain:
+      type: object
+      required: [domain, count]
+      properties:
+        domain: { type: string }
+        count: { type: integer }
 
     SearchConsole:
       type: object

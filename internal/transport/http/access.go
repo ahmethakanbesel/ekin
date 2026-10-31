@@ -93,6 +93,15 @@ var workspaceActions = map[string]identitydomain.Action{
 	"SyncSearchConsole":           identitydomain.ActionEdit,
 	"GetSearchOverview":           identitydomain.ActionView,
 	"GetStorySearch":              identitydomain.ActionView,
+	// AI visibility: owners set the brand, models and cap; editors run it.
+	"GetVisibility":          identitydomain.ActionView,
+	"SaveVisibility":         identitydomain.ActionManage,
+	"AddVisibilityPrompt":    identitydomain.ActionEdit,
+	"DraftVisibilityPrompts": identitydomain.ActionEdit,
+	"UpdateVisibilityPrompt": identitydomain.ActionEdit,
+	"DeleteVisibilityPrompt": identitydomain.ActionEdit,
+	"StartVisibilityRun":     identitydomain.ActionEdit,
+	"GetVisibilityReport":    identitydomain.ActionView,
 
 	"GetIntegrations":   identitydomain.ActionView,
 	"ConnectYouTube":    identitydomain.ActionManage,
