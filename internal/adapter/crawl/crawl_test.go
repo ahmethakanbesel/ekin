@@ -181,3 +181,38 @@ func TestCrawlWithoutRobotsOrSitemap(t *testing.T) {
 		t.Fatalf("start URL not normalized: %s", res.Pages[0].URL)
 	}
 }
+
+func TestSitemapAndTitles(t *testing.T) {
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/robots.txt":
+			_, _ = w.Write([]byte("User-agent: *\nDisallow: /private/\nSitemap: " + srv.URL + "/index.xml\n"))
+		case "/index.xml":
+			_, _ = w.Write([]byte(`<sitemapindex><sitemap><loc>` + srv.URL + `/pages.xml</loc></sitemap></sitemapindex>`))
+		case "/pages.xml":
+			_, _ = w.Write([]byte(`<urlset><url><loc>` + srv.URL + `/a</loc></url><url><loc>` + srv.URL + `/a</loc></url>` +
+				`<url><loc>` + srv.URL + `/private/x</loc></url><url><loc>https://elsewhere.example/z</loc></url></urlset>`))
+		case "/a":
+			w.Header().Set("Content-Type", "text/html")
+			_, _ = w.Write([]byte(`<html><head><title> Pricing compared </title></head></html>`))
+		case "/private/x":
+			t.Error("fetched a page robots.txt disallows")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	c := crawl.New(true)
+	res, err := c.Sitemap(context.Background(), srv.URL, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Pages) != 2 || res.Pages[0] != srv.URL+"/a" || len(res.Files) != 2 {
+		t.Fatalf("sitemap = %+v", res)
+	}
+	titles, err := c.Titles(context.Background(), srv.URL, res.Pages, 0)
+	if err != nil || len(titles) != 1 || titles[srv.URL+"/a"] != "Pricing compared" {
+		t.Fatalf("titles = %v %v", titles, err)
+	}
+}
