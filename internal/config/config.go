@@ -37,6 +37,7 @@ type Config struct {
 	Production     Production
 	Notify         Notify
 	Publishing     Publishing
+	Crawl          Crawl
 	Remote         Remote
 	// Shorts bound cutting shorts from long videos (docs/shorts.md §2).
 	Shorts storydomain.ShortsLimits
@@ -59,6 +60,16 @@ type Publishing struct {
 	// MergePoll is how often the server checks the pull requests that
 	// published deliverables wait on.
 	MergePoll time.Duration
+}
+
+// Crawl configures how sites are crawled.
+type Crawl struct {
+	// Delay is the pause between requests to one site.
+	Delay time.Duration
+	// AllowPrivate lets crawls reach loopback and private addresses,
+	// for a site on the same network as Ekin. Off, a site whose address
+	// resolves to one is refused.
+	AllowPrivate bool
 }
 
 // Notify configures email and decisions.
@@ -283,6 +294,10 @@ func load(getenv func(string) string) (Config, error) {
 	}
 	if cfg.Publishing.MergePoll < 30*time.Second {
 		errs = append(errs, "EKIN_MERGE_POLL: must be at least 30s")
+	}
+	cfg.Crawl = Crawl{Delay: duration("EKIN_CRAWL_DELAY", 500*time.Millisecond), AllowPrivate: boolean("EKIN_CRAWL_ALLOW_PRIVATE", false)}
+	if cfg.Crawl.Delay < 0 || cfg.Crawl.Delay > time.Minute {
+		errs = append(errs, "EKIN_CRAWL_DELAY: must be between 0s and 1m")
 	}
 	def := storydomain.DefaultShortsLimits()
 	shorts, err := storydomain.NewShortsLimits(

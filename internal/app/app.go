@@ -13,6 +13,7 @@ import (
 
 	"github.com/ahmethakanbesel/ekin/internal/adapter/claude"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/cpulimit"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/crawl"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/elevenlabs"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/extract"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/github"
@@ -33,6 +34,7 @@ import (
 	publishingrepo "github.com/ahmethakanbesel/ekin/internal/repository/publishing/v1"
 	seorepo "github.com/ahmethakanbesel/ekin/internal/repository/seo/v1"
 	settingsrepo "github.com/ahmethakanbesel/ekin/internal/repository/settings/v1"
+	siterepo "github.com/ahmethakanbesel/ekin/internal/repository/site/v1"
 	storyrepo "github.com/ahmethakanbesel/ekin/internal/repository/story/v1"
 	templaterepo "github.com/ahmethakanbesel/ekin/internal/repository/template/v1"
 	workspacerepo "github.com/ahmethakanbesel/ekin/internal/repository/workspace/v1"
@@ -47,6 +49,7 @@ import (
 	publishingsvc "github.com/ahmethakanbesel/ekin/internal/service/publishing/v1"
 	seosvc "github.com/ahmethakanbesel/ekin/internal/service/seo/v1"
 	settingssvc "github.com/ahmethakanbesel/ekin/internal/service/settings/v1"
+	sitesvc "github.com/ahmethakanbesel/ekin/internal/service/site/v1"
 	templatesvc "github.com/ahmethakanbesel/ekin/internal/service/template/v1"
 	voicesvc "github.com/ahmethakanbesel/ekin/internal/service/voice/v1"
 	workspacesvc "github.com/ahmethakanbesel/ekin/internal/service/workspace/v1"
@@ -56,6 +59,7 @@ import (
 	libraryworker "github.com/ahmethakanbesel/ekin/internal/transport/job/library/v1"
 	productionworker "github.com/ahmethakanbesel/ekin/internal/transport/job/production/v1"
 	seoworker "github.com/ahmethakanbesel/ekin/internal/transport/job/seo/v1"
+	siteworker "github.com/ahmethakanbesel/ekin/internal/transport/job/site/v1"
 	templateworker "github.com/ahmethakanbesel/ekin/internal/transport/job/template/v1"
 	voiceworker "github.com/ahmethakanbesel/ekin/internal/transport/job/voice/v1"
 	"github.com/ahmethakanbesel/ekin/internal/transport/schedule"
@@ -83,6 +87,7 @@ type App struct {
 	notify     *notifysvc.Service
 	publishing *publishingsvc.Service
 	seo        *seosvc.Service
+	site       *sitesvc.Service
 	templates  *templatesvc.Service
 	voices     *voicesvc.Service
 	defaults   *defaultssvc.Service
@@ -138,6 +143,8 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	seo := seosvc.NewService(seorepo.NewSQLite(tx), settingsrepo.NewSQLite(tx), jobs, agent, cfg.Production.WorkDir).
 		WithResearch(openSEO(settings))
 	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, agent, cfg.Production.WorkDir)
+	site := sitesvc.NewService(siterepo.NewSQLite(tx), tx, jobs, crawl.New(cfg.Crawl.AllowPrivate),
+		sitesvc.Config{Delay: cfg.Crawl.Delay}, log.With(slog.String("component", "site")))
 	p := cfg.Production
 	elevenLabsKey := func(ctx context.Context) string { return settings.Credentials(ctx).ElevenLabsAPIKey }
 	voices := voicesvc.NewService(settingsrepo.NewSQLite(tx), jobs,
@@ -180,6 +187,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		notify:     notify,
 		publishing: publishing,
 		seo:        seo,
+		site:       site,
 		templates:  templates,
 		voices:     voices,
 		defaults:   defaults,
@@ -347,6 +355,7 @@ func (a *App) Serve(ctx context.Context) error {
 		IdleTimeout:       2 * time.Minute,
 	}
 	go schedule.Run(ctx, a.pipelines, a.cfg.SchedulerTick, a.log.With(slog.String("component", "scheduler")))
+	go schedule.Run(ctx, a.site, a.cfg.SchedulerTick, a.log.With(slog.String("component", "site-scheduler")))
 	go a.sweep(ctx)
 	go a.flushNotifications(ctx)
 	go a.watchMerges(ctx)
@@ -422,6 +431,7 @@ func (a *App) Work(ctx context.Context) error {
 	libraryworker.Register(runner, a.library)
 	productionworker.Register(runner, a.production)
 	seoworker.Register(runner, a.seo)
+	siteworker.Register(runner, a.site)
 	templateworker.Register(runner, a.templates)
 	voiceworker.Register(runner, a.voices)
 	limiter := &cpulimit.Limiter{

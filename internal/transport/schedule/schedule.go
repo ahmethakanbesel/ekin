@@ -1,6 +1,6 @@
-// Package schedule is the clock-driven transport: it calls the pipeline
-// service's TriggerDue on a fixed tick, the way HTTP calls handlers on
-// requests.
+// Package schedule is the clock-driven transport: it calls a service's
+// TriggerDue (due pipeline runs, due site crawls) on a fixed tick, the
+// way HTTP calls handlers on requests.
 package schedule
 
 import (
@@ -22,9 +22,9 @@ func Run(ctx context.Context, t Triggerer, tick time.Duration, log *slog.Logger)
 		n, err := t.TriggerDue(ctx)
 		switch {
 		case err != nil && ctx.Err() == nil:
-			log.ErrorContext(ctx, "trigger due pipelines", slog.Any("error", err))
+			log.ErrorContext(ctx, "trigger due work", slog.Any("error", err))
 		case n > 0:
-			log.InfoContext(ctx, "triggered pipeline runs", slog.Int("count", n))
+			log.InfoContext(ctx, "triggered due work", slog.Int("count", n))
 		}
 		select {
 		case <-ctx.Done():
