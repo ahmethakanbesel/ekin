@@ -7,6 +7,7 @@ import {
   CircleCheckIcon,
   InboxIcon,
   PlayIcon,
+  TrendingUpIcon,
   type LucideIcon,
 } from "lucide-react"
 
@@ -33,6 +34,7 @@ const kindIcon: Record<
   failed: { icon: CircleAlertIcon, tone: "text-destructive" },
   published: { icon: CircleCheckIcon, tone: "text-success" },
   run: { icon: PlayIcon, tone: "text-info" },
+  search: { icon: TrendingUpIcon, tone: "text-info" },
 }
 
 // When the list was last opened, per workspace, so the dot means "new

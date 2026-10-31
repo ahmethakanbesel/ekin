@@ -2366,7 +2366,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "review" | "failed" | "published" | "run";
+            kind: "review" | "failed" | "published" | "run" | "search";
             title: string;
             detail: string;
             /** Format: uuid */

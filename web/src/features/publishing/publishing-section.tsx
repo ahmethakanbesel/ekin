@@ -10,7 +10,8 @@ import { m } from "@/i18n"
 import { integrationsQuery } from "@/queries/integrations"
 import { BlogCard } from "./blog-card"
 import { YouTubeCard } from "./youtube-card"
-import { useYouTubeReturn } from "./youtube-return"
+import { SearchConsoleCard } from "./search-console-card"
+import { useSearchConsoleReturn, useYouTubeReturn } from "./youtube-return"
 
 const ROUTE = "/w/$workspaceId/settings/publishing"
 
@@ -25,6 +26,7 @@ export function PublishingSection() {
   const navigate = useNavigate({ from: ROUTE })
   const clear = useCallback(() => void navigate({ search: {}, replace: true }), [navigate])
   useYouTubeReturn(search, clear, workspace.id)
+  useSearchConsoleReturn(search, clear, workspace.id)
   const query = useQuery(integrationsQuery(workspace.id))
 
   let body
@@ -43,6 +45,7 @@ export function PublishingSection() {
         <YouTubeCard youtube={query.data.youtube} />
         {/* Re-mount the form when the stored target changes underneath it. */}
         <BlogCard key={JSON.stringify(query.data.blog ?? null)} blog={query.data.blog} />
+        <SearchConsoleCard />
       </div>
     )
 

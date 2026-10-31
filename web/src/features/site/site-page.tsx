@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils"
 import { crawlActive, siteQuery, useCrawlSite } from "@/queries/site"
 import { ChangeDialog } from "./change-dialog"
 import { FindingsView } from "./findings"
+import { SearchView } from "./search-view"
 import { PagesTable } from "./pages-table"
 import { FINDING_TABS, PAGE_CLASSES, type PageClassTab } from "./search"
 
@@ -148,7 +149,7 @@ function SiteBody({ overview: o }: { overview: SiteOverview }) {
               value={view}
               onValueChange={(next) =>
                 void navigate({
-                  search: next === "pages" ? { view: "pages" } : {},
+                  search: next === "pages" || next === "search" ? { view: next } : {},
                   replace: true,
                 })
               }
@@ -156,9 +157,10 @@ function SiteBody({ overview: o }: { overview: SiteOverview }) {
               <TabsList aria-label={t.title}>
                 <TabsTrigger value="findings">{t.tabs.findings}</TabsTrigger>
                 <TabsTrigger value="pages">{t.tabs.pages}</TabsTrigger>
+                <TabsTrigger value="search">{t.tabs.search}</TabsTrigger>
               </TabsList>
             </Tabs>
-            {view === "findings" ? (
+            {view === "search" ? null : view === "findings" ? (
               <Tabs
                 value={status}
                 onValueChange={(next) =>
@@ -221,7 +223,9 @@ function SiteBody({ overview: o }: { overview: SiteOverview }) {
               </div>
             )}
           </div>
-          {view === "findings" ? (
+          {view === "search" ? (
+            <SearchView root={root} />
+          ) : view === "findings" ? (
             <FindingsView overview={o} status={status} />
           ) : (
             <PagesTable

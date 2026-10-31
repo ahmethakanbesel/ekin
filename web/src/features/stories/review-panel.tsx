@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils"
 import { allDocumentsQuery } from "@/queries/documents"
 import { ruleText, severityBadge, shortURL } from "@/features/site/rules"
 import { StatusBadge } from "./badges"
+import { StorySearch, hasLivePage } from "./story-search"
 import {
   deliverableLabel,
   formatTimestamp,
@@ -306,6 +307,14 @@ export function ReviewPanel({
               ) : null}
               <FilesList artifacts={artifacts} revision={current} />
             </div>
+          </Section>
+        </>
+      ) : null}
+      {hasLivePage(story) ? (
+        <>
+          <Separator />
+          <Section name="search" title={m.search.storyTitle}>
+            <StorySearch workspaceId={workspaceId} story={story} />
           </Section>
         </>
       ) : null}

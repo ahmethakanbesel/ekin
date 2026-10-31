@@ -3713,7 +3713,7 @@ components:
         id: { type: string, format: uuid }
         kind:
           type: string
-          enum: [review, failed, published, run]
+          enum: [review, failed, published, run, search]
         title: { type: string }
         detail: { type: string }
         storyId: { type: string, format: uuid }
