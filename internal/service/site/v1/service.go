@@ -41,6 +41,10 @@ const (
 // Crawler fetches a site (internal/adapter/crawl).
 type Crawler interface {
 	Crawl(ctx context.Context, start string, o crawl.Options) (crawl.Result, error)
+	// Sitemap lists a site's pages from its sitemaps alone.
+	Sitemap(ctx context.Context, site string, delay time.Duration) (crawl.SitemapResult, error)
+	// Titles reads the titles of pages on site robots.txt allows.
+	Titles(ctx context.Context, site string, urls []string, delay time.Duration) (map[string]string, error)
 }
 
 // Enqueuer is the part of the job service this package needs.
@@ -197,7 +201,8 @@ func (s *Service) TriggerDue(ctx context.Context) (int, error) {
 			s.log.WarnContext(ctx, "cannot start a scheduled crawl", slog.String("workspace", site.WorkspaceID().String()), slog.Any("error", err))
 		}
 	}
-	return started, nil
+	n, err := s.triggerCompetitors(ctx)
+	return started + n, err
 }
 
 // start queues a crawl of site unless one is under way. A setup crawl

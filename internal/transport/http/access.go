@@ -84,6 +84,12 @@ var workspaceActions = map[string]identitydomain.Action{
 	"ListSiteFindings":  identitydomain.ActionView,
 	"UpdateSiteFinding": identitydomain.ActionEdit,
 	"RequestChange":     identitydomain.ActionEdit,
+	// Competitors: owners choose them; editors check them now.
+	"ListCompetitors":       identitydomain.ActionView,
+	"AddCompetitor":         identitydomain.ActionManage,
+	"RemoveCompetitor":      identitydomain.ActionManage,
+	"CheckCompetitor":       identitydomain.ActionEdit,
+	"ListCompetitorChanges": identitydomain.ActionView,
 	// Search Console: owners connect it; everyone reads the figures.
 	"GetSearchConsole":            identitydomain.ActionView,
 	"ConnectSearchConsole":        identitydomain.ActionManage,

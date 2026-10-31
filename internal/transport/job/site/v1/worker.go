@@ -19,4 +19,11 @@ func Register(r *jobsvc.Runner, svc *sitesvc.Service) {
 		}
 		return svc.RunCrawl(ctx, p)
 	})
+	r.Register(sitesvc.KindCompetitorCheck, func(ctx context.Context, j *jobdomain.Job) error {
+		var p sitesvc.CompetitorPayload
+		if err := json.Unmarshal(j.Payload(), &p); err != nil {
+			return jobdomain.Permanent(err)
+		}
+		return svc.RunCompetitorCheck(ctx, p)
+	})
 }

@@ -30,6 +30,11 @@ type fakeJobs struct {
 func (f *fakeJobs) Enqueue(_ context.Context, spec jobdomain.Spec) (*jobdomain.Job, bool, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	for _, s := range f.specs {
+		if spec.UniqueKey != "" && s.UniqueKey == spec.UniqueKey {
+			return nil, false, nil // as the job service does
+		}
+	}
 	f.specs = append(f.specs, spec)
 	j, err := jobdomain.New(id.New(), spec, time.Now())
 	return j, true, err
@@ -53,6 +58,27 @@ type fakeCrawler struct {
 	err    error
 	opts   crawl.Options
 	during func() // runs mid-crawl, before Progress
+	// sitemap is what a competitor's sitemaps list; titles what its
+	// pages are called.
+	sitemap    []string
+	sitemapErr error
+	titles     map[string]string
+	asked      []string
+}
+
+func (f *fakeCrawler) Sitemap(_ context.Context, _ string, _ time.Duration) (crawl.SitemapResult, error) {
+	return crawl.SitemapResult{Pages: f.sitemap}, f.sitemapErr
+}
+
+func (f *fakeCrawler) Titles(_ context.Context, _ string, urls []string, _ time.Duration) (map[string]string, error) {
+	f.asked = append(f.asked, urls...)
+	out := map[string]string{}
+	for _, u := range urls {
+		if t, ok := f.titles[u]; ok {
+			out[u] = t
+		}
+	}
+	return out, nil
 }
 
 func (f *fakeCrawler) Crawl(ctx context.Context, _ string, o crawl.Options) (crawl.Result, error) {
@@ -384,5 +410,88 @@ func TestClaimReleaseAndNextFindings(t *testing.T) {
 	}
 	if pages, err := f.svc.PagesAt(ctx, f.ws, []string{root + "a"}); err != nil || len(pages) != 1 || pages[0].URL != root+"a" {
 		t.Fatalf("pages at = %v %v", pages, err)
+	}
+}
+
+func (f *fakeJobs) competitorChecks() []sitesvc.CompetitorPayload {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []sitesvc.CompetitorPayload
+	for _, s := range f.specs {
+		if s.Kind == sitesvc.KindCompetitorCheck {
+			var p sitesvc.CompetitorPayload
+			_ = json.Unmarshal(s.Payload, &p)
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+func TestCompetitorChecks(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	c, err := f.svc.AddCompetitor(ctx, f.ws, "Globex", "globex.io")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.svc.AddCompetitor(ctx, f.ws, "", "https://globex.io/"); !apperror.Is(err, apperror.Conflict) {
+		t.Fatalf("followed twice: %v", err)
+	}
+	checks := f.jobs.competitorChecks()
+	if len(checks) != 1 || checks[0].CompetitorID != c.ID() {
+		t.Fatalf("checks queued = %+v", checks)
+	}
+
+	// The first check is a baseline: pages recorded, no changes.
+	f.crawler.sitemap = []string{"https://globex.io/", "https://globex.io/pricing"}
+	if err := f.svc.RunCompetitorCheck(ctx, checks[0]); err != nil {
+		t.Fatal(err)
+	}
+	if changes, _, _ := f.svc.CompetitorChanges(ctx, f.ws, sitesvc.ChangeFilter{}); len(changes) != 0 || len(f.crawler.asked) != 0 {
+		t.Fatalf("baseline changes = %+v, titles asked %v", changes, f.crawler.asked)
+	}
+	list, _ := f.svc.Competitors(ctx, f.ws)
+	if list[0].Pages() != 2 || list[0].Baseline() {
+		t.Fatalf("after the baseline = %+v", list[0])
+	}
+
+	// A week later the scheduler checks again, once per turn.
+	*f.clock = f.clock.Add(sitedomain.CompetitorEvery)
+	_, _ = f.svc.TriggerDue(ctx)
+	_, _ = f.svc.TriggerDue(ctx)
+	if n := len(f.jobs.competitorChecks()); n != 2 {
+		t.Fatalf("checks queued = %d, want one more", n)
+	}
+	f.crawler.sitemap = []string{"https://globex.io/", "https://globex.io/vs/acme"}
+	f.crawler.titles = map[string]string{"https://globex.io/vs/acme": "Globex vs Acme"}
+	if err := f.svc.RunCompetitorCheck(ctx, checks[0]); err != nil {
+		t.Fatal(err)
+	}
+	changes, _, _ := f.svc.CompetitorChanges(ctx, f.ws, sitesvc.ChangeFilter{})
+	got := map[string]string{}
+	for _, ch := range changes {
+		got[string(ch.Kind)+" "+ch.URL] = ch.Title
+	}
+	if len(changes) != 2 || got["added https://globex.io/vs/acme"] != "Globex vs Acme" {
+		t.Fatalf("changes = %+v", changes)
+	}
+	if _, ok := got["removed https://globex.io/pricing"]; !ok {
+		t.Fatalf("the dropped page is missing: %+v", got)
+	}
+
+	// A site without sitemaps fails the check; the competitor says why.
+	f.crawler.sitemap = nil
+	if err := f.svc.RunCompetitorCheck(ctx, checks[0]); err != nil {
+		t.Fatal(err)
+	}
+	list, _ = f.svc.Competitors(ctx, f.ws)
+	if list[0].LastError() == "" {
+		t.Fatal("a failed check left no reason")
+	}
+	if err := f.svc.RemoveCompetitor(ctx, f.ws, c.ID()); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.svc.RunCompetitorCheck(ctx, checks[0]); !errors.Is(err, jobdomain.ErrPermanent) {
+		t.Fatalf("checking a removed competitor = %v", err)
 	}
 }

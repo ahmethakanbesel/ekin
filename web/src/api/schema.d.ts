@@ -1007,6 +1007,82 @@ export interface paths {
         patch: operations["updateSiteFinding"];
         trace?: never;
     };
+    "/workspaces/{workspaceId}/site/competitors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listCompetitors"];
+        put?: never;
+        /** @description Follows a competitor; its first check records its pages as they are. */
+        post: operations["addCompetitor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/site/competitors/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        /** @description Pages competitors added or dropped, newest first. */
+        get: operations["listCompetitorChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/site/competitors/{competitorId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                competitorId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["removeCompetitor"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/site/competitors/{competitorId}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                competitorId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["checkCompetitor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspaces/{workspaceId}/changes": {
         parameters: {
             query?: never;
@@ -2287,6 +2363,37 @@ export interface components {
         VisibilityDomain: {
             domain: string;
             count: number;
+        };
+        Competitor: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            url: string;
+            /** @description Pages its sitemaps listed at the last check. */
+            pages: number;
+            /**
+             * Format: date-time
+             * @description Absent before the first check.
+             */
+            lastCheckAt?: string;
+            lastError?: string;
+            /** Format: date-time */
+            nextCheckAt: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CompetitorChange: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            competitorId: string;
+            /** @enum {string} */
+            kind: "added" | "removed";
+            url: string;
+            /** @description The page's title when it was read; empty otherwise. */
+            title: string;
+            /** Format: date-time */
+            at: string;
         };
         SearchConsole: {
             /** @description The server has Google OAuth credentials. */
@@ -5288,6 +5395,139 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteFinding"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listCompetitors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The competitors followed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        competitors: components["schemas"]["Competitor"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    addCompetitor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Its address, e.g. competitor.com */
+                    url: string;
+                    name?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Followed. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Competitor"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listCompetitorChanges: {
+        parameters: {
+            query?: {
+                competitorId?: string;
+                kind?: "added" | "removed";
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of changes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changes: components["schemas"]["CompetitorChange"][];
+                        nextCursor?: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeCompetitor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                competitorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No longer followed; its pages and changes are gone. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    checkCompetitor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                competitorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A check is queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Competitor"];
                 };
             };
             default: components["responses"]["Error"];

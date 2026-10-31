@@ -1662,6 +1662,103 @@ paths:
               schema: { $ref: "#/components/schemas/SiteFinding" }
         default: { $ref: "#/components/responses/Error" }
 
+  /workspaces/{workspaceId}/site/competitors:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listCompetitors
+      tags: [site]
+      responses:
+        "200":
+          description: The competitors followed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [competitors]
+                properties:
+                  competitors: { type: array, items: { $ref: "#/components/schemas/Competitor" } }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: addCompetitor
+      tags: [site]
+      description: Follows a competitor; its first check records its pages as they are.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string, description: "Its address, e.g. competitor.com" }
+                name: { type: string, maxLength: 80 }
+      responses:
+        "201":
+          description: Followed.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Competitor" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/site/competitors/changes:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listCompetitorChanges
+      tags: [site]
+      description: Pages competitors added or dropped, newest first.
+      parameters:
+        - { name: competitorId, in: query, schema: { type: string, format: uuid } }
+        - { name: kind, in: query, schema: { type: string, enum: [added, removed] } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: A page of changes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [changes]
+                properties:
+                  changes: { type: array, items: { $ref: "#/components/schemas/CompetitorChange" } }
+                  nextCursor: { type: string }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/site/competitors/{competitorId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - name: competitorId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      operationId: removeCompetitor
+      tags: [site]
+      responses:
+        "204":
+          description: No longer followed; its pages and changes are gone.
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/site/competitors/{competitorId}/check:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - name: competitorId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: checkCompetitor
+      tags: [site]
+      responses:
+        "202":
+          description: A check is queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Competitor" }
+        default: { $ref: "#/components/responses/Error" }
+
   /workspaces/{workspaceId}/changes:
     parameters:
       - $ref: "#/components/parameters/WorkspaceId"
@@ -3506,6 +3603,30 @@ components:
       properties:
         domain: { type: string }
         count: { type: integer }
+
+    Competitor:
+      type: object
+      required: [id, name, url, pages, nextCheckAt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        url: { type: string }
+        pages: { type: integer, description: Pages its sitemaps listed at the last check. }
+        lastCheckAt: { type: string, format: date-time, description: Absent before the first check. }
+        lastError: { type: string }
+        nextCheckAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    CompetitorChange:
+      type: object
+      required: [id, competitorId, kind, url, title, at]
+      properties:
+        id: { type: string, format: uuid }
+        competitorId: { type: string, format: uuid }
+        kind: { type: string, enum: [added, removed] }
+        url: { type: string }
+        title: { type: string, description: The page's title when it was read; empty otherwise. }
+        at: { type: string, format: date-time }
 
     SearchConsole:
       type: object

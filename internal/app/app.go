@@ -180,11 +180,17 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 			if s, err := site.ChangeSite(ctx, ws); err == nil {
 				k.Domain = s.URL
 			}
+			if list, err := site.Competitors(ctx, ws); err == nil {
+				for _, c := range list {
+					k.Competitors = append(k.Competitors, c.URL())
+				}
+			}
 			if p, err := seo.Profile(ctx, ws); err == nil {
 				if k.Domain == "" {
 					k.Domain = p.Domain
 				}
-				k.Competitors, k.Topics, k.Language = p.Competitors, p.Topics, p.Language
+				k.Competitors = append(k.Competitors, p.Competitors...)
+				k.Topics, k.Language = p.Topics, p.Language
 			}
 			return k
 		},
