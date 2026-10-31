@@ -1,8 +1,10 @@
 # Ekin
 
 Ekin is a self-hosted studio that turns ideas, your own documents and SEO keywords
-into YouTube videos and blog articles. It writes, narrates and renders them unattended,
-then holds every piece for a person to review before anything is published.
+into YouTube videos and blog articles, and grows your website: it audits the site, fixes
+what it finds in your repository, and tracks search, AI-assistant visibility and
+competitors. It works unattended, then holds every piece for a person to review before
+anything is published.
 
 Videos and articles can be written in English or Turkish.
 
@@ -17,6 +19,25 @@ animated HTML composition, narrates it with Kokoro (English), okur-tts or EMA Li
 Chrome. Every deliverable waits in **Review**: request changes (pinned to a moment in the
 video) and the agent revises in the same session; approve and it renders at 1080p and
 publishes to YouTube, or commits the article (and its translation) to your site.
+
+For the website itself:
+
+- **Site audit**: Ekin crawls your site politely and raises findings (broken pages and
+  links, redirects, sitemap problems, titles, descriptions, headings, canonicals, thin
+  or orphan pages, `llms.txt`, AI crawlers blocked), resolving them as later crawls stop
+  seeing them.
+- **Changes**: the agent fixes findings, or does what you describe, in a copy of your
+  repository, passes your build, and the change comes back for review as a diff.
+  Approving it commits it, opens a pull request (tracked until merged) or patches your
+  local checkout.
+- **Search Console**: daily clicks, impressions and positions per page and query, a
+  before/after for every published article or change, and the week's movers in the
+  digest.
+- **AI visibility**: checks whether ChatGPT-, Perplexity- or Gemini-style assistants name
+  your brand for the questions buyers ask, what they cite and who they name instead,
+  within a monthly call cap; pipelines can answer the questions where you are missing.
+- **Competitors**: their sitemaps are compared every week; each new page can become an
+  SEO keyword or a change of yours.
 
 ## Screenshots
 
@@ -346,8 +367,8 @@ and speed.
 ## Integrations
 
 Everything optional degrades gracefully; **System** in the user menu shows what is set up.
-API keys and service settings (Claude token and model, Pexels, OpenRouter, SMTP, YouTube
-OAuth) can be entered under **System → Credentials** (admins); they are stored encrypted
+API keys and service settings (Claude token and model, Pexels, OpenRouter, SMTP, Google
+OAuth for YouTube and Search Console) can be entered under **System → Credentials** (admins); they are stored encrypted
 with the instance key (`data/secret.key` or `EKIN_SECRET_KEY`) and override the
 environment variables below, which remain the fallback.
 
@@ -360,6 +381,10 @@ environment variables below, which remain the fallback.
 | ElevenLabs narration | `EKIN_ELEVENLABS_API_KEY`, or System → Credentials. A hybrid worker reads only its own environment. |
 | Email digests | `EKIN_SMTP_HOST/PORT/USERNAME/PASSWORD/FROM` |
 | Duplicate verdicts | `EKIN_OPENROUTER_API_KEY` (Jev) |
+| AI visibility | The same OpenRouter key: every check asks the models you list (OpenRouter ids; `:online` searches the web) and OpenRouter bills each call. Prompts are drafted by the authoring agent. |
+| Site crawl | `EKIN_CRAWL_DELAY` (500ms between requests); `EKIN_CRAWL_ALLOW_PRIVATE=true` to crawl a site on Ekin's own network |
+| Changes | The blog target's repository (GitHub token with contents and, for pull requests, pull requests write access; or a local git checkout) and a build command in Settings › Site. Changes run on workers that share the server's database, with the site's toolchain installed (the `ekin` image has git, Node.js and npm). |
+| Search Console | The YouTube OAuth client with the `webmasters.readonly` scope added to its consent screen; redirect URI `<EKIN_PUBLIC_URL>/api/v1/oauth/searchconsole/callback`; then connect in Settings › Publishing |
 | YouTube | `EKIN_YOUTUBE_CLIENT_ID/SECRET`; redirect URI `<EKIN_PUBLIC_URL>/api/v1/oauth/youtube/callback`; then connect the channel in workspace settings |
 | Blog | Workspace settings → GitHub repo + token, or a local checkout. A GitHub blog either commits each approved article to its branch or opens a pull request for it (the token then needs pull requests write access too); the article waits in **Awaiting merge** and is marked published once the pull request is merged. The server checks open pull requests every `EKIN_MERGE_POLL` (5m); one closed without merging fails the article, and Retry opens a new one. |
 | OpenSEO | An API key (`oseo_…`, from OpenSEO) under System → Credentials or `EKIN_OPENSEO_API_KEY`: refreshes call OpenSEO's endpoint directly (`research_keywords` per seed, `get_domain_keyword_suggestions` per competitor) and Ekin ranks the results itself. Without a key, the worker host's Claude Code with the OpenSEO plugin connected does the refresh. |
