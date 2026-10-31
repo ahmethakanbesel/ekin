@@ -1,8 +1,11 @@
 # Ekin — product and architecture plan
 
-Ekin turns ideas, knowledge-base documents and SEO opportunities into YouTube videos
-and blog articles, renders them unattended, and holds every piece for human review
-before anything is published. For small teams anywhere; content in English or Turkish.
+Ekin is a self-hosted growth agent for a team's website and channels. It turns ideas,
+knowledge-base documents and SEO opportunities into YouTube videos and blog articles,
+audits the site and proposes fixes to its code as pull requests, tracks whether AI
+answer engines cite it, and measures what each published change did. Everything runs
+unattended and every piece waits for human review before it goes out. For small teams
+anywhere; content in English or Turkish.
 
 Update this file whenever a decision below changes.
 
@@ -50,6 +53,57 @@ Update this file whenever a decision below changes.
 - **Deduplication**: every idea is compared against previous stories before production.
 - **Multi-user ready**: everything is scoped to a workspace; users have roles.
 
+### Site growth (milestones 10–15)
+
+The site is the workspace's website as a git repository plus its public URL. Ekin
+never hosts it and never migrates it into a CMS: it reads the live site, edits the
+repository, and changes reach the site only through a commit or a pull request that a
+person approved.
+
+- **Site**: one per workspace. The blog target grows into it (repo, base branch, token,
+  content and public dirs, site URL, URL template), plus a build command, a publish
+  mode (commit to the branch, or open a pull request) and the competitors' domains.
+- **Crawl and inventory**: robots.txt and the sitemaps (falling back to following
+  internal links, capped) give the page inventory: URL, status, redirect target,
+  title, meta description, canonical, `h1`, structured-data types, word count, internal
+  links in and out, first and last seen. Plain HTTP fetches; headless Chrome only for a
+  site that renders client-side, opted into per site.
+- **Audit**: deterministic rules in Go turn the inventory into **findings** (rule,
+  severity, page, evidence), each with a stable key so a rerun updates, reopens or
+  resolves it rather than duplicating it. Rules cover status and redirect chains,
+  missing or duplicate titles and descriptions, canonicals, `h1`, broken internal links,
+  orphan pages, sitemap drift, structured data, `llms.txt`, and whether robots.txt lets
+  AI crawlers (GPTBot, ClaudeBot, PerplexityBot, Google-Extended, …) in. Core Web Vitals
+  come from the PageSpeed Insights API when a key is set.
+- **Changes**: a third deliverable kind, `change`, next to `video` and `article`. Its
+  source is a set of findings, an SEO opportunity that an existing page should cover,
+  or a prompt ("add a comparison page against X"). The agent works in a shallow checkout
+  of the repository, writes the edit, runs the site's build through `ekin tool build`,
+  and leaves a diff and a summary saying which findings it addresses. Review shows the
+  diff (and the host's preview deployment when the PR has one); feedback resumes the
+  session as for any deliverable; approval publishes it through the site's publish mode.
+- **Pull requests and merge tracking**: in pull-request mode, publishing an article or
+  a change pushes a branch (`ekin/<slug>`) and opens a PR. The deliverable then waits in
+  **merging** while a poll job watches the PR: merged → **published** at the live URL;
+  closed without merging → **failed** with that reason (Retry opens a fresh PR).
+- **Measurement**: Google Search Console (OAuth, read-only) is pulled daily as clicks,
+  impressions and average position per page and per query. Each published article or
+  change shows its page's 28 days before against the days since, and the digest says
+  what moved. Ekin keeps those daily aggregates only; it never collects raw visitor
+  events itself.
+- **AI visibility**: a workspace keeps a set of prompts its buyers would ask
+  (drafted by the agent from the SEO profile and competitors, edited by people). A
+  scheduled run asks each configured model through OpenRouter and records whether the
+  brand is mentioned, where, which URLs are cited and which competitors appear. Every
+  run states its call count before it starts and a monthly cap stops it.
+- **Competitors**: a scheduled sitemap diff of each competitor's site records new and
+  removed pages; new pages become signals for SEO opportunities and change ideas.
+- **Pipelines as playbooks**: pipelines gain `findings` (fix the most severe open
+  findings, N per run) and `visibility` (cover prompts where the brand is missing) as
+  source strategies, and `change` as an output.
+
+Not in scope yet: visitor identification, outreach, CRM sync, ads, A/B tests, hosting.
+
 ## 2. Decisions
 
 | Topic | Decision |
@@ -68,6 +122,12 @@ Update this file whenever a decision below changes.
 | Music | `Music` port. MVP: procedural — the agent writes a Tone.js score rendered offline in Chromium. Paid API (Lyria) may follow. Or a library track (`music.json`), cut to length and faded out. |
 | Stock media | Pexels video and photos (no audio); clips are transcoded to short VP8 WebM so the composition can seek them frame by frame. Or library items, through `ekin tool library`. |
 | Blog | Markdown with the site's frontmatter committed to `marketing/src/content/blog/{tr,en}` in one commit through the GitHub Git Data API, or written into a local checkout. Video embeds become privacy-enhanced iframes. No CMS migration. |
+| Site crawl | Go `net/http` with a per-site rate limit and robots.txt respected; `golang.org/x/net/html` for parsing. Pages and findings are rows in SQLite; page bodies are not kept. |
+| Audit rules | Plain Go functions over the inventory, table-tested; no model decides whether a title is missing. The agent only writes fixes. |
+| Change agent | Same `Agent` port. Work dir holds a shallow clone (`git clone --depth 1`) of the base branch; allow-list adds `Bash(ekin tool build)`, `Bash(ekin tool diff)` and nothing else from the shell. The build command comes from the site settings and runs with the job's CPU limit and no secrets in its environment. |
+| Git publishing | GitHub Git Data API as today; pull-request mode adds a branch ref and `POST /pulls`. A `git` adapter for other hosts may follow. |
+| Search Console | The Google OAuth client already used for YouTube, connected separately with the `webmasters.readonly` scope; the refresh token is sealed like the channel's. |
+| AI visibility models | OpenRouter (already a credential), so one key reaches several answer engines' models. Answers are kept for 90 days; mentions and citations for good. |
 | Notifications | In-app feed + SMTP digests (one email per person per flush, `EKIN_NOTIFY_EVERY`). Invitations are emailed when SMTP is set. |
 | Deployment | Dokploy, Compose type (needs `cpuset` / `cpu_shares`). Also runs natively on macOS. |
 
@@ -117,8 +177,11 @@ Container ceiling on the VPS: `cpuset: "1"`, `cpu_shares: 64`, `cpus: 0.5`,
 | seo | Opportunity (keyword, volume, difficulty, intent), SEO profile |
 | voice | Voice settings per language (engine voice, speed, pauses, seed, quality), pronunciation dictionary, per-pipeline override |
 | template | Template (house style: guide, palette, fonts, music mood); built-ins in code, workspace copies and agent drafts in the database |
-| story | Story (idea, brief, sources, target keyword) owning deliverables: video / article as lead, derived or translation; Revision (thumbnail variants, team note); Feedback |
-| publishing | Channel (YouTube, sealed refresh token), BlogTarget, Publication |
+| story | Story (idea, brief, sources, target keyword) owning deliverables: video / article / change as lead, derived or translation; Revision (thumbnail variants, team note); Feedback |
+| publishing | Channel (YouTube, sealed refresh token), BlogTarget (becomes the site's git settings), Publication, pull request |
+| site | Site (repo, publish mode, build command, competitors), Page, Crawl, Finding |
+| analytics | Search Console connection, daily page and query metrics |
+| visibility | Prompt, Run, Answer (mentions, citations) |
 | job | Job (queue, kind, unique key, attempts, lease) |
 | settings | Host profiles (throttle) and credentials (sealed, override env) |
 | defaults | Workspace production defaults (model, effort, self-review, render quality and frame rate, first review, media sources, thumbnails) and default template |
@@ -163,6 +226,13 @@ A short cut from a long video is the same flow, except that `prepare` writes the
 the long video's narration (and a ±15 s window of sentences around it) in place of `tts`,
 and the agent only designs the picture; `ekin tool clip` moves the cut by whole sentences.
 
+A change follows the same shape without speech or render: brief (the findings or the
+opportunity, the affected pages' inventory rows) → shallow clone of the base branch in
+the work dir → the agent edits, runs `ekin tool build` until it passes → `ekin tool diff`
+records the revision's patch → review shows the diff → feedback resumes the session on
+the same clone → approve → branch and pull request (or a commit) → merging → published.
+The next crawl rechecks the findings it claimed to fix.
+
 ## 7. External prerequisites
 
 - **YouTube Data API audit**: until it passes, API uploads are locked private and cannot
@@ -170,6 +240,11 @@ and the agent only designs the picture; `ekin tool clip` moves the cut by whole 
   (testing-mode refresh tokens expire after 7 days). Check upload quota in Cloud Console.
 - **Claude Code on the server**: `claude setup-token` → `CLAUDE_CODE_OAUTH_TOKEN`.
   Subscription use for headless runs is a moving policy; keep the `Author` port swappable.
+- **Search Console**: add the `webmasters.readonly` scope to the Google OAuth consent
+  screen (a sensitive scope: Google verifies the app before other people's sites can
+  connect).
+- **GitHub token for changes**: contents and pull requests write access on the site's
+  repository (fine-grained token), more than the contents-only token articles need.
 
 ## 8. Milestones
 
@@ -199,3 +274,24 @@ noted.
 9. Long-form — 16:9 compositions with scenes and YouTube chapters (enforced by the
    check), chunked rendering; ✅ a 2-minute video produced end to end (draft, review,
    1080p final) and cut into shorts; longer, chaptered videos not yet.
+
+Planned (site growth, see §1):
+
+10. Pull requests — publish mode per blog target (commit or PR), `merging` status, PR
+    poll job; articles first.
+11. Site — connect (blog target grows into the site), crawl, page inventory, audit rules
+    and findings, Site page in the UI.
+12. Changes — `change` deliverable, repository work dir, `ekin tool build` and
+    `ekin tool diff`, diff review, `findings` pipeline source.
+13. Search Console — connection, daily pull, before/after on stories, digest lines.
+14. AI visibility — prompt set, scheduled runs through OpenRouter, mentions and citations,
+    `visibility` pipeline source.
+15. Competitors — sitemap diffs as signals for SEO opportunities and change ideas.
+
+## 9. Open decisions
+
+- **License.** Ekin is FSL-1.1-ALv2 (source-available; each release turns Apache-2.0
+  after two years). Calling it an open-source alternative to hosted growth platforms
+  needs an OSI licence (it was AGPL-3.0 before); FSL keeps paid hosting with the author.
+- **Name and positioning.** "Ekin" was named for a content studio; decide whether the
+  site-growth product keeps it.
