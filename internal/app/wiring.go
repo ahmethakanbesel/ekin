@@ -155,6 +155,9 @@ func (a *App) checks(ctx context.Context) []systemhandler.Check {
 	yt := creds.YouTubeClientID != "" && creds.YouTubeClientSecret != ""
 	redirect := "redirect URI " + a.cfg.PublicURL + "/api/v1/oauth/youtube/callback"
 	add("YouTube publishing", yt, map[bool]string{true: "OAuth client set; " + redirect, false: "OAuth client ID / secret not set; register the " + redirect}[yt])
+	scRedirect := "redirect URI " + a.cfg.PublicURL + "/api/v1/oauth/searchconsole/callback"
+	add("Search Console", yt, map[bool]string{true: "the YouTube OAuth client with the webmasters.readonly scope; " + scRedirect,
+		false: "uses the YouTube OAuth client, not set; register the " + scRedirect}[yt])
 	if creds.OpenSEOAPIKey == "" {
 		add("OpenSEO", false, "no API key; SEO refreshes use the host's Claude Code OpenSEO plugin")
 	} else {
