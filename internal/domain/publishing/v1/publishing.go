@@ -86,10 +86,10 @@ type BlogTarget struct {
 	Repo        string      // owner/name (github)
 	Branch      string      // github: the branch committed to, or the pull requests' base
 	Mode        PublishMode // github; "" reads as commit
-	Dir         string // local checkout root (dir)
-	ContentDir  string // e.g. marketing/src/content/blog; posts go to <ContentDir>/<locale>/<slug>.md
-	PublicDir   string // e.g. marketing/public/blog; images go to <PublicDir>/<slug>/
-	SiteURL     string // e.g. https://example.com
+	Dir         string      // local checkout root (dir)
+	ContentDir  string      // e.g. marketing/src/content/blog; posts go to <ContentDir>/<locale>/<slug>.md
+	PublicDir   string      // e.g. marketing/public/blog; images go to <PublicDir>/<slug>/
+	SiteURL     string      // e.g. https://example.com
 	// PathTemplate builds a post's URL path: {locale} is "" for the
 	// default locale and "<locale>/" otherwise, {slug} the slug.
 	PathTemplate  string

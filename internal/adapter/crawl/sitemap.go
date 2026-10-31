@@ -17,9 +17,13 @@ const (
 )
 
 type sitemapDoc struct {
-	XMLName  xml.Name
-	URLs     []struct{ Loc string `xml:"loc"` } `xml:"url"`
-	Sitemaps []struct{ Loc string `xml:"loc"` } `xml:"sitemap"`
+	XMLName xml.Name
+	URLs    []struct {
+		Loc string `xml:"loc"`
+	} `xml:"url"`
+	Sitemaps []struct {
+		Loc string `xml:"loc"`
+	} `xml:"sitemap"`
 }
 
 // parseSitemap reads a urlset or a sitemapindex, gzipped or not, and
