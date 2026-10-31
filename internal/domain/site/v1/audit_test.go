@@ -133,3 +133,11 @@ func TestAuditSkipsOrphansAfterATruncatedCrawl(t *testing.T) {
 		}
 	}
 }
+
+func TestEveryRuleHasAFix(t *testing.T) {
+	for _, r := range site.Rules() {
+		if f := r.Fix(); strings.HasPrefix(f, "Fix "+strings.ReplaceAll(string(r), "_", " ")) {
+			t.Errorf("rule %s has no fix wording", r)
+		}
+	}
+}

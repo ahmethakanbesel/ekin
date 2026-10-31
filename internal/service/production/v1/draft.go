@@ -89,6 +89,8 @@ type DraftTask struct {
 	// scripts first: the script alone, or the video from the approved
 	// script. Empty for every other draft.
 	Stage DraftStage `json:"stage,omitempty"`
+	// Change marks a change to the site's repository.
+	Change bool `json:"change,omitempty"`
 }
 
 // DraftStage is the part of a video one draft makes.
@@ -146,14 +148,24 @@ func (s *Service) BeginDraft(ctx context.Context, p DeliverablePayload) (DraftTa
 	if err != nil {
 		return DraftTask{}, "", s.stepFailed(ctx, p, err)
 	}
-	t, err := s.prepare(ctx, st, d, dir, stage)
+	var t task
+	if d.IsChange() {
+		t, err = s.prepareChange(ctx, st, d, dir)
+	} else {
+		t, err = s.prepare(ctx, st, d, dir, stage)
+	}
 	if err != nil {
 		return DraftTask{}, "", s.stepFailed(ctx, p, err)
 	}
 	task := DraftTask{
 		Payload: p, Spec: t.spec, Video: d.IsVideo(), Translation: d.Role() == storydomain.RoleTranslation,
 		Revision: d.Revision(), Feedback: feedback, SelfReview: st.Brief().SelfReview,
-		Agent: st.Brief().Production.Agent, Stage: stage, TargetWords: t.targetWords,
+		Agent: st.Brief().Production.Agent, Stage: stage, TargetWords: t.targetWords, Change: d.IsChange(),
+	}
+	if task.Change {
+		// The build is a change's check; a second agent reading the
+		// diff adds little the reviewer will not see.
+		task.SelfReview = 0
 	}
 	if t.article != nil {
 		task.TargetWords = t.article.Words()
@@ -188,9 +200,13 @@ func (s *Service) draftStage(ctx context.Context, st *storydomain.Story, d *stor
 func (s *Service) RunDraft(ctx context.Context, task DraftTask, dir string) (DraftResult, error) {
 	tools := []string{"Read", "Write", "Edit", "Glob", "Grep"}
 	allowed := append([]string(nil), tools...)
-	if task.Video {
+	switch {
+	case task.Video:
 		tools = append(tools, "Bash")
 		allowed = append(allowed, s.ekinAllowed(ctx)...)
+	case task.Change:
+		tools = append(tools, "Bash")
+		allowed = append(allowed, s.changeAllowed(ctx)...)
 	}
 	req := claude.Request{Dir: dir, Tools: tools, Allowed: allowed, Timeout: s.cfg.AgentTimeout, Env: s.toolEnv(ctx, task.Spec),
 		Model: task.Agent.Model, Effort: string(task.Agent.Effort)}
@@ -355,7 +371,7 @@ func (s *Service) FailStep(ctx context.Context, p DeliverablePayload, cause erro
 func (s *Service) Abandoned(ctx context.Context, kind string, jobID uuid.UUID, p DeliverablePayload, reason string) error {
 	var step storydomain.Step
 	switch {
-	case kind == KindDraft:
+	case kind == KindDraft || kind == KindChange:
 		step = storydomain.StepDraft
 	case kind == KindRender && p.Final:
 		step = storydomain.StepFinal
@@ -812,6 +828,9 @@ func (s *Service) brief(st *storydomain.Story, d *storydomain.Deliverable, t tas
 // validate checks the agent's output the same way the tools do, so a
 // session that ended early cannot slip through.
 func (s *Service) validate(ctx context.Context, t DraftTask, dir string) []string {
+	if t.Change {
+		return s.validateChange(ctx, t, dir)
+	}
 	if t.Stage == StageScript {
 		return validateScript(t, dir)
 	}
@@ -896,6 +915,10 @@ func draftPrompt(task DraftTask) (string, error) {
 			"from them: read it again, then do the task it describes.", nil
 	case fb != nil && task.Resume != "" && task.Spec.Thumbnails > 0 && fb.ThumbnailOnly():
 		return execute("revise-thumbnail.md", map[string]any{
+			"Revision": task.Revision, "Count": len(fb.Notes), "Notes": feedbackList(fb), "Tool": toolCmd,
+		})
+	case fb != nil && task.Resume != "" && task.Change:
+		return execute("revise-change.md", map[string]any{
 			"Revision": task.Revision, "Count": len(fb.Notes), "Notes": feedbackList(fb), "Tool": toolCmd,
 		})
 	case fb != nil && task.Resume != "":
@@ -1025,6 +1048,9 @@ func (s *Service) archive(ctx context.Context, st *storydomain.Story, d *storydo
 		return nil, err
 	}
 	out[storydomain.ArtifactWorkdir] = prefix + storydomain.ArtifactWorkdir
+	if d.IsChange() {
+		return out, s.archiveChange(ctx, dir, prefix, out)
+	}
 	files := map[string]string{
 		storydomain.ArtifactScript:        "script.md",
 		storydomain.ArtifactMetadata:      "metadata.json",

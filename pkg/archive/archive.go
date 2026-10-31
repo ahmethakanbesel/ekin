@@ -14,11 +14,12 @@ import (
 	"strings"
 )
 
-// skipInArchive are work-dir entries not worth keeping: frame previews
-// and source downloads that were transcoded.
+// skipInArchive are work-dir entries not worth keeping: frame previews,
+// source downloads that were transcoded, and a change's copy of the
+// repository and build caches (its base commit and patch rebuild it).
 func skipInArchive(rel string, d fs.DirEntry) bool {
 	if d.IsDir() {
-		return rel == "frames" || rel == ".claude"
+		return rel == "frames" || rel == ".claude" || rel == "repo" || rel == ".ekin/home"
 	}
 	return strings.HasSuffix(rel, ".src.mp4")
 }

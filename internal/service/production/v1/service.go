@@ -207,6 +207,8 @@ type Service struct {
 	voices     Voices
 	library    Library
 	defaults   Defaults
+	sites      Sites
+	repos      Repositories
 	publishers map[pipelinedomain.Kind]Publisher
 	log        *slog.Logger
 	now        func() time.Time
@@ -232,7 +234,11 @@ type Deps struct {
 	// Defaults is optional: without it stories take only their pipeline's
 	// or request's settings and template over the server's.
 	Defaults Defaults
-	Log      *slog.Logger
+	// Sites and Repos are optional: without them changes to the site
+	// are refused.
+	Sites Sites
+	Repos Repositories
+	Log   *slog.Logger
 }
 
 // NewService returns a Service.
@@ -266,7 +272,7 @@ func NewService(cfg Config, d Deps) *Service {
 	return &Service{
 		cfg: cfg, stories: d.Stories, pipelines: d.Pipelines, knowledge: d.Knowledge, jobs: d.Jobs, tx: d.Tx,
 		blobs: d.Blobs, agent: d.Agent, renderer: d.Renderer, notifier: notifier, dedupe: d.Dedupe, seo: d.SEO, templates: d.Templates, voices: d.Voices,
-		library: d.Library, defaults: d.Defaults, publishers: map[pipelinedomain.Kind]Publisher{}, log: log, now: time.Now,
+		library: d.Library, defaults: d.Defaults, sites: d.Sites, repos: d.Repos, publishers: map[pipelinedomain.Kind]Publisher{}, log: log, now: time.Now,
 	}
 }
 
@@ -303,6 +309,9 @@ func (s *Service) enqueueStep(ctx context.Context, st *storydomain.Story, d *sto
 	switch d.Status() {
 	case storydomain.StatusQueued:
 		queue, kind = jobdomain.QueueAgent, KindDraft
+		if d.IsChange() {
+			kind = KindChange
+		}
 	case storydomain.StatusRendering:
 		queue, kind = jobdomain.QueueRender, KindRender
 	case storydomain.StatusFinalizing:

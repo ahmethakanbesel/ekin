@@ -162,6 +162,8 @@ func (a *fakeAgent) Run(ctx context.Context, req claude.Request) (claude.Result,
 		return claude.Result{SessionID: "session-" + filepath.Base(req.Dir), Text: "new thumbnails"}, nil
 	}
 	switch {
+	case strings.Contains(string(instructions), "# Your task: change the website"):
+		return a.change(ctx, req)
 	case strings.Contains(string(instructions), "cut a short from a long video"):
 		found := map[string]string{}
 		_ = filepath.WalkDir(req.Dir, func(p string, e fs.DirEntry, err error) error {
@@ -399,8 +401,11 @@ func (p fakePublisher) Kind() pipelinedomain.Kind                      { return 
 func (p fakePublisher) Ready(context.Context, uuid.UUID) (bool, error) { return true, nil }
 func (p fakePublisher) Publish(ctx context.Context, req production.PublishRequest) (storydomain.Publication, error) {
 	name := storydomain.ArtifactFinal
-	if p.kind == pipelinedomain.KindArticle {
+	switch p.kind {
+	case pipelinedomain.KindArticle:
 		name = storydomain.ArtifactArticle
+	case pipelinedomain.KindChange:
+		name = storydomain.ArtifactChange
 	}
 	rc, _, err := req.Open(ctx, name)
 	if err != nil {
@@ -508,7 +513,7 @@ func (f fixture) drainOn(t *testing.T, svc *production.Service) {
 	t.Helper()
 	ctx := context.Background()
 	kinds := []string{pipelinesvc.KindRun, production.KindAdHoc, production.KindMoments, production.KindDraft, production.KindRender,
-		production.KindPublish, production.KindHarvest}
+		production.KindPublish, production.KindHarvest, production.KindChange}
 	for range 50 {
 		j, err := f.jobs.Claim(ctx, jobdomain.Queues, kinds, "test", time.Minute)
 		if err != nil {
@@ -540,7 +545,7 @@ func (f fixture) drainOn(t *testing.T, svc *production.Service) {
 			var p production.DeliverablePayload
 			_ = json.Unmarshal(j.Payload(), &p)
 			switch j.Kind() {
-			case production.KindDraft:
+			case production.KindDraft, production.KindChange:
 				runErr = svc.Draft(ctx, p)
 			case production.KindRender:
 				runErr = svc.Render(ctx, p)

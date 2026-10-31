@@ -63,6 +63,40 @@ var severities = map[Rule]Severity{
 	RuleNotInSitemap:     SeverityNotice,
 }
 
+var fixes = map[Rule]string{
+	RuleRobotsBlocksAI:   "Let AI crawlers read the site in robots.txt",
+	RuleLLMsTxtMissing:   "Add an llms.txt",
+	RuleSitemapMissing:   "Add a sitemap",
+	RuleHomeNoStructured: "Add structured data to the home page",
+	RulePageError:        "Fix pages that answer with an error",
+	RuleBrokenLinks:      "Fix broken internal links",
+	RuleRedirectChain:    "Shorten redirect chains",
+	RuleSitemapRedirect:  "Drop redirects from the sitemap",
+	RuleSitemapNoindex:   "Drop noindex pages from the sitemap",
+	RuleCanonicalBroken:  "Fix canonical links that point at broken pages",
+	RuleTitleMissing:     "Add missing page titles",
+	RuleTitleLong:        "Shorten long page titles",
+	RuleTitleDuplicate:   "Make duplicate page titles unique",
+	RuleDescMissing:      "Add missing meta descriptions",
+	RuleDescLong:         "Shorten long meta descriptions",
+	RuleDescDuplicate:    "Make duplicate meta descriptions unique",
+	RuleH1Missing:        "Add a main heading to pages without one",
+	RuleH1Multiple:       "Keep one main heading per page",
+	RuleCanonicalMissing: "Add canonical links",
+	RuleThinContent:      "Expand thin pages",
+	RuleLangMissing:      "Declare the page language",
+	RuleOrphan:           "Link to orphan pages",
+	RuleNotInSitemap:     "Add pages missing from the sitemap",
+}
+
+// Fix is what fixing r means, as a story title would say it.
+func (r Rule) Fix() string {
+	if f, ok := fixes[r]; ok {
+		return f
+	}
+	return "Fix " + strings.ReplaceAll(string(r), "_", " ")
+}
+
 // Severity is how much breaking r matters; a rule this version does not
 // know reads as a notice.
 func (r Rule) Severity() Severity {

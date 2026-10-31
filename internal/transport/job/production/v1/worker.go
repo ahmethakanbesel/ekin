@@ -19,6 +19,7 @@ func Register(r *jobsvc.Runner, svc *productionsvc.Service) {
 	r.Register(productionsvc.KindAdHoc, handle(svc.PlanAdHoc))
 	r.Register(productionsvc.KindMoments, handle(svc.FindMoments))
 	r.Register(productionsvc.KindDraft, handle(svc.Draft))
+	r.Register(productionsvc.KindChange, handle(svc.Draft))
 	r.Register(productionsvc.KindRender, handle(svc.Render))
 	r.Register(productionsvc.KindHarvest, handle(svc.Harvest))
 	r.Register(productionsvc.KindPublish, func(ctx context.Context, j *jobdomain.Job) error {
@@ -35,7 +36,7 @@ func Register(r *jobsvc.Runner, svc *productionsvc.Service) {
 // the server cancels them and serves remote workers, workers expire
 // them.
 func Watch(jobs *jobsvc.Service, svc *productionsvc.Service) {
-	for _, kind := range []string{productionsvc.KindDraft, productionsvc.KindRender, productionsvc.KindPublish} {
+	for _, kind := range []string{productionsvc.KindDraft, productionsvc.KindChange, productionsvc.KindRender, productionsvc.KindPublish} {
 		jobs.OnEnded(kind, func(ctx context.Context, j *jobdomain.Job) error {
 			var p productionsvc.DeliverablePayload
 			if err := json.Unmarshal(j.Payload(), &p); err != nil {

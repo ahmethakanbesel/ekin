@@ -164,13 +164,15 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		Library:  library,
 		Agent:    agent,
 		Dedupe:   dynamicDedupe{settings},
+		Sites:    site,
+		Repos:    publishing.Repositories(),
 		Log:      log.With(slog.String("component", "production")),
 	})
 	if err != nil {
 		_ = d.Close()
 		return nil, err
 	}
-	production.AddPublisher(publishing.Video()).AddPublisher(publishing.Article())
+	production.AddPublisher(publishing.Video()).AddPublisher(publishing.Article()).AddPublisher(publishing.Change())
 	productionworker.Watch(jobs, production)
 	return &App{
 		cfg:        cfg,

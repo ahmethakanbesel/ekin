@@ -414,6 +414,9 @@ func (s *Service) Reject(ctx context.Context, workspaceID, storyID, deliverableI
 			return err
 		}
 		d, _ := st.Deliverable(deliverableID)
+		if d.IsChange() {
+			s.releaseFindings(ctx, st)
+		}
 		return s.enqueueHarvest(ctx, st, d, d.Revision(), true)
 	})
 }
@@ -467,6 +470,9 @@ func (s *Service) PublishNow(ctx context.Context, st *storydomain.Story, d *stor
 func publisherTarget(d *storydomain.Deliverable) string {
 	if d.IsVideo() {
 		return "YouTube channel"
+	}
+	if d.IsChange() {
+		return "site repository (Settings › Publishing › Blog)"
 	}
 	return "blog target"
 }
@@ -659,6 +665,7 @@ func (s *Service) Delete(ctx context.Context, workspaceID, storyID uuid.UUID) er
 	if err != nil {
 		return err
 	}
+	s.releaseFindings(ctx, st)
 	for _, d := range st.Deliverables() {
 		_ = os.RemoveAll(s.workDir(d))
 	}

@@ -246,6 +246,9 @@ func (s *Service) PlanRun(ctx context.Context, run pipelinesvc.RunPayload) error
 		origin = storydomain.OriginSchedule
 	}
 	src := p.Source()
+	if src.Kind() == pipelinedomain.SourceFindings {
+		return s.planFindings(ctx, p, origin, run.Count)
+	}
 	req := ideaRequest{
 		WorkspaceID: p.WorkspaceID(), Language: p.Language(), Instructions: src.Instructions(),
 		Outputs: p.Outputs(), Count: run.Count,
@@ -561,7 +564,11 @@ func (s *Service) isDuplicate(ctx context.Context, workspaceID uuid.UUID, idea s
 
 func (s *Service) askIdeas(ctx context.Context, req ideaRequest, count int, avoid []string) ([]plannedIdea, error) {
 	var b strings.Builder
-	fmt.Fprintf(&b, "You plan content for a %s-language channel and blog. Produce %d ideas as JSON.\n\n", languageName(req.Language), count)
+	if req.Outputs.Change() {
+		fmt.Fprintf(&b, "You plan improvements to a website, each made as one edit to its repository by an engineer. Produce %d ideas as JSON, titles in %s.\n\n", count, languageName(req.Language))
+	} else {
+		fmt.Fprintf(&b, "You plan content for a %s-language channel and blog. Produce %d ideas as JSON.\n\n", languageName(req.Language), count)
+	}
 	fmt.Fprintf(&b, "Each idea becomes: %s.\n\n", describeOutputs(req.Outputs))
 	if req.Instructions != "" {
 		b.WriteString("## Brief\n\n" + req.Instructions + "\n\n")
@@ -634,6 +641,9 @@ func describeOutputs(o pipelinedomain.Outputs) string {
 	}
 	if a, ok := o.Article(); ok {
 		parts = append(parts, fmt.Sprintf("a blog article of about %d words", a.Words()))
+	}
+	if o.Change() {
+		parts = append(parts, "one focused change to the website (a new or improved page, a fix to its code or content), reviewed as a diff")
 	}
 	return strings.Join(parts, " and ")
 }
