@@ -25,10 +25,14 @@ type Client struct {
 	HTTP    *http.Client
 }
 
-// File is one file to write.
+// File is one file to write, or to delete.
 type File struct {
 	Path    string
 	Content []byte
+	// Executable writes the file with mode 100755.
+	Executable bool
+	// Delete removes the file instead of writing it.
+	Delete bool
 }
 
 // Commit writes files on branch of repo ("owner/name") with message and
@@ -64,6 +68,10 @@ type PullRequestInput struct {
 	Title  string // also the commit message
 	Body   string
 	Files  []File
+	// From is the commit the branch starts from; empty for the tip of
+	// Base. A change starts from the commit it was made on, so the pull
+	// request shows exactly its edits and any conflict with later work.
+	From string
 }
 
 // OpenPullRequest commits in.Files onto the tip of in.Base, points
@@ -84,9 +92,12 @@ func (c *Client) OpenPullRequest(ctx context.Context, token string, in PullReque
 	if len(open) > 0 {
 		return PullRequest{Number: open[0].Number, URL: open[0].HTMLURL, Branch: in.Branch}, nil
 	}
-	base, err := c.head(ctx, token, in.Repo, in.Base)
-	if err != nil {
-		return PullRequest{}, err
+	base := in.From
+	if base == "" {
+		var err error
+		if base, err = c.head(ctx, token, in.Repo, in.Base); err != nil {
+			return PullRequest{}, err
+		}
 	}
 	sha, err := c.commitOnto(ctx, token, in.Repo, base, in.Title, in.Files)
 	if err != nil {
@@ -145,6 +156,74 @@ type pullJSON struct {
 	Merged  bool   `json:"merged"`
 }
 
+// Head returns the SHA branch points at.
+func (c *Client) Head(ctx context.Context, token, repo, branch string) (string, error) {
+	return c.head(ctx, token, repo, branch)
+}
+
+// ChangedFiles lists the paths that differ between commits base and
+// head of repo (at most the 300 GitHub's compare reports).
+func (c *Client) ChangedFiles(ctx context.Context, token, repo, base, head string) ([]string, error) {
+	if base == head {
+		return nil, nil
+	}
+	var cmp struct {
+		Files []struct {
+			Filename         string `json:"filename"`
+			PreviousFilename string `json:"previous_filename"`
+		} `json:"files"`
+	}
+	if err := c.do(ctx, token, http.MethodGet, "/repos/"+repo+"/compare/"+base+"..."+head, nil, &cmp); err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, f := range cmp.Files {
+		out = append(out, f.Filename)
+		if f.PreviousFilename != "" {
+			out = append(out, f.PreviousFilename)
+		}
+	}
+	return out, nil
+}
+
+// Tarball streams repo at commit ref as a gzipped tar. Every entry sits
+// under one top-level directory, which the caller strips.
+func (c *Client) Tarball(ctx context.Context, token, repo, ref string) (io.ReadCloser, error) {
+	base := c.BaseURL
+	if base == "" {
+		base = "https://api.github.com"
+	}
+	path := "/repos/" + repo + "/tarball/" + url.PathEscape(ref)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+path, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	hc := c.HTTP
+	if hc == nil {
+		hc = &http.Client{}
+	}
+	// GitHub redirects to a signed download URL on another host; Go
+	// drops the Authorization header across hosts, which that URL
+	// does not need.
+	res, err := hc.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("github: GET %s: %w", path, err)
+	}
+	if res.StatusCode >= 300 {
+		raw, _ := io.ReadAll(io.LimitReader(res.Body, 1<<16))
+		_ = res.Body.Close()
+		var e struct {
+			Message string `json:"message"`
+		}
+		_ = json.Unmarshal(raw, &e)
+		return nil, &Error{Method: http.MethodGet, Path: path, Status: res.StatusCode, Message: e.Message}
+	}
+	return res.Body, nil
+}
+
 // head returns the SHA branch points at.
 func (c *Client) head(ctx context.Context, token, repo, branch string) (string, error) {
 	var ref struct {
@@ -172,13 +251,18 @@ func (c *Client) commitOnto(ctx context.Context, token, repo, parentSHA, message
 	files = append([]File(nil), files...)
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
 	type entry struct {
-		Path string `json:"path"`
-		Mode string `json:"mode"`
-		Type string `json:"type"`
-		SHA  string `json:"sha"`
+		Path string  `json:"path"`
+		Mode string  `json:"mode"`
+		Type string  `json:"type"`
+		SHA  *string `json:"sha"` // null deletes the path
 	}
 	tree := make([]entry, 0, len(files))
 	for _, f := range files {
+		path := strings.TrimPrefix(f.Path, "/")
+		if f.Delete {
+			tree = append(tree, entry{Path: path, Mode: "100644", Type: "blob"})
+			continue
+		}
 		var blob struct {
 			SHA string `json:"sha"`
 		}
@@ -186,7 +270,11 @@ func (c *Client) commitOnto(ctx context.Context, token, repo, parentSHA, message
 		if err := c.do(ctx, token, http.MethodPost, "/repos/"+repo+"/git/blobs", body, &blob); err != nil {
 			return "", err
 		}
-		tree = append(tree, entry{Path: strings.TrimPrefix(f.Path, "/"), Mode: "100644", Type: "blob", SHA: blob.SHA})
+		mode := "100644"
+		if f.Executable {
+			mode = "100755"
+		}
+		tree = append(tree, entry{Path: path, Mode: mode, Type: "blob", SHA: &blob.SHA})
 	}
 	var newTree struct {
 		SHA string `json:"sha"`

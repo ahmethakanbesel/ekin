@@ -215,3 +215,93 @@ func TestErrorCarriesStatus(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestOpenPullRequestFromCommitWithDeletes(t *testing.T) {
+	var tree map[string]any
+	var calls []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls = append(calls, r.Method+" "+r.URL.Path)
+		raw, _ := io.ReadAll(r.Body)
+		switch p := strings.TrimPrefix(r.URL.Path, "/repos/o/site"); {
+		case r.Method == http.MethodGet && p == "/pulls":
+			_, _ = w.Write([]byte(`[]`))
+		case p == "/git/commits/base1":
+			_, _ = w.Write([]byte(`{"tree":{"sha":"t1"}}`))
+		case p == "/git/blobs":
+			_, _ = w.Write([]byte(`{"sha":"blob"}`))
+		case p == "/git/trees":
+			_ = json.Unmarshal(raw, &tree)
+			_, _ = w.Write([]byte(`{"sha":"newtree"}`))
+		case p == "/git/commits":
+			_, _ = w.Write([]byte(`{"sha":"c2"}`))
+		case p == "/git/refs":
+			_, _ = w.Write([]byte(`{}`))
+		case p == "/pulls":
+			_, _ = w.Write([]byte(`{"number":3,"html_url":"https://github.com/o/site/pull/3"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+	in := github.PullRequestInput{Repo: "o/site", Base: "main", Branch: "ekin/fix", Title: "site: fix", From: "base1",
+		Files: []github.File{{Path: "bin/run", Content: []byte("#!/bin/sh"), Executable: true}, {Path: "old.html", Delete: true}}}
+	if _, err := (&github.Client{BaseURL: srv.URL}).OpenPullRequest(context.Background(), "tok", in); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range calls {
+		if strings.Contains(c, "/git/ref/heads/main") {
+			t.Fatalf("read the base branch's tip instead of starting from the given commit: %v", calls)
+		}
+	}
+	entries, _ := tree["tree"].([]any)
+	if tree["base_tree"] != "t1" || len(entries) != 2 {
+		t.Fatalf("tree = %v", tree)
+	}
+	exec, del := entries[0].(map[string]any), entries[1].(map[string]any)
+	if exec["path"] != "bin/run" || exec["mode"] != "100755" || exec["sha"] != "blob" {
+		t.Fatalf("executable entry = %v", exec)
+	}
+	if v, ok := del["sha"]; del["path"] != "old.html" || !ok || v != nil {
+		t.Fatalf("delete entry = %v (sha must be null)", del)
+	}
+}
+
+func TestChangedFilesAndTarball(t *testing.T) {
+	download := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("tarball"))
+	}))
+	defer download.Close()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/o/site/compare/a...b":
+			_, _ = w.Write([]byte(`{"files":[{"filename":"x.md"},{"filename":"y.md","previous_filename":"z.md"}]}`))
+		case "/repos/o/site/tarball/abc":
+			http.Redirect(w, r, download.URL+"/file.tgz", http.StatusFound)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"message":"Not Found"}`))
+		}
+	}))
+	defer srv.Close()
+	c := &github.Client{BaseURL: srv.URL}
+	files, err := c.ChangedFiles(context.Background(), "tok", "o/site", "a", "b")
+	if err != nil || strings.Join(files, ",") != "x.md,y.md,z.md" {
+		t.Fatalf("changed files = %v, %v", files, err)
+	}
+	if files, _ := c.ChangedFiles(context.Background(), "tok", "o/site", "a", "a"); files != nil {
+		t.Fatalf("same commit changed %v", files)
+	}
+	rc, err := c.Tarball(context.Background(), "tok", "o/site", "abc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(rc)
+	_ = rc.Close()
+	if string(body) != "tarball" {
+		t.Fatalf("tarball = %q", body)
+	}
+	var apiErr *github.Error
+	if _, err := c.Tarball(context.Background(), "tok", "o/site", "missing"); !errors.As(err, &apiErr) || apiErr.Status != 404 {
+		t.Fatalf("missing ref: %v", err)
+	}
+}
