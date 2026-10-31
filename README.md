@@ -214,6 +214,23 @@ thumbnails keeps YouTube's frame, and the "published" notification says so. Ever
 stays downloadable, one by one or as `thumbnails.zip`. Shorts keep a frame of the video.
 See `docs/thumbnails.md`.
 
+## Site
+
+**Settings › Site** takes the website's address, a page limit per crawl and how often to
+crawl it (weekly by default). Ekin crawls it as `EkinBot`, the way a polite search crawler
+does: robots.txt first (and obeyed), llms.txt and the sitemaps, then the pages one at a
+time with a pause in between (`EKIN_CRAWL_DELAY`, 500ms), following internal links up to
+the limit. The audit then raises findings: errors and broken links, redirect chains,
+sitemap problems, missing or duplicate titles and descriptions, headings, canonicals,
+thin pages, orphans, and whether robots.txt keeps AI crawlers (GPTBot, ClaudeBot,
+PerplexityBot, …) out. The **Site** page lists them by severity and rule, each with why it
+matters and the pages it was raised on, and the crawled pages with their status. A finding
+the next crawl no longer raises is resolved; one that comes back reopens; editors can
+ignore one that does not matter here.
+
+Ekin refuses to crawl an address that resolves to a loopback or private network address;
+set `EKIN_CRAWL_ALLOW_PRIVATE=true` for a site on Ekin's own network.
+
 ## Team notes
 
 Every revision can carry one team note (**History** → *Add a team note*): what was

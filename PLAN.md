@@ -60,9 +60,12 @@ never hosts it and never migrates it into a CMS: it reads the live site, edits t
 repository, and changes reach the site only through a commit or a pull request that a
 person approved.
 
-- **Site**: one per workspace. The blog target grows into it (repo, base branch, token,
-  content and public dirs, site URL, URL template), plus a build command, a publish
-  mode (commit to the branch, or open a pull request) and the competitors' domains.
+- **Site**: one per workspace: its address, a page limit per crawl (500 by default, at
+  most 5000) and a crawl schedule (weekly by default, daily, or only on demand). A new
+  site, or one moved to another address, is crawled at once; a move drops the old
+  pages and findings. The repository settings stay on the blog target until changes
+  need them (milestone 12), when they join the site with a build command; competitors'
+  domains join it in milestone 15.
 - **Crawl and inventory**: robots.txt and the sitemaps (falling back to following
   internal links, capped) give the page inventory: URL, status, redirect target,
   title, meta description, canonical, `h1`, structured-data types, word count, internal
@@ -123,7 +126,7 @@ Not in scope yet: visitor identification, outreach, CRM sync, ads, A/B tests, ho
 | Stock media | Pexels video and photos (no audio); clips are transcoded to short VP8 WebM so the composition can seek them frame by frame. Or library items, through `ekin tool library`. |
 | Blog | Markdown with the site's frontmatter committed to `marketing/src/content/blog/{tr,en}` in one commit through the GitHub Git Data API — onto the branch, or onto `ekin/<slug>-<job>` with a pull request against it — or written into a local checkout. Video embeds become privacy-enhanced iframes. No CMS migration. |
 | Merge tracking | `ekin serve` calls `CheckMerges` every `EKIN_MERGE_POLL` (5m): one GET per open pull request, no jobs. Not a job chain, so days of waiting leave no trail of jobs. The branch name ends in the publish job's id, so a retried attempt finds its own pull request and a new publication gets a fresh branch. |
-| Site crawl | Go `net/http` with a per-site rate limit and robots.txt respected; `golang.org/x/net/html` for parsing. Pages and findings are rows in SQLite; page bodies are not kept. |
+| Site crawl | `internal/adapter/crawl`: Go `net/http`, one request at a time with `EKIN_CRAWL_DELAY` (500ms) between them or a longer Crawl-delay (up to 10s); robots.txt obeyed as `EkinBot` (`pkg/robots`, RFC 9309); redirects recorded, not followed; `golang.org/x/net/html` for parsing. The dialer refuses loopback, private and link-local addresses after DNS resolution unless `EKIN_CRAWL_ALLOW_PRIVATE`. A `site.crawl` job on the io queue, one per workspace at a time; a crawl unfinished after 3h running (6h queued) is taken as stopped. The latest crawl's pages replace the inventory (first seen kept); page bodies are not kept. |
 | Audit rules | Plain Go functions over the inventory, table-tested; no model decides whether a title is missing. The agent only writes fixes. |
 | Change agent | Same `Agent` port. Work dir holds a shallow clone (`git clone --depth 1`) of the base branch; allow-list adds `Bash(ekin tool build)`, `Bash(ekin tool diff)` and nothing else from the shell. The build command comes from the site settings and runs with the job's CPU limit and no secrets in its environment. |
 | Git publishing | GitHub Git Data API as today; pull-request mode adds a branch ref and `POST /pulls`. A `git` adapter for other hosts may follow. |
@@ -180,7 +183,7 @@ Container ceiling on the VPS: `cpuset: "1"`, `cpu_shares: 64`, `cpus: 0.5`,
 | template | Template (house style: guide, palette, fonts, music mood); built-ins in code, workspace copies and agent drafts in the database |
 | story | Story (idea, brief, sources, target keyword) owning deliverables: video / article / change as lead, derived or translation; Revision (thumbnail variants, team note); Feedback |
 | publishing | Channel (YouTube, sealed refresh token), BlogTarget (becomes the site's git settings), Publication, pull request |
-| site | Site (repo, publish mode, build command, competitors), Page, Crawl, Finding |
+| site | Site (address, page limit, schedule), Crawl (facts: robots.txt, sitemaps, llms.txt, AI crawlers blocked), Page, Finding (rule + page; open, resolved, ignored) |
 | analytics | Search Console connection, daily page and query metrics |
 | visibility | Prompt, Run, Answer (mentions, citations) |
 | job | Job (queue, kind, unique key, attempts, lease) |
@@ -281,11 +284,14 @@ Site growth (see §1):
 10. Pull requests — publish mode per blog target (commit or pull request), `merging`
     status, merge polling in `serve`, Awaiting merge in the UI; articles first. Built
     and tested against a fake GitHub; not yet run against a real repository.
+11. Site — address, page limit and schedule (Settings › Site); crawl on setup, on demand
+    and on schedule; page inventory; 23 audit rules raising findings that resolve,
+    reopen or are ignored; Site page with findings by severity and rule, and the pages.
+    ✅ crawled a local test site end to end through the UI. Core Web Vitals (PageSpeed
+    Insights) not yet.
 
 Planned:
 
-11. Site — connect (blog target grows into the site), crawl, page inventory, audit rules
-    and findings, Site page in the UI.
 12. Changes — `change` deliverable, repository work dir, `ekin tool build` and
     `ekin tool diff`, diff review, `findings` pipeline source.
 13. Search Console — connection, daily pull, before/after on stories, digest lines.
