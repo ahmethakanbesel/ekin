@@ -1,14 +1,14 @@
 import type { SiteFindingStatus, SitePageClass } from "@/api/client"
 import { parseSearchText } from "@/lib/utils"
 
-export const SITE_VIEWS = ["findings", "pages", "search"] as const
+export const SITE_VIEWS = ["findings", "pages", "search", "competitors"] as const
 export type SiteView = (typeof SITE_VIEWS)[number]
 export const FINDING_TABS: SiteFindingStatus[] = ["open", "ignored", "resolved"]
 export const PAGE_CLASSES = ["all", "ok", "redirect", "error"] as const
 export type PageClassTab = SitePageClass | "all"
 
 export type SiteSearch = {
-  view?: "pages" | "search"
+  view?: "pages" | "search" | "competitors"
   status?: Exclude<SiteFindingStatus, "open">
   class?: Exclude<PageClassTab, "all">
   q?: string
@@ -18,7 +18,8 @@ export type SiteSearch = {
 export function validateSiteSearch(
   search: Record<string, unknown>
 ): SiteSearch {
-  const view = search.view === "pages" || search.view === "search" ? search.view : undefined
+  const view =
+    search.view === "pages" || search.view === "search" || search.view === "competitors" ? search.view : undefined
   const status = FINDING_TABS.find(
     (s) => s !== "open" && s === search.status
   ) as SiteSearch["status"]

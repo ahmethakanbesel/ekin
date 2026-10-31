@@ -9,6 +9,7 @@ import {
 import {
   api,
   call,
+  type CompetitorChange,
   type SiteFinding,
   type SiteFindingStatus,
   type SiteOverview,
@@ -198,5 +199,67 @@ export function useRequestChange(workspaceId: string) {
       void qc.invalidateQueries({ queryKey: keys.site(workspaceId) })
       void qc.invalidateQueries({ queryKey: keys.stories(workspaceId) })
     },
+  })
+}
+
+export const competitorsQuery = (workspaceId: string) =>
+  queryOptions({
+    queryKey: [...keys.site(workspaceId), "competitors"],
+    queryFn: ({ signal }) =>
+      call(api.GET("/workspaces/{workspaceId}/site/competitors", { params: { path: { workspaceId } }, signal })),
+  })
+
+type ChangePages = InfiniteData<{ changes: CompetitorChange[]; nextCursor?: string }, Cursor>
+
+/** Pages competitors added or dropped, newest first. */
+export const competitorChangesQuery = (workspaceId: string, kind: "added" | "removed" | "all") =>
+  infiniteQueryOptions({
+    queryKey: [...keys.site(workspaceId), "competitor-changes", kind],
+    queryFn: ({ pageParam, signal }) =>
+      call(
+        api.GET("/workspaces/{workspaceId}/site/competitors/changes", {
+          params: { path: { workspaceId }, query: { kind: kind === "all" ? undefined : kind, limit: SITE_PAGE_SIZE, cursor: pageParam } },
+          signal,
+        })
+      ),
+    ...cursorPaging,
+    select: (data: ChangePages) => data.pages.flatMap((p) => p.changes),
+  })
+
+function useRefreshSite(workspaceId: string) {
+  const qc = useQueryClient()
+  return () => void qc.invalidateQueries({ queryKey: keys.site(workspaceId) })
+}
+
+export function useAddCompetitor(workspaceId: string) {
+  const refresh = useRefreshSite(workspaceId)
+  return useMutation({
+    mutationFn: (body: { url: string; name?: string }) =>
+      call(api.POST("/workspaces/{workspaceId}/site/competitors", { params: { path: { workspaceId } }, body })),
+    onSuccess: refresh,
+  })
+}
+
+export function useRemoveCompetitor(workspaceId: string) {
+  const refresh = useRefreshSite(workspaceId)
+  return useMutation({
+    mutationFn: (competitorId: string) =>
+      call(
+        api.DELETE("/workspaces/{workspaceId}/site/competitors/{competitorId}", { params: { path: { workspaceId, competitorId } } })
+      ),
+    onSuccess: refresh,
+  })
+}
+
+export function useCheckCompetitor(workspaceId: string) {
+  const refresh = useRefreshSite(workspaceId)
+  return useMutation({
+    mutationFn: (competitorId: string) =>
+      call(
+        api.POST("/workspaces/{workspaceId}/site/competitors/{competitorId}/check", {
+          params: { path: { workspaceId, competitorId } },
+        })
+      ),
+    onSuccess: refresh,
   })
 }

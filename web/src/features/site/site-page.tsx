@@ -31,6 +31,7 @@ import { iconClass, toneClass, type BannerTone } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { crawlActive, siteQuery, useCrawlSite } from "@/queries/site"
 import { ChangeDialog } from "./change-dialog"
+import { CompetitorsView } from "./competitors"
 import { FindingsView } from "./findings"
 import { SearchView } from "./search-view"
 import { PagesTable } from "./pages-table"
@@ -149,7 +150,7 @@ function SiteBody({ overview: o }: { overview: SiteOverview }) {
               value={view}
               onValueChange={(next) =>
                 void navigate({
-                  search: next === "pages" || next === "search" ? { view: next } : {},
+                  search: next === "pages" || next === "search" || next === "competitors" ? { view: next } : {},
                   replace: true,
                 })
               }
@@ -158,9 +159,10 @@ function SiteBody({ overview: o }: { overview: SiteOverview }) {
                 <TabsTrigger value="findings">{t.tabs.findings}</TabsTrigger>
                 <TabsTrigger value="pages">{t.tabs.pages}</TabsTrigger>
                 <TabsTrigger value="search">{t.tabs.search}</TabsTrigger>
+                <TabsTrigger value="competitors">{t.tabs.competitors}</TabsTrigger>
               </TabsList>
             </Tabs>
-            {view === "search" ? null : view === "findings" ? (
+            {view === "search" || view === "competitors" ? null : view === "findings" ? (
               <Tabs
                 value={status}
                 onValueChange={(next) =>
@@ -225,6 +227,8 @@ function SiteBody({ overview: o }: { overview: SiteOverview }) {
           </div>
           {view === "search" ? (
             <SearchView root={root} />
+          ) : view === "competitors" ? (
+            <CompetitorsView />
           ) : view === "findings" ? (
             <FindingsView overview={o} status={status} />
           ) : (

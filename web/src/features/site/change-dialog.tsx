@@ -31,26 +31,29 @@ export function ChangeDialog({
   open,
   onOpenChange,
   rule,
+  initial = "",
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** The rule whose open findings to fix; none for a change described in words. */
   rule?: string
+  /** Instructions to start from (a competitor's new page, say). */
+  initial?: string
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
-        {open ? <ChangeForm rule={rule} onDone={() => onOpenChange(false)} /> : null}
+        {open ? <ChangeForm rule={rule} initial={initial} onDone={() => onOpenChange(false)} /> : null}
       </DialogContent>
     </Dialog>
   )
 }
 
-function ChangeForm({ rule, onDone }: { rule?: string; onDone: () => void }) {
+function ChangeForm({ rule, initial, onDone }: { rule?: string; initial: string; onDone: () => void }) {
   const workspace = useWorkspace()
   const navigate = useNavigate()
   const request = useRequestChange(workspace.id)
-  const [instructions, setInstructions] = useState("")
+  const [instructions, setInstructions] = useState(initial)
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
   const tooLong = instructions.length > MAX_INSTRUCTIONS
