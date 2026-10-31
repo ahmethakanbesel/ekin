@@ -93,6 +93,7 @@ function SiteForm({ overview }: { overview: SiteOverview }) {
       url: site?.url ?? "",
       maxPages: String(site?.maxPages ?? DEFAULT_MAX_PAGES),
       schedule: site?.schedule ?? ("weekly" as SiteSchedule),
+      build: site?.build ?? "",
     },
     onSubmit: async ({ value }) => {
       try {
@@ -101,6 +102,7 @@ function SiteForm({ overview }: { overview: SiteOverview }) {
           url: value.url.trim(),
           maxPages: toInt(value.maxPages),
           schedule: value.schedule,
+          build: value.build.trim(),
         })
         toast.success(
           out.latestCrawl && out.latestCrawl.id !== before
@@ -220,6 +222,31 @@ function SiteForm({ overview }: { overview: SiteOverview }) {
             )}
           </form.Field>
         </div>
+        <form.Field
+          name="build"
+          validators={{
+            onChange: ({ value }) => (value.length > 1000 || /[\r\n]/.test(value) ? t.buildInvalid : undefined),
+          }}
+        >
+          {(field) => {
+            const error = shownError(field.state.meta, submitted())
+            return (
+              <Row label={t.build} htmlFor="site-build" hint={t.buildHint} error={error}>
+                <Input
+                  id="site-build"
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder={t.buildPlaceholder}
+                  className="font-mono"
+                  aria-invalid={!!error || undefined}
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                />
+              </Row>
+            )
+          }}
+        </form.Field>
       </fieldset>
       {save.isError ? <Banner title={errorMessage(save.error)} /> : null}
       {canManage ? (

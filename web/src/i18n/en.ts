@@ -429,6 +429,7 @@ export const en = {
     shortsSummary: (n: number) => ` · ${n} ${n === 1 ? "short" : "shorts"} cut from each`,
     articleSummary: (words: number, translations: string) =>
       `Article · ${words.toLocaleString("en-GB")} words${translations ? ` · → ${translations}` : ""}`,
+    changeSummary: "Changes to the site · up to 10 findings each",
     batch: (n: number) => (n === 1 ? "1 item per run" : `${n} items per run`),
     // Readable schedules; days are cron numbers, 0 = Sunday.
     every: {
@@ -588,12 +589,18 @@ export const en = {
       prompt: "Prompt",
       knowledge: "Knowledge base",
       seo: "SEO keywords",
+      findings: "Site findings",
     },
     sourceKindHints: {
       prompt: "Ideas come from your instructions.",
       knowledge: "Ideas and material come from referenced documents.",
       seo: "Each idea targets one open keyword opportunity from the workspace's pool.",
+      findings: "Each change fixes the open findings of the most severe rule left on the Site page.",
     },
+    findingsGuidance: "Guidance (optional)",
+    findingsGuidanceHint: "How fixes should be made: conventions to follow, files to leave alone.",
+    changeOutput:
+      "This pipeline makes changes to the site's repository: each one fixes up to 10 findings of one rule, passes the site's build, and comes back for review as a diff. Approving it publishes through the site's repository settings.",
     systemPrompt: "System prompt",
     systemPromptHint: "Tells the agent what to make, for whom, and in what voice.",
     seoBrief: "Brief",
@@ -648,7 +655,7 @@ export const en = {
       horizontal: "Horizontal 16:9",
       square: "Square 1:1",
     } as Record<string, string>,
-    kind: { video: "Video", article: "Article" } as Record<string, string>,
+    kind: { video: "Video", article: "Article", change: "Change" } as Record<string, string>,
     documentFormat: { pdf: "PDF", txt: "TXT", md: "MD", epub: "EPUB" } as Record<string, string>,
     privacy: { private: "Private", unlisted: "Unlisted", public: "Public" } as Record<string, string>,
   },
@@ -809,6 +816,8 @@ export const en = {
     keyword: "Target keyword",
     instructions: "Instructions",
     refs: (n: number) => (n === 1 ? "1 reference" : `${n} references`),
+    findings: (n: number) => (n === 1 ? "1 site finding to fix" : `${n} site findings to fix`),
+    openSite: "Open the Site page",
     wholeDocument: "Whole document",
     deliverables: "Outputs",
     noDeliverables: "This story has no outputs.",
@@ -859,6 +868,7 @@ export const en = {
       finalizing: "The approved draft could not be rendered at full resolution.",
       publishingVideo: "It could not be uploaded to YouTube.",
       publishingArticle: "It could not be written to the blog.",
+      publishingChange: "It could not be committed to the site's repository.",
       merging: "The pull request was closed without being merged.",
       unknown: "A step stopped with an error.",
     } as Record<string, string>,
@@ -929,6 +939,14 @@ export const en = {
       `It goes to ${repo} as a pull request against ${branch}, and is published once someone merges it.`,
     publishDir: (dir: string) => `It is written as a Markdown post into ${dir} on the server.`,
     publishDraft: "The post is marked as a draft, for a last manual pass.",
+    publishChange: "The change goes to the site's repository.",
+    publishChangeCommit: (repo: string, branch: string) =>
+      `It is committed to ${repo} on ${branch}; the site rebuilds from there.`,
+    publishChangePullRequest: (repo: string, branch: string) =>
+      `It goes to ${repo} as a pull request against ${branch}, starting from the commit it was made on, and goes live once someone merges it.`,
+    publishChangeDir: (dir: string) => `The patch is applied to the checkout in ${dir} on the server, for you to commit.`,
+    publishNoRepo:
+      "No repository is set up, so Ekin cannot publish the change yet. An owner can set it up in Settings › Publishing › Blog.",
     publishSite: (site: string) => `${site} shows it once the site rebuilds.`,
     publishSiteAfterMerge: (site: string) => `${site} shows it once the pull request is merged and the site rebuilds.`,
     publishClosable: "Until it is merged, closing the pull request stops it.",
@@ -996,6 +1014,7 @@ export const en = {
     item: (title: string, kind: string, n: number) =>
       n > 0 ? `${title}, ${kind.toLowerCase()} revision ${n}` : title,
     article: (title: string) => `Article: ${title}`,
+    change: (title: string) => `Change: ${title}`,
     endTitle: "That was the last draft",
     endBody: "New stories appear in Review when the agent is done.",
     summary: (approved: number, sent: number, notes: number, rejected: number) => {
@@ -1294,6 +1313,21 @@ export const en = {
       noNarration: "This revision has no narration file to edit.",
       noMetadata: "This revision has no metadata to edit.",
     },
+  },
+  change: {
+    noPatch: "This revision has no change yet.",
+    summary: "What changed",
+    stats: (files: number, added: number, removed: number) =>
+      `${files} ${files === 1 ? "file" : "files"} · +${added} −${removed}`,
+    base: (repo: string, branch: string, sha: string) => `${repo} · ${branch} at ${sha}`,
+    downloadPatch: "Download patch",
+    noBuild: "No build set up",
+    buildPassed: (seconds: number) => `Build passed · ${seconds} s`,
+    buildFailed: (code: number) => `Build failed · exit ${code}`,
+    binary: "Binary file; download the patch to see it.",
+    showAll: (n: number) => `Show ${n.toLocaleString("en-GB")} more lines`,
+    fileStatus: { added: "Added", modified: "Modified", deleted: "Deleted" } as Record<string, string>,
+    findings: "Findings it sets out to fix",
   },
   preview: {
     rendering: "The preview is being rendered.",
@@ -1949,6 +1983,25 @@ export const en = {
     findingStatus: { open: "Open", ignored: "Ignored", resolved: "Resolved" } as Record<string, string>,
     severity: { error: "Errors", warning: "Warnings", notice: "Notices" } as Record<string, string>,
     severityOne: { error: "Error", warning: "Warning", notice: "Notice" } as Record<string, string>,
+    change: {
+      title: "Request a change",
+      body: "Describe a change to the site, such as a new page or a fix. The agent edits a copy of the repository, builds the site, and the change comes back for review as a diff.",
+      fixBody:
+        "The agent fixes this rule's open findings (up to 25) in a copy of the repository and builds the site. The change comes back for review as a diff; nothing reaches the site until you approve it.",
+      instructions: "What should change",
+      instructionsHint: "The more specific, the better: which pages, what they should say or do.",
+      placeholder: "Add a pricing comparison page against Acme, linked from the pricing page.",
+      notes: "Notes for the agent (optional)",
+      notesHint: "Anything it should know: conventions, pages to leave alone.",
+      tooLong: "At most 5000 characters.",
+      nothingToFix: "Every open finding of this rule is already being fixed by a change.",
+      start: "Start the change",
+      starting: "Starting…",
+      started: "Change started; the agent is on it.",
+      fix: "Fix",
+      request: "Request a change",
+      beingFixed: "Being fixed",
+    },
     noFindings: {
       open: { title: "Nothing to fix", body: "The last crawl raised no findings." },
       ignored: { title: "Nothing ignored", body: "Findings you ignore are listed here and stay out of the open list." },
@@ -2074,6 +2127,11 @@ export const en = {
       maxPagesInvalid: "Enter a number from 1 to 5000.",
       schedule: "Crawl",
       schedules: { weekly: "Every week", daily: "Every day", off: "Only when started" } as Record<string, string>,
+      build: "Build command",
+      buildHint:
+        "Runs at the repository's root before a change goes to review; the change must pass it. The repository itself is set in Publishing › Blog. Leave empty to skip the build.",
+      buildPlaceholder: "npm ci && npm run build",
+      buildInvalid: "One line of at most 1000 characters.",
       save: "Save",
       saving: "Saving…",
       saved: "Site saved",

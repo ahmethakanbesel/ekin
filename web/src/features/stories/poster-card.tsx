@@ -89,7 +89,7 @@ export function PosterCard({
           selection?.selected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
         )}
       >
-        {lead?.kind === "article" ? (
+        {lead?.kind === "article" || lead?.kind === "change" ? (
           <ArticlePoster story={s} lead={lead} quiet={inReviewTab} />
         ) : (
           <VideoPoster

@@ -4,6 +4,7 @@ import {
   CircleXIcon,
   ClockIcon,
   FileTextIcon,
+  GitPullRequestIcon,
   Loader2Icon,
   VideoIcon,
   type LucideIcon,
@@ -73,7 +74,7 @@ export function KindIcon({
   kind: Deliverable["kind"]
   className?: string
 }) {
-  const Icon = kind === "video" ? VideoIcon : FileTextIcon
+  const Icon = kind === "video" ? VideoIcon : kind === "change" ? GitPullRequestIcon : FileTextIcon
   return (
     <Icon
       aria-hidden

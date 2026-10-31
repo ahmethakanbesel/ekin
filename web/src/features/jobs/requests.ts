@@ -40,6 +40,7 @@ export function phaseOf(job: Job): Phase {
     case "pipeline.run":
       return "plan"
     case "deliverable.draft":
+    case "change.draft":
       return "draft"
     case "deliverable.render":
       return job.subject.final ? "final" : "render"

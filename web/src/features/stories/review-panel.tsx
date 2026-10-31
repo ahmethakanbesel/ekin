@@ -25,6 +25,7 @@ import { formatDateTime, formatRelative, useNow } from "@/lib/time"
 import { pipelineHue } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { allDocumentsQuery } from "@/queries/documents"
+import { ruleText, severityBadge, shortURL } from "@/features/site/rules"
 import { StatusBadge } from "./badges"
 import {
   deliverableLabel,
@@ -642,6 +643,30 @@ function StoryFacts({
           <p className="max-h-80 overflow-y-auto font-mono text-[13px] whitespace-pre-wrap">
             {s.instructions}
           </p>
+        </Disclosure>
+      ) : null}
+      {s.findings?.length ? (
+        <Disclosure title={m.story.findings(s.findings.length)}>
+          <ul className="grid gap-2 text-sm">
+            {s.findings.map((f) => (
+              <li key={f.id} className="grid gap-0.5">
+                <span className="flex items-center gap-2">
+                  <Badge className={severityBadge[f.severity]}>{m.site.severityOne[f.severity]}</Badge>
+                  {ruleText(f.rule).title}
+                </span>
+                <span className="truncate font-mono text-xs text-muted-foreground" title={f.url}>
+                  {shortURL(f.url, undefined)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <Link
+            to="/w/$workspaceId/site"
+            params={{ workspaceId }}
+            className="mt-3 inline-block text-sm text-primary hover:underline"
+          >
+            {m.story.openSite}
+          </Link>
         </Disclosure>
       ) : null}
       {s.refs?.length ? (

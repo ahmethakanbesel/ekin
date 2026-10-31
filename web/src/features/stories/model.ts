@@ -45,7 +45,9 @@ export function failureSummary(d: Pick<Deliverable, "failedStep" | "kind">): {
     step === "publishing"
       ? d.kind === "video"
         ? t.failedWhat.publishingVideo
-        : t.failedWhat.publishingArticle
+        : d.kind === "change"
+          ? t.failedWhat.publishingChange
+          : t.failedWhat.publishingArticle
       : t.failedWhat[step]
   return { what, next: t.failedNext[step] }
 }
@@ -99,6 +101,7 @@ export function sourceOf(story: Story, d: Deliverable): Deliverable | undefined 
 export const SCOPES: Record<Deliverable["kind"], FeedbackScope[]> = {
   video: ["all", "script", "voice", "visuals", "music", "metadata"],
   article: ["all", "script", "metadata"],
+  change: ["all"],
 }
 
 /**

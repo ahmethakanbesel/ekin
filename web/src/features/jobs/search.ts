@@ -36,9 +36,9 @@ export function parseQueueFilter(raw: unknown): Queue | undefined {
  */
 export const QUEUE_KINDS: Record<Queue, string[]> = {
   control: ["story.adhoc", "story.moments", "pipeline.run"],
-  agent: ["deliverable.draft", "seo.refresh", "template.generate"],
+  agent: ["deliverable.draft", "change.draft", "seo.refresh", "template.generate"],
   tts: ["voice.preview"],
   render: ["deliverable.render"],
   extract: ["knowledge.extract", "library.ingest"],
-  io: ["deliverable.publish", "library.harvest"],
+  io: ["deliverable.publish", "library.harvest", "site.crawl"],
 }

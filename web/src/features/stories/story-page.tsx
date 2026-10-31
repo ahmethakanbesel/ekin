@@ -286,6 +286,7 @@ function StoryView({
   const deciding = !!review.pendingApproval
   const canEditContent =
     canEdit &&
+    selected.kind !== "change" &&
     selected.status === "review" &&
     selected.revision > 0 &&
     !deciding

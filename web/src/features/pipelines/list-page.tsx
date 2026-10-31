@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import {
   FileTextIcon,
+  GitPullRequestIcon,
   MoreHorizontalIcon,
   PauseIcon,
   PencilIcon,
@@ -213,6 +214,8 @@ function PipelineRow({
             <li key={line.kind} className="flex items-start gap-1.5 text-sm">
               {line.kind === "video" ? (
                 <VideoIcon className="mt-0.75 size-3.5 shrink-0 text-muted-foreground" />
+              ) : line.kind === "change" ? (
+                <GitPullRequestIcon className="mt-0.75 size-3.5 shrink-0 text-muted-foreground" />
               ) : (
                 <FileTextIcon className="mt-0.75 size-3.5 shrink-0 text-muted-foreground" />
               )}

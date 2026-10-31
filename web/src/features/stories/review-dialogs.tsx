@@ -212,10 +212,21 @@ function destination(
       ready: true,
     }
   }
-  if (!settings) return { text: t.publishBlog }
+  if (!settings) return { text: kind === "change" ? t.publishChange : t.publishBlog }
   const blog = settings.blog
-  if (!blog) return { text: t.publishNoBlog, ready: false }
+  if (!blog) return { text: kind === "change" ? t.publishNoRepo : t.publishNoBlog, ready: false }
   const pullRequest = blog.kind === "github" && blog.mode === "pull_request"
+  if (kind === "change") {
+    const text =
+      blog.kind === "github" && blog.repo
+        ? pullRequest
+          ? t.publishChangePullRequest(blog.repo, blog.branch || "main")
+          : t.publishChangeCommit(blog.repo, blog.branch || "main")
+        : blog.kind === "dir" && blog.dir
+          ? t.publishChangeDir(blog.dir)
+          : t.publishChange
+    return { text, ready: true, pullRequest }
+  }
   const parts = [
     blog.kind === "github" && blog.repo
       ? pullRequest

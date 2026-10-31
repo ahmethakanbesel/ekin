@@ -15,6 +15,7 @@ import {
   EyeIcon,
   FileTextIcon,
   FilmIcon,
+  GitPullRequestIcon,
   Loader2Icon,
 } from "lucide-react"
 
@@ -33,6 +34,7 @@ import { pipelineHue } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { artifactUrl, revisionsQuery } from "@/queries/stories"
 import { StatusBadge } from "./badges"
+import { ChangePreview } from "./change-preview"
 import { SittingSummary } from "./sitting-summary"
 import { PlayerBar, PlayerCorner, usePlayback, type PlaybackStore } from "./player"
 import {
@@ -441,7 +443,8 @@ export function DraftFrame({
   const script =
     d?.kind === "video" &&
     (revision ? revision.stage === "script" : d.stage === "script" && d.revision > 0)
-  if (d?.kind === "article" || script) {
+  const change = d?.kind === "change"
+  if (d?.kind === "article" || script || change) {
     // Its own scroller: the wheel reads on and, at either end, a new
     // gesture moves the feed. Focused (click or Tab), Space and the arrow
     // keys scroll the article; J and K still move between drafts.
@@ -452,7 +455,9 @@ export function DraftFrame({
           current
             ? script
               ? m.feed.script(story.title)
-              : m.feed.article(story.title)
+              : change
+                ? m.feed.change(story.title)
+                : m.feed.article(story.title)
             : undefined
         }
         tabIndex={current ? 0 : undefined}
@@ -460,17 +465,26 @@ export function DraftFrame({
       >
         <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b bg-card/95 px-5 py-3">
           <StatusBadge status={d.status} revision={d.revision} quiet />
-          <Badge variant="outline">
-            <FileTextIcon data-icon="inline-start" />
-            {script ? m.feed.scriptKind : m.values.kind.article}
-            {" · "}
-            <span className="uppercase">{d.language}</span>
-            {measuredWords(measured) ? ` · ${measuredWords(measured)}` : null}
-          </Badge>
+          {change ? (
+            <Badge variant="outline">
+              <GitPullRequestIcon data-icon="inline-start" />
+              {m.values.kind.change}
+            </Badge>
+          ) : (
+            <Badge variant="outline">
+              <FileTextIcon data-icon="inline-start" />
+              {script ? m.feed.scriptKind : m.values.kind.article}
+              {" · "}
+              <span className="uppercase">{d.language}</span>
+              {measuredWords(measured) ? ` · ${measuredWords(measured)}` : null}
+            </Badge>
+          )}
         </div>
         <div className="p-5 md:px-8 md:py-7">
           {player && artifacts && revision ? (
-            script ? (
+            change ? (
+              <ChangePreview artifacts={artifacts} revision={revision} />
+            ) : script ? (
               <ScriptPreview
                 artifacts={artifacts}
                 revision={revision}

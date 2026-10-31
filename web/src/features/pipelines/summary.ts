@@ -2,13 +2,14 @@ import type { PipelineDefinition } from "@/api/client"
 import { m } from "@/i18n"
 import { formatDuration } from "@/lib/time"
 
-export type OutputLine = { kind: "video" | "article"; text: string; lead: boolean }
+export type OutputLine = { kind: "video" | "article" | "change"; text: string; lead: boolean }
 
 /** One line per produced deliverable, lead marked when there are two. */
 export function outputLines(def: PipelineDefinition): OutputLine[] {
   const { video, article, lead } = def.outputs
   const both = !!video && !!article
   const lines: OutputLine[] = []
+  if (lead === "change") return [{ kind: "change", text: m.pipelines.changeSummary, lead: false }]
   if (video) {
     lines.push({
       kind: "video",

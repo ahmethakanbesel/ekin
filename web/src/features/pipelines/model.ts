@@ -202,7 +202,7 @@ export function fromDefinition(
     article: article
       ? { words: String(article.words), translations: [...article.translations] }
       : base.article,
-    lead: lead ?? (video ? "video" : "article"),
+    lead: lead === "change" || !lead ? (video || !article ? "video" : "article") : lead,
     source: {
       kind: def.source.kind,
       instructions: def.source.instructions,
@@ -268,7 +268,7 @@ export function toDefinition(v: PipelineFormValues): PipelineDefinition {
   const def: PipelineDefinition = {
     name: v.name.trim(),
     language: v.language,
-    outputs: toOutputs(v, v.language),
+    outputs: v.source.kind === "findings" ? { lead: "change" } : toOutputs(v, v.language),
     source: {
       kind: v.source.kind,
       instructions: v.source.instructions.trim(),
@@ -336,7 +336,7 @@ export function validatePipeline(v: PipelineFormValues, docs?: KnownDocuments): 
   if (!name) fields.name = t.nameRequired
   else if ([...name].length > LIMITS.name) fields.name = t.nameTooLong
 
-  const form = validateOutputs(v, fields)
+  const form = v.source.kind === "findings" ? undefined : validateOutputs(v, fields)
 
   const instructions = v.source.instructions.trim()
   if ([...instructions].length > LIMITS.instructions) {

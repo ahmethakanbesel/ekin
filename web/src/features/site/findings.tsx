@@ -5,7 +5,9 @@ import {
   CircleCheckIcon,
   EyeOffIcon,
   RotateCcwIcon,
+  WrenchIcon,
 } from "lucide-react"
+import { Link } from "@tanstack/react-router"
 import { toast } from "sonner"
 
 import type { SiteFinding, SiteFindingStatus, SiteOverview } from "@/api/client"
@@ -24,6 +26,7 @@ import { formatInteger } from "@/lib/format"
 import { formatAgo, formatDateTime, useNow } from "@/lib/time"
 import { cn } from "@/lib/utils"
 import { siteFindingsQuery, useSetFindingStatus } from "@/queries/site"
+import { ChangeDialog } from "./change-dialog"
 import {
   SEVERITIES,
   SITE_WIDE,
@@ -108,11 +111,14 @@ function RuleGroup({
   crawl: string
 }) {
   const text = ruleText(rule)
+  const canEdit = useCan("edit")
   // A closed <details> still mounts its children; load the pages only
   // once the rule is opened.
   const [open, setOpen] = useState(false)
+  const [fixing, setFixing] = useState(false)
   return (
     <li>
+      <ChangeDialog open={fixing} onOpenChange={setFixing} rule={rule} />
       <details
         className="group"
         onToggle={(e) => setOpen(e.currentTarget.open)}
@@ -133,6 +139,21 @@ function RuleGroup({
           <span className="tabular shrink-0 text-sm text-muted-foreground">
             {SITE_WIDE.has(rule) ? t.siteWide : t.pagesCount(count)}
           </span>
+          {canEdit ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="-my-1 shrink-0"
+              onClick={(e) => {
+                // Inside <summary>: open the dialog, not the rule.
+                e.preventDefault()
+                setFixing(true)
+              }}
+            >
+              <WrenchIcon data-icon="inline-start" />
+              {t.change.fix}
+            </Button>
+          ) : null}
         </summary>
         {open ? (
           <RuleFindings rule={rule} overview={overview} crawl={crawl} />
@@ -255,6 +276,16 @@ function FindingRow({
             <Badge variant="outline" className={severityBadge[f.severity]}>
               {ruleText(f.rule).title}
             </Badge>
+          ) : null}
+          {f.claimedBy ? (
+            <Link
+              to="/w/$workspaceId/stories/$storyId"
+              params={{ workspaceId: workspace.id, storyId: f.claimedBy }}
+              className="inline-flex items-center gap-1 rounded-full bg-info/15 px-2 text-xs leading-5 text-info hover:underline"
+            >
+              <WrenchIcon className="size-3" aria-hidden="true" />
+              {t.change.beingFixed}
+            </Link>
           ) : null}
           {siteWide ? (
             <span className="text-sm font-medium">{t.siteWide}</span>

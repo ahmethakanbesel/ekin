@@ -172,3 +172,31 @@ export function useSetFindingStatus(workspaceId: string) {
       void qc.invalidateQueries({ queryKey: keys.site(workspaceId) }),
   })
 }
+
+/** Open findings of rule no change holds yet, up to max (POST /changes takes 25). */
+export async function claimableFindings(workspaceId: string, rule: string, max = 25): Promise<SiteFinding[]> {
+  const out = await call(
+    api.GET("/workspaces/{workspaceId}/site/findings", {
+      params: { path: { workspaceId }, query: { status: ["open"], rule, limit: 200 } },
+    })
+  )
+  return out.findings.filter((f) => !f.claimedBy).slice(0, max)
+}
+
+/** Starts a change to the site: findings to fix and/or instructions. */
+export function useRequestChange(workspaceId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { findingIds?: string[]; instructions?: string }) =>
+      call(
+        api.POST("/workspaces/{workspaceId}/changes", {
+          params: { path: { workspaceId } },
+          body,
+        })
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.site(workspaceId) })
+      void qc.invalidateQueries({ queryKey: keys.stories(workspaceId) })
+    },
+  })
+}

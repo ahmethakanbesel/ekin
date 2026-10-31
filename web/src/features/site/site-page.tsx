@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import {
@@ -7,6 +8,7 @@ import {
   Loader2Icon,
   RefreshCwIcon,
   SettingsIcon,
+  WrenchIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -28,6 +30,7 @@ import { formatAgo, formatDateTime, formatRelative, useNow } from "@/lib/time"
 import { iconClass, toneClass, type BannerTone } from "@/lib/tones"
 import { cn } from "@/lib/utils"
 import { crawlActive, siteQuery, useCrawlSite } from "@/queries/site"
+import { ChangeDialog } from "./change-dialog"
 import { FindingsView } from "./findings"
 import { PagesTable } from "./pages-table"
 import { FINDING_TABS, PAGE_CLASSES, type PageClassTab } from "./search"
@@ -43,6 +46,7 @@ export function SitePage() {
   const crawl = useCrawlSite(workspace.id)
   const o = query.data
   const active = crawlActive(o)
+  const [requesting, setRequesting] = useState(false)
 
   const settingsButton = (
     <Button
@@ -95,6 +99,12 @@ export function SitePage() {
             <>
               {settingsButton}
               {canEdit ? (
+                <Button variant="outline" onClick={() => setRequesting(true)}>
+                  <WrenchIcon data-icon="inline-start" />
+                  {t.change.request}
+                </Button>
+              ) : null}
+              {canEdit ? (
                 <Button
                   disabled={active || crawl.isPending}
                   onClick={() => void start()}
@@ -110,6 +120,7 @@ export function SitePage() {
           ) : null
         }
       />
+      <ChangeDialog open={requesting} onOpenChange={setRequesting} />
       {o?.site && !canEdit ? (
         <ReadOnlyNote>{t.readOnlyHint}</ReadOnlyNote>
       ) : null}

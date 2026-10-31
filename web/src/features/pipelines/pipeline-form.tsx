@@ -57,16 +57,19 @@ type Props = {
   onSubmit: (definition: PipelineDefinition) => Promise<void>
 }
 
-const SOURCE_KINDS: SourceKind[] = ["prompt", "knowledge", "seo"]
+const SOURCE_KINDS: SourceKind[] = ["prompt", "knowledge", "seo", "findings"]
 
 /** What the instructions are called per source: a system prompt, guidance or a brief. */
 const instructionsCopy: Record<SourceKind, { label: string; hint: string }> = {
   prompt: { label: m.pipelineForm.systemPrompt, hint: m.pipelineForm.systemPromptHint },
   knowledge: { label: m.pipelineForm.guidance, hint: m.pipelineForm.guidanceHint },
   seo: { label: m.pipelineForm.seoBrief, hint: m.pipelineForm.seoBriefHint },
+  findings: { label: m.pipelineForm.findingsGuidance, hint: m.pipelineForm.findingsGuidanceHint },
 }
 
 const refsFieldMap = { refs: "source.refs" } as const
+
+const videoEnabledIn = (v: PipelineFormValues) => v.videoEnabled && v.source.kind !== "findings"
 
 const languageItems = LANGUAGES.map((l) => ({ value: l, label: m.values.language[l] }))
 
@@ -115,8 +118,9 @@ export function PipelineForm({
   const language = useStore(form.store, (s) => s.values.language)
   const sourceKind = useStore(form.store, (s) => s.values.source.kind)
   const scheduled = useStore(form.store, (s) => s.values.scheduled)
-  const videoEnabled = useStore(form.store, (s) => s.values.videoEnabled)
-  const longVideo = useStore(form.store, (s) => s.values.videoEnabled && s.values.video.format === "long")
+  // A findings pipeline makes changes to the site only.
+  const videoEnabled = useStore(form.store, (s) => s.values.videoEnabled && s.values.source.kind !== "findings")
+  const longVideo = useStore(form.store, (s) => videoEnabledIn(s.values) && s.values.video.format === "long")
   const articleEnabled = useStore(form.store, (s) => s.values.articleEnabled)
 
   // Re-check the references once the documents arrive (or change status).
@@ -198,38 +202,44 @@ export function PipelineForm({
         description={m.pipelineForm.outputsHint}
         disabled={readOnly}
       >
-        <OutputsFields
-          form={form}
-          fields={outputsFieldMap}
-          language={language}
-          readOnly={readOnly}
-          submitted={submitted}
-          formError={formError}
-          idPrefix="pl"
-        />
+        {sourceKind === "findings" ? (
+          <p className="text-sm text-muted-foreground">{m.pipelineForm.changeOutput}</p>
+        ) : (
+          <OutputsFields
+            form={form}
+            fields={outputsFieldMap}
+            language={language}
+            readOnly={readOnly}
+            submitted={submitted}
+            formError={formError}
+            idPrefix="pl"
+          />
+        )}
       </Section>
 
       {/* House style */}
-      <LayeredCard
-        title={m.pipelineForm.sections.style}
-        description={m.pipelineForm.styleHint}
-        fromLabel={m.settings.columns.inherited}
-        hereLabel={m.settings.production.thisPipeline}
-      >
-        <div className="pb-4">
-          <form.Field name="templateId">
-            {(field) => (
-              <InheritedTemplateRow
-                id="pl-template"
-                value={field.state.value}
-                onChange={field.handleChange}
-                kinds={chosenKinds({ videoEnabled, articleEnabled })}
-                readOnly={readOnly}
-              />
-            )}
-          </form.Field>
-        </div>
-      </LayeredCard>
+      {sourceKind === "findings" ? null : (
+        <LayeredCard
+          title={m.pipelineForm.sections.style}
+          description={m.pipelineForm.styleHint}
+          fromLabel={m.settings.columns.inherited}
+          hereLabel={m.settings.production.thisPipeline}
+        >
+          <div className="pb-4">
+            <form.Field name="templateId">
+              {(field) => (
+                <InheritedTemplateRow
+                  id="pl-template"
+                  value={field.state.value}
+                  onChange={field.handleChange}
+                  kinds={chosenKinds({ videoEnabled, articleEnabled })}
+                  readOnly={readOnly}
+                />
+              )}
+            </form.Field>
+          </div>
+        </LayeredCard>
+      )}
 
       {/* Source */}
       <Section title={m.pipelineForm.sections.source} disabled={readOnly}>
@@ -240,7 +250,7 @@ export function PipelineForm({
                 disabled={readOnly}
                 value={field.state.value}
                 onValueChange={(v) => field.handleChange(v as SourceKind)}
-                className="grid gap-3 md:grid-cols-3"
+                className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
                 aria-label={m.pipelineForm.sourceKind}
               >
                 {SOURCE_KINDS.map((k) => (
