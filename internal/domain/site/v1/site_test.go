@@ -200,3 +200,48 @@ func TestBuildCommand(t *testing.T) {
 		t.Fatalf("rehydrate build: %v", err)
 	}
 }
+
+func TestCompetitorAndDiff(t *testing.T) {
+	ws := id.New()
+	c, err := site.NewCompetitor(id.New(), ws, "", "www.Globex.io", now)
+	if err != nil || c.URL() != "https://www.globex.io/" || c.Name() != "globex.io" || !c.Baseline() || !c.Due(now) {
+		t.Fatalf("competitor = %+v %v", c, err)
+	}
+	if _, err := site.NewCompetitor(id.New(), ws, "x", "ftp://nope", now); !apperror.Is(err, apperror.ValidationFailed) {
+		t.Fatalf("bad address accepted: %v", err)
+	}
+	pages, changes := site.DiffPages(nil, []string{"https://globex.io/a", "https://globex.io/b", "https://globex.io/a"}, true, ws, c.ID(), id.New, now)
+	if len(pages) != 2 || len(changes) != 0 {
+		t.Fatalf("baseline = %d pages, %d changes", len(pages), len(changes))
+	}
+	c.Checked(2, now)
+	if c.Baseline() || c.Due(now.Add(time.Hour)) || !c.Due(now.Add(site.CompetitorEvery)) {
+		t.Fatal("after the first check")
+	}
+	later := now.Add(site.CompetitorEvery)
+	pages, changes = site.DiffPages(pages, []string{"https://globex.io/b", "https://globex.io/c"}, false, ws, c.ID(), id.New, later)
+	kinds := map[string]site.ChangeKind{}
+	for _, ch := range changes {
+		kinds[ch.URL] = ch.Kind
+	}
+	if len(pages) != 3 || len(changes) != 2 || kinds["https://globex.io/c"] != site.PageAdded || kinds["https://globex.io/a"] != site.PageRemoved {
+		t.Fatalf("diff = %d pages, %+v", len(pages), changes)
+	}
+	// A removed page that comes back counts as added again.
+	pages, changes = site.DiffPages(pages, []string{"https://globex.io/a", "https://globex.io/b", "https://globex.io/c"}, false, ws, c.ID(), id.New, later.Add(time.Hour))
+	if len(changes) != 1 || changes[0].Kind != site.PageAdded || changes[0].URL != "https://globex.io/a" {
+		t.Fatalf("comeback = %+v", changes)
+	}
+	// Once removed, a page stays removed without another change.
+	pages, changes = site.DiffPages(pages, []string{"https://globex.io/b", "https://globex.io/c"}, false, ws, c.ID(), id.New, later.Add(2*time.Hour))
+	if len(changes) != 1 || changes[0].Kind != site.PageRemoved {
+		t.Fatalf("removal = %+v", changes)
+	}
+	if _, changes = site.DiffPages(pages, []string{"https://globex.io/b", "https://globex.io/c"}, false, ws, c.ID(), id.New, later.Add(3*time.Hour)); len(changes) != 0 {
+		t.Fatalf("removed twice: %+v", changes)
+	}
+	back, err := site.RehydrateCompetitor(c.Snapshot())
+	if err != nil || back.Pages() != 2 {
+		t.Fatalf("rehydrate = %v", err)
+	}
+}
