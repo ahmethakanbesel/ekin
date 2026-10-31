@@ -63,9 +63,9 @@ person approved.
 - **Site**: one per workspace: its address, a page limit per crawl (500 by default, at
   most 5000) and a crawl schedule (weekly by default, daily, or only on demand). A new
   site, or one moved to another address, is crawled at once; a move drops the old
-  pages and findings. The repository settings stay on the blog target until changes
-  need them (milestone 12), when they join the site with a build command; competitors'
-  domains join it in milestone 15.
+  pages and findings. The site keeps the build command; the repository itself stays the
+  blog target's (Settings › Publishing › Blog), which changes publish through too.
+  Competitors' domains join the site in milestone 15.
 - **Crawl and inventory**: robots.txt and the sitemaps (falling back to following
   internal links, capped) give the page inventory: URL, status, redirect target,
   title, meta description, canonical, `h1`, structured-data types, word count, internal
@@ -128,8 +128,9 @@ Not in scope yet: visitor identification, outreach, CRM sync, ads, A/B tests, ho
 | Merge tracking | `ekin serve` calls `CheckMerges` every `EKIN_MERGE_POLL` (5m): one GET per open pull request, no jobs. Not a job chain, so days of waiting leave no trail of jobs. The branch name ends in the publish job's id, so a retried attempt finds its own pull request and a new publication gets a fresh branch. |
 | Site crawl | `internal/adapter/crawl`: Go `net/http`, one request at a time with `EKIN_CRAWL_DELAY` (500ms) between them or a longer Crawl-delay (up to 10s); robots.txt obeyed as `EkinBot` (`pkg/robots`, RFC 9309); redirects recorded, not followed; `golang.org/x/net/html` for parsing. The dialer refuses loopback, private and link-local addresses after DNS resolution unless `EKIN_CRAWL_ALLOW_PRIVATE`. A `site.crawl` job on the io queue, one per workspace at a time; a crawl unfinished after 3h running (6h queued) is taken as stopped. The latest crawl's pages replace the inventory (first seen kept); page bodies are not kept. |
 | Audit rules | Plain Go functions over the inventory, table-tested; no model decides whether a title is missing. The agent only writes fixes. |
-| Change agent | Same `Agent` port. Work dir holds a shallow clone (`git clone --depth 1`) of the base branch; allow-list adds `Bash(ekin tool build)`, `Bash(ekin tool diff)` and nothing else from the shell. The build command comes from the site settings and runs with the job's CPU limit and no secrets in its environment. |
-| Git publishing | GitHub Git Data API as today; pull-request mode adds a branch ref and `POST /pulls`. A `git` adapter for other hosts may follow. |
+| Finding claims | A change claims its findings (`claimed_by`, `claimed_at`) so no other change takes them; rejecting or deleting the change releases them, a crawl that resolves or reopens a finding clears its claim, and a claim older than 14 days lapses. A findings pipeline's change takes up to 10 findings of the most severe rule with unclaimed ones; one from the Site page takes up to 25. |
+| Change agent | Same `Agent` port, its own job kind (`change.draft`) so remote hybrid workers never take it. The work dir's `repo/` is the GitHub tarball of the branch's tip (no git remote, so no token on disk) or the local checkout's files, committed once locally as the base; the change is the diff against it. Allow-list: file tools plus `Bash(ekin tool build)` and `Bash(ekin tool diff)`, nothing else from the shell. The build command (site settings) runs in its own process group with a scrubbed environment (PATH, a HOME inside the work dir, CI=true) and a 15-minute limit; afterwards the repository is reset to its pre-build tree, so build output never enters the change. Ekin reruns the build itself when the agent's last passing build was on other edits. Revisions archive the work dir without `repo/`; another host rebuilds it from the base commit and the patch. A change may not touch `.github/` and is capped at 200 files and a 4 MB patch. |
+| Git publishing | GitHub Git Data API as today; pull-request mode adds a branch ref and `POST /pulls`. A change's pull request branches from the commit it was made on; a change committed to the branch is refused when the compare API shows someone changed one of its files since. Deletions are tree entries with a null SHA. A local checkout gets the patch applied (`git apply`), uncommitted. A `git` adapter for other hosts may follow. |
 | Search Console | The Google OAuth client already used for YouTube, connected separately with the `webmasters.readonly` scope; the refresh token is sealed like the channel's. |
 | AI visibility models | OpenRouter (already a credential), so one key reaches several answer engines' models. Answers are kept for 90 days; mentions and citations for good. |
 | Notifications | In-app feed + SMTP digests (one email per person per flush, `EKIN_NOTIFY_EVERY`). Invitations are emailed when SMTP is set. |
@@ -290,10 +291,15 @@ Site growth (see §1):
     ✅ crawled a local test site end to end through the UI. Core Web Vitals (PageSpeed
     Insights) not yet.
 
+12. Changes — `change` deliverable from the Site page (a rule's findings, or a request
+    in words) or a `findings` pipeline; repository work dir; `ekin tool build` and
+    `ekin tool diff`; review as a summary, build result and diff; publish as a commit, a
+    pull request or a patch to the local checkout. ✅ a real agent fixed duplicate titles
+    on a local test site (git checkout, a shell build), revised it from a note, and the
+    approved patch landed in the checkout; GitHub publishing tested against a fake API.
+
 Planned:
 
-12. Changes — `change` deliverable, repository work dir, `ekin tool build` and
-    `ekin tool diff`, diff review, `findings` pipeline source.
 13. Search Console — connection, daily pull, before/after on stories, digest lines.
 14. AI visibility — prompt set, scheduled runs through OpenRouter, mentions and citations,
     `visibility` pipeline source.

@@ -231,6 +231,35 @@ ignore one that does not matter here.
 Ekin refuses to crawl an address that resolves to a loopback or private network address;
 set `EKIN_CRAWL_ALLOW_PRIVATE=true` for a site on Ekin's own network.
 
+### Changes
+
+A **change** is an edit to the site's repository, reviewed as a diff before it reaches
+the site. Start one from the **Site** page: **Fix** on a rule takes its open findings (up
+to 25), and **Request a change** takes a description in words ("add a comparison page
+against Acme"). A pipeline with the **Site findings** source does the same on a schedule:
+each change takes up to 10 findings of the most severe rule left. A finding a change
+holds is marked *Being fixed*, so two changes never take it on; rejecting the change
+gives it back, and a crawl that no longer raises it resolves it.
+
+The agent works on a copy of the repository (the GitHub repository at the tip of its
+branch, or the local checkout, as set in **Settings › Publishing › Blog**). It may edit
+files there and run two commands, `ekin tool build` and `ekin tool diff`, nothing else. The build is
+the **Build command** in Settings › Site (for example `npm ci && npm run build`); it runs
+at the repository's root with none of Ekin's or the agent's secrets in its environment,
+and whatever it writes is cleaned up, so build output never becomes part of the change. A
+change must pass the build before it comes to review, and may not touch `.github/`.
+
+Review shows the agent's summary, the build result and the diff file by file; notes
+resume the agent on the same copy. Approving publishes it through the blog target's
+mode: a commit to the branch (refused when someone changed the same files since), a
+pull request that starts from the commit the change was made on and is tracked until it
+is merged, or, for a local checkout, the patch applied for you to commit. The GitHub
+token needs contents write access, and pull requests write access in pull-request mode.
+
+Changes run only on workers that share the server's database (`ekin worker` beside
+`ekin serve`, or `ekin all`), never on a remote hybrid worker, and the build needs the
+site's toolchain on that host: the `ekin` image has git, Node.js and npm.
+
 ## Team notes
 
 Every revision can carry one team note (**History** → *Add a team note*): what was
