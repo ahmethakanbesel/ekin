@@ -132,7 +132,9 @@ func TestSuggestDraftAndRun(t *testing.T) {
 	}
 	local := visibilitysvc.NewService(visibilitysvc.Deps{Repo: visibilityrepo.NewInMemory(), Tx: &db.MemTxManager{}, Jobs: f.jobs,
 		Asker: func(context.Context) visibilitysvc.Asker { return f.asker },
-		Known: func(context.Context, uuid.UUID) visibilitysvc.Context { return visibilitysvc.Context{Domain: "http://127.0.0.1:8091/"} }})
+		Known: func(context.Context, uuid.UUID) visibilitysvc.Context {
+			return visibilitysvc.Context{Domain: "http://127.0.0.1:8091/"}
+		}})
 	if o, _ := local.Overview(ctx, f.ws); o.Suggested.Brand.Name != "" || o.Suggested.Brand.Domain != "" {
 		t.Fatalf("an IP address suggested a brand: %+v", o.Suggested.Brand)
 	}
