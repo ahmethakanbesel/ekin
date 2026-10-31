@@ -262,7 +262,7 @@ environment variables below, which remain the fallback.
 | Email digests | `EKIN_SMTP_HOST/PORT/USERNAME/PASSWORD/FROM` |
 | Duplicate verdicts | `EKIN_OPENROUTER_API_KEY` (Jev) |
 | YouTube | `EKIN_YOUTUBE_CLIENT_ID/SECRET`; redirect URI `<EKIN_PUBLIC_URL>/api/v1/oauth/youtube/callback`; then connect the channel in workspace settings |
-| Blog | Workspace settings → GitHub repo + token, or a local checkout |
+| Blog | Workspace settings → GitHub repo + token, or a local checkout. A GitHub blog either commits each approved article to its branch or opens a pull request for it (the token then needs pull requests write access too); the article waits in **Awaiting merge** and is marked published once the pull request is merged. The server checks open pull requests every `EKIN_MERGE_POLL` (5m); one closed without merging fails the article, and Retry opens a new one. |
 | OpenSEO | An API key (`oseo_…`, from OpenSEO) under System → Credentials or `EKIN_OPENSEO_API_KEY`: refreshes call OpenSEO's endpoint directly (`research_keywords` per seed, `get_domain_keyword_suggestions` per competitor) and Ekin ranks the results itself. Without a key, the worker host's Claude Code with the OpenSEO plugin connected does the refresh. |
 | Hybrid worker | Server: `EKIN_WORKER_TOKEN`. Mac: `EKIN_REMOTE_URL=… EKIN_WORKER_TOKEN=… ekin worker` |
 

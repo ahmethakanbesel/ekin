@@ -84,7 +84,7 @@ person approved.
   session as for any deliverable; approval publishes it through the site's publish mode.
 - **Pull requests and merge tracking**: in pull-request mode, publishing an article or
   a change pushes a branch (`ekin/<slug>`) and opens a PR. The deliverable then waits in
-  **merging** while a poll job watches the PR: merged → **published** at the live URL;
+  **merging** while the server checks the PR every few minutes: merged → **published** at the live URL;
   closed without merging → **failed** with that reason (Retry opens a fresh PR).
 - **Measurement**: Google Search Console (OAuth, read-only) is pulled daily as clicks,
   impressions and average position per page and per query. Each published article or
@@ -121,7 +121,8 @@ Not in scope yet: visitor identification, outreach, CRM sync, ads, A/B tests, ho
 | TTS | `Speech` port. English: Kokoro-82M (timestamped ONNX). Turkish: okur-tts (with word timings from its duration predictor). |
 | Music | `Music` port. MVP: procedural — the agent writes a Tone.js score rendered offline in Chromium. Paid API (Lyria) may follow. Or a library track (`music.json`), cut to length and faded out. |
 | Stock media | Pexels video and photos (no audio); clips are transcoded to short VP8 WebM so the composition can seek them frame by frame. Or library items, through `ekin tool library`. |
-| Blog | Markdown with the site's frontmatter committed to `marketing/src/content/blog/{tr,en}` in one commit through the GitHub Git Data API, or written into a local checkout. Video embeds become privacy-enhanced iframes. No CMS migration. |
+| Blog | Markdown with the site's frontmatter committed to `marketing/src/content/blog/{tr,en}` in one commit through the GitHub Git Data API — onto the branch, or onto `ekin/<slug>-<job>` with a pull request against it — or written into a local checkout. Video embeds become privacy-enhanced iframes. No CMS migration. |
+| Merge tracking | `ekin serve` calls `CheckMerges` every `EKIN_MERGE_POLL` (5m): one GET per open pull request, no jobs. Not a job chain, so days of waiting leave no trail of jobs. The branch name ends in the publish job's id, so a retried attempt finds its own pull request and a new publication gets a fresh branch. |
 | Site crawl | Go `net/http` with a per-site rate limit and robots.txt respected; `golang.org/x/net/html` for parsing. Pages and findings are rows in SQLite; page bodies are not kept. |
 | Audit rules | Plain Go functions over the inventory, table-tested; no model decides whether a title is missing. The agent only writes fixes. |
 | Change agent | Same `Agent` port. Work dir holds a shallow clone (`git clone --depth 1`) of the base branch; allow-list adds `Bash(ekin tool build)`, `Bash(ekin tool diff)` and nothing else from the shell. The build command comes from the site settings and runs with the job's CPU limit and no secrets in its environment. |
@@ -275,10 +276,14 @@ noted.
    check), chunked rendering; ✅ a 2-minute video produced end to end (draft, review,
    1080p final) and cut into shorts; longer, chaptered videos not yet.
 
-Planned (site growth, see §1):
+Site growth (see §1):
 
-10. Pull requests — publish mode per blog target (commit or PR), `merging` status, PR
-    poll job; articles first.
+10. Pull requests — publish mode per blog target (commit or pull request), `merging`
+    status, merge polling in `serve`, Awaiting merge in the UI; articles first. Built
+    and tested against a fake GitHub; not yet run against a real repository.
+
+Planned:
+
 11. Site — connect (blog target grows into the site), crawl, page inventory, audit rules
     and findings, Site page in the UI.
 12. Changes — `change` deliverable, repository work dir, `ekin tool build` and
