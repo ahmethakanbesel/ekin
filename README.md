@@ -260,6 +260,23 @@ Changes run only on workers that share the server's database (`ekin worker` besi
 `ekin serve`, or `ekin all`), never on a remote hybrid worker, and the build needs the
 site's toolchain on that host: the `ekin` image has git, Node.js and npm.
 
+## Search Console
+
+**Settings › Publishing › Google Search Console** connects the workspace to one Search
+Console property with read-only access (the `webmasters.readonly` scope), through the
+same Google Cloud OAuth client as YouTube: add the scope to its consent screen and
+register the redirect URI that **Server checks** shows. When one property covers the
+site's address (or the account has only one), it is chosen for you.
+
+Once a day Ekin reads clicks, impressions and average position per page and per query:
+the last 90 days on the first sync, then the newest days plus the last three again,
+which Google keeps revising. It keeps those daily totals only, never anything about
+individual visitors, and disconnecting deletes them. The **Search** tab of the Site page
+shows the site's totals against the period before and the top pages and queries; a
+published article's or change's story shows its pages' 28 days before going live
+against the days since, per day; and the email digest says which pages' clicks moved most
+this week against the week before.
+
 ## Team notes
 
 Every revision can carry one team note (**History** → *Add a team note*): what was

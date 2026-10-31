@@ -131,7 +131,7 @@ Not in scope yet: visitor identification, outreach, CRM sync, ads, A/B tests, ho
 | Finding claims | A change claims its findings (`claimed_by`, `claimed_at`) so no other change takes them; rejecting or deleting the change releases them, a crawl that resolves or reopens a finding clears its claim, and a claim older than 14 days lapses. A findings pipeline's change takes up to 10 findings of the most severe rule with unclaimed ones; one from the Site page takes up to 25. |
 | Change agent | Same `Agent` port, its own job kind (`change.draft`) so remote hybrid workers never take it. The work dir's `repo/` is the GitHub tarball of the branch's tip (no git remote, so no token on disk) or the local checkout's files, committed once locally as the base; the change is the diff against it. Allow-list: file tools plus `Bash(ekin tool build)` and `Bash(ekin tool diff)`, nothing else from the shell. The build command (site settings) runs in its own process group with a scrubbed environment (PATH, a HOME inside the work dir, CI=true) and a 15-minute limit; afterwards the repository is reset to its pre-build tree, so build output never enters the change. Ekin reruns the build itself when the agent's last passing build was on other edits. Revisions archive the work dir without `repo/`; another host rebuilds it from the base commit and the patch. A change may not touch `.github/` and is capped at 200 files and a 4 MB patch. |
 | Git publishing | GitHub Git Data API as today; pull-request mode adds a branch ref and `POST /pulls`. A change's pull request branches from the commit it was made on; a change committed to the branch is refused when the compare API shows someone changed one of its files since. Deletions are tree entries with a null SHA. A local checkout gets the patch applied (`git apply`), uncommitted. A `git` adapter for other hosts may follow. |
-| Search Console | The Google OAuth client already used for YouTube, connected separately with the `webmasters.readonly` scope; the refresh token is sealed like the channel's. |
+| Search Console | The Google OAuth client already used for YouTube, connected separately with the `webmasters.readonly` scope; the refresh token is sealed like the channel's. An `analytics.sync` job on the io queue, due 24h after the last; it fetches `date × page` and `date × query` rows (25k per request, 100k per dimension) and replaces those days. A 4xx from Google is recorded on the connection and not retried until the next day. Pages match a publication's URL with or without a trailing slash; a change is measured on the pages of the findings it fixed. |
 | AI visibility models | OpenRouter (already a credential), so one key reaches several answer engines' models. Answers are kept for 90 days; mentions and citations for good. |
 | Notifications | In-app feed + SMTP digests (one email per person per flush, `EKIN_NOTIFY_EVERY`). Invitations are emailed when SMTP is set. |
 | Deployment | Dokploy, Compose type (needs `cpuset` / `cpu_shares`). Also runs natively on macOS. |
@@ -298,9 +298,15 @@ Site growth (see §1):
     on a local test site (git checkout, a shell build), revised it from a note, and the
     approved patch landed in the checkout; GitHub publishing tested against a fake API.
 
+13. Search Console — connection through the YouTube OAuth client (read-only scope),
+    property picked by the site's address, daily sync of page and query figures (90-day
+    backfill, last three days refetched), Search tab on the Site page, before/after on
+    published stories, weekly movers in the digest. Built and tested against a fake
+    Google; the screens checked with seeded figures. Not yet run against real Search
+    Console (needs the OAuth client and the scope on its consent screen).
+
 Planned:
 
-13. Search Console — connection, daily pull, before/after on stories, digest lines.
 14. AI visibility — prompt set, scheduled runs through OpenRouter, mentions and citations,
     `visibility` pipeline source.
 15. Competitors — sitemap diffs as signals for SEO opportunities and change ideas.
