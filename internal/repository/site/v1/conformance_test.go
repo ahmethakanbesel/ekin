@@ -211,3 +211,78 @@ func TestPagesAndFindings(t *testing.T) {
 		})
 	}
 }
+
+func TestCompetitors(t *testing.T) {
+	for name, open := range impls() {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			repo, ws, other := open(t)
+			globex, _ := sitedomain.NewCompetitor(id.New(), ws, "Globex", "globex.io", now)
+			acme, _ := sitedomain.NewCompetitor(id.New(), ws, "acme", "https://acme.com", now.Add(time.Hour))
+			for _, c := range []*sitedomain.Competitor{globex, acme} {
+				if err := repo.PutCompetitor(ctx, c); err != nil {
+					t.Fatal(err)
+				}
+			}
+			dup, _ := sitedomain.NewCompetitor(id.New(), ws, "again", "https://globex.io/", now)
+			if err := repo.PutCompetitor(ctx, dup); !apperror.Is(err, apperror.Conflict) {
+				t.Fatalf("followed twice: %v", err)
+			}
+			theirs, _ := sitedomain.NewCompetitor(id.New(), other, "Globex", "globex.io", now)
+			if err := repo.PutCompetitor(ctx, theirs); err != nil {
+				t.Fatalf("another workspace follows the same site: %v", err)
+			}
+			list, _ := repo.Competitors(ctx, ws)
+			if len(list) != 2 || list[0].Name() != "acme" {
+				t.Fatalf("competitors = %v", list)
+			}
+			if due, _ := repo.DueCompetitors(ctx, now.Add(30*time.Minute)); len(due) != 2 {
+				t.Fatalf("due = %d", len(due))
+			}
+			globex.Checked(2, now)
+			_ = repo.PutCompetitor(ctx, globex)
+			if got, err := repo.Competitor(ctx, ws, globex.ID()); err != nil || got.Pages() != 2 || got.Baseline() {
+				t.Fatalf("checked = %+v %v", got, err)
+			}
+			pages := []sitedomain.CompetitorPage{{URL: "https://globex.io/a", Title: "A", FirstSeen: now, LastSeen: now},
+				{URL: "https://globex.io/b", FirstSeen: now, LastSeen: now, RemovedAt: now}}
+			if err := repo.ReplaceCompetitorPages(ctx, globex.ID(), pages); err != nil {
+				t.Fatal(err)
+			}
+			got, _ := repo.CompetitorPages(ctx, globex.ID())
+			if len(got) != 2 || got[0].Title != "A" || got[1].RemovedAt.IsZero() {
+				t.Fatalf("pages = %+v", got)
+			}
+			var changes []sitedomain.CompetitorChange
+			for i := range 3 {
+				changes = append(changes, sitedomain.CompetitorChange{ID: id.New(), WorkspaceID: ws, CompetitorID: globex.ID(), Kind: sitedomain.PageAdded,
+					URL: "https://globex.io/" + string(rune('a'+i)), At: now.Add(time.Duration(i) * time.Minute)})
+			}
+			changes = append(changes, sitedomain.CompetitorChange{ID: id.New(), WorkspaceID: ws, CompetitorID: acme.ID(), Kind: sitedomain.PageRemoved,
+				URL: "https://acme.com/x", At: now})
+			if err := repo.AddCompetitorChanges(ctx, changes); err != nil {
+				t.Fatal(err)
+			}
+			first, next, err := repo.CompetitorChanges(ctx, ws, siterepo.ChangeFilter{Limit: 2})
+			if err != nil || len(first) != 2 || next == "" || first[0].URL != "https://globex.io/c" {
+				t.Fatalf("first page = %+v %q %v", first, next, err)
+			}
+			rest, next, _ := repo.CompetitorChanges(ctx, ws, siterepo.ChangeFilter{Limit: 2, After: next})
+			if len(rest) != 2 || next != "" {
+				t.Fatalf("second page = %+v %q", rest, next)
+			}
+			if removed, _, _ := repo.CompetitorChanges(ctx, ws, siterepo.ChangeFilter{Kind: sitedomain.PageRemoved}); len(removed) != 1 {
+				t.Fatalf("removed = %+v", removed)
+			}
+			if err := repo.DeleteCompetitor(ctx, ws, globex.ID()); err != nil {
+				t.Fatal(err)
+			}
+			if left, _, _ := repo.CompetitorChanges(ctx, ws, siterepo.ChangeFilter{}); len(left) != 1 {
+				t.Fatalf("a deleted competitor's changes remain: %d", len(left))
+			}
+			if _, err := repo.Competitor(ctx, ws, globex.ID()); !apperror.Is(err, apperror.NotFound) {
+				t.Fatalf("deleted competitor = %v", err)
+			}
+		})
+	}
+}

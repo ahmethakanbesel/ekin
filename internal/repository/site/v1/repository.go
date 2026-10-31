@@ -89,6 +89,39 @@ type Repository interface {
 	// ClearInventory deletes the pages and findings, for a site that
 	// moved to another address.
 	ClearInventory(ctx context.Context, workspaceID uuid.UUID) error
+
+	// Competitors returns the workspace's competitors by name.
+	Competitors(ctx context.Context, workspaceID uuid.UUID) ([]*sitedomain.Competitor, error)
+	// Competitor returns NotFound when it is not the workspace's.
+	Competitor(ctx context.Context, workspaceID, id uuid.UUID) (*sitedomain.Competitor, error)
+	// PutCompetitor inserts or updates; Conflict when the workspace
+	// follows the address already.
+	PutCompetitor(ctx context.Context, c *sitedomain.Competitor) error
+	// DeleteCompetitor removes it with its pages and changes.
+	DeleteCompetitor(ctx context.Context, workspaceID, id uuid.UUID) error
+	// DueCompetitors returns the competitors whose check is due at now.
+	DueCompetitors(ctx context.Context, now time.Time) ([]*sitedomain.Competitor, error)
+	// CompetitorPages returns a competitor's known pages.
+	CompetitorPages(ctx context.Context, competitorID uuid.UUID) ([]sitedomain.CompetitorPage, error)
+	// ReplaceCompetitorPages makes pages its known pages.
+	ReplaceCompetitorPages(ctx context.Context, competitorID uuid.UUID, pages []sitedomain.CompetitorPage) error
+	AddCompetitorChanges(ctx context.Context, changes []sitedomain.CompetitorChange) error
+	// CompetitorChanges returns a page of changes, newest first, of one
+	// competitor when given, and the cursor of the next.
+	CompetitorChanges(ctx context.Context, workspaceID uuid.UUID, f ChangeFilter) ([]sitedomain.CompetitorChange, string, error)
+}
+
+// ChangeFilter narrows a listing of competitor changes.
+type ChangeFilter struct {
+	CompetitorID uuid.UUID             // Nil means any
+	Kind         sitedomain.ChangeKind // "" means any
+	Limit        int
+	After        string
+}
+
+type changeCursor struct {
+	At int64  `json:"a"`
+	ID string `json:"i"`
 }
 
 type pageCursor struct {

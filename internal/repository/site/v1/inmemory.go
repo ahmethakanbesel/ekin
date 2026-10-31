@@ -23,6 +23,10 @@ type InMemory struct {
 	crawls   map[uuid.UUID]sitedomain.CrawlSnapshot
 	pages    map[uuid.UUID][]sitedomain.Page
 	findings map[uuid.UUID]sitedomain.FindingSnapshot
+
+	competitors     map[uuid.UUID]sitedomain.CompetitorSnapshot
+	competitorPages map[uuid.UUID][]sitedomain.CompetitorPage
+	changes         []sitedomain.CompetitorChange
 }
 
 var _ Repository = (*InMemory)(nil)
@@ -30,7 +34,8 @@ var _ Repository = (*InMemory)(nil)
 // NewInMemory returns an empty repository.
 func NewInMemory() *InMemory {
 	return &InMemory{sites: map[uuid.UUID]sitedomain.Snapshot{}, crawls: map[uuid.UUID]sitedomain.CrawlSnapshot{},
-		pages: map[uuid.UUID][]sitedomain.Page{}, findings: map[uuid.UUID]sitedomain.FindingSnapshot{}}
+		pages: map[uuid.UUID][]sitedomain.Page{}, findings: map[uuid.UUID]sitedomain.FindingSnapshot{},
+		competitors: map[uuid.UUID]sitedomain.CompetitorSnapshot{}, competitorPages: map[uuid.UUID][]sitedomain.CompetitorPage{}}
 }
 
 func (r *InMemory) Site(_ context.Context, ws uuid.UUID) (*sitedomain.Site, error) {
