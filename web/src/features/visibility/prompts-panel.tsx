@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { SparklesIcon, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
@@ -11,7 +12,8 @@ import { Switch } from "@/components/ui/switch"
 import { useCan, useWorkspace } from "@/features/workspaces/context"
 import { m } from "@/i18n"
 import { errorMessage } from "@/lib/errors"
-import { useAddPrompt, useDeletePrompt, useDraftPrompts, useUpdatePrompt } from "@/queries/visibility"
+import { useNow } from "@/lib/time"
+import { useAddPrompt, useDeletePrompt, useDraftPrompts, useUpdatePrompt, visibilityQuery } from "@/queries/visibility"
 
 const t = m.visibility.prompts
 
@@ -22,6 +24,11 @@ export function PromptsPanel({ prompts, setUp }: { prompts: VisibilityPrompt[]; 
   const add = useAddPrompt(workspace.id)
   const draft = useDraftPrompts(workspace.id)
   const [text, setText] = useState("")
+  // While the agent drafts, refresh until new prompts arrive (or a few minutes pass).
+  const [waiting, setWaiting] = useState<{ count: number; until: number }>()
+  const now = useNow(5_000)
+  const polling = !!waiting && prompts.length <= waiting.count && now < waiting.until
+  useQuery({ ...visibilityQuery(workspace.id, polling), enabled: polling })
 
   const submit = async () => {
     if (!text.trim()) return
@@ -35,6 +42,7 @@ export function PromptsPanel({ prompts, setUp }: { prompts: VisibilityPrompt[]; 
   const startDraft = async () => {
     try {
       await draft.mutateAsync(10)
+      setWaiting({ count: prompts.length, until: Date.now() + 5 * 60_000 })
       toast.success(t.drafting)
     } catch (err) {
       toast.error(errorMessage(err))

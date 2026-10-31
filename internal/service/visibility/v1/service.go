@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/url"
 	"slices"
 	"strings"
@@ -166,11 +167,16 @@ func (s *Service) suggest(ctx context.Context, ws uuid.UUID) visibilitydomain.Se
 	k := s.known(ctx, ws)
 	st := visibilitydomain.Settings{Models: slices.Clone(DefaultModels), Schedule: visibilitydomain.ScheduleWeekly,
 		MonthlyCap: visibilitydomain.DefaultCap}
-	if d, err := visibilitydomain.ParseDomain(k.Domain); err == nil && d != "" {
+	// An address that is no domain (a local test site's IP) suggests nothing.
+	named := func(s string) (string, bool) {
+		d, err := visibilitydomain.ParseDomain(s)
+		return d, err == nil && d != "" && net.ParseIP(d) == nil
+	}
+	if d, ok := named(k.Domain); ok {
 		st.Brand = visibilitydomain.Brand{Name: nameOf(d), Domain: d}
 	}
 	for _, c := range k.Competitors {
-		if d, err := visibilitydomain.ParseDomain(c); err == nil && d != "" && d != st.Brand.Domain && len(st.Competitors) < visibilitydomain.MaxCompetitors {
+		if d, ok := named(c); ok && d != st.Brand.Domain && len(st.Competitors) < visibilitydomain.MaxCompetitors {
 			st.Competitors = append(st.Competitors, visibilitydomain.Brand{Name: nameOf(d), Domain: d})
 		}
 	}

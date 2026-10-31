@@ -130,6 +130,12 @@ func TestSuggestDraftAndRun(t *testing.T) {
 	if err != nil || o.Profile != nil || o.Suggested.Brand.Name != "Acme Tools" || len(o.Suggested.Competitors) != 1 || o.Suggested.Competitors[0].Name != "Globex" {
 		t.Fatalf("suggested = %+v %v", o.Suggested, err)
 	}
+	local := visibilitysvc.NewService(visibilitysvc.Deps{Repo: visibilityrepo.NewInMemory(), Tx: &db.MemTxManager{}, Jobs: f.jobs,
+		Asker: func(context.Context) visibilitysvc.Asker { return f.asker },
+		Known: func(context.Context, uuid.UUID) visibilitysvc.Context { return visibilitysvc.Context{Domain: "http://127.0.0.1:8091/"} }})
+	if o, _ := local.Overview(ctx, f.ws); o.Suggested.Brand.Name != "" || o.Suggested.Brand.Domain != "" {
+		t.Fatalf("an IP address suggested a brand: %+v", o.Suggested.Brand)
+	}
 	if _, err := f.svc.QueueDraft(ctx, f.ws, 5); !apperror.Is(err, apperror.ValidationFailed) {
 		t.Fatalf("drafted before setting up: %v", err)
 	}
