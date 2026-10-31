@@ -132,7 +132,7 @@ Not in scope yet: visitor identification, outreach, CRM sync, ads, A/B tests, ho
 | Change agent | Same `Agent` port, its own job kind (`change.draft`) so remote hybrid workers never take it. The work dir's `repo/` is the GitHub tarball of the branch's tip (no git remote, so no token on disk) or the local checkout's files, committed once locally as the base; the change is the diff against it. Allow-list: file tools plus `Bash(ekin tool build)` and `Bash(ekin tool diff)`, nothing else from the shell. The build command (site settings) runs in its own process group with a scrubbed environment (PATH, a HOME inside the work dir, CI=true) and a 15-minute limit; afterwards the repository is reset to its pre-build tree, so build output never enters the change. Ekin reruns the build itself when the agent's last passing build was on other edits. Revisions archive the work dir without `repo/`; another host rebuilds it from the base commit and the patch. A change may not touch `.github/` and is capped at 200 files and a 4 MB patch. |
 | Git publishing | GitHub Git Data API as today; pull-request mode adds a branch ref and `POST /pulls`. A change's pull request branches from the commit it was made on; a change committed to the branch is refused when the compare API shows someone changed one of its files since. Deletions are tree entries with a null SHA. A local checkout gets the patch applied (`git apply`), uncommitted. A `git` adapter for other hosts may follow. |
 | Search Console | The Google OAuth client already used for YouTube, connected separately with the `webmasters.readonly` scope; the refresh token is sealed like the channel's. An `analytics.sync` job on the io queue, due 24h after the last; it fetches `date × page` and `date × query` rows (25k per request, 100k per dimension) and replaces those days. A 4xx from Google is recorded on the connection and not retried until the next day. Pages match a publication's URL with or without a trailing slash; a change is measured on the pages of the findings it fixed. |
-| AI visibility models | OpenRouter (already a credential), so one key reaches several answer engines' models. Answers are kept for 90 days; mentions and citations for good. |
+| AI visibility models | OpenRouter (already a credential), so one key reaches several answer engines' models. Answers are kept for 90 days; mentions and citations for good. A `visibility.run` job on the io queue asks one call at a time and records each answer as it goes, so a retried job resumes; the cap counts the month's answers (failed calls too). Mentions are word-boundary matches in Go, not a model's judgement; the rank orders the brands by first mention. |
 | Notifications | In-app feed + SMTP digests (one email per person per flush, `EKIN_NOTIFY_EVERY`). Invitations are emailed when SMTP is set. |
 | Deployment | Dokploy, Compose type (needs `cpuset` / `cpu_shares`). Also runs natively on macOS. |
 
@@ -305,10 +305,15 @@ Site growth (see §1):
     Google; the screens checked with seeded figures. Not yet run against real Search
     Console (needs the OAuth client and the scope on its consent screen).
 
-Planned:
+14. AI visibility — brand, competitors, models and a monthly cap (suggested from the
+    site and SEO profile); up to 50 prompts, drafted by the agent or written by people;
+    checks through OpenRouter that state their call count and stop at the cap; answers
+    read in Go for mentions, rank, citations and competitors; results by model, share of
+    voice, cited domains and a prompt × model grid; `visibility` pipeline source. ✅ the
+    real agent drafted prompts and the screens checked with a seeded check; asking models
+    tested against a fake OpenRouter (no key here).
 
-14. AI visibility — prompt set, scheduled runs through OpenRouter, mentions and citations,
-    `visibility` pipeline source.
+Planned:
 15. Competitors — sitemap diffs as signals for SEO opportunities and change ideas.
 
 ## 9. Open decisions

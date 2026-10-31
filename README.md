@@ -277,6 +277,32 @@ published article's or change's story shows its pages' 28 days before going live
 against the days since, per day; and the email digest says which pages' clicks moved most
 this week against the week before.
 
+## AI visibility
+
+**AI visibility** shows whether AI assistants name your brand when buyers ask them for
+advice. Set the brand (its names and website), up to ten competitors, the models to ask
+and a monthly cap of calls; Ekin suggests them from the site and the SEO profile. Then
+keep up to 50 prompts: questions buyers would type, written by you or drafted by the
+agent from the brand, competitors and the SEO profile's topics.
+
+A check asks every active prompt of every model through OpenRouter (the key on System ›
+Credentials), with no system prompt, the way a person would. A model id ending in
+`:online` searches the web first, so its answer cites sources. Before a check starts it
+says how many calls it will make against the month's cap, and it does not start if it
+would pass it; a check that reaches the cap stops there. Checks run weekly, daily or only
+when started.
+
+Each answer is read in Go, not by a model: whether the brand is named (as a whole word,
+any case, or by its domain), its rank among the brands named, whether a citation is on
+its site, and which competitors are named or cited. **Results** shows how often each model
+names the brand, the share of voice against competitors, the domains answers cite and a
+grid of every prompt by model, each answer a click away. Answer texts are kept 90 days;
+what was read from them stays.
+
+A pipeline with the **AI visibility gaps** source turns the prompts no model named the
+brand for into stories that answer them, telling the agent who was named and what was
+cited instead; a prompt a story covers is skipped for 30 days.
+
 ## Team notes
 
 Every revision can carry one team note (**History** → *Add a team note*): what was
