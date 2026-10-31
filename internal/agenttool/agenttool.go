@@ -74,6 +74,11 @@ type Spec struct {
 	// 2160p from a 1080p frame); stock is fetched sharp enough for it.
 	// Below 1 counts as 1, since a preview may still render at 1080p.
 	FinalScale float64 `json:"finalScale,omitempty"`
+	// Change marks a change to the site: the repository is in RepoDir,
+	// and build and diff are the only tools.
+	Change bool `json:"change,omitempty"`
+	// Build is how the change's site is built; nil when it has no build.
+	Build *BuildSpec `json:"build,omitempty"`
 }
 
 // stockSides are the shortest side a stock file must have and the
@@ -142,6 +147,8 @@ const usage = `usage: ekin tool <command> [flags]
                                                    thumbnails/<n>.jpg and <n>.small.jpg
   thumbnail --stills 12.4,30                       full-size video frames for the thumbnails, into
                                                    thumbnails/stills/<t>.jpg
+  build                                            a change: run the site's build on repo/
+  diff                                             a change: show it, and write change.patch
 `
 
 // Run executes one tool command.
@@ -206,6 +213,16 @@ func Run(ctx context.Context, e Env, args []string) error {
 			return err
 		}
 		return e.thumbnail(ctx, *stills, *n)
+	case "build":
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		return e.build(ctx)
+	case "diff":
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		return e.diff(ctx)
 	case "library":
 		kind := fs.String("type", "", "music, video or photo; default all")
 		query := fs.String("query", "", "words to look for in titles, tags and descriptions")
