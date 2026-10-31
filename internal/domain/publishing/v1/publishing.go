@@ -67,12 +67,25 @@ const (
 	BlogDir BlogKind = "dir"
 )
 
+// PublishMode is how an approved article reaches a GitHub repository.
+type PublishMode string
+
+const (
+	// PublishCommit commits to the branch; the site rebuilds on push.
+	PublishCommit PublishMode = "commit"
+	// PublishPullRequest pushes a branch of its own and opens a pull
+	// request against the branch; the article goes live once a person
+	// merges it.
+	PublishPullRequest PublishMode = "pull_request"
+)
+
 // BlogTarget is a workspace's blog.
 type BlogTarget struct {
 	WorkspaceID uuid.UUID
 	Kind        BlogKind
-	Repo        string // owner/name (github)
-	Branch      string // github
+	Repo        string      // owner/name (github)
+	Branch      string      // github: the branch committed to, or the pull requests' base
+	Mode        PublishMode // github; "" reads as commit
 	Dir         string // local checkout root (dir)
 	ContentDir  string // e.g. marketing/src/content/blog; posts go to <ContentDir>/<locale>/<slug>.md
 	PublicDir   string // e.g. marketing/public/blog; images go to <PublicDir>/<slug>/
@@ -100,13 +113,27 @@ func (b *BlogTarget) Validate() error {
 		if b.Branch == "" {
 			b.Branch = "main"
 		}
+		switch b.Mode {
+		case "":
+			b.Mode = PublishCommit
+		case PublishCommit, PublishPullRequest:
+		default:
+			return fail("publish mode must be commit or pull_request")
+		}
 		if b.SealedToken == "" {
+			if b.Mode == PublishPullRequest {
+				return fail("a GitHub token with contents and pull requests write access is required")
+			}
 			return fail("a GitHub token with contents write access is required")
 		}
 	case BlogDir:
 		if b.Dir == "" || !path.IsAbs(b.Dir) {
 			return fail("the checkout directory must be an absolute path")
 		}
+		if b.Mode == PublishPullRequest {
+			return fail("pull requests need a GitHub repository; a local checkout is written directly")
+		}
+		b.Mode = ""
 	default:
 		return fail("kind must be github or dir")
 	}
@@ -134,6 +161,9 @@ func (b *BlogTarget) Validate() error {
 	b.SiteURL = strings.TrimRight(b.SiteURL, "/")
 	return nil
 }
+
+// PullRequests reports whether articles go out as pull requests.
+func (b BlogTarget) PullRequests() bool { return b.Kind == BlogGitHub && b.Mode == PublishPullRequest }
 
 // PostURL is where a post will live.
 func (b BlogTarget) PostURL(locale, slug string) string {

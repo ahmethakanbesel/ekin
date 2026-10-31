@@ -136,6 +136,9 @@ func Rehydrate(s Snapshot) (*Story, error) {
 		if ds.Thumbnail < 0 || ds.Thumbnail > MaxThumbnails {
 			return nil, apperror.New(apperror.InternalError, "invalid picked thumbnail")
 		}
+		if status == StatusMerging && (ds.Published == nil || ds.Published.PullRequest == nil) {
+			return nil, apperror.New(apperror.InternalError, "a merging deliverable has no pull request")
+		}
 		d := &Deliverable{
 			id: ds.ID, kind: kind, role: Role(ds.Role), sourceID: ds.SourceID, language: dl,
 			status: status, failedStep: Status(ds.FailedStep), revision: ds.Revision, pending: ds.Pending,

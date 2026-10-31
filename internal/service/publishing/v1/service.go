@@ -346,11 +346,27 @@ func (p articlePublisher) Publish(ctx context.Context, req productionsvc.Publish
 	path := filepath.ToSlash(filepath.Join(b.ContentDir, locale, a.Slug+".md"))
 	files := []github.File{{Path: path, Content: []byte(post)}}
 
+	url := b.PostURL(locale, a.Slug)
+	if b.SiteURL == "" {
+		url = "file://" + path
+	}
 	switch b.Kind {
 	case publishingdomain.BlogGitHub:
 		token, err := s.box.Open(b.SealedToken)
 		if err != nil {
 			return storydomain.Publication{}, err
+		}
+		if b.PullRequests() {
+			pr, err := s.gh.OpenPullRequest(ctx, token, github.PullRequestInput{
+				Repo: b.Repo, Base: b.Branch, Branch: branchFor(a.Slug, req.Deliverable), Title: "blog: " + a.Title,
+				Body: pullRequestBody(a.Description, url, req.Revision.Number), Files: files,
+			})
+			if err != nil {
+				return storydomain.Publication{}, err
+			}
+			return storydomain.Publication{URL: url, ExternalID: a.Slug, PullRequest: &storydomain.PullRequest{
+				Repo: b.Repo, Number: pr.Number, URL: pr.URL, Branch: pr.Branch,
+			}}, nil
 		}
 		if _, err := s.gh.Commit(ctx, token, b.Repo, b.Branch, "blog: "+a.Title, files); err != nil {
 			return storydomain.Publication{}, err
@@ -368,11 +384,53 @@ func (p articlePublisher) Publish(ctx context.Context, req productionsvc.Publish
 	default:
 		return storydomain.Publication{}, errors.New("unknown blog target kind")
 	}
-	url := b.PostURL(locale, a.Slug)
-	if b.SiteURL == "" {
-		url = "file://" + path
-	}
 	return storydomain.Publication{URL: url, ExternalID: a.Slug}, nil
+}
+
+// PullRequestState reads where an article's pull request stands, with
+// the workspace's current GitHub token.
+func (p articlePublisher) PullRequestState(ctx context.Context, ws uuid.UUID, pr storydomain.PullRequest) (productionsvc.PullState, error) {
+	s := p.s
+	b, err := s.repo.Blog(ctx, ws)
+	if err != nil {
+		return "", err
+	}
+	if b.Kind != publishingdomain.BlogGitHub || b.SealedToken == "" {
+		return "", errors.New("the blog target no longer has a GitHub token to read the pull request with")
+	}
+	token, err := s.box.Open(b.SealedToken)
+	if err != nil {
+		return "", err
+	}
+	state, err := s.gh.PullRequestState(ctx, token, pr.Repo, pr.Number)
+	if err != nil {
+		return "", err
+	}
+	switch state {
+	case github.PullMerged:
+		return productionsvc.PullMerged, nil
+	case github.PullClosed:
+		return productionsvc.PullClosed, nil
+	default:
+		return productionsvc.PullOpen, nil
+	}
+}
+
+// branchFor names the branch an article's pull request comes from. It
+// ends in the publishing job's id, so a retry of a cut-short attempt
+// finds its own pull request while a new publication gets a fresh one.
+func branchFor(slug string, d *storydomain.Deliverable) string {
+	ref := d.PublishJob()
+	if ref == uuid.Nil {
+		ref = d.ID()
+	}
+	hex := strings.ReplaceAll(ref.String(), "-", "")
+	return "ekin/" + slug + "-" + hex[len(hex)-8:]
+}
+
+func pullRequestBody(description, url string, revision int) string {
+	return fmt.Sprintf("%s\n\nApproved in Ekin (revision %d). Merging this pull request publishes the article at %s.\n",
+		strings.TrimSpace(description), revision, url)
 }
 
 // embed is a privacy-friendly responsive YouTube player in plain HTML,

@@ -563,17 +563,25 @@ func (s *Service) PublishJob(ctx context.Context, jobID uuid.UUID, p Deliverable
 		if err := st.Published(p.DeliverableID, publication, s.now()); err != nil {
 			return err
 		}
+		if publication.PullRequest != nil {
+			// Live only once merged; CheckMerges releases what waits on it.
+			return nil
+		}
 		// Derived deliverables can now be drafted around the live lead.
 		return s.release(ctx, st, p.DeliverableID)
 	})
 	if err != nil {
 		return err
 	}
-	detail := fmt.Sprintf("%s published: %s", d.Kind(), publication.URL)
+	kind, detail := "published", fmt.Sprintf("%s published: %s", d.Kind(), publication.URL)
+	if pr := publication.PullRequest; pr != nil {
+		// Merging is a person's step on the repository's host.
+		kind, detail = "review", fmt.Sprintf("%s pull request #%d is open; merging it publishes %s: %s", d.Kind(), pr.Number, publication.URL, pr.URL)
+	}
 	for _, w := range warnings {
 		detail += "; " + w
 	}
-	s.notify(ctx, Event{WorkspaceID: st.WorkspaceID(), StoryID: st.ID(), Kind: "published", Title: st.Idea().Title,
+	s.notify(ctx, Event{WorkspaceID: st.WorkspaceID(), StoryID: st.ID(), Kind: kind, Title: st.Idea().Title,
 		Detail: detail})
 	return nil
 }

@@ -2,6 +2,7 @@ package publishing_test
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -212,5 +213,100 @@ func TestArticleToLocalCheckout(t *testing.T) {
 	}
 	if _, err := svc.SaveBlog(ctx, ws, publishingsvc.BlogInput{BlogTarget: publishingdomain.BlogTarget{Kind: publishingdomain.BlogGitHub, Repo: "bad", ContentDir: "x"}}); !apperror.Is(err, apperror.ValidationFailed) {
 		t.Fatalf("bad repo = %v", err)
+	}
+}
+
+// fakeGitHub answers the calls opening and reading a pull request on
+// o/site; merged and closed set what GET /pulls/7 reports.
+func fakeGitHub(t *testing.T, merged, closed *bool) (*httptest.Server, *map[string]string) {
+	t.Helper()
+	opened := map[string]string{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer ghtok" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		p := strings.TrimPrefix(r.URL.Path, "/repos/o/site")
+		raw, _ := io.ReadAll(r.Body)
+		switch {
+		case r.Method == http.MethodGet && p == "/pulls":
+			_, _ = w.Write([]byte(`[]`))
+		case r.Method == http.MethodPost && p == "/pulls":
+			var body map[string]string
+			_ = json.Unmarshal(raw, &body)
+			opened = body
+			_, _ = w.Write([]byte(`{"number":7,"html_url":"https://github.com/o/site/pull/7"}`))
+		case r.Method == http.MethodGet && p == "/pulls/7":
+			state := "open"
+			if *closed || *merged {
+				state = "closed"
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"number": 7, "state": state, "merged": *merged})
+		case p == "/git/ref/heads/main":
+			_, _ = w.Write([]byte(`{"object":{"sha":"head"}}`))
+		case p == "/git/commits/head":
+			_, _ = w.Write([]byte(`{"tree":{"sha":"basetree"}}`))
+		case p == "/git/blobs", p == "/git/trees", p == "/git/commits":
+			_, _ = w.Write([]byte(`{"sha":"x"}`))
+		case r.Method == http.MethodPost && p == "/git/refs":
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{}`))
+		default:
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &opened
+}
+
+func TestArticleAsPullRequest(t *testing.T) {
+	ctx := context.Background()
+	var merged, closed bool
+	gh, opened := fakeGitHub(t, &merged, &closed)
+	box, _ := secretbox.New([]byte("test-secret-0123456789"))
+	svc := publishingsvc.NewService(publishingrepo.NewInMemory(), box, func(context.Context) *youtube.Client { return &youtube.Client{} },
+		&github.Client{BaseURL: gh.URL}, slog.New(slog.DiscardHandler))
+	ws := id.New()
+	token := "ghtok"
+	if _, err := svc.SaveBlog(ctx, ws, publishingsvc.BlogInput{Token: &token, BlogTarget: publishingdomain.BlogTarget{
+		Kind: publishingdomain.BlogGitHub, Repo: "o/site", Mode: publishingdomain.PublishPullRequest,
+		ContentDir: "src/content/blog", SiteURL: "https://example.com", DefaultLocale: "tr",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	article := "---\ntitle: \"Ruminasyon nedir\"\ndescription: \"" + strings.Repeat("açıklama ", 12) + "\"\nslug: ruminasyon-nedir\ntags: [ruminasyon]\n---\n\n" + strings.Repeat("kelime ", 200)
+	req := request(t, pipelinedomain.KindArticle, map[string]string{storydomain.ArtifactArticle: article}, nil)
+	req.WorkspaceID = ws
+	req.Revision = storydomain.Revision{Number: 2}
+	pub, err := svc.Article().Publish(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pr := pub.PullRequest
+	if pub.URL != "https://example.com/blog/ruminasyon-nedir/" || pr == nil || pr.Repo != "o/site" || pr.Number != 7 ||
+		pr.URL != "https://github.com/o/site/pull/7" || !strings.HasPrefix(pr.Branch, "ekin/ruminasyon-nedir-") {
+		t.Fatalf("publication = %+v, pull request %+v", pub, pr)
+	}
+	o := *opened
+	if o["base"] != "main" || o["head"] != pr.Branch || o["title"] != "blog: Ruminasyon nedir" ||
+		!strings.Contains(o["body"], "revision 2") || !strings.Contains(o["body"], pub.URL) {
+		t.Fatalf("opened = %v", o)
+	}
+	watcher, ok := svc.Article().(productionsvc.MergeWatcher)
+	if !ok {
+		t.Fatal("the article publisher does not read pull requests")
+	}
+	for _, tc := range []struct {
+		merged, closed bool
+		want           productionsvc.PullState
+	}{{false, false, productionsvc.PullOpen}, {true, false, productionsvc.PullMerged}, {false, true, productionsvc.PullClosed}} {
+		merged, closed = tc.merged, tc.closed
+		if got, err := watcher.PullRequestState(ctx, ws, *pr); err != nil || got != tc.want {
+			t.Fatalf("state = %q %v, want %q", got, err, tc.want)
+		}
+	}
+	if _, err := watcher.PullRequestState(ctx, id.New(), *pr); err == nil {
+		t.Fatal("read a pull request for a workspace without a blog target")
 	}
 }

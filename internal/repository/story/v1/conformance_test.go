@@ -580,3 +580,54 @@ func TestShortsRoundTrip(t *testing.T) {
 		})
 	}
 }
+
+// mergingStory returns a story in ws whose article lead waits on a pull
+// request.
+func mergingStory(t *testing.T, ws uuid.UUID, title string) *storydomain.Story {
+	t.Helper()
+	a, _ := pipelinedomain.NewArticleSpec(900, nil)
+	o, _ := pipelinedomain.NewOutputs(nil, &a, "")
+	idea, _ := storydomain.NewIdea(title, "açı", nil)
+	s, err := storydomain.New(id.New(), storydomain.Plan{WorkspaceID: ws, Origin: storydomain.OriginManual,
+		Language: pipelinedomain.Turkish, Idea: idea, Outputs: o}, id.New, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := s.Lead()
+	_, _ = s.StartDrafting(d.ID(), now)
+	_, _ = s.Drafted(d.ID(), nil, "", "", storydomain.Measures{}, now)
+	_, _ = s.Approve(d.ID(), id.New(), id.New, now)
+	_ = s.StartPublishing(d.ID(), id.New(), now)
+	pr := storydomain.PullRequest{Repo: "o/site", Number: 7, URL: "https://github.com/o/site/pull/7", Branch: "ekin/x"}
+	if err := s.Published(d.ID(), storydomain.Publication{URL: "https://example.com/blog/x/", PullRequest: &pr}, now); err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+func TestWithDeliverableStatus(t *testing.T) {
+	for name, open := range impls() {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			repo, ws := open(t)
+			merging := mergingStory(t, ws, "Birleşmeyi bekleyen")
+			other := newStory(t, ws, "Kuyrukta", now)
+			for _, s := range []*storydomain.Story{merging, other} {
+				if err := repo.Create(ctx, s); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ids, err := repo.WithDeliverableStatus(ctx, storydomain.StatusMerging)
+			if err != nil || !slices.Equal(ids, []uuid.UUID{merging.ID()}) {
+				t.Fatalf("merging = %v %v, want [%s]", ids, err, merging.ID())
+			}
+			back, err := repo.GetByID(ctx, merging.ID())
+			if err != nil || back.Lead().Status() != storydomain.StatusMerging || back.Lead().Publication().PullRequest.Number != 7 {
+				t.Fatalf("pull request not kept: %v", err)
+			}
+			if ids, err := repo.WithDeliverableStatus(ctx, storydomain.StatusPublished); err != nil || len(ids) != 0 {
+				t.Fatalf("published = %v %v", ids, err)
+			}
+		})
+	}
+}

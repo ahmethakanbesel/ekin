@@ -44,6 +44,10 @@ func (h *Handler) integrations(ctx context.Context, ws uuid.UUID) (gen.Integrati
 			ContentDir: b.ContentDir, PublicDir: b.PublicDir, SiteUrl: b.SiteURL, PathTemplate: b.PathTemplate,
 			DefaultLocale: b.DefaultLocale, Author: b.Author, Draft: b.Draft, HasToken: b.SealedToken != "",
 		}
+		if b.Mode != "" {
+			mode := gen.PublishMode(b.Mode)
+			out.Blog.Mode = &mode
+		}
 	}
 	return out, nil
 }
@@ -97,6 +101,9 @@ func (h *Handler) SaveBlog(ctx context.Context, req gen.SaveBlogRequestObject) (
 		ContentDir: b.ContentDir, PublicDir: str(b.PublicDir), SiteURL: str(b.SiteUrl), PathTemplate: str(b.PathTemplate),
 		DefaultLocale: str(b.DefaultLocale), Author: str(b.Author), Draft: b.Draft != nil && *b.Draft,
 	}, Token: b.Token}
+	if b.Mode != nil {
+		in.Mode = publishingdomain.PublishMode(*b.Mode)
+	}
 	if _, err := h.svc.SaveBlog(ctx, req.WorkspaceId, in); err != nil {
 		return nil, err
 	}

@@ -35,11 +35,15 @@ const (
 //	waiting → queued → drafting → rendering → review ⇄ (changes) queued
 //	review → finalizing → ready → publishing → published
 //
+// A deliverable published as a pull request goes publishing → merging
+// and waits there until the pull request is merged (→ published) or
+// closed without merging (→ failed; a retry opens a new one).
+//
 // A video whose story reviews scripts first goes queued → drafting →
 // review (the script) ⇄ (changes) queued, and approving the script
 // queues it again to be built as a video (see Story.AtScript).
 //
-//	review → rejected; drafting|rendering|finalizing|publishing → failed → (retry)
+//	review → rejected; drafting|rendering|finalizing|publishing|merging → failed → (retry)
 type Status string
 
 const (
@@ -51,6 +55,7 @@ const (
 	StatusFinalizing Status = "finalizing" // video: full-resolution render
 	StatusReady      Status = "ready"      // approved, final assets made
 	StatusPublishing Status = "publishing"
+	StatusMerging    Status = "merging" // a pull request waits to be merged
 	StatusPublished  Status = "published"
 	StatusRejected   Status = "rejected"
 	StatusFailed     Status = "failed"
@@ -60,7 +65,7 @@ const (
 func ParseStatus(s string) (Status, error) {
 	switch st := Status(s); st {
 	case StatusWaiting, StatusQueued, StatusDrafting, StatusRendering, StatusReview, StatusFinalizing,
-		StatusReady, StatusPublishing, StatusPublished, StatusRejected, StatusFailed:
+		StatusReady, StatusPublishing, StatusMerging, StatusPublished, StatusRejected, StatusFailed:
 		return st, nil
 	}
 	return "", apperror.New(apperror.ValidationFailed, "unknown deliverable status")
@@ -214,11 +219,22 @@ type Narrator struct {
 	Model  string `json:"model,omitempty"`
 }
 
-// Publication is where a deliverable went live.
+// Publication is where a deliverable went live. A deliverable published
+// as a pull request carries it, and URL is where it will live once the
+// pull request is merged.
 type Publication struct {
-	URL        string    `json:"url"`
-	ExternalID string    `json:"externalId"`
-	At         time.Time `json:"at"`
+	URL         string       `json:"url"`
+	ExternalID  string       `json:"externalId"`
+	At          time.Time    `json:"at"`
+	PullRequest *PullRequest `json:"pullRequest,omitempty"`
+}
+
+// PullRequest is the pull request a deliverable went out as.
+type PullRequest struct {
+	Repo   string `json:"repo"` // owner/name
+	Number int    `json:"number"`
+	URL    string `json:"url"`
+	Branch string `json:"branch"`
 }
 
 // Deliverable is one output of a story.
@@ -634,7 +650,7 @@ func (s *Story) Reject(id uuid.UUID, now time.Time) error {
 
 // Fail records that the current step failed.
 func (s *Story) Fail(id uuid.UUID, reason string, now time.Time) error {
-	d, err := s.find(id, StatusDrafting, StatusRendering, StatusFinalizing, StatusPublishing)
+	d, err := s.find(id, StatusDrafting, StatusRendering, StatusFinalizing, StatusPublishing, StatusMerging)
 	if err != nil {
 		return err
 	}
@@ -705,6 +721,10 @@ func (s *Story) Retry(id uuid.UUID, now time.Time) (Status, error) {
 		next = StatusQueued
 	case StatusPublishing:
 		next = StatusReady
+	case StatusMerging:
+		// The pull request was closed: publishing again opens a new one.
+		next = StatusReady
+		d.published = nil
 	case StatusRendering, StatusFinalizing:
 	default:
 		next = StatusQueued
@@ -736,7 +756,8 @@ func (s *Story) StartPublishing(id, job uuid.UUID, now time.Time) error {
 	return nil
 }
 
-// Published records where the deliverable went live.
+// Published records where the deliverable went live, or, when pub
+// carries a pull request, that it waits in merging for it.
 func (s *Story) Published(id uuid.UUID, pub Publication, now time.Time) error {
 	d, err := s.find(id, StatusPublishing)
 	if err != nil {
@@ -745,6 +766,30 @@ func (s *Story) Published(id uuid.UUID, pub Publication, now time.Time) error {
 	if pub.URL == "" {
 		return apperror.New(apperror.ValidationFailed, "publication URL is required")
 	}
+	next := StatusPublished
+	if pr := pub.PullRequest; pr != nil {
+		if pr.Repo == "" || pr.Number < 1 || pr.URL == "" {
+			return apperror.New(apperror.ValidationFailed, "a pull request needs its repository, number and URL")
+		}
+		cp := *pr
+		pub.PullRequest = &cp
+		next = StatusMerging
+	}
+	pub.At = timeutil.Normalize(now)
+	d.published = &pub
+	d.set(next, now)
+	s.touch(now)
+	return nil
+}
+
+// Merged records that the deliverable's pull request was merged: it is
+// live from now.
+func (s *Story) Merged(id uuid.UUID, now time.Time) error {
+	d, err := s.find(id, StatusMerging)
+	if err != nil {
+		return err
+	}
+	pub := *d.published
 	pub.At = timeutil.Normalize(now)
 	d.published = &pub
 	d.set(StatusPublished, now)

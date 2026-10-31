@@ -387,6 +387,9 @@ func ToWire(st *storydomain.Story) gen.Story {
 		}
 		if pub := d.Publication(); pub != nil {
 			wd.Publication = &gen.Publication{Url: pub.URL, ExternalId: pub.ExternalID, At: pub.At}
+			if pr := pub.PullRequest; pr != nil {
+				wd.Publication.PullRequest = &gen.PullRequest{Repo: pr.Repo, Number: pr.Number, Url: pr.URL, Branch: pr.Branch}
+			}
 		}
 		if c := d.Clip(); c != nil {
 			wire := clipToWire(*c)

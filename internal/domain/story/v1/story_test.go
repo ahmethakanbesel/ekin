@@ -587,3 +587,90 @@ func TestNewAnnotation(t *testing.T) {
 		})
 	}
 }
+
+var pullRequest = story.PullRequest{Repo: "o/site", Number: 7, URL: "https://github.com/o/site/pull/7", Branch: "ekin/x"}
+
+// mergingArticle returns a story whose article lead went out as a pull
+// request that is not merged yet.
+func mergingArticle(t *testing.T) (*story.Story, *story.Deliverable) {
+	t.Helper()
+	s, article := readyArticle(t)
+	if err := s.StartPublishing(article.ID(), id.New(), now); err != nil {
+		t.Fatal(err)
+	}
+	pr := pullRequest
+	if err := s.Published(article.ID(), story.Publication{URL: "https://example.com/blog/x/", ExternalID: "x", PullRequest: &pr}, now); err != nil {
+		t.Fatal(err)
+	}
+	return s, article
+}
+
+func TestPullRequestLifecycle(t *testing.T) {
+	s, article := mergingArticle(t)
+	if article.Status() != story.StatusMerging || s.Status() != story.StatusMerging {
+		t.Fatalf("after opening the pull request: %s, story %s", article.Status(), s.Status())
+	}
+	if pub := article.Publication(); pub == nil || pub.PullRequest == nil || *pub.PullRequest != pullRequest {
+		t.Fatalf("publication = %+v", pub)
+	}
+	back, err := story.Rehydrate(s.Snapshot())
+	if err != nil || back.Lead().Status() != story.StatusMerging || back.Lead().Publication().PullRequest.Number != 7 {
+		t.Fatalf("rehydrated merging article: %v", err)
+	}
+	if _, err := s.ReleaseDerived(article.ID(), now); !apperror.Is(err, apperror.InvalidTransition) {
+		t.Fatalf("released derived deliverables before the merge: %v", err)
+	}
+	merged := now.Add(26 * time.Hour)
+	if err := s.Merged(article.ID(), merged); err != nil {
+		t.Fatal(err)
+	}
+	if article.Status() != story.StatusPublished || !article.Publication().At.Equal(merged) || article.Publication().PullRequest == nil {
+		t.Fatalf("after the merge: %s at %v", article.Status(), article.Publication().At)
+	}
+	if err := s.Merged(article.ID(), merged); !apperror.Is(err, apperror.InvalidTransition) {
+		t.Fatalf("merged twice: %v", err)
+	}
+}
+
+func TestClosedPullRequestRetriesWithANewOne(t *testing.T) {
+	s, article := mergingArticle(t)
+	if err := s.Fail(article.ID(), "the pull request was closed without merging", now); err != nil {
+		t.Fatal(err)
+	}
+	if article.Status() != story.StatusFailed || article.FailedStep() != story.StatusMerging {
+		t.Fatalf("closed = %s / %s", article.Status(), article.FailedStep())
+	}
+	next, err := s.Retry(article.ID(), now)
+	if err != nil || next != story.StatusReady || article.Publication() != nil {
+		t.Fatalf("retry = %s %v, publication %+v", next, err, article.Publication())
+	}
+	if err := s.StartPublishing(article.ID(), id.New(), now); err != nil {
+		t.Fatalf("publish again after the retry: %v", err)
+	}
+}
+
+func TestPublishedValidatesPullRequest(t *testing.T) {
+	for name, pr := range map[string]story.PullRequest{
+		"no repository": {Number: 7, URL: "https://github.com/o/site/pull/7"},
+		"no number":     {Repo: "o/site", URL: "https://github.com/o/site/pull/7"},
+		"no URL":        {Repo: "o/site", Number: 7},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s, article := readyArticle(t)
+			_ = s.StartPublishing(article.ID(), id.New(), now)
+			err := s.Published(article.ID(), story.Publication{URL: "https://example.com/blog/x/", PullRequest: &pr}, now)
+			if !apperror.Is(err, apperror.ValidationFailed) || article.Status() != story.StatusPublishing {
+				t.Fatalf("err = %v, status %s", err, article.Status())
+			}
+		})
+	}
+}
+
+func TestRehydrateRefusesMergingWithoutPullRequest(t *testing.T) {
+	s, _ := mergingArticle(t)
+	snap := s.Snapshot()
+	snap.Deliverables[0].Published.PullRequest = nil
+	if _, err := story.Rehydrate(snap); err == nil {
+		t.Fatal("rehydrated a merging deliverable without its pull request")
+	}
+}

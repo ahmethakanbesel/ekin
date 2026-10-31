@@ -261,7 +261,7 @@ func (s *Story) Lead() *Deliverable {
 // needs something, so a story is "review" while anything awaits review.
 func (s *Story) Status() Status {
 	order := []Status{StatusFailed, StatusReview, StatusDrafting, StatusRendering, StatusQueued, StatusFinalizing,
-		StatusPublishing, StatusReady, StatusWaiting, StatusPublished, StatusRejected}
+		StatusPublishing, StatusReady, StatusMerging, StatusWaiting, StatusPublished, StatusRejected}
 	for _, st := range order {
 		for _, d := range s.deliverables {
 			if d.status == st {

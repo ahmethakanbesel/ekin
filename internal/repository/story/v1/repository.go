@@ -55,6 +55,9 @@ type Repository interface {
 	// next page ("" after the last).
 	List(ctx context.Context, workspaceID uuid.UUID, f Filter) ([]*storydomain.Story, string, error)
 	Delete(ctx context.Context, workspaceID, id uuid.UUID) error
+	// WithDeliverableStatus returns the stories, in any workspace, with a
+	// deliverable in status (the pull requests waiting to be merged).
+	WithDeliverableStatus(ctx context.Context, status storydomain.Status) ([]uuid.UUID, error)
 
 	// PutRevision inserts or replaces a revision.
 	PutRevision(ctx context.Context, rev storydomain.Revision) error

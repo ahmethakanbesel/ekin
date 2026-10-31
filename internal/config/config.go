@@ -56,6 +56,9 @@ type Publishing struct {
 	// SecretKeyFile holds the key that seals stored tokens; created on
 	// first start. EKIN_SECRET_KEY overrides it.
 	SecretKeyFile, SecretKey string
+	// MergePoll is how often the server checks the pull requests that
+	// published deliverables wait on.
+	MergePoll time.Duration
 }
 
 // Notify configures email and decisions.
@@ -276,6 +279,10 @@ func load(getenv func(string) string) (Config, error) {
 	cfg.Publishing = Publishing{
 		YouTubeClientID: str("EKIN_YOUTUBE_CLIENT_ID", ""), YouTubeClientSecret: str("EKIN_YOUTUBE_CLIENT_SECRET", ""),
 		SecretKeyFile: str("EKIN_SECRET_KEY_FILE", filepath.Join(dataDir, "secret.key")), SecretKey: str("EKIN_SECRET_KEY", ""),
+		MergePoll: duration("EKIN_MERGE_POLL", 5*time.Minute),
+	}
+	if cfg.Publishing.MergePoll < 30*time.Second {
+		errs = append(errs, "EKIN_MERGE_POLL: must be at least 30s")
 	}
 	def := storydomain.DefaultShortsLimits()
 	shorts, err := storydomain.NewShortsLimits(

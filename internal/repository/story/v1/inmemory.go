@@ -131,6 +131,22 @@ func (r *InMemory) Delete(_ context.Context, workspaceID, id uuid.UUID) error {
 	return nil
 }
 
+func (r *InMemory) WithDeliverableStatus(_ context.Context, status storydomain.Status) ([]uuid.UUID, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var ids []uuid.UUID
+	for id, s := range r.stories {
+		for _, d := range s.Deliverables {
+			if d.Status == string(status) {
+				ids = append(ids, id)
+				break
+			}
+		}
+	}
+	slices.SortFunc(ids, func(a, b uuid.UUID) int { return strings.Compare(a.String(), b.String()) })
+	return ids, nil
+}
+
 func (r *InMemory) PutRevision(_ context.Context, rev storydomain.Revision) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

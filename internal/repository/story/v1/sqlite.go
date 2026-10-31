@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -392,6 +393,27 @@ func (r *SQLite) Delete(ctx context.Context, workspaceID, id uuid.UUID) error {
 	}
 	_, err = q.ExecContext(ctx, `DELETE FROM story_search WHERE story_id = ?`, id.String())
 	return err
+}
+
+func (r *SQLite) WithDeliverableStatus(ctx context.Context, status storydomain.Status) (_ []uuid.UUID, err error) {
+	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT DISTINCT story_id FROM deliverables WHERE status = ? ORDER BY story_id`, string(status))
+	if err != nil {
+		return nil, fmt.Errorf("stories by deliverable status: %w", err)
+	}
+	defer func() { err = errors.Join(err, rows.Close()) }()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 func (r *SQLite) PutRevision(ctx context.Context, rev storydomain.Revision) error {

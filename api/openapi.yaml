@@ -2588,7 +2588,10 @@ components:
 
     DeliverableStatus:
       type: string
-      enum: [waiting, queued, drafting, rendering, review, finalizing, ready, publishing, published, rejected, failed]
+      enum: [waiting, queued, drafting, rendering, review, finalizing, ready, publishing, merging, published, rejected, failed]
+      description: >-
+        merging: published as a pull request that waits to be merged; it
+        becomes published when merged and failed when closed unmerged.
 
     FeedbackScope:
       type: string
@@ -2647,9 +2650,24 @@ components:
       type: object
       required: [url, externalId, at]
       properties:
-        url: { type: string }
+        url:
+          type: string
+          description: Where it lives; for a pull request not merged yet, where it will live once merged.
         externalId: { type: string }
-        at: { type: string, format: date-time }
+        at:
+          type: string
+          format: date-time
+          description: When it went live; while merging, when the pull request was opened.
+        pullRequest: { $ref: "#/components/schemas/PullRequest" }
+
+    PullRequest:
+      type: object
+      required: [repo, number, url, branch]
+      properties:
+        repo: { type: string, description: "owner/name" }
+        number: { type: integer }
+        url: { type: string }
+        branch: { type: string }
 
     Deliverable:
       type: object
@@ -3292,7 +3310,8 @@ components:
           type: string
           enum: [github, dir]
         repo: { type: string, description: "owner/name (github)" }
-        branch: { type: string }
+        branch: { type: string, description: "The branch committed to, or the pull requests' base (github)." }
+        mode: { $ref: "#/components/schemas/PublishMode" }
         dir: { type: string, description: Absolute path of a local checkout (dir). }
         contentDir: { type: string, description: "e.g. marketing/src/content/blog" }
         publicDir: { type: string }
@@ -3312,6 +3331,7 @@ components:
           enum: [github, dir]
         repo: { type: string }
         branch: { type: string }
+        mode: { $ref: "#/components/schemas/PublishMode" }
         dir: { type: string }
         contentDir: { type: string }
         publicDir: { type: string }
@@ -3322,7 +3342,17 @@ components:
         draft: { type: boolean }
         token:
           type: string
-          description: GitHub token with contents write access. Omit to keep the stored one.
+          description: >-
+            GitHub token with contents write access (and pull requests write
+            access in pull_request mode). Omit to keep the stored one.
+
+    PublishMode:
+      type: string
+      enum: [commit, pull_request]
+      description: >-
+        How approved articles reach a GitHub repository: a commit on the
+        branch, or a branch of their own and a pull request against it that
+        a person merges. Local checkouts are always written directly.
 
     Integrations:
       type: object

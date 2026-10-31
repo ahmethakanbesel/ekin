@@ -86,6 +86,7 @@ func TestLoadRejectsBadValues(t *testing.T) {
 		{"bad bool", map[string]string{"EKIN_WORKER_PAUSED": "maybe"}, "EKIN_WORKER_PAUSED"},
 		{"bad duration", map[string]string{"EKIN_HEAVY_COOLDOWN": "soon"}, "EKIN_HEAVY_COOLDOWN"},
 		{"tiny tick", map[string]string{"EKIN_SCHEDULER_TICK": "10ms"}, "EKIN_SCHEDULER_TICK"},
+		{"tiny merge poll", map[string]string{"EKIN_MERGE_POLL": "5s"}, "EKIN_MERGE_POLL"},
 		{"bad log format", map[string]string{"EKIN_LOG_FORMAT": "xml"}, "EKIN_LOG_FORMAT"},
 		{"bad concurrency", map[string]string{"EKIN_QUEUE_CONCURRENCY": "gpu=1"}, "EKIN_QUEUE_CONCURRENCY"},
 		{"bad heavy queue", map[string]string{"EKIN_HEAVY_QUEUES": "render,gpu"}, "EKIN_HEAVY_QUEUES"},

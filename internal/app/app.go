@@ -349,6 +349,7 @@ func (a *App) Serve(ctx context.Context) error {
 	go schedule.Run(ctx, a.pipelines, a.cfg.SchedulerTick, a.log.With(slog.String("component", "scheduler")))
 	go a.sweep(ctx)
 	go a.flushNotifications(ctx)
+	go a.watchMerges(ctx)
 
 	errc := make(chan error, 1)
 	go func() {
@@ -378,6 +379,27 @@ func (a *App) sweep(ctx context.Context) {
 			a.log.ErrorContext(ctx, "identity sweep failed", slog.Any("error", err))
 		} else if sessions+invitations > 0 {
 			a.log.InfoContext(ctx, "identity sweep", slog.Int("sessions", sessions), slog.Int("invitations", invitations))
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
+}
+
+// watchMerges moves on the deliverables waiting on pull requests every
+// MergePoll: merged ones are published, closed ones fail.
+func (a *App) watchMerges(ctx context.Context) {
+	t := time.NewTicker(a.cfg.Publishing.MergePoll)
+	defer t.Stop()
+	log := a.log.With(slog.String("component", "merges"))
+	for {
+		n, err := a.production.CheckMerges(ctx)
+		if err != nil && ctx.Err() == nil {
+			log.ErrorContext(ctx, "check pull requests", slog.Any("error", err))
+		} else if n > 0 {
+			log.InfoContext(ctx, "pull requests moved on", slog.Int("count", n))
 		}
 		select {
 		case <-ctx.Done():
