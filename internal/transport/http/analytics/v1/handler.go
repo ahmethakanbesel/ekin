@@ -15,7 +15,6 @@ import (
 	analyticsdomain "github.com/ahmethakanbesel/ekin/internal/domain/analytics/v1"
 	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
 	"github.com/ahmethakanbesel/ekin/internal/gen"
-	analyticsrepo "github.com/ahmethakanbesel/ekin/internal/repository/analytics/v1"
 	analyticssvc "github.com/ahmethakanbesel/ekin/internal/service/analytics/v1"
 	productionsvc "github.com/ahmethakanbesel/ekin/internal/service/production/v1"
 	"github.com/ahmethakanbesel/ekin/internal/transport/http/principal"
@@ -93,18 +92,9 @@ func (h *Handler) ListSearchConsoleProperties(ctx context.Context, req gen.ListS
 	if err != nil {
 		return nil, err
 	}
-	out := gen.ListSearchConsoleProperties200JSONResponse{}
+	out := gen.ListSearchConsoleProperties200JSONResponse{Properties: make([]gen.SearchConsoleProperty, 0, len(props))}
 	for _, p := range props {
-		out.Properties = append(out.Properties, struct {
-			Permission string `json:"permission"`
-			Url        string `json:"url"`
-		}{Permission: p.Permission, Url: p.URL})
-	}
-	if out.Properties == nil {
-		out.Properties = []struct {
-			Permission string `json:"permission"`
-			Url        string `json:"url"`
-		}{}
+		out.Properties = append(out.Properties, gen.SearchConsoleProperty{Permission: p.Permission, Url: p.URL})
 	}
 	return out, nil
 }
@@ -182,7 +172,7 @@ func livePages(st *storydomain.Story) []analyticssvc.Published {
 	var out []analyticssvc.Published
 	seen := map[string]bool{}
 	add := func(u string, at time.Time) {
-		if seen[u] || !(strings.HasPrefix(u, "https://") || strings.HasPrefix(u, "http://")) {
+		if seen[u] || (!strings.HasPrefix(u, "https://") && !strings.HasPrefix(u, "http://")) {
 			return
 		}
 		seen[u] = true
@@ -210,7 +200,7 @@ func totals(t analyticsdomain.Totals) gen.SearchTotals {
 	return gen.SearchTotals{Clicks: t.Clicks, Impressions: t.Impressions, Position: float32(t.Position), Days: t.Days}
 }
 
-func keys(list []analyticsrepo.KeyTotals) []gen.SearchKey {
+func keys(list []analyticssvc.KeyTotals) []gen.SearchKey {
 	out := make([]gen.SearchKey, 0, len(list))
 	for _, k := range list {
 		out = append(out, gen.SearchKey{Key: k.Key, Totals: totals(k.Totals)})

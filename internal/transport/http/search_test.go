@@ -53,9 +53,11 @@ func TestSearchConsoleAPI(t *testing.T) {
 	if !sc.Configured || sc.Connected {
 		t.Fatalf("before = %+v", sc)
 	}
-	var connect struct{ Url string }
+	var connect struct {
+		URL string `json:"url"`
+	}
 	owner.call("POST", base+"/integrations/searchconsole", nil, 200, &connect)
-	u, _ := url.Parse(connect.Url)
+	u, _ := url.Parse(connect.URL)
 	state := u.Query().Get("state")
 
 	// Google sends the browser back; Ekin stores the connection and goes
@@ -93,7 +95,9 @@ func TestSearchConsoleAPI(t *testing.T) {
 		t.Fatalf("overview = %+v", o)
 	}
 	var props struct {
-		Properties []struct{ Url string } `json:"properties"`
+		Properties []struct {
+			URL string `json:"url"`
+		} `json:"properties"`
 	}
 	owner.call("GET", base+"/integrations/searchconsole/properties", nil, 200, &props)
 	if len(props.Properties) != 1 {

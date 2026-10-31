@@ -1068,12 +1068,7 @@ paths:
                 properties:
                   properties:
                     type: array
-                    items:
-                      type: object
-                      required: [url, permission]
-                      properties:
-                        url: { type: string }
-                        permission: { type: string }
+                    items: { $ref: "#/components/schemas/SearchConsoleProperty" }
         default: { $ref: "#/components/responses/Error" }
 
   /workspaces/{workspaceId}/integrations/searchconsole/sync:
@@ -3639,6 +3634,13 @@ components:
         syncedThrough: { type: string, format: date, description: The last day synced. }
         lastSyncAt: { type: string, format: date-time }
         lastError: { type: string }
+
+    SearchConsoleProperty:
+      type: object
+      required: [url, permission]
+      properties:
+        url: { type: string }
+        permission: { type: string }
 
     SearchTotals:
       type: object

@@ -55,7 +55,7 @@ func (f *fakeAsker) Ask(ctx context.Context, model, prompt string) (openrouter.A
 
 type fakeAgent struct{ prompts []string }
 
-func (a *fakeAgent) Run(_ context.Context, req claude.Request) (claude.Result, error) {
+func (a *fakeAgent) Run(context.Context, claude.Request) (claude.Result, error) {
 	b, _ := json.Marshal(map[string]any{"prompts": a.prompts})
 	return claude.Result{Structured: b}, nil
 }

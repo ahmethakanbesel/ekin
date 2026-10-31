@@ -2412,6 +2412,10 @@ export interface components {
             lastSyncAt?: string;
             lastError?: string;
         };
+        SearchConsoleProperty: {
+            url: string;
+            permission: string;
+        };
         SearchTotals: {
             clicks: number;
             impressions: number;
@@ -4655,10 +4659,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        properties: {
-                            url: string;
-                            permission: string;
-                        }[];
+                        properties: components["schemas"]["SearchConsoleProperty"][];
                     };
                 };
             };

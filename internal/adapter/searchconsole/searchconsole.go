@@ -23,7 +23,7 @@ type Endpoints struct {
 }
 
 // Google is the production endpoint set.
-var Google = Endpoints{
+var Google = Endpoints{ //nolint:gosec // endpoint URLs, not credentials
 	Auth:  "https://accounts.google.com/o/oauth2/v2/auth",
 	Token: "https://oauth2.googleapis.com/token",
 	API:   "https://www.googleapis.com/webmasters/v3",
@@ -35,7 +35,7 @@ const Scope = "https://www.googleapis.com/auth/webmasters.readonly"
 // Client is an OAuth client for one Google Cloud project (the one
 // YouTube uses).
 type Client struct {
-	ClientID, ClientSecret, RedirectURL string
+	ClientID, ClientSecret, RedirectURL string //nolint:gosec // never serialised
 	Endpoints                           Endpoints
 	HTTP                                *http.Client
 }
@@ -68,8 +68,8 @@ func (c *Client) AuthURL(state string) string {
 }
 
 type tokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken  string `json:"access_token"`  //nolint:gosec // Google's token response
+	RefreshToken string `json:"refresh_token"` //nolint:gosec // Google's token response
 	Error        string `json:"error"`
 	Description  string `json:"error_description"`
 }
@@ -82,7 +82,7 @@ func (c *Client) token(ctx context.Context, form url.Values) (tokenResponse, err
 		return tokenResponse{}, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	res, err := c.http().Do(req)
+	res, err := c.http().Do(req) //nolint:gosec // the configured Google token endpoint
 	if err != nil {
 		return tokenResponse{}, fmt.Errorf("searchconsole: token: %w", err)
 	}

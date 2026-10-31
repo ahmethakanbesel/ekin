@@ -481,12 +481,15 @@ func pagePath(u string) string {
 	return u
 }
 
+// KeyTotals is one page's or query's totals over a range.
+type KeyTotals = analyticsrepo.KeyTotals
+
 // Overview is the workspace's search figures over a window and the one
 // before it.
 type Overview struct {
 	Start, End        time.Time
 	Current, Previous analyticsdomain.Totals
-	Pages, Queries    []analyticsrepo.KeyTotals
+	Pages, Queries    []KeyTotals
 }
 
 // Overview sums the last days days synced against the days before, with
