@@ -152,7 +152,7 @@ func (r *InMemory) Pages(_ context.Context, ws uuid.UUID, f PageFilter) ([]PageR
 	var out []PageRow
 	for _, p := range r.pages[ws] {
 		if (f.Class != "" && p.Class() != f.Class) || (q != "" && !strings.Contains(fold.String(p.URL+" "+p.Title), q)) ||
-			(after.URL != "" && p.URL <= after.URL) {
+			(after.URL != "" && p.URL <= after.URL) || (len(f.URLs) > 0 && !slices.Contains(f.URLs, p.URL)) {
 			continue
 		}
 		row := PageRow{Page: p}

@@ -77,6 +77,7 @@ type Site struct {
 	url         string
 	maxPages    int
 	schedule    Schedule
+	build       string
 	nextCrawlAt time.Time // zero when the schedule is off
 	updatedBy   uuid.UUID
 	updatedAt   time.Time
@@ -87,7 +88,14 @@ type Settings struct {
 	URL      string
 	MaxPages int // 0 means DefaultMaxPages
 	Schedule Schedule
+	// Build is the shell command that builds the site from its
+	// repository's root (npm ci && npm run build); a change must pass it
+	// before review. Empty skips the build.
+	Build string
 }
+
+// MaxBuildLength bounds the build command.
+const MaxBuildLength = 1000
 
 func (st Settings) parse() (Settings, error) {
 	u, err := ParseURL(st.URL)
@@ -104,6 +112,10 @@ func (st Settings) parse() (Settings, error) {
 	if st.Schedule, err = ParseSchedule(string(st.Schedule)); err != nil {
 		return st, err
 	}
+	st.Build = strings.TrimSpace(st.Build)
+	if len(st.Build) > MaxBuildLength || strings.ContainsAny(st.Build, "\r\n\x00") {
+		return st, apperror.New(apperror.ValidationFailed, "the build command must be one line of at most 1000 characters")
+	}
 	return st, nil
 }
 
@@ -118,7 +130,7 @@ func New(ws uuid.UUID, st Settings, by uuid.UUID, now time.Time) (*Site, error) 
 		return nil, err
 	}
 	now = timeutil.Normalize(now)
-	s := &Site{workspaceID: ws, url: st.URL, maxPages: st.MaxPages, schedule: st.Schedule, updatedBy: by, updatedAt: now}
+	s := &Site{workspaceID: ws, url: st.URL, maxPages: st.MaxPages, schedule: st.Schedule, build: st.Build, updatedBy: by, updatedAt: now}
 	s.Crawled(now)
 	return s, nil
 }
@@ -137,7 +149,7 @@ func (s *Site) Update(st Settings, by uuid.UUID, now time.Time) (bool, error) {
 		s.schedule = st.Schedule
 		s.Crawled(now)
 	}
-	s.url, s.maxPages, s.updatedBy, s.updatedAt = st.URL, st.MaxPages, by, now
+	s.url, s.maxPages, s.build, s.updatedBy, s.updatedAt = st.URL, st.MaxPages, st.Build, by, now
 	return moved, nil
 }
 
@@ -160,6 +172,7 @@ func (s *Site) WorkspaceID() uuid.UUID { return s.workspaceID }
 func (s *Site) URL() string            { return s.url }
 func (s *Site) MaxPages() int          { return s.maxPages }
 func (s *Site) Schedule() Schedule     { return s.schedule }
+func (s *Site) Build() string          { return s.build }
 func (s *Site) NextCrawlAt() time.Time { return s.nextCrawlAt }
 func (s *Site) UpdatedBy() uuid.UUID   { return s.updatedBy }
 func (s *Site) UpdatedAt() time.Time   { return s.updatedAt }
@@ -170,22 +183,23 @@ type Snapshot struct {
 	URL         string
 	MaxPages    int
 	Schedule    string
+	Build       string
 	NextCrawlAt time.Time
 	UpdatedBy   uuid.UUID
 	UpdatedAt   time.Time
 }
 
 func (s *Site) Snapshot() Snapshot {
-	return Snapshot{WorkspaceID: s.workspaceID, URL: s.url, MaxPages: s.maxPages, Schedule: string(s.schedule),
+	return Snapshot{WorkspaceID: s.workspaceID, URL: s.url, MaxPages: s.maxPages, Schedule: string(s.schedule), Build: s.build,
 		NextCrawlAt: s.nextCrawlAt, UpdatedBy: s.updatedBy, UpdatedAt: s.updatedAt}
 }
 
 // Rehydrate rebuilds a stored Site.
 func Rehydrate(sn Snapshot) (*Site, error) {
-	st, err := Settings{URL: sn.URL, MaxPages: sn.MaxPages, Schedule: Schedule(sn.Schedule)}.parse()
+	st, err := Settings{URL: sn.URL, MaxPages: sn.MaxPages, Schedule: Schedule(sn.Schedule), Build: sn.Build}.parse()
 	if err != nil || sn.WorkspaceID == uuid.Nil {
 		return nil, apperror.New(apperror.InternalError, "stored site is invalid")
 	}
-	return &Site{workspaceID: sn.WorkspaceID, url: st.URL, maxPages: st.MaxPages, schedule: st.Schedule,
+	return &Site{workspaceID: sn.WorkspaceID, url: st.URL, maxPages: st.MaxPages, schedule: st.Schedule, build: st.Build,
 		nextCrawlAt: timeutil.Normalize(sn.NextCrawlAt), updatedBy: sn.UpdatedBy, updatedAt: timeutil.Normalize(sn.UpdatedAt)}, nil
 }

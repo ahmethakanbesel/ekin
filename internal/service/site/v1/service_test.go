@@ -339,3 +339,50 @@ func TestIgnoreFinding(t *testing.T) {
 		t.Fatalf("resolved by hand: %v", err)
 	}
 }
+
+func TestClaimReleaseAndNextFindings(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	_, _ = f.svc.SaveSite(ctx, f.ws, f.by, sitedomain.Settings{URL: root, Build: "make"})
+	missing := htmlPage("b", "")
+	missing.Description = ""
+	f.crawler.result = result(htmlPage("", "Home", root+"a", root+"b"), htmlPage("a", ""), missing)
+	if err := f.svc.RunCrawl(ctx, f.jobs.last(t)); err != nil {
+		t.Fatal(err)
+	}
+	if cs, err := f.svc.ChangeSite(ctx, f.ws); err != nil || cs.Build != "make" || cs.URL != root {
+		t.Fatalf("change site = %+v %v", cs, err)
+	}
+	next, err := f.svc.NextFindings(ctx, f.ws, 1)
+	if err != nil || len(next) != 1 {
+		t.Fatalf("next = %v %v", next, err)
+	}
+	rule := next[0].Rule()
+	all, _ := f.svc.NextFindings(ctx, f.ws, 10)
+	for _, x := range all {
+		if x.Rule() != rule {
+			t.Fatalf("next mixes rules: %s and %s", rule, x.Rule())
+		}
+	}
+	story, other := id.New(), id.New()
+	claimed, err := f.svc.Claim(ctx, f.ws, story, []uuid.UUID{all[0].ID(), all[0].ID()})
+	if err != nil || len(claimed) != 1 || claimed[0].ClaimedBy() != story {
+		t.Fatalf("claim = %v %v", claimed, err)
+	}
+	if _, err := f.svc.Claim(ctx, f.ws, other, []uuid.UUID{all[0].ID()}); !apperror.Is(err, apperror.Conflict) {
+		t.Fatalf("another story claimed a held finding: %v", err)
+	}
+	after, _ := f.svc.NextFindings(ctx, f.ws, 10)
+	if slices.ContainsFunc(after, func(x *sitedomain.Finding) bool { return x.ID() == all[0].ID() }) {
+		t.Fatal("a claimed finding is offered again")
+	}
+	if n, err := f.svc.Release(ctx, f.ws, story); err != nil || n != 1 {
+		t.Fatalf("release = %d %v", n, err)
+	}
+	if again, _ := f.svc.NextFindings(ctx, f.ws, 10); len(again) != len(all) {
+		t.Fatalf("released finding not offered again: %d of %d", len(again), len(all))
+	}
+	if pages, err := f.svc.PagesAt(ctx, f.ws, []string{root + "a"}); err != nil || len(pages) != 1 || pages[0].URL != root+"a" {
+		t.Fatalf("pages at = %v %v", pages, err)
+	}
+}

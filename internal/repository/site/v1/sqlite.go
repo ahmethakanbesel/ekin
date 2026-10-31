@@ -64,12 +64,12 @@ func (r *SQLite) Site(ctx context.Context, workspaceID uuid.UUID) (*sitedomain.S
 
 func (r *SQLite) PutSite(ctx context.Context, s *sitedomain.Site) error {
 	sn := s.Snapshot()
-	_, err := r.q.W(ctx).ExecContext(ctx, `INSERT INTO sites (workspace_id, url, max_pages, schedule, next_crawl_at, updated_by, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+	_, err := r.q.W(ctx).ExecContext(ctx, `INSERT INTO sites (workspace_id, url, max_pages, schedule, next_crawl_at, updated_by, updated_at, build)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (workspace_id) DO UPDATE SET url = excluded.url, max_pages = excluded.max_pages, schedule = excluded.schedule,
-			next_crawl_at = excluded.next_crawl_at, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
+			build = excluded.build, next_crawl_at = excluded.next_crawl_at, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
 		sn.WorkspaceID.String(), sn.URL, sn.MaxPages, sn.Schedule, nullMillis(sn.NextCrawlAt), nullID(sn.UpdatedBy),
-		timeutil.ToMillis(sn.UpdatedAt))
+		timeutil.ToMillis(sn.UpdatedAt), sn.Build)
 	if err != nil {
 		return fmt.Errorf("put site: %w", err)
 	}
@@ -81,7 +81,7 @@ func (r *SQLite) DueSites(ctx context.Context, now time.Time) ([]*sitedomain.Sit
 }
 
 func (r *SQLite) sites(ctx context.Context, tail string, a ...any) (_ []*sitedomain.Site, err error) {
-	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT workspace_id, url, max_pages, schedule, next_crawl_at, updated_by, updated_at FROM sites `+tail, a...)
+	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT workspace_id, url, max_pages, schedule, next_crawl_at, updated_by, updated_at, build FROM sites `+tail, a...)
 	if err != nil {
 		return nil, fmt.Errorf("query sites: %w", err)
 	}
@@ -95,7 +95,7 @@ func (r *SQLite) sites(ctx context.Context, tail string, a ...any) (_ []*sitedom
 			by        sql.NullString
 			updatedAt int64
 		)
-		if err := rows.Scan(&ws, &sn.URL, &sn.MaxPages, &sn.Schedule, &next, &by, &updatedAt); err != nil {
+		if err := rows.Scan(&ws, &sn.URL, &sn.MaxPages, &sn.Schedule, &next, &by, &updatedAt, &sn.Build); err != nil {
 			return nil, err
 		}
 		sn.WorkspaceID, _ = uuid.Parse(ws)
@@ -256,6 +256,12 @@ func (r *SQLite) Pages(ctx context.Context, workspaceID uuid.UUID, f PageFilter)
 		where = append(where, "p.url > ?")
 		a = append(a, after.URL)
 	}
+	if len(f.URLs) > 0 {
+		where = append(where, "p.url IN ("+strings.TrimSuffix(strings.Repeat("?,", len(f.URLs)), ",")+")")
+		for _, u := range f.URLs {
+			a = append(a, u)
+		}
+	}
 	limit := page.Limit(f.Limit, DefaultListLimit, MaxListLimit)
 	rows, err := r.q.R(ctx).QueryContext(ctx, `SELECT p.url, p.status, p.data, p.first_seen, p.last_seen,
 		(SELECT COUNT(*) FROM site_findings f WHERE f.workspace_id = p.workspace_id AND f.url = p.url AND f.status = 'open')
@@ -288,7 +294,7 @@ func (r *SQLite) Pages(ctx context.Context, workspaceID uuid.UUID, f PageFilter)
 
 // ---- Findings ----
 
-const findingCols = `id, workspace_id, rule, url, status, evidence, crawl_id, first_seen, last_seen, resolved_at, updated_at`
+const findingCols = `id, workspace_id, rule, url, status, evidence, crawl_id, first_seen, last_seen, resolved_at, updated_at, claimed_by, claimed_at`
 
 func (r *SQLite) PutFindings(ctx context.Context, fs []*sitedomain.Finding) error {
 	q := r.q.W(ctx)
@@ -301,13 +307,13 @@ func (r *SQLite) PutFindings(ctx context.Context, fs []*sitedomain.Finding) erro
 		if sn.Evidence == nil {
 			ev = []byte("[]")
 		}
-		_, err = q.ExecContext(ctx, `INSERT INTO site_findings (`+findingCols+`, severity_rank) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		_, err = q.ExecContext(ctx, `INSERT INTO site_findings (`+findingCols+`, severity_rank) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			ON CONFLICT (id) DO UPDATE SET status = excluded.status, evidence = excluded.evidence, crawl_id = excluded.crawl_id,
 				last_seen = excluded.last_seen, resolved_at = excluded.resolved_at, updated_at = excluded.updated_at,
-				severity_rank = excluded.severity_rank`,
+				severity_rank = excluded.severity_rank, claimed_by = excluded.claimed_by, claimed_at = excluded.claimed_at`,
 			sn.ID.String(), sn.WorkspaceID.String(), sn.Rule, sn.URL, sn.Status, string(ev), nullID(sn.CrawlID),
 			timeutil.ToMillis(sn.FirstSeen), timeutil.ToMillis(sn.LastSeen), nullMillis(sn.ResolvedAt), timeutil.ToMillis(sn.UpdatedAt),
-			f.Severity().Rank())
+			nullID(sn.ClaimedBy), nullMillis(sn.ClaimedAt), f.Severity().Rank())
 		if err != nil {
 			return fmt.Errorf("put finding: %w", err)
 		}
@@ -405,13 +411,15 @@ func (r *SQLite) findings(ctx context.Context, tail string, a ...any) (_ []*site
 		var (
 			sn                   sitedomain.FindingSnapshot
 			id, ws, ev           string
-			crawl                sql.NullString
+			crawl, claimedBy     sql.NullString
 			first, last, updated int64
-			resolved             sql.NullInt64
+			resolved, claimedAt  sql.NullInt64
 		)
-		if err := rows.Scan(&id, &ws, &sn.Rule, &sn.URL, &sn.Status, &ev, &crawl, &first, &last, &resolved, &updated); err != nil {
+		if err := rows.Scan(&id, &ws, &sn.Rule, &sn.URL, &sn.Status, &ev, &crawl, &first, &last, &resolved, &updated,
+			&claimedBy, &claimedAt); err != nil {
 			return nil, err
 		}
+		sn.ClaimedBy, sn.ClaimedAt = parseNullID(claimedBy), timeutil.FromMillis(claimedAt.Int64)
 		sn.ID, _ = uuid.Parse(id)
 		sn.WorkspaceID, _ = uuid.Parse(ws)
 		sn.CrawlID = parseNullID(crawl)

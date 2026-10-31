@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/ahmethakanbesel/ekin/internal/apperror"
 	site "github.com/ahmethakanbesel/ekin/internal/domain/site/v1"
 	"github.com/ahmethakanbesel/ekin/pkg/id"
@@ -148,5 +150,53 @@ func TestReconcile(t *testing.T) {
 	back, err := site.RehydrateFinding(fb.Snapshot())
 	if err != nil || back.Key() != fb.Key() || back.Severity() != site.SeverityWarning {
 		t.Fatalf("rehydrate = %v", err)
+	}
+}
+
+func TestFindingClaims(t *testing.T) {
+	ws, crawl := id.New(), id.New()
+	raised := site.Raised{Rule: site.RuleTitleMissing, URL: "https://example.com/a"}
+	f := site.Reconcile(nil, []site.Raised{raised}, ws, crawl, id.New, now)[0]
+	one, two := id.New(), id.New()
+	if !f.Claimable(now) || f.Claim(one, now) != nil || f.ClaimedBy() != one {
+		t.Fatalf("first claim: claimed by %v", f.ClaimedBy())
+	}
+	if err := f.Claim(one, now); err != nil {
+		t.Fatalf("claiming again for the same story: %v", err)
+	}
+	if err := f.Claim(two, now.Add(time.Hour)); !apperror.Is(err, apperror.Conflict) || f.Claimable(now.Add(time.Hour)) {
+		t.Fatalf("a second story claimed a held finding: %v", err)
+	}
+	if err := f.Claim(two, now.Add(site.ClaimTTL)); err != nil || f.ClaimedBy() != two {
+		t.Fatalf("an expired claim is not taken over: %v", err)
+	}
+	if f.Release(one, now) || !f.Release(two, now) || f.ClaimedBy() != uuid.Nil {
+		t.Fatalf("release: claimed by %v", f.ClaimedBy())
+	}
+	_ = f.Claim(one, now)
+	site.Reconcile([]*site.Finding{f}, nil, ws, id.New(), id.New, now)
+	if f.Status() != site.FindingResolved || f.ClaimedBy() != uuid.Nil {
+		t.Fatalf("a resolved finding keeps its claim: %s %v", f.Status(), f.ClaimedBy())
+	}
+	if err := f.Claim(one, now); !apperror.Is(err, apperror.InvalidTransition) {
+		t.Fatalf("claimed a resolved finding: %v", err)
+	}
+	back, err := site.RehydrateFinding(f.Snapshot())
+	if err != nil || back.Snapshot().ClaimedBy != f.ClaimedBy() {
+		t.Fatalf("rehydrate: %v", err)
+	}
+}
+
+func TestBuildCommand(t *testing.T) {
+	s, err := site.New(id.New(), site.Settings{URL: "https://example.com", Build: "  npm ci && npm run build "}, id.New(), now)
+	if err != nil || s.Build() != "npm ci && npm run build" {
+		t.Fatalf("build = %q, %v", s.Build(), err)
+	}
+	if _, err := s.Update(site.Settings{URL: "https://example.com", Build: "a\nb"}, id.New(), now); !apperror.Is(err, apperror.ValidationFailed) {
+		t.Fatalf("multi-line build: %v", err)
+	}
+	back, err := site.Rehydrate(s.Snapshot())
+	if err != nil || back.Build() != s.Build() {
+		t.Fatalf("rehydrate build: %v", err)
 	}
 }

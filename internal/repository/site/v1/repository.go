@@ -24,6 +24,8 @@ type PageFilter struct {
 	// Query keeps pages whose address or title contains it, compared
 	// folded (pkg/fold).
 	Query string
+	// URLs keeps only the pages at these addresses; empty means any.
+	URLs  []string
 	Limit int
 	After string
 }

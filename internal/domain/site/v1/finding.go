@@ -86,7 +86,16 @@ type Finding struct {
 	lastSeen    time.Time
 	resolvedAt  time.Time
 	updatedAt   time.Time
+	// claimedBy is the story whose change sets out to fix the finding;
+	// Nil when none does.
+	claimedBy uuid.UUID
+	claimedAt time.Time
 }
+
+// ClaimTTL is how long a change keeps its findings to itself. A finding
+// still open that long after a change claimed it (the change stalled,
+// or its fix did not hold) can be taken on again.
+const ClaimTTL = 14 * 24 * time.Hour
 
 func newFinding(id, ws, crawl uuid.UUID, r Raised, now time.Time) *Finding {
 	return &Finding{id: id, workspaceID: ws, rule: r.Rule, url: r.URL, evidence: clip(r.Evidence), status: FindingOpen,
@@ -125,13 +134,16 @@ func Reconcile(existing []*Finding, raised []Raised, ws, crawl uuid.UUID, ids fu
 		}
 		f.evidence, f.crawlID, f.lastSeen, f.updatedAt = clip(r.Evidence), crawl, now, now
 		if f.status == FindingResolved {
+			// It came back: whatever fixed it did not hold.
 			f.status, f.resolvedAt = FindingOpen, time.Time{}
+			f.claimedBy, f.claimedAt = uuid.Nil, time.Time{}
 		}
 		changed = append(changed, f)
 	}
 	for _, f := range existing {
 		if !seen[f.Key()] && f.status == FindingOpen {
 			f.status, f.resolvedAt, f.updatedAt = FindingResolved, now, now
+			f.claimedBy, f.claimedAt = uuid.Nil, time.Time{}
 			changed = append(changed, f)
 		}
 	}
@@ -150,6 +162,44 @@ func (f *Finding) SetStatus(to FindingStatus, now time.Time) error {
 	}
 	return apperror.New(apperror.InvalidTransition, "the finding is "+string(f.status)+"; it cannot become "+string(to))
 }
+
+// Claimable reports whether a change may take the finding on at now:
+// it is open, and no other change claimed it within ClaimTTL.
+func (f *Finding) Claimable(now time.Time) bool {
+	return f.status == FindingOpen && (f.claimedBy == uuid.Nil || !now.Before(f.claimedAt.Add(ClaimTTL)))
+}
+
+// Claim gives the finding to story's change.
+func (f *Finding) Claim(story uuid.UUID, now time.Time) error {
+	if story == uuid.Nil {
+		return apperror.New(apperror.ValidationFailed, "a story is required")
+	}
+	if f.claimedBy == story {
+		return nil
+	}
+	if !f.Claimable(now) {
+		if f.status != FindingOpen {
+			return apperror.New(apperror.InvalidTransition, "the finding is "+string(f.status))
+		}
+		return apperror.New(apperror.Conflict, "another change is already fixing this finding")
+	}
+	now = timeutil.Normalize(now)
+	f.claimedBy, f.claimedAt, f.updatedAt = story, now, now
+	return nil
+}
+
+// Release gives the finding back when story's change was dropped, and
+// reports whether it held it.
+func (f *Finding) Release(story uuid.UUID, now time.Time) bool {
+	if story == uuid.Nil || f.claimedBy != story {
+		return false
+	}
+	f.claimedBy, f.claimedAt, f.updatedAt = uuid.Nil, time.Time{}, timeutil.Normalize(now)
+	return true
+}
+
+func (f *Finding) ClaimedBy() uuid.UUID { return f.claimedBy }
+func (f *Finding) ClaimedAt() time.Time { return f.claimedAt }
 
 func (f *Finding) Key() string            { return Raised{Rule: f.rule, URL: f.url}.Key() }
 func (f *Finding) ID() uuid.UUID          { return f.id }
@@ -171,12 +221,14 @@ type FindingSnapshot struct {
 	Rule, URL, Status                          string
 	Evidence                                   []string
 	FirstSeen, LastSeen, ResolvedAt, UpdatedAt time.Time
+	ClaimedBy                                  uuid.UUID
+	ClaimedAt                                  time.Time
 }
 
 func (f *Finding) Snapshot() FindingSnapshot {
 	return FindingSnapshot{ID: f.id, WorkspaceID: f.workspaceID, CrawlID: f.crawlID, Rule: string(f.rule), URL: f.url,
 		Status: string(f.status), Evidence: slices.Clone(f.evidence), FirstSeen: f.firstSeen, LastSeen: f.lastSeen,
-		ResolvedAt: f.resolvedAt, UpdatedAt: f.updatedAt}
+		ResolvedAt: f.resolvedAt, UpdatedAt: f.updatedAt, ClaimedBy: f.claimedBy, ClaimedAt: f.claimedAt}
 }
 
 // RehydrateFinding rebuilds a stored Finding. A rule this version no
@@ -189,5 +241,5 @@ func RehydrateFinding(sn FindingSnapshot) (*Finding, error) {
 	return &Finding{id: sn.ID, workspaceID: sn.WorkspaceID, crawlID: sn.CrawlID, rule: Rule(sn.Rule), url: sn.URL,
 		status: st, evidence: slices.Clone(sn.Evidence), firstSeen: timeutil.Normalize(sn.FirstSeen),
 		lastSeen: timeutil.Normalize(sn.LastSeen), resolvedAt: timeutil.Normalize(sn.ResolvedAt),
-		updatedAt: timeutil.Normalize(sn.UpdatedAt)}, nil
+		updatedAt: timeutil.Normalize(sn.UpdatedAt), claimedBy: sn.ClaimedBy, claimedAt: timeutil.Normalize(sn.ClaimedAt)}, nil
 }

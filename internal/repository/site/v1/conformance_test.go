@@ -48,7 +48,7 @@ func TestSitesAndCrawls(t *testing.T) {
 			if _, err := repo.Site(ctx, ws); !apperror.Is(err, apperror.NotFound) {
 				t.Fatalf("no site = %v", err)
 			}
-			s, _ := sitedomain.New(ws, sitedomain.Settings{URL: "https://example.com", Schedule: sitedomain.ScheduleDaily}, id.New(), now)
+			s, _ := sitedomain.New(ws, sitedomain.Settings{URL: "https://example.com", Schedule: sitedomain.ScheduleDaily, Build: "npm run build"}, id.New(), now)
 			off, _ := sitedomain.New(other, sitedomain.Settings{URL: "https://other.example", Schedule: sitedomain.ScheduleOff}, id.New(), now)
 			for _, x := range []*sitedomain.Site{s, off} {
 				if err := repo.PutSite(ctx, x); err != nil {
@@ -56,7 +56,8 @@ func TestSitesAndCrawls(t *testing.T) {
 				}
 			}
 			got, err := repo.Site(ctx, ws)
-			if err != nil || got.URL() != "https://example.com/" || got.Schedule() != sitedomain.ScheduleDaily || !got.NextCrawlAt().Equal(s.NextCrawlAt()) {
+			if err != nil || got.URL() != "https://example.com/" || got.Schedule() != sitedomain.ScheduleDaily || !got.NextCrawlAt().Equal(s.NextCrawlAt()) ||
+				got.Build() != "npm run build" {
 				t.Fatalf("site = %+v %v", got, err)
 			}
 			if due, _ := repo.DueSites(ctx, now.Add(time.Hour)); len(due) != 0 {
@@ -121,8 +122,16 @@ func TestPagesAndFindings(t *testing.T) {
 			crawl := id.New()
 			fs := sitedomain.Reconcile(nil, raised, ws, crawl, id.New, now)
 			_ = fs[1].SetStatus(sitedomain.FindingIgnored, now) // thin content
+			story := id.New()
+			_ = fs[0].Claim(story, now)
 			if err := repo.PutFindings(ctx, fs); err != nil {
 				t.Fatal(err)
+			}
+			if got, err := repo.Finding(ctx, ws, fs[0].ID()); err != nil || got.ClaimedBy() != story || !got.ClaimedAt().Equal(now) {
+				t.Fatalf("claimed finding = %+v %v", got, err)
+			}
+			if at, _, _ := repo.Pages(ctx, ws, siterepo.PageFilter{URLs: []string{"https://example.com/gone", "https://example.com/x"}}); len(at) != 1 || at[0].Status != 404 {
+				t.Fatalf("pages by address = %v", at)
 			}
 
 			rows, next, err := repo.Pages(ctx, ws, siterepo.PageFilter{Limit: 2})
