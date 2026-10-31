@@ -231,6 +231,16 @@ ignore one that does not matter here.
 Ekin refuses to crawl an address that resolves to a loopback or private network address;
 set `EKIN_CRAWL_ALLOW_PRIVATE=true` for a site on Ekin's own network.
 
+### Competitors
+
+The **Competitors** tab of the Site page follows up to ten rival sites. Once a week Ekin
+reads each one's sitemaps (only the sitemaps, obeying its robots.txt as `EkinBot`) and
+records the pages it added or dropped since the last check; the first check only records
+what is there. It reads the titles of up to 20 new pages a check, so the feed says what
+each is about. A new page is a signal: **Add keyword** puts its topic in the SEO keyword
+pool, and **Answer it** starts a change asking for a page of ours that meets the same
+need. Competitors followed here are also suggested to AI visibility.
+
 ### Changes
 
 A **change** is an edit to the site's repository, reviewed as a diff before it reaches

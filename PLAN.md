@@ -65,7 +65,7 @@ person approved.
   site, or one moved to another address, is crawled at once; a move drops the old
   pages and findings. The site keeps the build command; the repository itself stays the
   blog target's (Settings › Publishing › Blog), which changes publish through too.
-  Competitors' domains join the site in milestone 15.
+  Competitors' sites are followed from Site › Competitors.
 - **Crawl and inventory**: robots.txt and the sitemaps (falling back to following
   internal links, capped) give the page inventory: URL, status, redirect target,
   title, meta description, canonical, `h1`, structured-data types, word count, internal
@@ -127,6 +127,7 @@ Not in scope yet: visitor identification, outreach, CRM sync, ads, A/B tests, ho
 | Blog | Markdown with the site's frontmatter committed to `marketing/src/content/blog/{tr,en}` in one commit through the GitHub Git Data API — onto the branch, or onto `ekin/<slug>-<job>` with a pull request against it — or written into a local checkout. Video embeds become privacy-enhanced iframes. No CMS migration. |
 | Merge tracking | `ekin serve` calls `CheckMerges` every `EKIN_MERGE_POLL` (5m): one GET per open pull request, no jobs. Not a job chain, so days of waiting leave no trail of jobs. The branch name ends in the publish job's id, so a retried attempt finds its own pull request and a new publication gets a fresh branch. |
 | Site crawl | `internal/adapter/crawl`: Go `net/http`, one request at a time with `EKIN_CRAWL_DELAY` (500ms) between them or a longer Crawl-delay (up to 10s); robots.txt obeyed as `EkinBot` (`pkg/robots`, RFC 9309); redirects recorded, not followed; `golang.org/x/net/html` for parsing. The dialer refuses loopback, private and link-local addresses after DNS resolution unless `EKIN_CRAWL_ALLOW_PRIVATE`. A `site.crawl` job on the io queue, one per workspace at a time; a crawl unfinished after 3h running (6h queued) is taken as stopped. The latest crawl's pages replace the inventory (first seen kept); page bodies are not kept. |
+| Competitor checks | A `competitor.check` job on the io queue per competitor, due a week after the last (a failed check waits a week too). Only sitemaps are read, as for the site (robots.txt, its Sitemap lines or /sitemap.xml), and the titles of up to 20 new pages. Known pages are kept with first and last seen and when they dropped out; a page listed again counts as new again. Signals are acted on by people (keyword, change), never automatically. |
 | Audit rules | Plain Go functions over the inventory, table-tested; no model decides whether a title is missing. The agent only writes fixes. |
 | Finding claims | A change claims its findings (`claimed_by`, `claimed_at`) so no other change takes them; rejecting or deleting the change releases them, a crawl that resolves or reopens a finding clears its claim, and a claim older than 14 days lapses. A findings pipeline's change takes up to 10 findings of the most severe rule with unclaimed ones; one from the Site page takes up to 25. |
 | Change agent | Same `Agent` port, its own job kind (`change.draft`) so remote hybrid workers never take it. The work dir's `repo/` is the GitHub tarball of the branch's tip (no git remote, so no token on disk) or the local checkout's files, committed once locally as the base; the change is the diff against it. Allow-list: file tools plus `Bash(ekin tool build)` and `Bash(ekin tool diff)`, nothing else from the shell. The build command (site settings) runs in its own process group with a scrubbed environment (PATH, a HOME inside the work dir, CI=true) and a 15-minute limit; afterwards the repository is reset to its pre-build tree, so build output never enters the change. Ekin reruns the build itself when the agent's last passing build was on other edits. Revisions archive the work dir without `repo/`; another host rebuilds it from the base commit and the patch. A change may not touch `.github/` and is capped at 200 files and a 4 MB patch. |
@@ -313,8 +314,11 @@ Site growth (see §1):
     real agent drafted prompts and the screens checked with a seeded check; asking models
     tested against a fake OpenRouter (no key here).
 
-Planned:
-15. Competitors — sitemap diffs as signals for SEO opportunities and change ideas.
+15. Competitors — up to ten per site, sitemaps read weekly as `EkinBot` (robots.txt
+    obeyed, no page fetched but the titles of up to 20 new ones), pages added or dropped
+    recorded after a baseline, a feed on the Site page whose new pages become SEO keywords
+    or change requests; suggested to AI visibility. ✅ a local rival site's new page was
+    found, titled, added as a keyword and turned into a prefilled change request.
 
 ## 9. Open decisions
 
