@@ -49,6 +49,7 @@ func TestDigest(t *testing.T) {
 		{WorkspaceID: ws, StoryID: story, Kind: "review", Title: "Ruminasyon", Detail: "video revision 1 is ready for review"},
 		{WorkspaceID: ws, StoryID: id.New(), Kind: "failed", Title: "Uyku", Detail: "video failed: chrome"},
 		{WorkspaceID: ws, Kind: "run", Title: "Shorts", Detail: "2 new stories"},
+		{WorkspaceID: ws, Kind: "search", Title: "Search clicks moved this week", Detail: "/blog/x/ +12 clicks (30 → 42)"},
 	} {
 		if err := svc.Notify(ctx, e); err != nil {
 			t.Fatal(err)
@@ -64,7 +65,7 @@ func TestDigest(t *testing.T) {
 		t.Fatalf("flush = %d %v %d", n, err, len(m.sent))
 	}
 	msg := m.sent[0]
-	for _, want := range []string{"[acme] 1 ready for review, 1 failed", "Ruminasyon", "https://ekin.example.com/w/" + ws.String() + "/stories/" + story.String()} {
+	for _, want := range []string{"[acme] 1 ready for review, 1 failed, 1 search update", "Ruminasyon", "Search\n\n• Search clicks moved this week\n  /blog/x/ +12 clicks (30 → 42)", "https://ekin.example.com/w/" + ws.String() + "/stories/" + story.String()} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("digest lacks %q:\n%s", want, msg)
 		}
@@ -76,7 +77,7 @@ func TestDigest(t *testing.T) {
 		t.Fatalf("sent twice: %d", n)
 	}
 	feed, _, _ := svc.Feed(ctx, ws, notifysvc.FeedFilter{Limit: 10})
-	if len(feed) != 3 || feed[0].Kind != "run" {
+	if len(feed) != 4 || feed[0].Kind != "search" {
 		t.Fatalf("feed = %+v", feed)
 	}
 }

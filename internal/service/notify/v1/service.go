@@ -166,6 +166,14 @@ func (s *Service) sendDigests(ctx context.Context, ws uuid.UUID, items []Notific
 	return sent, errors.Join(errs...)
 }
 
+// The digest's sections, in order: what needs someone, then what
+// happened, then how search moved.
+var (
+	digestKinds    = []string{"review", "failed", "published", "search"}
+	digestCounts   = map[string]string{"review": "ready for review", "failed": "failed", "published": "published", "search": "search update"}
+	digestHeadings = map[string]string{"review": "Ready for review", "failed": "Failed", "published": "Published", "search": "Search"}
+)
+
 // digest is the subject and body of an email about items.
 func (s *Service) digest(ws uuid.UUID, name string, items []Notification) (string, string) {
 	counts := map[string]int{}
@@ -173,21 +181,21 @@ func (s *Service) digest(ws uuid.UUID, name string, items []Notification) (strin
 		counts[n.Kind]++
 	}
 	var parts []string
-	for _, k := range []string{"review", "failed", "published"} {
+	for _, k := range digestKinds {
 		if c := counts[k]; c > 0 {
-			parts = append(parts, fmt.Sprintf("%d %s", c, map[string]string{"review": "ready for review", "failed": "failed", "published": "published"}[k]))
+			parts = append(parts, fmt.Sprintf("%d %s", c, digestCounts[k]))
 		}
 	}
 	subject := fmt.Sprintf("[%s] %s", name, strings.Join(parts, ", "))
 	var b strings.Builder
-	for _, k := range []string{"review", "failed", "published"} {
+	for _, k := range digestKinds {
 		first := true
 		for _, n := range items {
 			if n.Kind != k {
 				continue
 			}
 			if first {
-				b.WriteString(map[string]string{"review": "Ready for review", "failed": "Failed", "published": "Published"}[k] + "\n\n")
+				b.WriteString(digestHeadings[k] + "\n\n")
 				first = false
 			}
 			fmt.Fprintf(&b, "• %s\n  %s\n", n.Title, n.Detail)
