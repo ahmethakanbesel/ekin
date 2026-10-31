@@ -357,6 +357,7 @@ export const en = {
     noRows: "Nothing in this period.",
     storyTitle: "Search",
     storyBody: (days: number) => `The page's 28 days before it went live, against the ${days} ${days === 1 ? "day" : "days"} since (per day).`,
+    storyFresh: "The page's 28 days before it went live. The days since arrive with the next daily syncs.",
     perDay: (n: number) => `${n.toFixed(1)}/day`,
     before: "Before",
     since: "Since",

@@ -31,6 +31,8 @@ export function StorySearch({ workspaceId, story }: { workspaceId: string; story
 }
 
 function PageRow({ page: p }: { page: PageSearch }) {
+  // Live since the last day synced: nothing to compare with yet.
+  const fresh = p.after.days === 0
   const rows: { label: string; before: string; after: string; better?: boolean }[] = [
     {
       label: t.clicks,
@@ -57,7 +59,7 @@ function PageRow({ page: p }: { page: PageSearch }) {
       <a href={p.url} target="_blank" rel="noopener noreferrer" className="truncate font-mono text-xs hover:underline" title={p.url}>
         {p.url}
       </a>
-      <p className="text-xs text-muted-foreground">{t.storyBody(p.after.days)}</p>
+      <p className="text-xs text-muted-foreground">{fresh ? t.storyFresh : t.storyBody(p.after.days)}</p>
       <table className="w-full text-sm">
         <thead>
           <tr className="text-xs text-muted-foreground">
@@ -76,19 +78,21 @@ function PageRow({ page: p }: { page: PageSearch }) {
               <td
                 className={cn(
                   "tabular text-right font-medium",
-                  r.better === true && "text-success",
-                  r.better === false && "text-destructive"
+                  !fresh && r.better === true && "text-success",
+                  !fresh && r.better === false && "text-destructive"
                 )}
               >
-                {r.after}
+                {fresh ? "—" : r.after}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      <p className="tabular text-xs text-muted-foreground">
-        {formatInteger(p.before.clicks)} → {formatInteger(p.after.clicks)} {t.clicks.toLowerCase()}
-      </p>
+      {fresh ? null : (
+        <p className="tabular text-xs text-muted-foreground">
+          {formatInteger(p.before.clicks)} → {formatInteger(p.after.clicks)} {t.clicks.toLowerCase()}
+        </p>
+      )}
     </li>
   )
 }
