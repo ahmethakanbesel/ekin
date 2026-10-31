@@ -30,6 +30,7 @@ import (
 	settingsdomain "github.com/ahmethakanbesel/ekin/internal/domain/settings/v1"
 	storydomain "github.com/ahmethakanbesel/ekin/internal/domain/story/v1"
 	"github.com/ahmethakanbesel/ekin/internal/gen"
+	analyticsrepo "github.com/ahmethakanbesel/ekin/internal/repository/analytics/v1"
 	identityrepo "github.com/ahmethakanbesel/ekin/internal/repository/identity/v1"
 	jobrepo "github.com/ahmethakanbesel/ekin/internal/repository/job/v1"
 	knowledgerepo "github.com/ahmethakanbesel/ekin/internal/repository/knowledge/v1"
@@ -41,6 +42,7 @@ import (
 	storyrepo "github.com/ahmethakanbesel/ekin/internal/repository/story/v1"
 	templaterepo "github.com/ahmethakanbesel/ekin/internal/repository/template/v1"
 	workspacerepo "github.com/ahmethakanbesel/ekin/internal/repository/workspace/v1"
+	analyticssvc "github.com/ahmethakanbesel/ekin/internal/service/analytics/v1"
 	defaultssvc "github.com/ahmethakanbesel/ekin/internal/service/defaults/v1"
 	identitysvc "github.com/ahmethakanbesel/ekin/internal/service/identity/v1"
 	jobsvc "github.com/ahmethakanbesel/ekin/internal/service/job/v1"
@@ -70,6 +72,7 @@ type server struct {
 	stories   storyrepo.Repository
 	blobs     blob.Store
 	site      *sitesvc.Service
+	analytics *analyticssvc.Service
 	logs      *syncBuffer
 }
 
@@ -117,9 +120,14 @@ func newServer(t *testing.T) *server {
 		Stories: stories, Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs, Library: library,
 		Sites: site, Repos: publishing.Repositories(),
 	})
+	analytics := analyticssvc.NewService(analyticssvc.Deps{
+		Repo: analyticsrepo.NewSQLite(tx), Tx: tx, Box: box, Jobs: jobs,
+		Google: func(context.Context) analyticssvc.Google { return fakeSearchConsole{} },
+	})
 	router, err := httptransport.NewRouter(httptransport.Deps{
 		Production: production,
 		Site:       site,
+		Analytics:  analytics,
 		Templates:  templates,
 		System:     systemhandler.New(settings, "default", "test", nil),
 		Identity:   identity,
@@ -140,7 +148,7 @@ func newServer(t *testing.T) *server {
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)
 	return &server{Server: srv, identity: identity, knowledge: knowledge, library: library, jobs: jobs, stories: stories, blobs: blobs,
-		site: site, logs: logs}
+		site: site, analytics: analytics, logs: logs}
 }
 
 // client is a browser: it keeps cookies.
@@ -572,7 +580,7 @@ func TestAccessRulesCoverSpec(t *testing.T) {
 		}
 	}
 	slices.Sort(public)
-	if want := []string{"AcceptInvitation", "GetInvitation", "Login", "YouTubeCallback"}; !slices.Equal(public, want) {
+	if want := []string{"AcceptInvitation", "GetInvitation", "Login", "SearchConsoleCallback", "YouTubeCallback"}; !slices.Equal(public, want) {
 		t.Fatalf("public operations = %v, want %v", public, want)
 	}
 	if len(unruled) > 0 {

@@ -84,6 +84,15 @@ var workspaceActions = map[string]identitydomain.Action{
 	"ListSiteFindings":  identitydomain.ActionView,
 	"UpdateSiteFinding": identitydomain.ActionEdit,
 	"RequestChange":     identitydomain.ActionEdit,
+	// Search Console: owners connect it; everyone reads the figures.
+	"GetSearchConsole":            identitydomain.ActionView,
+	"ConnectSearchConsole":        identitydomain.ActionManage,
+	"ChooseSearchConsoleProperty": identitydomain.ActionManage,
+	"DisconnectSearchConsole":     identitydomain.ActionManage,
+	"ListSearchConsoleProperties": identitydomain.ActionManage,
+	"SyncSearchConsole":           identitydomain.ActionEdit,
+	"GetSearchOverview":           identitydomain.ActionView,
+	"GetStorySearch":              identitydomain.ActionView,
 
 	"GetIntegrations":   identitydomain.ActionView,
 	"ConnectYouTube":    identitydomain.ActionManage,

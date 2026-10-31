@@ -577,6 +577,119 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspaces/{workspaceId}/integrations/searchconsole": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getSearchConsole"];
+        /** @description Chooses the property to read; a new one drops the figures kept so far and syncs. */
+        put: operations["chooseSearchConsoleProperty"];
+        /** @description Returns the Google consent URL (read-only Search Console access); the browser comes back to /oauth/searchconsole/callback. */
+        post: operations["connectSearchConsole"];
+        /** @description Forgets the connection and every figure synced from it. */
+        delete: operations["disconnectSearchConsole"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/integrations/searchconsole/properties": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listSearchConsoleProperties"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/integrations/searchconsole/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["syncSearchConsole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        /** @description Clicks, impressions and position over the last days synced against the days before, with the top pages and queries. */
+        get: operations["getSearchOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/stories/{storyId}/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: string;
+            };
+            cookie?: never;
+        };
+        /** @description For each page a published article or change put live, its search figures over the 28 days before against the days since. Empty without Search Console. */
+        get: operations["getStorySearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/oauth/searchconsole/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Google redirects here; Ekin stores the connection and redirects back to the workspace settings. */
+        get: operations["searchConsoleCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/oauth/youtube/callback": {
         parameters: {
             query?: never;
@@ -1951,6 +2064,60 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        SearchConsole: {
+            /** @description The server has Google OAuth credentials. */
+            configured: boolean;
+            connected: boolean;
+            /** @description The property read; absent until one is chosen. */
+            property?: string;
+            /** Format: date-time */
+            connectedAt?: string;
+            /**
+             * Format: date
+             * @description The last day synced.
+             */
+            syncedThrough?: string;
+            /** Format: date-time */
+            lastSyncAt?: string;
+            lastError?: string;
+        };
+        SearchTotals: {
+            clicks: number;
+            impressions: number;
+            /** @description Average position weighted by impressions; 0 without impressions. */
+            position: number;
+            days: number;
+        };
+        SearchKey: {
+            /** @description The page's URL or the query. */
+            key: string;
+            totals: components["schemas"]["SearchTotals"];
+        };
+        SearchOverview: {
+            /** Format: date */
+            start?: string;
+            /** Format: date */
+            end?: string;
+            current?: components["schemas"]["SearchTotals"];
+            previous?: components["schemas"]["SearchTotals"];
+            pages: components["schemas"]["SearchKey"][];
+            queries: components["schemas"]["SearchKey"][];
+        };
+        PageSearch: {
+            url: string;
+            /**
+             * Format: date-time
+             * @description When it went live.
+             */
+            at: string;
+            /**
+             * Format: date
+             * @description The last day synced.
+             */
+            through: string;
+            before: components["schemas"]["SearchTotals"];
+            after: components["schemas"]["SearchTotals"];
         };
         StoryFinding: {
             /** Format: uuid */
@@ -4040,6 +4207,229 @@ export interface operations {
                 content?: never;
             };
             default: components["responses"]["Error"];
+        };
+    };
+    getSearchConsole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The connection. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchConsole"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    chooseSearchConsoleProperty: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    property: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Chosen. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchConsole"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    connectSearchConsole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Consent URL. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        url: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    disconnectSearchConsole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disconnected. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSearchConsoleProperties: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The properties the connected account can read. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        properties: {
+                            url: string;
+                            permission: string;
+                        }[];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    syncSearchConsole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A sync is queued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchConsole"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSearchOverview: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Overview; empty before the first sync. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getStorySearch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                storyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pages. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        pages: components["schemas"]["PageSearch"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    searchConsoleCallback: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Back to the app. */
+            302: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     youTubeCallback: {

@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/ahmethakanbesel/ekin/internal/adapter/claude"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/cpulimit"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/crawl"
@@ -19,12 +21,14 @@ import (
 	"github.com/ahmethakanbesel/ekin/internal/adapter/github"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/media"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/render"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/searchconsole"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/speech"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/youtube"
 	"github.com/ahmethakanbesel/ekin/internal/blob"
 	"github.com/ahmethakanbesel/ekin/internal/config"
 	"github.com/ahmethakanbesel/ekin/internal/db"
 	settingsdomain "github.com/ahmethakanbesel/ekin/internal/domain/settings/v1"
+	analyticsrepo "github.com/ahmethakanbesel/ekin/internal/repository/analytics/v1"
 	identityrepo "github.com/ahmethakanbesel/ekin/internal/repository/identity/v1"
 	jobrepo "github.com/ahmethakanbesel/ekin/internal/repository/job/v1"
 	knowledgerepo "github.com/ahmethakanbesel/ekin/internal/repository/knowledge/v1"
@@ -38,6 +42,7 @@ import (
 	storyrepo "github.com/ahmethakanbesel/ekin/internal/repository/story/v1"
 	templaterepo "github.com/ahmethakanbesel/ekin/internal/repository/template/v1"
 	workspacerepo "github.com/ahmethakanbesel/ekin/internal/repository/workspace/v1"
+	analyticssvc "github.com/ahmethakanbesel/ekin/internal/service/analytics/v1"
 	defaultssvc "github.com/ahmethakanbesel/ekin/internal/service/defaults/v1"
 	identitysvc "github.com/ahmethakanbesel/ekin/internal/service/identity/v1"
 	jobsvc "github.com/ahmethakanbesel/ekin/internal/service/job/v1"
@@ -55,6 +60,7 @@ import (
 	workspacesvc "github.com/ahmethakanbesel/ekin/internal/service/workspace/v1"
 	httptransport "github.com/ahmethakanbesel/ekin/internal/transport/http"
 	systemhandler "github.com/ahmethakanbesel/ekin/internal/transport/http/system/v1"
+	analyticsworker "github.com/ahmethakanbesel/ekin/internal/transport/job/analytics/v1"
 	knowledgeworker "github.com/ahmethakanbesel/ekin/internal/transport/job/knowledge/v1"
 	libraryworker "github.com/ahmethakanbesel/ekin/internal/transport/job/library/v1"
 	productionworker "github.com/ahmethakanbesel/ekin/internal/transport/job/production/v1"
@@ -88,6 +94,7 @@ type App struct {
 	publishing *publishingsvc.Service
 	seo        *seosvc.Service
 	site       *sitesvc.Service
+	analytics  *analyticssvc.Service
 	templates  *templatesvc.Service
 	voices     *voicesvc.Service
 	defaults   *defaultssvc.Service
@@ -145,6 +152,19 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, agent, cfg.Production.WorkDir)
 	site := sitesvc.NewService(siterepo.NewSQLite(tx), tx, jobs, crawl.New(cfg.Crawl.AllowPrivate),
 		sitesvc.Config{Delay: cfg.Crawl.Delay}, log.With(slog.String("component", "site")))
+	analytics := analyticssvc.NewService(analyticssvc.Deps{
+		Repo: analyticsrepo.NewSQLite(tx), Tx: tx, Box: box, Jobs: jobs, Notifier: notify,
+		Google: func(ctx context.Context) analyticssvc.Google {
+			c := settings.Credentials(ctx)
+			return &searchconsole.Client{ClientID: c.YouTubeClientID, ClientSecret: c.YouTubeClientSecret,
+				RedirectURL: cfg.PublicURL + "/api/v1/oauth/searchconsole/callback"}
+		},
+		Site: func(ctx context.Context, ws uuid.UUID) (string, bool) {
+			s, err := site.ChangeSite(ctx, ws)
+			return s.URL, err == nil
+		},
+		Log: log.With(slog.String("component", "analytics")),
+	})
 	p := cfg.Production
 	elevenLabsKey := func(ctx context.Context) string { return settings.Credentials(ctx).ElevenLabsAPIKey }
 	voices := voicesvc.NewService(settingsrepo.NewSQLite(tx), jobs,
@@ -190,6 +210,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		publishing: publishing,
 		seo:        seo,
 		site:       site,
+		analytics:  analytics,
 		templates:  templates,
 		voices:     voices,
 		defaults:   defaults,
@@ -331,6 +352,7 @@ func (a *App) Router() (http.Handler, error) {
 		Publishing:  a.publishing,
 		SEO:         a.seo,
 		Site:        a.site,
+		Analytics:   a.analytics,
 		Templates:   a.templates,
 		Voices:      a.voices,
 		Defaults:    a.defaults,
@@ -359,6 +381,7 @@ func (a *App) Serve(ctx context.Context) error {
 	}
 	go schedule.Run(ctx, a.pipelines, a.cfg.SchedulerTick, a.log.With(slog.String("component", "scheduler")))
 	go schedule.Run(ctx, a.site, a.cfg.SchedulerTick, a.log.With(slog.String("component", "site-scheduler")))
+	go schedule.Run(ctx, a.analytics, a.cfg.SchedulerTick, a.log.With(slog.String("component", "search-scheduler")))
 	go a.sweep(ctx)
 	go a.flushNotifications(ctx)
 	go a.watchMerges(ctx)
@@ -435,6 +458,7 @@ func (a *App) Work(ctx context.Context) error {
 	productionworker.Register(runner, a.production)
 	seoworker.Register(runner, a.seo)
 	siteworker.Register(runner, a.site)
+	analyticsworker.Register(runner, a.analytics)
 	templateworker.Register(runner, a.templates)
 	voiceworker.Register(runner, a.voices)
 	limiter := &cpulimit.Limiter{

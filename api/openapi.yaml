@@ -994,6 +994,163 @@ paths:
           description: Removed.
         default: { $ref: "#/components/responses/Error" }
 
+  /workspaces/{workspaceId}/integrations/searchconsole:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: getSearchConsole
+      tags: [integrations]
+      responses:
+        "200":
+          description: The connection.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchConsole" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: connectSearchConsole
+      tags: [integrations]
+      description: Returns the Google consent URL (read-only Search Console access); the browser comes back to /oauth/searchconsole/callback.
+      responses:
+        "200":
+          description: Consent URL.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url: { type: string }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      operationId: chooseSearchConsoleProperty
+      tags: [integrations]
+      description: Chooses the property to read; a new one drops the figures kept so far and syncs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [property]
+              properties:
+                property: { type: string }
+      responses:
+        "200":
+          description: Chosen.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchConsole" }
+        default: { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: disconnectSearchConsole
+      tags: [integrations]
+      description: Forgets the connection and every figure synced from it.
+      responses:
+        "204":
+          description: Disconnected.
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/integrations/searchconsole/properties:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listSearchConsoleProperties
+      tags: [integrations]
+      responses:
+        "200":
+          description: The properties the connected account can read.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [properties]
+                properties:
+                  properties:
+                    type: array
+                    items:
+                      type: object
+                      required: [url, permission]
+                      properties:
+                        url: { type: string }
+                        permission: { type: string }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/integrations/searchconsole/sync:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    post:
+      operationId: syncSearchConsole
+      tags: [integrations]
+      responses:
+        "202":
+          description: A sync is queued.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchConsole" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/search:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: getSearchOverview
+      tags: [integrations]
+      description: Clicks, impressions and position over the last days synced against the days before, with the top pages and queries.
+      parameters:
+        - { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 90 } }
+      responses:
+        "200":
+          description: Overview; empty before the first sync.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchOverview" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/stories/{storyId}/search:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - name: storyId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getStorySearch
+      tags: [stories]
+      description: >
+        For each page a published article or change put live, its search
+        figures over the 28 days before against the days since. Empty without
+        Search Console.
+      responses:
+        "200":
+          description: Pages.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pages]
+                properties:
+                  pages:
+                    type: array
+                    items: { $ref: "#/components/schemas/PageSearch" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /oauth/searchconsole/callback:
+    get:
+      operationId: searchConsoleCallback
+      tags: [integrations]
+      security: []
+      description: Google redirects here; Ekin stores the connection and redirects back to the workspace settings.
+      parameters:
+        - { name: code, in: query, schema: { type: string } }
+        - { name: state, in: query, schema: { type: string } }
+        - { name: error, in: query, schema: { type: string } }
+      responses:
+        "302":
+          description: Back to the app.
+          headers:
+            Location: { schema: { type: string } }
+
   /oauth/youtube/callback:
     get:
       operationId: youTubeCallback
@@ -3084,6 +3241,55 @@ components:
           items: { $ref: "#/components/schemas/Deliverable" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    SearchConsole:
+      type: object
+      required: [configured, connected]
+      properties:
+        configured: { type: boolean, description: The server has Google OAuth credentials. }
+        connected: { type: boolean }
+        property: { type: string, description: The property read; absent until one is chosen. }
+        connectedAt: { type: string, format: date-time }
+        syncedThrough: { type: string, format: date, description: The last day synced. }
+        lastSyncAt: { type: string, format: date-time }
+        lastError: { type: string }
+
+    SearchTotals:
+      type: object
+      required: [clicks, impressions, position, days]
+      properties:
+        clicks: { type: integer }
+        impressions: { type: integer }
+        position: { type: number, description: Average position weighted by impressions; 0 without impressions. }
+        days: { type: integer }
+
+    SearchKey:
+      type: object
+      required: [key, totals]
+      properties:
+        key: { type: string, description: The page's URL or the query. }
+        totals: { $ref: "#/components/schemas/SearchTotals" }
+
+    SearchOverview:
+      type: object
+      required: [pages, queries]
+      properties:
+        start: { type: string, format: date }
+        end: { type: string, format: date }
+        current: { $ref: "#/components/schemas/SearchTotals" }
+        previous: { $ref: "#/components/schemas/SearchTotals" }
+        pages: { type: array, items: { $ref: "#/components/schemas/SearchKey" } }
+        queries: { type: array, items: { $ref: "#/components/schemas/SearchKey" } }
+
+    PageSearch:
+      type: object
+      required: [url, at, through, before, after]
+      properties:
+        url: { type: string }
+        at: { type: string, format: date-time, description: When it went live. }
+        through: { type: string, format: date, description: The last day synced. }
+        before: { $ref: "#/components/schemas/SearchTotals" }
+        after: { $ref: "#/components/schemas/SearchTotals" }
 
     StoryFinding:
       type: object
