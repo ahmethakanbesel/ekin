@@ -343,7 +343,7 @@ export function validatePipeline(v: PipelineFormValues, docs?: KnownDocuments): 
     fields["source.instructions"] = t.instructionsTooLong
   } else if (v.source.kind === "prompt" && !instructions) {
     fields["source.instructions"] = t.instructionsRequired
-  } else if (v.source.kind === "seo" && !instructions) {
+  } else if ((v.source.kind === "seo" || v.source.kind === "visibility") && !instructions) {
     fields["source.instructions"] = t.briefRequired
   }
 

@@ -22,6 +22,7 @@ const sections = {
   library: { to: "/w/$workspaceId/library", label: m.nav.library },
   seo: { to: "/w/$workspaceId/seo", label: m.nav.seo },
   site: { to: "/w/$workspaceId/site", label: m.nav.site },
+  visibility: { to: "/w/$workspaceId/visibility", label: m.nav.visibility },
   templates: { to: "/w/$workspaceId/templates", label: m.nav.templates },
   jobs: { to: "/w/$workspaceId/jobs", label: m.nav.jobs },
   settings: { to: "/w/$workspaceId/settings", label: m.nav.settings },

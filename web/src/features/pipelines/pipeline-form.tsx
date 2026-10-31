@@ -57,7 +57,7 @@ type Props = {
   onSubmit: (definition: PipelineDefinition) => Promise<void>
 }
 
-const SOURCE_KINDS: SourceKind[] = ["prompt", "knowledge", "seo", "findings"]
+const SOURCE_KINDS: SourceKind[] = ["prompt", "knowledge", "seo", "visibility", "findings"]
 
 /** What the instructions are called per source: a system prompt, guidance or a brief. */
 const instructionsCopy: Record<SourceKind, { label: string; hint: string }> = {
@@ -65,6 +65,7 @@ const instructionsCopy: Record<SourceKind, { label: string; hint: string }> = {
   knowledge: { label: m.pipelineForm.guidance, hint: m.pipelineForm.guidanceHint },
   seo: { label: m.pipelineForm.seoBrief, hint: m.pipelineForm.seoBriefHint },
   findings: { label: m.pipelineForm.findingsGuidance, hint: m.pipelineForm.findingsGuidanceHint },
+  visibility: { label: m.pipelineForm.visibilityBrief, hint: m.pipelineForm.visibilityBriefHint },
 }
 
 const refsFieldMap = { refs: "source.refs" } as const
@@ -250,7 +251,7 @@ export function PipelineForm({
                 disabled={readOnly}
                 value={field.state.value}
                 onValueChange={(v) => field.handleChange(v as SourceKind)}
-                className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
+                className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
                 aria-label={m.pipelineForm.sourceKind}
               >
                 {SOURCE_KINDS.map((k) => (

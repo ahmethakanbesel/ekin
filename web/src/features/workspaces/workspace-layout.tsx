@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-router"
 import {
   GlobeIcon,
+  SparklesIcon,
   InboxIcon,
   ImagesIcon,
   LibraryIcon,
@@ -72,6 +73,7 @@ const navItems = [
   },
   { to: "/w/$workspaceId/seo", label: m.nav.seo, icon: TrendingUpIcon },
   { to: "/w/$workspaceId/site", label: m.nav.site, icon: GlobeIcon },
+  { to: "/w/$workspaceId/visibility", label: m.nav.visibility, icon: SparklesIcon },
   {
     to: "/w/$workspaceId/templates",
     label: m.nav.templates,

@@ -34,6 +34,7 @@ import { validateSeoSearch } from "@/features/seo/search"
 import { SeoPage } from "@/features/seo/seo-page"
 import { validateSiteSearch } from "@/features/site/search"
 import { SitePage } from "@/features/site/site-page"
+import { VisibilityPage } from "@/features/visibility/visibility-page"
 import { StoriesPage } from "@/features/stories/list-page"
 import { NewRequestPage } from "@/features/stories/request-page"
 import { validateStoriesSearch } from "@/features/stories/search"
@@ -220,6 +221,12 @@ const seoRoute = createRoute({
   component: SeoPage,
 })
 
+const visibilityRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: "/visibility",
+  component: VisibilityPage,
+})
+
 const siteRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "/site",
@@ -355,6 +362,7 @@ const routeTree = rootRoute.addChildren([
     libraryRoute,
     seoRoute,
     siteRoute,
+    visibilityRoute,
     templatesRoute,
     newTemplateRoute,
     templateRoute,
