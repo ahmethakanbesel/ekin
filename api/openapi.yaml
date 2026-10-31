@@ -23,6 +23,7 @@ tags:
   - name: system
   - name: integrations
   - name: seo
+  - name: site
   - name: templates
   - name: voice
   - name: production
@@ -1179,6 +1180,187 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Opportunity" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/site:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: getSite
+      tags: [site]
+      responses:
+        "200":
+          description: The workspace's site, its latest crawls and its open findings per rule; no site when none is set up.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SiteOverview" }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      operationId: saveSite
+      tags: [site]
+      description: >
+        Sets the site up or changes it. A new site, or one moved to another
+        address, is crawled right away; a moved site's pages and findings are
+        dropped.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SiteSettings" }
+      responses:
+        "200":
+          description: Saved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SiteOverview" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/site/crawls:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listSiteCrawls
+      tags: [site]
+      parameters:
+        - name: limit
+          in: query
+          description: Crawls to return, newest first; 20 when omitted.
+          schema: { type: integer, minimum: 1, maximum: 100 }
+      responses:
+        "200":
+          description: The latest crawls, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [crawls]
+                properties:
+                  crawls:
+                    type: array
+                    items: { $ref: "#/components/schemas/SiteCrawl" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: crawlSite
+      tags: [site]
+      description: Starts a crawl of the site; refused (409) while one is under way.
+      responses:
+        "200":
+          description: The queued crawl.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SiteCrawl" }
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/site/pages:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listSitePages
+      tags: [site]
+      parameters:
+        - name: class
+          in: query
+          schema: { $ref: "#/components/schemas/SitePageClass" }
+        - name: q
+          in: query
+          description: Keep pages whose address or title contains this text, compared ignoring case and accents.
+          schema: { type: string, maxLength: 200 }
+        - name: limit
+          in: query
+          description: Pages per page; 100 when omitted.
+          schema: { type: integer, minimum: 1, maximum: 500 }
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of the latest crawl's pages, by address.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pages]
+                properties:
+                  pages:
+                    type: array
+                    items: { $ref: "#/components/schemas/SitePage" }
+                  nextCursor:
+                    type: string
+                    description: Pass as `cursor` for the next page; absent after the last.
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/site/findings:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+    get:
+      operationId: listSiteFindings
+      tags: [site]
+      parameters:
+        - name: status
+          in: query
+          style: form
+          explode: true
+          schema:
+            type: array
+            items: { $ref: "#/components/schemas/SiteFindingStatus" }
+        - name: rule
+          in: query
+          schema: { type: string, maxLength: 100 }
+        - name: severity
+          in: query
+          schema: { $ref: "#/components/schemas/SiteSeverity" }
+        - name: url
+          in: query
+          description: Keep the findings about this page.
+          schema: { type: string, maxLength: 2000 }
+        - name: limit
+          in: query
+          description: Findings per page; 100 when omitted.
+          schema: { type: integer, minimum: 1, maximum: 500 }
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of findings, most severe first, then by rule and page.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [findings]
+                properties:
+                  findings:
+                    type: array
+                    items: { $ref: "#/components/schemas/SiteFinding" }
+                  nextCursor:
+                    type: string
+                    description: Pass as `cursor` for the next page; absent after the last.
+        default: { $ref: "#/components/responses/Error" }
+
+  /workspaces/{workspaceId}/site/findings/{findingId}:
+    parameters:
+      - $ref: "#/components/parameters/WorkspaceId"
+      - name: findingId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      operationId: updateSiteFinding
+      tags: [site]
+      description: Ignores an open finding or brings an ignored one back. Crawls resolve and reopen findings.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [open, ignored]
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SiteFinding" }
         default: { $ref: "#/components/responses/Error" }
 
   /voices:
@@ -3613,6 +3795,130 @@ components:
         difficulty: { type: integer, minimum: -1, maximum: 100 }
         intent: { type: string }
         note: { type: string, maxLength: 1000 }
+
+    SiteSchedule:
+      type: string
+      enum: [off, daily, weekly]
+
+    SiteSettings:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string, description: "The site's address, e.g. https://example.com; crawls start here and stay on its host." }
+        maxPages: { type: integer, minimum: 1, maximum: 5000, description: Pages a crawl fetches at most; 500 when omitted. }
+        schedule: { $ref: "#/components/schemas/SiteSchedule" }
+
+    Site:
+      type: object
+      required: [url, maxPages, schedule, updatedAt]
+      properties:
+        url: { type: string }
+        maxPages: { type: integer }
+        schedule: { $ref: "#/components/schemas/SiteSchedule" }
+        nextCrawlAt: { type: string, format: date-time, description: When the next scheduled crawl starts; absent when the schedule is off. }
+        updatedAt: { type: string, format: date-time }
+
+    SiteFacts:
+      type: object
+      required: [robotsFound, sitemaps, sitemapUrls, aiBlocked, llmsTxt, disallowed, truncated]
+      properties:
+        robotsFound: { type: boolean }
+        sitemaps: { type: array, items: { type: string }, description: Sitemap files read. }
+        sitemapUrls: { type: integer, description: Page URLs the sitemaps list on the site. }
+        aiBlocked: { type: array, items: { type: string }, description: AI crawlers robots.txt keeps off the site's address. }
+        llmsTxt: { type: boolean }
+        disallowed: { type: integer, description: URLs robots.txt kept Ekin off. }
+        truncated: { type: boolean, description: The crawl stopped at the page limit with URLs left. }
+
+    SiteCrawl:
+      type: object
+      required: [id, url, status, trigger, pages, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string }
+        status:
+          type: string
+          enum: [queued, running, done, failed]
+        trigger:
+          type: string
+          enum: [manual, schedule, setup]
+        pages: { type: integer, description: Pages fetched (so far, while running). }
+        facts: { $ref: "#/components/schemas/SiteFacts" }
+        failure: { type: string }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+
+    SiteSeverity:
+      type: string
+      enum: [error, warning, notice]
+
+    SiteFindingStatus:
+      type: string
+      enum: [open, resolved, ignored]
+
+    SiteRuleCount:
+      type: object
+      required: [rule, severity, count]
+      properties:
+        rule: { type: string }
+        severity: { $ref: "#/components/schemas/SiteSeverity" }
+        count: { type: integer }
+
+    SiteOverview:
+      type: object
+      required: [open]
+      properties:
+        site: { $ref: "#/components/schemas/Site" }
+        latestCrawl: { $ref: "#/components/schemas/SiteCrawl" }
+        lastDoneCrawl: { $ref: "#/components/schemas/SiteCrawl" }
+        open:
+          type: array
+          description: Open findings per rule, most severe first.
+          items: { $ref: "#/components/schemas/SiteRuleCount" }
+
+    SitePageClass:
+      type: string
+      enum: [ok, redirect, error]
+
+    SitePage:
+      type: object
+      required: [url, status, class, h1, noindex, words, types, links, inSitemap, depth, openFindings, firstSeen, lastSeen]
+      properties:
+        url: { type: string }
+        status: { type: integer, description: HTTP status; 0 when the fetch failed. }
+        class: { $ref: "#/components/schemas/SitePageClass" }
+        error: { type: string }
+        redirectTo: { type: string }
+        contentType: { type: string }
+        title: { type: string }
+        description: { type: string }
+        canonical: { type: string }
+        lang: { type: string }
+        h1: { type: array, items: { type: string } }
+        noindex: { type: boolean }
+        words: { type: integer }
+        types: { type: array, items: { type: string }, description: Structured data (JSON-LD) types. }
+        links: { type: integer, description: Internal page links on it. }
+        inSitemap: { type: boolean }
+        depth: { type: integer, description: Link hops from the site's address; -1 when links from it do not reach the page. }
+        openFindings: { type: integer }
+        firstSeen: { type: string, format: date-time }
+        lastSeen: { type: string, format: date-time }
+
+    SiteFinding:
+      type: object
+      required: [id, rule, severity, url, evidence, status, firstSeen, lastSeen]
+      properties:
+        id: { type: string, format: uuid }
+        rule: { type: string }
+        severity: { $ref: "#/components/schemas/SiteSeverity" }
+        url: { type: string }
+        evidence: { type: array, items: { type: string } }
+        status: { $ref: "#/components/schemas/SiteFindingStatus" }
+        firstSeen: { type: string, format: date-time }
+        lastSeen: { type: string, format: date-time }
+        resolvedAt: { type: string, format: date-time }
 
     Opportunity:
       type: object

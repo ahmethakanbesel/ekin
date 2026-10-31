@@ -76,6 +76,14 @@ var workspaceActions = map[string]identitydomain.Action{
 	"RefreshOpportunities": identitydomain.ActionEdit,
 	"UpdateOpportunity":    identitydomain.ActionEdit,
 
+	"GetSite":           identitydomain.ActionView,
+	"SaveSite":          identitydomain.ActionManage,
+	"ListSiteCrawls":    identitydomain.ActionView,
+	"CrawlSite":         identitydomain.ActionEdit,
+	"ListSitePages":     identitydomain.ActionView,
+	"ListSiteFindings":  identitydomain.ActionView,
+	"UpdateSiteFinding": identitydomain.ActionEdit,
+
 	"GetIntegrations":   identitydomain.ActionView,
 	"ConnectYouTube":    identitydomain.ActionManage,
 	"UpdateYouTube":     identitydomain.ActionManage,

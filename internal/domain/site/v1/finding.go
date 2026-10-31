@@ -148,7 +148,7 @@ func (f *Finding) SetStatus(to FindingStatus, now time.Time) error {
 		f.status, f.updatedAt = to, timeutil.Normalize(now)
 		return nil
 	}
-	return apperror.New(apperror.InvalidTransition, "a "+string(f.status)+" finding cannot become "+string(to))
+	return apperror.New(apperror.InvalidTransition, "the finding is "+string(f.status)+"; it cannot become "+string(to))
 }
 
 func (f *Finding) Key() string            { return Raised{Rule: f.rule, URL: f.url}.Key() }

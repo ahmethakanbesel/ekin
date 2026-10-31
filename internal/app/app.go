@@ -328,6 +328,7 @@ func (a *App) Router() (http.Handler, error) {
 		Inviter:     inviter{a.notify, a.workspaces},
 		Publishing:  a.publishing,
 		SEO:         a.seo,
+		Site:        a.site,
 		Templates:   a.templates,
 		Voices:      a.voices,
 		Defaults:    a.defaults,

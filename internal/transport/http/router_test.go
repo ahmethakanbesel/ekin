@@ -19,6 +19,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/ahmethakanbesel/ekin/internal/adapter/crawl"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/extract"
 	"github.com/ahmethakanbesel/ekin/internal/blob"
 	"github.com/ahmethakanbesel/ekin/internal/db/dbtest"
@@ -33,6 +34,7 @@ import (
 	libraryrepo "github.com/ahmethakanbesel/ekin/internal/repository/library/v1"
 	pipelinerepo "github.com/ahmethakanbesel/ekin/internal/repository/pipeline/v1"
 	settingsrepo "github.com/ahmethakanbesel/ekin/internal/repository/settings/v1"
+	siterepo "github.com/ahmethakanbesel/ekin/internal/repository/site/v1"
 	storyrepo "github.com/ahmethakanbesel/ekin/internal/repository/story/v1"
 	templaterepo "github.com/ahmethakanbesel/ekin/internal/repository/template/v1"
 	workspacerepo "github.com/ahmethakanbesel/ekin/internal/repository/workspace/v1"
@@ -44,6 +46,7 @@ import (
 	pipelinesvc "github.com/ahmethakanbesel/ekin/internal/service/pipeline/v1"
 	productionsvc "github.com/ahmethakanbesel/ekin/internal/service/production/v1"
 	settingssvc "github.com/ahmethakanbesel/ekin/internal/service/settings/v1"
+	sitesvc "github.com/ahmethakanbesel/ekin/internal/service/site/v1"
 	templatesvc "github.com/ahmethakanbesel/ekin/internal/service/template/v1"
 	workspacesvc "github.com/ahmethakanbesel/ekin/internal/service/workspace/v1"
 	httptransport "github.com/ahmethakanbesel/ekin/internal/transport/http"
@@ -62,6 +65,7 @@ type server struct {
 	jobs      *jobsvc.Service
 	stories   storyrepo.Repository
 	blobs     blob.Store
+	site      *sitesvc.Service
 	logs      *syncBuffer
 }
 
@@ -104,8 +108,11 @@ func newServer(t *testing.T) *server {
 	production := productionsvc.NewService(productionsvc.Config{Shorts: storydomain.DefaultShortsLimits()}, productionsvc.Deps{
 		Stories: stories, Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs, Library: library,
 	})
+	// The real crawler, allowed onto loopback test sites, without pauses.
+	site := sitesvc.NewService(siterepo.NewSQLite(tx), tx, jobs, crawl.New(true), sitesvc.Config{}, slog.New(slog.DiscardHandler))
 	router, err := httptransport.NewRouter(httptransport.Deps{
 		Production: production,
+		Site:       site,
 		Templates:  templates,
 		System:     systemhandler.New(settings, "default", "test", nil),
 		Identity:   identity,
@@ -125,7 +132,8 @@ func newServer(t *testing.T) *server {
 	}
 	srv := httptest.NewServer(router)
 	t.Cleanup(srv.Close)
-	return &server{Server: srv, identity: identity, knowledge: knowledge, library: library, jobs: jobs, stories: stories, blobs: blobs, logs: logs}
+	return &server{Server: srv, identity: identity, knowledge: knowledge, library: library, jobs: jobs, stories: stories, blobs: blobs,
+		site: site, logs: logs}
 }
 
 // client is a browser: it keeps cookies.

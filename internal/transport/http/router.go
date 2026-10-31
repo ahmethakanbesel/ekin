@@ -28,6 +28,7 @@ import (
 	productionsvc "github.com/ahmethakanbesel/ekin/internal/service/production/v1"
 	publishingsvc "github.com/ahmethakanbesel/ekin/internal/service/publishing/v1"
 	seosvc "github.com/ahmethakanbesel/ekin/internal/service/seo/v1"
+	sitesvc "github.com/ahmethakanbesel/ekin/internal/service/site/v1"
 	templatesvc "github.com/ahmethakanbesel/ekin/internal/service/template/v1"
 	voicesvc "github.com/ahmethakanbesel/ekin/internal/service/voice/v1"
 	workspacesvc "github.com/ahmethakanbesel/ekin/internal/service/workspace/v1"
@@ -40,6 +41,7 @@ import (
 	"github.com/ahmethakanbesel/ekin/internal/transport/http/principal"
 	publishinghandler "github.com/ahmethakanbesel/ekin/internal/transport/http/publishing/v1"
 	seohandler "github.com/ahmethakanbesel/ekin/internal/transport/http/seo/v1"
+	sitehandler "github.com/ahmethakanbesel/ekin/internal/transport/http/site/v1"
 	storyhandler "github.com/ahmethakanbesel/ekin/internal/transport/http/story/v1"
 	systemhandler "github.com/ahmethakanbesel/ekin/internal/transport/http/system/v1"
 	templatehandler "github.com/ahmethakanbesel/ekin/internal/transport/http/template/v1"
@@ -73,6 +75,7 @@ type Deps struct {
 	System     *systemhandler.Handler
 	Publishing *publishingsvc.Service
 	SEO        *seosvc.Service
+	Site       *sitesvc.Service
 	Templates  *templatesvc.Service
 	Voices     *voicesvc.Service
 	Defaults   *defaultssvc.Service
@@ -101,6 +104,7 @@ type (
 	system     = systemhandler.Handler
 	publishing = publishinghandler.Handler
 	seo        = seohandler.Handler
+	sites      = sitehandler.Handler
 	templates  = templatehandler.Handler
 	voices     = voicehandler.Handler
 	defaults   = defaultshandler.Handler
@@ -118,6 +122,7 @@ type server struct {
 	*system
 	*publishing
 	*seo
+	*sites
 	*templates
 	*voices
 	*defaults
@@ -156,6 +161,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		system:     d.System,
 		publishing: publishinghandler.New(d.Publishing),
 		seo:        seohandler.New(d.SEO),
+		sites:      sitehandler.New(d.Site),
 		templates:  templatehandler.New(d.Templates),
 		voices:     voicehandler.New(d.Voices),
 		defaults:   defaultshandler.New(d.Defaults),
