@@ -1,6 +1,7 @@
 import { LibrarySettingsCard } from "@/features/library/settings-card"
 import { OpenSeoCard } from "@/features/seo/openseo-card"
 import { SeoProfileCard } from "@/features/seo/profile-card"
+import { SiteCard } from "@/features/site/site-card"
 import { useCan } from "@/features/workspaces/context"
 import { SettingsSectionHeader } from "./settings-page"
 
@@ -26,6 +27,16 @@ export function SeoSection() {
         {canManage ? <OpenSeoCard /> : null}
         <SeoProfileCard />
       </div>
+    </div>
+  )
+}
+
+/** Settings › Site: the website Ekin crawls and audits. */
+export function SiteSection() {
+  return (
+    <div className="max-w-3xl">
+      <SettingsSectionHeader section="site" />
+      <SiteCard />
     </div>
   )
 }

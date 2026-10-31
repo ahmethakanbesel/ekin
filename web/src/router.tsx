@@ -32,6 +32,8 @@ import { PublishingSection } from "@/features/publishing/publishing-section"
 import { validateYouTubeReturn } from "@/features/publishing/youtube-return"
 import { validateSeoSearch } from "@/features/seo/search"
 import { SeoPage } from "@/features/seo/seo-page"
+import { validateSiteSearch } from "@/features/site/search"
+import { SitePage } from "@/features/site/site-page"
 import { StoriesPage } from "@/features/stories/list-page"
 import { NewRequestPage } from "@/features/stories/request-page"
 import { validateStoriesSearch } from "@/features/stories/search"
@@ -42,7 +44,7 @@ import { validateTemplatesSearch } from "@/features/templates/search"
 import { EditTemplatePage, NewTemplatePage } from "@/features/templates/template-pages"
 import { GeneralSection } from "@/features/settings/general-section"
 import { ProductionSection } from "@/features/settings/production-section"
-import { LibrarySection, SeoSection } from "@/features/settings/sections"
+import { LibrarySection, SeoSection, SiteSection } from "@/features/settings/sections"
 import { SettingsLayout } from "@/features/settings/settings-page"
 import { SystemPage } from "@/features/system/system-page"
 import { VoiceSection } from "@/features/voice/voice-section"
@@ -218,6 +220,13 @@ const seoRoute = createRoute({
   component: SeoPage,
 })
 
+const siteRoute = createRoute({
+  getParentRoute: () => workspaceRoute,
+  path: "/site",
+  validateSearch: validateSiteSearch,
+  component: SitePage,
+})
+
 const templatesRoute = createRoute({
   getParentRoute: () => workspaceRoute,
   path: "/templates",
@@ -315,6 +324,12 @@ const settingsSeoRoute = createRoute({
   component: SeoSection,
 })
 
+const settingsSiteRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/site",
+  component: SiteSection,
+})
+
 const settingsMembersRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "/members",
@@ -339,6 +354,7 @@ const routeTree = rootRoute.addChildren([
     documentRoute,
     libraryRoute,
     seoRoute,
+    siteRoute,
     templatesRoute,
     newTemplateRoute,
     templateRoute,
@@ -353,6 +369,7 @@ const routeTree = rootRoute.addChildren([
       settingsPublishingRoute,
       settingsLibraryRoute,
       settingsSeoRoute,
+      settingsSiteRoute,
       settingsMembersRoute,
     ]),
   ]),

@@ -688,6 +688,100 @@ export interface paths {
         patch: operations["updateOpportunity"];
         trace?: never;
     };
+    "/workspaces/{workspaceId}/site": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getSite"];
+        /** @description Sets the site up or changes it. A new site, or one moved to another address, is crawled right away; a moved site's pages and findings are dropped. */
+        put: operations["saveSite"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/site/crawls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listSiteCrawls"];
+        put?: never;
+        /** @description Starts a crawl of the site; refused (409) while one is under way. */
+        post: operations["crawlSite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/site/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listSitePages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/site/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listSiteFindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{workspaceId}/site/findings/{findingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                findingId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Ignores an open finding or brings an ignored one back. Crawls resolve and reopen findings. */
+        patch: operations["updateSiteFinding"];
+        trace?: never;
+    };
     "/voices": {
         parameters: {
             query?: never;
@@ -2340,6 +2434,121 @@ export interface components {
             difficulty?: number;
             intent?: string;
             note?: string;
+        };
+        /** @enum {string} */
+        SiteSchedule: "off" | "daily" | "weekly";
+        SiteSettings: {
+            /** @description The site's address, e.g. https://example.com; crawls start here and stay on its host. */
+            url: string;
+            /** @description Pages a crawl fetches at most; 500 when omitted. */
+            maxPages?: number;
+            schedule?: components["schemas"]["SiteSchedule"];
+        };
+        Site: {
+            url: string;
+            maxPages: number;
+            schedule: components["schemas"]["SiteSchedule"];
+            /**
+             * Format: date-time
+             * @description When the next scheduled crawl starts; absent when the schedule is off.
+             */
+            nextCrawlAt?: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        SiteFacts: {
+            robotsFound: boolean;
+            /** @description Sitemap files read. */
+            sitemaps: string[];
+            /** @description Page URLs the sitemaps list on the site. */
+            sitemapUrls: number;
+            /** @description AI crawlers robots.txt keeps off the site's address. */
+            aiBlocked: string[];
+            llmsTxt: boolean;
+            /** @description URLs robots.txt kept Ekin off. */
+            disallowed: number;
+            /** @description The crawl stopped at the page limit with URLs left. */
+            truncated: boolean;
+        };
+        SiteCrawl: {
+            /** Format: uuid */
+            id: string;
+            url: string;
+            /** @enum {string} */
+            status: "queued" | "running" | "done" | "failed";
+            /** @enum {string} */
+            trigger: "manual" | "schedule" | "setup";
+            /** @description Pages fetched (so far */
+            pages: number;
+            facts?: components["schemas"]["SiteFacts"];
+            failure?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** Format: date-time */
+            finishedAt?: string;
+        };
+        /** @enum {string} */
+        SiteSeverity: "error" | "warning" | "notice";
+        /** @enum {string} */
+        SiteFindingStatus: "open" | "resolved" | "ignored";
+        SiteRuleCount: {
+            rule: string;
+            severity: components["schemas"]["SiteSeverity"];
+            count: number;
+        };
+        SiteOverview: {
+            site?: components["schemas"]["Site"];
+            latestCrawl?: components["schemas"]["SiteCrawl"];
+            lastDoneCrawl?: components["schemas"]["SiteCrawl"];
+            /** @description Open findings per rule, most severe first. */
+            open: components["schemas"]["SiteRuleCount"][];
+        };
+        /** @enum {string} */
+        SitePageClass: "ok" | "redirect" | "error";
+        SitePage: {
+            url: string;
+            /** @description HTTP status; 0 when the fetch failed. */
+            status: number;
+            class: components["schemas"]["SitePageClass"];
+            error?: string;
+            redirectTo?: string;
+            contentType?: string;
+            title?: string;
+            description?: string;
+            canonical?: string;
+            lang?: string;
+            h1: string[];
+            noindex: boolean;
+            words: number;
+            /** @description Structured data (JSON-LD) types. */
+            types: string[];
+            /** @description Internal page links on it. */
+            links: number;
+            inSitemap: boolean;
+            /** @description Link hops from the site's address; -1 when links from it do not reach the page. */
+            depth: number;
+            openFindings: number;
+            /** Format: date-time */
+            firstSeen: string;
+            /** Format: date-time */
+            lastSeen: string;
+        };
+        SiteFinding: {
+            /** Format: uuid */
+            id: string;
+            rule: string;
+            severity: components["schemas"]["SiteSeverity"];
+            url: string;
+            evidence: string[];
+            status: components["schemas"]["SiteFindingStatus"];
+            /** Format: date-time */
+            firstSeen: string;
+            /** Format: date-time */
+            lastSeen: string;
+            /** Format: date-time */
+            resolvedAt?: string;
         };
         Opportunity: {
             /** Format: uuid */
@@ -4013,6 +4222,210 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Opportunity"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workspace's site, its latest crawls and its open findings per rule; no site when none is set up. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    saveSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteOverview"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSiteCrawls: {
+        parameters: {
+            query?: {
+                /** @description Crawls to return, newest first; 20 when omitted. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The latest crawls, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        crawls: components["schemas"]["SiteCrawl"][];
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    crawlSite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The queued crawl. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteCrawl"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSitePages: {
+        parameters: {
+            query?: {
+                class?: components["schemas"]["SitePageClass"];
+                /** @description Keep pages whose address or title contains this text, compared ignoring case and accents. */
+                q?: string;
+                /** @description Pages per page; 100 when omitted. */
+                limit?: number;
+                /** @description Continue a listing after the page that returned this `nextCursor`. Keyset paging: rows added meanwhile are neither skipped nor repeated. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of the latest crawl's pages, by address. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        pages: components["schemas"]["SitePage"][];
+                        /** @description Pass as `cursor` for the next page; absent after the last. */
+                        nextCursor?: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listSiteFindings: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["SiteFindingStatus"][];
+                rule?: string;
+                severity?: components["schemas"]["SiteSeverity"];
+                /** @description Keep the findings about this page. */
+                url?: string;
+                /** @description Findings per page; 100 when omitted. */
+                limit?: number;
+                /** @description Continue a listing after the page that returned this `nextCursor`. Keyset paging: rows added meanwhile are neither skipped nor repeated. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of findings, most severe first, then by rule and page. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        findings: components["schemas"]["SiteFinding"][];
+                        /** @description Pass as `cursor` for the next page; absent after the last. */
+                        nextCursor?: string;
+                    };
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateSiteFinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+                findingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "open" | "ignored";
+                };
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteFinding"];
                 };
             };
             default: components["responses"]["Error"];

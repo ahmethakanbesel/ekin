@@ -8,6 +8,7 @@ import {
   useParams,
 } from "@tanstack/react-router"
 import {
+  GlobeIcon,
   InboxIcon,
   ImagesIcon,
   LibraryIcon,
@@ -70,6 +71,7 @@ const navItems = [
     icon: ImagesIcon,
   },
   { to: "/w/$workspaceId/seo", label: m.nav.seo, icon: TrendingUpIcon },
+  { to: "/w/$workspaceId/site", label: m.nav.site, icon: GlobeIcon },
   {
     to: "/w/$workspaceId/templates",
     label: m.nav.templates,

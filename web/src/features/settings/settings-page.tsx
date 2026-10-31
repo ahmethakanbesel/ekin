@@ -17,6 +17,7 @@ export const SETTINGS_SECTIONS = [
   "publishing",
   "library",
   "seo",
+  "site",
   "members",
 ] as const
 
@@ -29,6 +30,7 @@ const ROUTES = {
   publishing: "/w/$workspaceId/settings/publishing",
   library: "/w/$workspaceId/settings/library",
   seo: "/w/$workspaceId/settings/seo",
+  site: "/w/$workspaceId/settings/site",
   members: "/w/$workspaceId/settings/members",
 } as const satisfies Record<SettingsSection, string>
 

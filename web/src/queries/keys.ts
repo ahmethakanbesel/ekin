@@ -1,4 +1,11 @@
-import type { DeliverableStatus, JobStatus, LibraryAssetKind, OpportunityStatus } from "@/api/client"
+import type {
+  DeliverableStatus,
+  JobStatus,
+  LibraryAssetKind,
+  OpportunityStatus,
+  SiteFindingStatus,
+  SitePageClass,
+} from "@/api/client"
 
 /** A paged list's server-side filter, as its query key holds it. */
 type Paged<F> = F & { q?: string; limit: number }
@@ -20,6 +27,14 @@ export const keys = {
   opportunities: (workspaceId: string) => ["workspaces", workspaceId, "opportunities"] as const,
   opportunityList: (workspaceId: string, filter: Paged<{ status: OpportunityStatus | "all" }>) =>
     ["workspaces", workspaceId, "opportunities", "list", filter] as const,
+  site: (workspaceId: string) => ["workspaces", workspaceId, "site"] as const,
+  // Lists carry the crawl they show, so a finished crawl reloads them.
+  sitePages: (workspaceId: string, filter: Paged<{ class: SitePageClass | "all"; crawl: string }>) =>
+    ["workspaces", workspaceId, "site", "pages", filter] as const,
+  siteFindings: (
+    workspaceId: string,
+    filter: Paged<{ status: SiteFindingStatus; rule?: string; crawl: string }>
+  ) => ["workspaces", workspaceId, "site", "findings", filter] as const,
   templates: (workspaceId: string) => ["workspaces", workspaceId, "templates"] as const,
   template: (workspaceId: string, templateId: string) =>
     ["workspaces", workspaceId, "templates", templateId] as const,
