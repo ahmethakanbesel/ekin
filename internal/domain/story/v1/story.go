@@ -5,6 +5,7 @@
 package story
 
 import (
+	"fmt"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -117,6 +118,21 @@ type Brief struct {
 	// settings over the workspace defaults, resolved at planning. What is
 	// still unset takes the server's values when used.
 	Production pipelinedomain.Production `json:"production,omitzero"`
+	// Findings are the site audit findings a change sets out to fix,
+	// copied at planning; the next crawl tells whether it did.
+	Findings []Finding `json:"findings,omitempty"`
+}
+
+// MaxFindings bounds the findings one change takes on.
+const MaxFindings = 25
+
+// Finding is a site audit finding as a change's brief keeps it.
+type Finding struct {
+	ID       uuid.UUID `json:"id"`
+	Rule     string    `json:"rule"`
+	Severity string    `json:"severity"`
+	URL      string    `json:"url"`
+	Evidence string    `json:"evidence,omitempty"`
 }
 
 // TemplateStyle is a copy of a template's style.
@@ -196,6 +212,12 @@ func New(id uuid.UUID, p Plan, ids func() uuid.UUID, now time.Time) (*Story, err
 		id: id, workspaceID: p.WorkspaceID, pipelineID: p.PipelineID, traceID: p.TraceID, origin: p.Origin,
 		language: p.Language, idea: p.Idea, brief: p.Brief, createdBy: p.CreatedBy,
 		createdAt: now, updatedAt: now, version: 1,
+	}
+	if !p.Outputs.Change() && len(p.Brief.Findings) > 0 {
+		return nil, apperror.New(apperror.ValidationFailed, "only a change fixes findings")
+	}
+	if len(p.Brief.Findings) > MaxFindings {
+		return nil, apperror.New(apperror.ValidationFailed, fmt.Sprintf("a change takes on at most %d findings", MaxFindings))
 	}
 	lead := p.Outputs.Lead()
 	add := func(kind pipelinedomain.Kind) *Deliverable {

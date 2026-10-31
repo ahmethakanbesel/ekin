@@ -674,3 +674,43 @@ func TestRehydrateRefusesMergingWithoutPullRequest(t *testing.T) {
 		t.Fatal("rehydrated a merging deliverable without its pull request")
 	}
 }
+
+func TestChangeLifecycle(t *testing.T) {
+	idea, _ := story.NewIdea("Fix missing descriptions", "", nil)
+	findings := []story.Finding{{ID: id.New(), Rule: "description_missing", Severity: "warning", URL: "https://example.com/a"}}
+	plan := story.Plan{WorkspaceID: id.New(), Origin: story.OriginAdHoc, Language: pipelinedomain.English, Idea: idea,
+		Outputs: pipelinedomain.NewChangeOutputs(), Brief: story.Brief{Findings: findings}}
+	s, err := story.New(id.New(), plan, id.New, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := s.Lead()
+	if len(s.Deliverables()) != 1 || !d.IsChange() || d.Status() != story.StatusQueued || d.Video() != nil || d.Article() != nil {
+		t.Fatalf("change story: %d deliverables, lead %s %s", len(s.Deliverables()), d.Kind(), d.Status())
+	}
+	drafting(s, d)
+	if _, err := s.Drafted(d.ID(), map[string]string{story.ArtifactPatch: "k"}, "sess", "", story.Measures{}, now); err != nil {
+		t.Fatal(err)
+	}
+	if d.Status() != story.StatusReview {
+		t.Fatalf("a drafted change is %s, want review (no render)", d.Status())
+	}
+	queued, err := s.Approve(d.ID(), id.New(), id.New, now)
+	if err != nil || len(queued) != 0 || d.Status() != story.StatusReady {
+		t.Fatalf("approve: %v, %d queued, %s", err, len(queued), d.Status())
+	}
+	back, err := story.Rehydrate(s.Snapshot())
+	if err != nil || !back.Lead().IsChange() || len(back.Brief().Findings) != 1 || back.Brief().Findings[0] != findings[0] {
+		t.Fatalf("rehydrated change: %v %+v", err, back.Brief().Findings)
+	}
+
+	plan.Outputs = outputs(t, false, true, "")
+	if _, err := story.New(id.New(), plan, id.New, now); !apperror.Is(err, apperror.ValidationFailed) {
+		t.Fatalf("an article fixing findings: %v", err)
+	}
+	plan.Outputs = pipelinedomain.NewChangeOutputs()
+	plan.Brief.Findings = make([]story.Finding, story.MaxFindings+1)
+	if _, err := story.New(id.New(), plan, id.New, now); !apperror.Is(err, apperror.ValidationFailed) {
+		t.Fatalf("too many findings: %v", err)
+	}
+}

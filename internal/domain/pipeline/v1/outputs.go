@@ -31,15 +31,18 @@ type Kind string
 const (
 	KindVideo   Kind = "video"
 	KindArticle Kind = "article"
+	// KindChange is an edit to the site's repository: a patch the agent
+	// wrote and built, published as a commit or a pull request.
+	KindChange Kind = "change"
 )
 
 // ParseKind parses a deliverable kind.
 func ParseKind(s string) (Kind, error) {
 	switch k := Kind(s); k {
-	case KindVideo, KindArticle:
+	case KindVideo, KindArticle, KindChange:
 		return k, nil
 	}
-	return "", apperror.New(apperror.ValidationFailed, "kind must be video or article")
+	return "", apperror.New(apperror.ValidationFailed, "kind must be video, article or change")
 }
 
 // Format is a video's length class.
@@ -165,14 +168,23 @@ func (a ArticleSpec) Translations() []Language     { return slices.Clone(a.trans
 func (a ArticleSpec) TranslatesTo(l Language) bool { return slices.Contains(a.translations, l) }
 
 // Outputs is what one pipeline run produces: a video, an article, or
-// both. With both, the lead deliverable is produced first and the other
-// is derived from it (a video's article expands and embeds it; an
-// article's video is cut from it).
+// both; or a change to the site. With both, the lead deliverable is
+// produced first and the other is derived from it (a video's article
+// expands and embeds it; an article's video is cut from it). A change
+// stands alone.
 type Outputs struct {
 	video   *VideoSpec
 	article *ArticleSpec
+	change  bool
 	lead    Kind
 }
+
+// NewChangeOutputs returns Outputs making one change to the site's
+// repository.
+func NewChangeOutputs() Outputs { return Outputs{change: true, lead: KindChange} }
+
+// Change reports whether the outputs are a change to the site.
+func (o Outputs) Change() bool { return o.change }
 
 // NewOutputs returns Outputs. At least one of video and article is
 // required. lead may be empty when only one is given — it is that one —
@@ -239,6 +251,8 @@ func (o Outputs) Produces(k Kind) bool {
 		return o.video != nil
 	case KindArticle:
 		return o.article != nil
+	case KindChange:
+		return o.change
 	}
 	return false
 }

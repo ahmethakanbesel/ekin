@@ -311,3 +311,43 @@ func TestSnapshotRoundTrip(t *testing.T) {
 		t.Fatalf("round trip\n got %+v\nwant %+v", got.Snapshot(), p.Snapshot())
 	}
 }
+
+func TestChangeRules(t *testing.T) {
+	findings, _ := pipeline.NewFindingsSource("")
+	prompt, _ := pipeline.NewPromptSource("Keep pages fast.")
+	seo, _ := pipeline.NewSEOSource("Guides for founders.")
+	article, _ := pipeline.NewArticleSpec(900, nil)
+	articleOut, _ := pipeline.NewOutputs(nil, &article, "")
+	tests := []struct {
+		name    string
+		source  pipeline.Source
+		outputs pipeline.Outputs
+		ok      bool
+	}{
+		{"findings make changes", findings, pipeline.NewChangeOutputs(), true},
+		{"instructions make changes", prompt, pipeline.NewChangeOutputs(), true},
+		{"findings make no article", findings, articleOut, false},
+		{"seo makes no change", seo, pipeline.NewChangeOutputs(), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			def := definition(t, nil)
+			def.Source, def.Outputs = tt.source, tt.outputs
+			p, err := pipeline.New(uuid.New(), uuid.New(), def, t0)
+			if tt.ok != (err == nil) {
+				t.Fatalf("err = %v, want ok %v", err, tt.ok)
+			}
+			if err != nil {
+				return
+			}
+			got, err := pipeline.Rehydrate(p.Snapshot())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !got.Outputs().Change() || got.Outputs().Lead() != pipeline.KindChange ||
+				got.Source().Kind() != tt.source.Kind() {
+				t.Fatalf("round trip lost the change: %+v", got.Snapshot())
+			}
+		})
+	}
+}

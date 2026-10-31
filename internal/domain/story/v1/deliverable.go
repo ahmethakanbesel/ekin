@@ -295,6 +295,7 @@ func (d *Deliverable) CreatedAt() time.Time                 { return d.createdAt
 func (d *Deliverable) UpdatedAt() time.Time                 { return d.updatedAt }
 func (d *Deliverable) Clip() *Clip                          { return d.clip }
 func (d *Deliverable) IsVideo() bool                        { return d.kind == pipelinedomain.KindVideo }
+func (d *Deliverable) IsChange() bool                       { return d.kind == pipelinedomain.KindChange }
 
 // Revision is one agent pass over a deliverable: what was asked (the
 // feedback, if any) and what came out (artifact blob keys by name).
@@ -386,6 +387,13 @@ const (
 	// ArtifactThumbnailsZip holds every thumbnail variant, packed on
 	// request.
 	ArtifactThumbnailsZip = "thumbnails.zip"
+	// A change's revision: the patch against the repository's base
+	// commit, its manifest (base, files, build), the changed files'
+	// contents to publish, and the agent's summary.
+	ArtifactPatch       = "change.patch"
+	ArtifactChange      = "change.json"
+	ArtifactChangeFiles = "change.tar.gz"
+	ArtifactSummary     = "summary.md"
 )
 
 // Captioned reports whether the revision has narration with word timings

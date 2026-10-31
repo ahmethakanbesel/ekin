@@ -171,8 +171,10 @@ func DefinitionFromSnapshot(s Snapshot) (Definition, error) {
 		}
 		article = &a
 	}
-	outputs, err := NewOutputs(video, article, Kind(s.Lead))
-	if err != nil {
+	var outputs Outputs
+	if Kind(s.Lead) == KindChange && video == nil && article == nil {
+		outputs = NewChangeOutputs()
+	} else if outputs, err = NewOutputs(video, article, Kind(s.Lead)); err != nil {
 		return Definition{}, err
 	}
 	source, err := sourceFromSnapshot(s.Source)
@@ -215,8 +217,10 @@ func sourceFromSnapshot(s SourceSnapshot) (Source, error) {
 		return NewKnowledgeSource(s.Instructions, refs)
 	case SourceSEO:
 		return NewSEOSource(s.Instructions)
+	case SourceFindings:
+		return NewFindingsSource(s.Instructions)
 	}
-	return Source{}, apperror.New(apperror.ValidationFailed, "source kind must be prompt, knowledge or seo")
+	return Source{}, apperror.New(apperror.ValidationFailed, "source kind must be prompt, knowledge, seo or findings")
 }
 
 // SnapshotVideo returns v's persisted form.

@@ -246,6 +246,12 @@ func checkDefinition(def Definition) (Definition, error) {
 	if def.Source.isZero() {
 		return Definition{}, apperror.New(apperror.ValidationFailed, "source is required")
 	}
+	switch {
+	case def.Source.Kind() == SourceFindings && !def.Outputs.Change():
+		return Definition{}, apperror.New(apperror.ValidationFailed, "fixing findings makes changes to the site; choose the change output")
+	case def.Outputs.Change() && def.Source.Kind() != SourceFindings && def.Source.Kind() != SourcePrompt:
+		return Definition{}, apperror.New(apperror.ValidationFailed, "changes come from findings or from instructions")
+	}
 	if article, ok := def.Outputs.Article(); ok && article.TranslatesTo(def.Language) {
 		return Definition{}, apperror.New(apperror.ValidationFailed, "an article cannot be translated into its own language")
 	}

@@ -23,6 +23,10 @@ const (
 	// SourceSEO means each idea targets one open keyword opportunity from
 	// the workspace's pool (OpenSEO); instructions set the brief.
 	SourceSEO SourceKind = "seo"
+	// SourceFindings means each run fixes the site's most severe open
+	// audit findings, one rule at a time; instructions are optional
+	// guidance. It makes changes only.
+	SourceFindings SourceKind = "findings"
 )
 
 // Source limits.
@@ -139,6 +143,16 @@ func NewSEOSource(instructions string) (Source, error) {
 		return Source{}, apperror.New(apperror.ValidationFailed, "an SEO source needs instructions describing the content")
 	}
 	return Source{kind: SourceSEO, instructions: instructions}, nil
+}
+
+// NewFindingsSource returns a source that fixes open audit findings,
+// with optional instructions.
+func NewFindingsSource(instructions string) (Source, error) {
+	instructions, err := parseInstructions(instructions)
+	if err != nil {
+		return Source{}, err
+	}
+	return Source{kind: SourceFindings, instructions: instructions}, nil
 }
 
 func (s Source) Kind() SourceKind     { return s.kind }
