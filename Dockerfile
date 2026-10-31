@@ -36,7 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && npm install -g @anthropic-ai/claude-code \
  && npm cache clean --force \
  && curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin INSTALLER_NO_MODIFY_PATH=1 sh \
- && apt-get purge -y npm && apt-get autoremove -y && rm -rf /var/lib/apt/lists/* \
+ && rm -rf /var/lib/apt/lists/* \
  && useradd --uid 65532 --create-home --home-dir /home/ekin ekin
 COPY --from=build /out/ekin /usr/local/bin/ekin
 COPY tools/speech /opt/ekin/speech
