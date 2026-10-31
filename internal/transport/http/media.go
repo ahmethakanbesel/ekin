@@ -21,16 +21,17 @@ import (
 
 // artifactTypes are the artifact names served and their media types.
 var artifactTypes = map[string]string{
-	".mp4":  "video/mp4",
-	".jpg":  "image/jpeg",
-	".wav":  "audio/wav",
-	".md":   "text/markdown; charset=utf-8",
-	".txt":  "text/plain; charset=utf-8",
-	".json": "application/json",
-	".gz":   "application/gzip",
-	".srt":  "application/x-subrip; charset=utf-8",
-	".vtt":  "text/vtt; charset=utf-8",
-	".zip":  "application/zip",
+	".mp4":   "video/mp4",
+	".jpg":   "image/jpeg",
+	".wav":   "audio/wav",
+	".md":    "text/markdown; charset=utf-8",
+	".txt":   "text/plain; charset=utf-8",
+	".json":  "application/json",
+	".gz":    "application/gzip",
+	".srt":   "application/x-subrip; charset=utf-8",
+	".vtt":   "text/vtt; charset=utf-8",
+	".zip":   "application/zip",
+	".patch": "text/x-diff; charset=utf-8",
 }
 
 // media streams a revision's artifact. It lives outside the strict

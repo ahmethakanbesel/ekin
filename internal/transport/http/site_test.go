@@ -102,9 +102,9 @@ func TestSiteAPI(t *testing.T) {
 	var findings gen.ListSiteFindings200JSONResponse
 	owner.call("GET", base+"/findings?status=open&url="+url.QueryEscape(site.URL+"/about"), nil, 200, &findings)
 	var titleMissing *gen.SiteFinding
-	for i, f := range findings.Findings {
+	for _, f := range findings.Findings {
 		if f.Rule == "title_missing" {
-			titleMissing = &findings.Findings[i]
+			titleMissing = &f // a copy: findings is decoded into again below
 		}
 	}
 	if titleMissing == nil || titleMissing.Severity != gen.SiteSeverityError {
@@ -128,4 +128,29 @@ func TestSiteAPI(t *testing.T) {
 	if len(crawls.Crawls) != 2 || crawls.Crawls[0].Trigger != gen.SiteCrawlTriggerManual {
 		t.Fatalf("crawls = %+v", crawls)
 	}
+
+	// Changes: a build command on the site, and a change claiming a finding.
+	owner.call("PUT", base, map[string]any{"url": site.URL, "maxPages": 20, "schedule": "daily", "build": "npm run build"}, 200, &o)
+	if o.Site.Build == nil || *o.Site.Build != "npm run build" {
+		t.Fatalf("build = %v", o.Site.Build)
+	}
+	srv.runCrawls(t)
+	owner.call("GET", base+"/findings?status=open&rule=broken_links", nil, 200, &findings)
+	if len(findings.Findings) != 1 {
+		t.Fatalf("broken links = %+v", findings)
+	}
+	broken := findings.Findings[0]
+	changes := "/api/v1/workspaces/" + ws.Id.String() + "/changes"
+	owner.fail("POST", changes, map[string]any{}, 400, "ValidationFailed")
+	var story gen.Story
+	owner.call("POST", changes, map[string]any{"findingIds": []string{broken.Id.String()}, "instructions": "Keep the old URLs working."}, 201, &story)
+	if story.Title != "Fix broken internal links" || story.Findings == nil || len(*story.Findings) != 1 ||
+		len(story.Deliverables) != 1 || story.Deliverables[0].Kind != gen.DeliverableKindChange {
+		t.Fatalf("change story = %+v", story)
+	}
+	owner.call("GET", base+"/findings?status=open&rule=broken_links", nil, 200, &findings)
+	if c := findings.Findings[0].ClaimedBy; c == nil || *c != story.Id {
+		t.Fatalf("claimed by = %v, want %s", c, story.Id)
+	}
+	owner.fail("POST", changes, map[string]any{"findingIds": []string{broken.Id.String()}}, 409, "Conflict")
 }

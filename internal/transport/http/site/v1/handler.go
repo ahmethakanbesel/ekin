@@ -6,6 +6,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/ahmethakanbesel/ekin/internal/apperror"
 	sitedomain "github.com/ahmethakanbesel/ekin/internal/domain/site/v1"
 	"github.com/ahmethakanbesel/ekin/internal/gen"
@@ -38,6 +40,9 @@ func (h *Handler) SaveSite(ctx context.Context, req gen.SaveSiteRequestObject) (
 	}
 	if req.Body.Schedule != nil {
 		st.Schedule = sitedomain.Schedule(*req.Body.Schedule)
+	}
+	if req.Body.Build != nil {
+		st.Build = *req.Body.Build
 	}
 	if _, err := h.svc.SaveSite(ctx, req.WorkspaceId, p.User.ID(), st); err != nil {
 		return nil, err
@@ -168,7 +173,7 @@ func overviewToWire(o sitesvc.Overview) gen.SiteOverview {
 	out := gen.SiteOverview{Open: make([]gen.SiteRuleCount, 0, len(o.Open))}
 	if s := o.Site; s != nil {
 		out.Site = &gen.Site{Url: s.URL(), MaxPages: s.MaxPages(), Schedule: gen.SiteSchedule(s.Schedule()), UpdatedAt: s.UpdatedAt(),
-			NextCrawlAt: timePtr(s.NextCrawlAt())}
+			NextCrawlAt: timePtr(s.NextCrawlAt()), Build: strPtr(s.Build())}
 	}
 	if o.Latest != nil {
 		c := crawlToWire(o.Latest)
@@ -210,7 +215,14 @@ func pageToWire(r sitesvc.PageRow) gen.SitePage {
 func findingToWire(f *sitedomain.Finding) gen.SiteFinding {
 	return gen.SiteFinding{Id: f.ID(), Rule: string(f.Rule()), Severity: gen.SiteSeverity(f.Severity()), Url: f.URL(),
 		Evidence: nonNil(f.Evidence()), Status: gen.SiteFindingStatus(f.Status()), FirstSeen: f.FirstSeen(), LastSeen: f.LastSeen(),
-		ResolvedAt: timePtr(f.ResolvedAt())}
+		ResolvedAt: timePtr(f.ResolvedAt()), ClaimedBy: idPtr(f.ClaimedBy()), ClaimedAt: timePtr(f.ClaimedAt())}
+}
+
+func idPtr(id uuid.UUID) *uuid.UUID {
+	if id == uuid.Nil {
+		return nil
+	}
+	return &id
 }
 
 func timePtr(t time.Time) *time.Time {

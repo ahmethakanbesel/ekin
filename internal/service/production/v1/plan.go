@@ -89,6 +89,9 @@ func (s *Service) QueueAdHoc(ctx context.Context, workspaceID, actorID uuid.UUID
 	if len([]rune(req.Idea)) > 5000 {
 		return nil, apperror.New(apperror.ValidationFailed, "the idea is too long")
 	}
+	if req.Outputs.Change() {
+		return nil, apperror.New(apperror.ValidationFailed, "start a change to the site from the Site page")
+	}
 	if req.Count < 1 || req.Count > MaxAdHocCount {
 		return nil, apperror.New(apperror.ValidationFailed, "count must be between 1 and 10")
 	}

@@ -21,6 +21,8 @@ import (
 
 	"github.com/ahmethakanbesel/ekin/internal/adapter/crawl"
 	"github.com/ahmethakanbesel/ekin/internal/adapter/extract"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/github"
+	"github.com/ahmethakanbesel/ekin/internal/adapter/youtube"
 	"github.com/ahmethakanbesel/ekin/internal/blob"
 	"github.com/ahmethakanbesel/ekin/internal/db/dbtest"
 	identitydomain "github.com/ahmethakanbesel/ekin/internal/domain/identity/v1"
@@ -33,6 +35,7 @@ import (
 	knowledgerepo "github.com/ahmethakanbesel/ekin/internal/repository/knowledge/v1"
 	libraryrepo "github.com/ahmethakanbesel/ekin/internal/repository/library/v1"
 	pipelinerepo "github.com/ahmethakanbesel/ekin/internal/repository/pipeline/v1"
+	publishingrepo "github.com/ahmethakanbesel/ekin/internal/repository/publishing/v1"
 	settingsrepo "github.com/ahmethakanbesel/ekin/internal/repository/settings/v1"
 	siterepo "github.com/ahmethakanbesel/ekin/internal/repository/site/v1"
 	storyrepo "github.com/ahmethakanbesel/ekin/internal/repository/story/v1"
@@ -45,6 +48,7 @@ import (
 	librarysvc "github.com/ahmethakanbesel/ekin/internal/service/library/v1"
 	pipelinesvc "github.com/ahmethakanbesel/ekin/internal/service/pipeline/v1"
 	productionsvc "github.com/ahmethakanbesel/ekin/internal/service/production/v1"
+	publishingsvc "github.com/ahmethakanbesel/ekin/internal/service/publishing/v1"
 	settingssvc "github.com/ahmethakanbesel/ekin/internal/service/settings/v1"
 	sitesvc "github.com/ahmethakanbesel/ekin/internal/service/site/v1"
 	templatesvc "github.com/ahmethakanbesel/ekin/internal/service/template/v1"
@@ -105,11 +109,14 @@ func newServer(t *testing.T) *server {
 	templates := templatesvc.NewService(templaterepo.NewSQLite(tx), jobs, nil, t.TempDir())
 	pipelines.WithTemplates(templates)
 	stories := storyrepo.NewSQLite(tx)
-	production := productionsvc.NewService(productionsvc.Config{Shorts: storydomain.DefaultShortsLimits()}, productionsvc.Deps{
-		Stories: stories, Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs, Library: library,
-	})
 	// The real crawler, allowed onto loopback test sites, without pauses.
 	site := sitesvc.NewService(siterepo.NewSQLite(tx), tx, jobs, crawl.New(true), sitesvc.Config{}, slog.New(slog.DiscardHandler))
+	publishing := publishingsvc.NewService(publishingrepo.NewSQLite(tx), box, func(context.Context) *youtube.Client { return &youtube.Client{} },
+		&github.Client{}, slog.New(slog.DiscardHandler))
+	production := productionsvc.NewService(productionsvc.Config{Shorts: storydomain.DefaultShortsLimits()}, productionsvc.Deps{
+		Stories: stories, Pipelines: pipelines, Knowledge: knowledge, Jobs: jobs, Tx: tx, Blobs: blobs, Library: library,
+		Sites: site, Repos: publishing.Repositories(),
+	})
 	router, err := httptransport.NewRouter(httptransport.Deps{
 		Production: production,
 		Site:       site,

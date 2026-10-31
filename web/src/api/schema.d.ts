@@ -782,6 +782,25 @@ export interface paths {
         patch: operations["updateSiteFinding"];
         trace?: never;
     };
+    "/workspaces/{workspaceId}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Starts a change to the site's repository at once: the agent fixes the chosen findings (claimed so no other change takes them) and/or does what the instructions say, builds the site, and the change comes back for review as a diff. */
+        post: operations["requestChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/voices": {
         parameters: {
             query?: never;
@@ -1923,6 +1942,8 @@ export interface components {
             templateName?: string;
             /** @description Target search keyword (SEO pipelines). */
             keyword?: string;
+            /** @description The site findings a change sets out to fix. */
+            findings?: components["schemas"]["StoryFinding"][];
             production?: components["schemas"]["Production"];
             status: components["schemas"]["DeliverableStatus"];
             deliverables: components["schemas"]["Deliverable"][];
@@ -1930,6 +1951,14 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        StoryFinding: {
+            /** Format: uuid */
+            id: string;
+            rule: string;
+            severity: components["schemas"]["SiteSeverity"];
+            url: string;
+            evidence?: string;
         };
         Revision: {
             number: number;
@@ -2443,11 +2472,14 @@ export interface components {
             /** @description Pages a crawl fetches at most; 500 when omitted. */
             maxPages?: number;
             schedule?: components["schemas"]["SiteSchedule"];
+            /** @description Shell command that builds the site from its repository's root (e.g. npm ci && npm run build); every change must pass it. Empty for none. */
+            build?: string;
         };
         Site: {
             url: string;
             maxPages: number;
             schedule: components["schemas"]["SiteSchedule"];
+            build?: string;
             /**
              * Format: date-time
              * @description When the next scheduled crawl starts; absent when the schedule is off.
@@ -2549,6 +2581,13 @@ export interface components {
             lastSeen: string;
             /** Format: date-time */
             resolvedAt?: string;
+            /**
+             * Format: uuid
+             * @description The story whose change sets out to fix it; absent when none.
+             */
+            claimedBy?: string;
+            /** Format: date-time */
+            claimedAt?: string;
         };
         Opportunity: {
             /** Format: uuid */
@@ -2592,7 +2631,7 @@ export interface components {
         /** @enum {string} */
         Language: "tr" | "en";
         /** @enum {string} */
-        DeliverableKind: "video" | "article";
+        DeliverableKind: "video" | "article" | "change";
         VideoSpec: {
             /** @enum {string} */
             format: "short" | "long";
@@ -2606,7 +2645,7 @@ export interface components {
             words: number;
             translations: components["schemas"]["Language"][];
         };
-        /** @description A video, an article, or both. With both, `lead` says which is produced first; the other is derived from it. */
+        /** @description A video, an article, or both; or a change to the site (lead: change, nothing else). With both, `lead` says which is produced first; the other is derived from it. */
         Outputs: {
             video?: components["schemas"]["VideoSpec"];
             article?: components["schemas"]["ArticleSpec"];
@@ -2621,10 +2660,10 @@ export interface components {
         };
         Source: {
             /**
-             * @description prompt: ideas from the instructions. knowledge: ideas and facts from the referenced pages. seo: each idea targets one open keyword opportunity from the workspace's pool.
+             * @description prompt: ideas from the instructions. knowledge: ideas and facts from the referenced pages. seo: each idea targets one open keyword opportunity from the workspace's pool. findings: each change fixes the open site findings of the most severe rule left (change output only).
              * @enum {string}
              */
-            kind: "prompt" | "knowledge" | "seo";
+            kind: "prompt" | "knowledge" | "seo" | "findings";
             /** @description Required for prompt sources, where it acts as the system prompt; optional guidance for knowledge sources. */
             instructions: string;
             refs?: components["schemas"]["KnowledgeRef"][];
@@ -4426,6 +4465,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteFinding"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    requestChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspaceId: components["parameters"]["WorkspaceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    findingIds?: string[];
+                    instructions?: string;
+                    language?: components["schemas"]["Language"];
+                };
+            };
+        };
+        responses: {
+            /** @description The change's story. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Story"];
                 };
             };
             default: components["responses"]["Error"];

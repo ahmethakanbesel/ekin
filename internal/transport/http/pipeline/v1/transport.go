@@ -95,6 +95,12 @@ func ParseOutputs(in gen.Outputs) (pipelinedomain.Outputs, error) {
 		}
 		lead = k
 	}
+	if lead == pipelinedomain.KindChange {
+		if video != nil || article != nil {
+			return pipelinedomain.Outputs{}, apperror.New(apperror.ValidationFailed, "a change to the site is made on its own, without a video or an article")
+		}
+		return pipelinedomain.NewChangeOutputs(), nil
+	}
 	return pipelinedomain.NewOutputs(video, article, lead)
 }
 
@@ -126,8 +132,13 @@ func parseSource(in gen.Source) (pipelinedomain.Source, error) {
 			return pipelinedomain.Source{}, apperror.New(apperror.ValidationFailed, "an SEO source takes no document references")
 		}
 		return pipelinedomain.NewSEOSource(in.Instructions)
+	case pipelinedomain.SourceFindings:
+		if in.Refs != nil && len(*in.Refs) > 0 {
+			return pipelinedomain.Source{}, apperror.New(apperror.ValidationFailed, "a findings source takes no document references")
+		}
+		return pipelinedomain.NewFindingsSource(in.Instructions)
 	}
-	return pipelinedomain.Source{}, apperror.New(apperror.ValidationFailed, "source kind must be prompt, knowledge or seo")
+	return pipelinedomain.Source{}, apperror.New(apperror.ValidationFailed, "source kind must be prompt, knowledge, seo or findings")
 }
 
 func toWire(p *pipelinedomain.Pipeline) gen.Pipeline {

@@ -315,6 +315,33 @@ func (h *Handler) PublishDeliverable(ctx context.Context, req gen.PublishDeliver
 	return gen.PublishDeliverable200JSONResponse(ToWire(st)), nil
 }
 
+// RequestChange starts a change to the site.
+func (h *Handler) RequestChange(ctx context.Context, req gen.RequestChangeRequestObject) (gen.RequestChangeResponseObject, error) {
+	p, err := principal.From(ctx)
+	if err != nil {
+		return nil, err
+	}
+	in := productionsvc.ChangeRequest{}
+	if req.Body.FindingIds != nil {
+		in.FindingIDs = *req.Body.FindingIds
+	}
+	if req.Body.Instructions != nil {
+		in.Instructions = *req.Body.Instructions
+	}
+	if req.Body.Language != nil {
+		lang, err := pipelinedomain.ParseLanguage(string(*req.Body.Language))
+		if err != nil {
+			return nil, err
+		}
+		in.Language = lang
+	}
+	st, err := h.svc.QueueChange(ctx, req.WorkspaceId, p.User.ID(), in)
+	if err != nil {
+		return nil, err
+	}
+	return gen.RequestChange201JSONResponse(ToWire(st)), nil
+}
+
 // ToWire converts a story.
 func ToWire(st *storydomain.Story) gen.Story {
 	idea := st.Idea()
@@ -336,6 +363,18 @@ func ToWire(st *storydomain.Story) gen.Story {
 	}
 	if kw := st.Brief().Keyword; kw != "" {
 		out.Keyword = &kw
+	}
+	if fs := st.Brief().Findings; len(fs) > 0 {
+		wire := make([]gen.StoryFinding, 0, len(fs))
+		for _, f := range fs {
+			sf := gen.StoryFinding{Id: f.ID, Rule: f.Rule, Severity: gen.SiteSeverity(f.Severity), Url: f.URL}
+			if f.Evidence != "" {
+				ev := f.Evidence
+				sf.Evidence = &ev
+			}
+			wire = append(wire, sf)
+		}
+		out.Findings = &wire
 	}
 	out.Production = pipelinehandler.ProductionToWire(st.Brief().Production)
 	if refs := st.Brief().Refs; len(refs) > 0 {
