@@ -169,7 +169,9 @@ export function PublishDialog({
           <AlertDialogTitle>{m.review.publishTitle(kind)}</AlertDialogTitle>
           <AlertDialogDescription>
             {where.text}
-            {where.ready === false ? null : ` ${m.review.publishUndoable}`}
+            {where.ready === false
+              ? null
+              : ` ${where.pullRequest ? m.review.publishClosable : m.review.publishUndoable}`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -191,7 +193,7 @@ export function PublishDialog({
 function destination(
   kind: Deliverable["kind"],
   settings: Integrations | undefined
-): { text: string; ready?: boolean } {
+): { text: string; ready?: boolean; pullRequest?: boolean } {
   const t = m.review
   if (kind === "video") {
     const yt = settings?.youtube
@@ -213,17 +215,20 @@ function destination(
   if (!settings) return { text: t.publishBlog }
   const blog = settings.blog
   if (!blog) return { text: t.publishNoBlog, ready: false }
+  const pullRequest = blog.kind === "github" && blog.mode === "pull_request"
   const parts = [
     blog.kind === "github" && blog.repo
-      ? t.publishGitHub(blog.repo, blog.branch || "main")
+      ? pullRequest
+        ? t.publishPullRequest(blog.repo, blog.branch || "main")
+        : t.publishGitHub(blog.repo, blog.branch || "main")
       : blog.kind === "dir" && blog.dir
         ? t.publishDir(blog.dir)
         : t.publishBlog,
   ]
   if (blog.draft) parts.push(t.publishDraft)
   const site = siteName(blog.siteUrl)
-  if (site) parts.push(t.publishSite(site))
-  return { text: parts.join(" "), ready: true }
+  if (site) parts.push(pullRequest ? t.publishSiteAfterMerge(site) : t.publishSite(site))
+  return { text: parts.join(" "), ready: true, pullRequest }
 }
 
 function siteName(url: string): string {

@@ -58,7 +58,7 @@ export type StoryTab = (typeof STORY_TABS)[number]
 /** The summary statuses each tab lists (none: all). */
 export const TAB_STATUSES: Record<StoryTab, DeliverableStatus[]> = {
   review: ["review"],
-  progress: ["queued", "drafting", "rendering", "finalizing", "publishing", "waiting"],
+  progress: ["queued", "drafting", "rendering", "finalizing", "publishing", "merging", "waiting"],
   done: ["ready", "published"],
   failed: ["failed"],
   all: [],

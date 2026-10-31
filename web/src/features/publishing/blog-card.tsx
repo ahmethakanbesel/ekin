@@ -35,6 +35,8 @@ import { useDeleteBlog, useSaveBlog } from "@/queries/integrations"
 
 type Kind = BlogInput["kind"]
 const KINDS: Kind[] = ["github", "dir"]
+type Mode = NonNullable<BlogInput["mode"]>
+const MODES: Mode[] = ["commit", "pull_request"]
 
 export const DEFAULT_PATH_TEMPLATE = "/{locale}blog/{slug}/"
 const DEFAULT_LOCALE = "en"
@@ -43,6 +45,7 @@ type Values = {
   kind: Kind
   repo: string
   branch: string
+  mode: Mode
   token: string
   dir: string
   contentDir: string
@@ -59,6 +62,7 @@ function initialValues(blog: BlogTarget | undefined): Values {
     kind: blog?.kind ?? "github",
     repo: blog?.repo ?? "",
     branch: blog?.branch || "main",
+    mode: blog?.mode ?? "commit",
     token: "",
     dir: blog?.dir ?? "",
     contentDir: blog?.contentDir ?? "",
@@ -85,7 +89,13 @@ function toInput(v: Values): BlogInput {
   if (v.kind === "dir") return { ...common, dir: v.dir.trim() }
   const token = v.token.trim()
   // An omitted token keeps the stored one.
-  return { ...common, repo: v.repo.trim(), branch: v.branch.trim(), ...(token ? { token } : {}) }
+  return {
+    ...common,
+    repo: v.repo.trim(),
+    branch: v.branch.trim(),
+    mode: v.mode,
+    ...(token ? { token } : {}),
+  }
 }
 
 // The server's rules (BlogTarget.Validate), checked here for quick feedback.
@@ -253,19 +263,53 @@ export function BlogCard({ blog }: { blog: BlogTarget | undefined }) {
                         hint: m.blog.branchHint,
                         mono: true,
                       })}
-                      <div className="md:col-span-2">
-                        {textField("token", {
-                          label: m.blog.token,
-                          type: "password",
-                          placeholder: hasToken ? m.blog.tokenStoredPlaceholder : "github_pat_…",
-                          hint: hasToken ? m.blog.tokenStored : m.blog.tokenHint,
-                          validate: (s, all) =>
-                            all.kind === "github" && !hasToken && !s.trim()
-                              ? v.token
-                              : undefined,
-                          mono: true,
-                        })}
-                      </div>
+                      <form.Field name="mode">
+                        {(field) => (
+                          <Field className="gap-2 md:col-span-2">
+                            <FieldLabel>{m.blog.mode}</FieldLabel>
+                            <RadioGroup
+                              disabled={!canManage}
+                              value={field.state.value}
+                              onValueChange={(next) => field.handleChange(next as Mode)}
+                              className="grid gap-3 md:grid-cols-2"
+                              aria-label={m.blog.mode}
+                            >
+                              {MODES.map((mode) => (
+                                <FieldLabel key={mode} htmlFor={`blog-mode-${mode}`}>
+                                  <Field orientation="horizontal">
+                                    <FieldContent>
+                                      <FieldTitle>{m.blog.modes[mode]}</FieldTitle>
+                                      <FieldDescription>{m.blog.modeHints[mode]}</FieldDescription>
+                                    </FieldContent>
+                                    <RadioGroupItem id={`blog-mode-${mode}`} value={mode} />
+                                  </Field>
+                                </FieldLabel>
+                              ))}
+                            </RadioGroup>
+                          </Field>
+                        )}
+                      </form.Field>
+                      <form.Subscribe selector={(s) => s.values.mode}>
+                        {(mode) => (
+                          <div className="md:col-span-2">
+                            {textField("token", {
+                              label: m.blog.token,
+                              type: "password",
+                              placeholder: hasToken ? m.blog.tokenStoredPlaceholder : "github_pat_…",
+                              hint: hasToken
+                                ? m.blog.tokenStored
+                                : mode === "pull_request"
+                                  ? m.blog.tokenHintPullRequests
+                                  : m.blog.tokenHint,
+                              validate: (s, all) =>
+                                all.kind === "github" && !hasToken && !s.trim()
+                                  ? v.token
+                                  : undefined,
+                              mono: true,
+                            })}
+                          </div>
+                        )}
+                      </form.Subscribe>
                     </div>
                   ) : (
                     textField("dir", {

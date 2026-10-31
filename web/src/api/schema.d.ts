@@ -1607,8 +1607,11 @@ export interface components {
             /** Format: date-time */
             archivedAt?: string;
         };
-        /** @enum {string} */
-        DeliverableStatus: "waiting" | "queued" | "drafting" | "rendering" | "review" | "finalizing" | "ready" | "publishing" | "published" | "rejected" | "failed";
+        /**
+         * @description merging: published as a pull request that waits to be merged; it becomes published when merged and failed when closed unmerged.
+         * @enum {string}
+         */
+        DeliverableStatus: "waiting" | "queued" | "drafting" | "rendering" | "review" | "finalizing" | "ready" | "publishing" | "merging" | "published" | "rejected" | "failed";
         /**
          * @description What a note is about. thumbnail (a long video's thumbnail variants): when every note of a round is about them, the agent changes only the thumbnails and the video is not rendered again.
          * @enum {string}
@@ -1645,10 +1648,22 @@ export interface components {
             at: string;
         };
         Publication: {
+            /** @description Where it lives; for a pull request not merged yet, where it will live once merged. */
             url: string;
             externalId: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When it went live; while merging, when the pull request was opened.
+             */
             at: string;
+            pullRequest?: components["schemas"]["PullRequest"];
+        };
+        PullRequest: {
+            /** @description owner/name */
+            repo: string;
+            number: number;
+            url: string;
+            branch: string;
         };
         Deliverable: {
             /** Format: uuid */
@@ -2086,7 +2101,9 @@ export interface components {
             kind: "github" | "dir";
             /** @description owner/name (github) */
             repo?: string;
+            /** @description The branch committed to, or the pull requests' base (github). */
             branch?: string;
+            mode?: components["schemas"]["PublishMode"];
             /** @description Absolute path of a local checkout (dir). */
             dir?: string;
             /** @description e.g. marketing/src/content/blog */
@@ -2106,6 +2123,7 @@ export interface components {
             kind: "github" | "dir";
             repo?: string;
             branch?: string;
+            mode?: components["schemas"]["PublishMode"];
             dir?: string;
             contentDir: string;
             publicDir?: string;
@@ -2114,9 +2132,14 @@ export interface components {
             defaultLocale?: string;
             author?: string;
             draft?: boolean;
-            /** @description GitHub token with contents write access. Omit to keep the stored one. */
+            /** @description GitHub token with contents write access (and pull requests write access in pull_request mode). Omit to keep the stored one. */
             token?: string;
         };
+        /**
+         * @description How approved articles reach a GitHub repository: a commit on the branch, or a branch of their own and a pull request against it that a person merges. Local checkouts are always written directly.
+         * @enum {string}
+         */
+        PublishMode: "commit" | "pull_request";
         Integrations: {
             youtube: components["schemas"]["YouTubeIntegration"];
             blog?: components["schemas"]["BlogTarget"];

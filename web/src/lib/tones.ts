@@ -28,6 +28,7 @@ const DELIVERABLE: Record<DeliverableStatus, Tone> = {
   finalizing: "info",
   ready: "success",
   publishing: "info",
+  merging: "attention",
   published: "success",
   rejected: "muted",
   failed: "danger",

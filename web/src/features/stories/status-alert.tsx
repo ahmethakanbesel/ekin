@@ -99,6 +99,28 @@ export function StatusBanner({
       title = t.publishing
       body = t.updates
       break
+    case "merging": {
+      const pr = d.publication?.pullRequest
+      tone = "attention"
+      title = pr ? t.merging(pr.number) : t.publishing
+      body =
+        d.publication && pr ? (
+          <>
+            {t.mergingBody}{" "}
+            <span className="break-all text-foreground">{d.publication.url}</span>.{" "}
+            {t.mergingChecks(when(d.publication.at))}{" "}
+            <a
+              href={pr.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-foreground underline underline-offset-3"
+            >
+              {t.openPullRequest(pr.number)}
+            </a>
+          </>
+        ) : null
+      break
+    }
     case "published":
       tone = "done"
       title = t.published
@@ -113,6 +135,19 @@ export function StatusBanner({
           >
             {d.publication.url}
           </a>
+          {d.publication.pullRequest ? (
+            <>
+              {" · "}
+              <a
+                href={d.publication.pullRequest.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-3"
+              >
+                {t.viaPullRequest(d.publication.pullRequest.number)}
+              </a>
+            </>
+          ) : null}
         </>
       ) : null
       break

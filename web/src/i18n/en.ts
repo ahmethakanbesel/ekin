@@ -339,7 +339,7 @@ export const en = {
     kind: "Where to write",
     kinds: { github: "GitHub repository", dir: "Folder on the server" } as Record<string, string>,
     kindHints: {
-      github: "Commits each post to a branch; your site rebuilds on push.",
+      github: "Commits each post to a branch, or opens a pull request for it.",
       dir: "Writes into a checkout on the Ekin server, e.g. a site deployed from the same machine.",
     } as Record<string, string>,
     repo: "Repository",
@@ -347,8 +347,17 @@ export const en = {
     repoHint: "owner/name on GitHub.",
     branch: "Branch",
     branchHint: "Defaults to main.",
+    mode: "How articles reach the branch",
+    modes: { commit: "Commit to the branch", pull_request: "Open a pull request" } as Record<string, string>,
+    modeHints: {
+      commit: "Each approved article is committed to the branch, and your site rebuilds on push.",
+      pull_request:
+        "Each approved article gets a branch of its own and a pull request against this one. It is marked published once someone merges it.",
+    } as Record<string, string>,
     token: "GitHub token",
     tokenHint: "A fine-grained token with read and write access to this repository's contents.",
+    tokenHintPullRequests:
+      "A fine-grained token with read and write access to this repository's contents and pull requests.",
     tokenStored: "A token is stored. Leave blank to keep it, or paste a new one to replace it.",
     tokenStoredPlaceholder: "Stored — leave blank to keep",
     dir: "Checkout directory",
@@ -764,6 +773,7 @@ export const en = {
       finalizing: "Finalizing",
       ready: "Ready",
       publishing: "Publishing",
+      merging: "Awaiting merge",
       published: "Published",
       rejected: "Rejected",
       failed: "Failed",
@@ -816,8 +826,14 @@ export const en = {
     ready: "Approved and ready to publish",
     approvedAt: (when: string) => `Approved ${when}.`,
     publishing: "Publishing…",
+    merging: (n: number) => `Pull request #${n} is waiting to be merged`,
+    mergingBody: "Merging it publishes the article at",
+    mergingChecks: (when: string) =>
+      `Opened ${when}. Ekin checks it every few minutes and marks the article published once it is merged.`,
+    openPullRequest: (n: number) => `Open pull request #${n}`,
     published: "Published",
     publishedAt: (when: string) => `Went live ${when}:`,
+    viaPullRequest: (n: number) => `merged from pull request #${n}`,
     rejected: "Rejected",
     rejectedBody: "Nothing more will be done with it.",
     failed: (step: string) => `${step} failed`,
@@ -827,6 +843,7 @@ export const en = {
       rendering: "Rendering the preview",
       finalizing: "Rendering the final video",
       publishing: "Publishing",
+      merging: "The pull request",
       unknown: "A step",
     } as Record<string, string>,
     noFailure: "No reason was recorded.",
@@ -837,6 +854,7 @@ export const en = {
       finalizing: "The approved draft could not be rendered at full resolution.",
       publishingVideo: "It could not be uploaded to YouTube.",
       publishingArticle: "It could not be written to the blog.",
+      merging: "The pull request was closed without being merged.",
       unknown: "A step stopped with an error.",
     } as Record<string, string>,
     /** Whether Retry is likely to help, as guidance, per failed step. */
@@ -849,6 +867,8 @@ export const en = {
         "Retrying often works. The approval stands, so nothing needs reviewing again.",
       publishing:
         "This is often an expired connection or a missing permission, so check publishing in workspace settings first. Retry then puts it back as ready to publish.",
+      merging:
+        "If it was closed by mistake, Retry opens a new pull request from the same approved revision; nothing needs reviewing again. Otherwise leave it as it is.",
       unknown:
         "Retry runs the step again. If it keeps failing the same way, it likely needs a fix rather than another try.",
     } as Record<string, string>,
@@ -900,9 +920,13 @@ export const en = {
     publishBlog: "It is written to your blog.",
     publishGitHub: (repo: string, branch: string) =>
       `It is committed as a Markdown post to ${repo} on ${branch}.`,
+    publishPullRequest: (repo: string, branch: string) =>
+      `It goes to ${repo} as a pull request against ${branch}, and is published once someone merges it.`,
     publishDir: (dir: string) => `It is written as a Markdown post into ${dir} on the server.`,
     publishDraft: "The post is marked as a draft, for a last manual pass.",
     publishSite: (site: string) => `${site} shows it once the site rebuilds.`,
+    publishSiteAfterMerge: (site: string) => `${site} shows it once the pull request is merged and the site rebuilds.`,
+    publishClosable: "Until it is merged, closing the pull request stops it.",
     publishNoBlog:
       "No blog is set up, so Ekin cannot publish it yet. An owner can set one up in workspace settings.",
     publishUndoable: "Once it is out, Ekin cannot take it back.",
